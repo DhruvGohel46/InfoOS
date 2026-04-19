@@ -216,77 +216,418 @@ The backend is modularized into **12 distinct Flask Blueprints** registered in `
 
 ---
 
-## 4. Deep-Dive: Data Models (SQLAlchemy ERD)
+## 4. Deep-Dive: Data Models (SQLAlchemy)
 
-Data is modeled to reflect daily retail workflows and employee lifecycle management. The key models are:
+All models are defined in `models.py` using Flask-SQLAlchemy. The database is **PostgreSQL** (via `psycopg2-binary`), not SQLite. Worker-related tables live in a dedicated `worker` schema.
 
-### POS & Inventory
-- **Product & Category:** Central repository for items sold. `Product` uses UUID/Custom ID (e.g., `COLD123`) and relates to a `Category`.
-- **Inventory:** Tracks exact item stocks. Handles both `DIRECT_SALE` and `RAW_MATERIAL` inputs. Auto-decrements upon billing based on recipes or direct 1:1 mapping.
-- **Bill:** Stores finalized checkout interactions. Uniquely identified by a daily sequential `bill_no`. Employs `idx_daily_bill_unique` to prevent race conditions during checkout. Items are persisted as JSON for historical immutability.
+### 4.1 Settings
 
-### Pre-Aggregated Analytics
-- **DailySalesSummary:** *crucial for performance*. Instead of running expensive aggregate queries across millions of `Bill` rows, this table acts as a daily cache storing total sales, total orders, expenses, net profit, and a JSON array of top-selling products. It is reconciled natively.
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | String(255) | **PK** — e.g. `printer_name`, `shop_name`, `require_pin_login`, `admin_pin_hash` |
+| `value` | Text | Flexible key-value store |
+| `group_name` | String(50) | Logical grouping |
+| `updated_at` | DateTime | Auto-updated |
 
-### Worker & Expense Management System
-*(Note: Categorized under the logical schema `worker`)*
-- **Worker:** Main employee entity (name, role, base salary, join_date).
-- **Attendance:** Logs check-in/check-out and status (Present, Absent, Half-day).
-- **Advance & SalaryPayment:** Handles salary deductions if workers take an advance sum, and orchestrates end-of-month final salary payout configurations.
-- **Expense & ExpenseItem:** P&L tracking mechanism handling non-product outflows (utilities, worker advances turned into firm expenses).
+### 4.2 Category → Product (One-to-Many)
 
-### Reminders
-- **Reminder:** A configurable alert system containing fields like `triggered_at`, `status` and `repeat_type` (once, daily, weekly, monthly).
+**Category** (`categories`)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer | **PK**, auto-increment |
+| `name` | String(255) | **Unique**, required |
+| `description` | Text | Optional |
+| `active` | Boolean | Default `true` |
+
+**Product** (`products`)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `product_id` | String(50) | **PK** — custom ID like `COLD123` |
+| `name` | String(255) | Required |
+| `price` | Float | Required |
+| `category_id` | Integer | **FK** → `categories.id` |
+| `category` | String(255) | Legacy text field for backwards compatibility |
+| `image_filename` | String(255) | Filename in `data/images/` |
+| `active` | Boolean | Default `true` (soft-delete flag) |
+| `favorite` | Boolean | Default `false` |
+
+**Indexes:** `idx_products_category_id`, `idx_products_active`
+**Relationship:** `Product.category_rel` → `Category` (backref: `Category.products`)
+
+### 4.3 Inventory
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer | **PK** |
+| `name` | String(255) | Required |
+| `type` | String(50) | `DIRECT_SALE` or `RAW_MATERIAL` |
+| `unit` | String(20) | `piece`, `packet`, `kg`, `liter`, `gram`, `ml`, `box`, `bottle` |
+| `stock` | Float | Current stock level |
+| `unit_price` | Float | Cost per unit (for raw materials) |
+| `alert_threshold` | Float | Low-stock alert trigger |
+| `max_stock_history` | Float | Highest recorded stock level |
+| `product_id` | String(50) | **FK** → `products.product_id` (nullable, one-to-one) |
+
+**Relationship:** `Inventory.product` → `Product` (backref: `Product.inventory`, `uselist=False`)
+
+### 4.4 Bill
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | Integer | **PK**, auto-increment |
+| `bill_no` | Integer | Daily sequential number (resets each day) |
+| `customer_name` | String(255) | Optional |
+| `total_amount` | Float | Server-calculated total |
+| `today_token` | Integer | Optional daily token number |
+| `payment_method` | String(50) | Default `CASH` |
+| `items` | Text | **JSON string** — immutable snapshot of items at checkout time |
+| `status` | String(50) | `CONFIRMED`, `VOIDED` |
+
+**Constraints:** `UniqueConstraint('bill_no', 'created_at', name='idx_daily_bill_unique')`
+**Indexes:** `idx_bills_created_at_no`, `idx_bills_status`
+
+### 4.5 Worker Management (Schema: `worker`)
+
+**Worker** (`worker.workers`)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `worker_id` | String(36) | **PK**, UUID |
+| `name` | String(255) | Required |
+| `phone`, `email` | String | Contact |
+| `role` | String(100) | e.g. `Chef`, `Waiter`, `Manager` |
+| `salary` | Float | Monthly base salary |
+| `join_date` | Date | Employment start |
+| `status` | String(20) | `active` / `inactive` |
+| `photo` | Text | Base64 string or URL |
+
+**Relationships:** `Worker.advances`, `Worker.salary_payments`, `Worker.attendance_records`, `Worker.expenses`
+
+**Advance** (`worker.advances`) — Records advance payments per worker. FK → `worker.workers.worker_id`.
+
+**SalaryPayment** (`worker.salary_payments`) — Monthly salary records with `base_salary`, `advance_deduction`, `final_salary`, `paid` flag, `paid_date`.
+
+**Attendance** (`worker.attendance`) — Daily attendance with `status` (Present/Absent/Half-day), `check_in`/`check_out` as Time fields. **Index:** `idx_attendance_worker_date`.
+
+### 4.6 Expense & ExpenseItem
+
+**Expense** (`expenses`)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | String(36) | **PK**, UUID |
+| `title` | String(255) | Required |
+| `category` | String(100) | `Salary`, `Utilities`, `Supplies`, etc. |
+| `amount` | Float | Total expense amount |
+| `payment_method` | String(50) | Default `Cash` |
+| `worker_id` | String(36) | **FK** → `worker.workers.worker_id` (nullable) |
+| `notes` | Text | Optional |
+
+**Relationships:** `Expense.worker` → `Worker`, `Expense.items` → `ExpenseItem[]` (cascade delete-orphan)
+**Index:** `idx_expenses_date`
+
+**ExpenseItem** (`expense_items`) — Line items with `product_id`, `quantity` (string, e.g. `"2 kg"`), `purchase_price`, `subtotal`.
+
+### 4.7 Reminder
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | String(36) | **PK**, UUID |
+| `user_id` | String(50) | Default `admin` |
+| `title` | String(255) | Required |
+| `description` | Text | Optional |
+| `reminder_time` | DateTime | When to trigger |
+| `status` | String(20) | `pending` → `triggered` → `completed` |
+| `repeat_type` | String(20) | `once`, `daily`, `weekly`, `monthly` |
+| `is_active` | Boolean | Default `true` |
+| `is_dismissed` | Boolean | Default `false` |
+| `triggered_at` | DateTime | First trigger timestamp |
+| `last_triggered_at` | DateTime | Last trigger timestamp |
+
+**Indexes:** `idx_reminder_status_time`, `idx_user_id`
+
+### 4.8 DailySalesSummary (Pre-Aggregated Analytics)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `date` | Date | **PK** — one row per calendar day |
+| `total_sales` | Float | Sum of all non-voided bills |
+| `total_orders` | Integer | Count of non-voided bills |
+| `total_expenses` | Float | Sum of all expenses for the day |
+| `net_profit` | Float | `total_sales - total_expenses` |
+| `average_bill_value` | Float | `total_sales / total_orders` |
+| `top_products_json` | Text | JSON array of top 10 products by revenue |
+
+**Updated by:** `aggregation_service.py` (real-time after every bill/expense) and `dashboard_refresher.py` (nightly reconciliation).
 
 ---
 
-## 5. Background Processes & Jobs
+## 5. Service Layer & Infrastructure
 
-The application doesn't just respond to REST requests; it relies on self-healing and maintaining tasks running on separate daemon threads initialized via `app.py`.
+### 5.1 Backend Services (`services/`)
 
-### 1. Dashboard Refresher (`dashboard_refresher.py`)
-- **Action:** Runs in a persistent background loop.
-- **Trigger:** Reconciles metrics at Midnight (12:01 AM).
-- **Responsibility:** Re-calculates and populates the `DailySalesSummary` table for the previous day. Ensures that dashboard dashboard load time remains instant regardless of database magnitude.
-- **Cleanup:** Archiving old bills to free up working memory if necessary.
+| Service | File | Responsibility |
+|---------|------|----------------|
+| `DatabaseService` | `db_service.py` (35KB) | Core data access layer for products, bills, categories, inventory, settings. All CRUD operations. |
+| `SummaryService` | `summary_service.py` (22KB) | Analytics engine: daily/weekly/monthly summaries, top products, range aggregations, product-wise breakdowns. |
+| `AggregationService` | `aggregation_service.py` | Upserts `DailySalesSummary` rows. Called real-time (after bill/expense) + nightly. Includes `backfill_summaries()` for migration. |
+| `PrinterService` | `printer_service.py` | ESC/POS thermal printer driver. Constructs byte sequences for 58mm/80mm widths. Uses `pywin32` for Windows printer access. |
+| `ExcelService` | `excel_service.py` | Legacy CSV export service. |
+| `ExcelXLSXService` | `excel_xlsx_service.py` (33KB) | Full `.xlsx` report generation using `openpyxl`. Daily, weekly, monthly, expenses reports with styled formatting. |
+| `WorkerService` | `worker_service.py` | Salary cycle computation, advance tracking, attendance operations, bulk operations. Finance cycle date calculation. |
+| `ReminderService` | `reminder_service.py` | Extended reminder operations. |
+| `SQLiteDBService` | `sqlite_db_service.py` (37KB) | Alternative raw SQL query layer for complex analytics. |
 
-### 2. Reminder Micro-Checker
-- **Action:** Runs every 10 seconds.
-- **Responsibility:** Polls the database for active reminders where `reminder_time <= now()` and `status == 'pending'`. If conditions meet, it marks it as `triggered`. The Frontend interacts via long polling or fetching to show immediate alerts to the user.
+### 5.2 In-Memory Cache (`cache.py`)
+
+Uses `cachetools.TTLCache` with thread-safe locking (`threading.Lock`). Replaces Redis for single-server deployment.
+
+| Cache Domain | TTL | Purpose |
+|-------------|-----|---------|
+| `products` | 5 min | Active/all product lists |
+| `products_with_stock` | 5 min | Products joined with inventory stock |
+| `categories` | 5 min | Active/all categories |
+| `settings` | 10 min | All key-value settings |
+| `workers` | 10 min | Active workers |
+
+**API:** `cache.get(domain, key)`, `cache.set(domain, key, value)`, `cache.invalidate(domain)`, `cache.invalidate_all()`, `cache.stats()`.
+Every write endpoint calls `cache.invalidate()` for relevant domains.
+
+### 5.3 Error Handling (`error_handler.py`)
+
+Centralized, production-grade error handling with:
+- **Custom exceptions:** `ValidationError` (400), `NotFoundError` (404), `ConflictError` (409), `AuthorizationError` (401), `AppError` (base, 500)
+- **`@safe_route` decorator:** Wraps all route handlers. Catches `AppError` → structured response, `ValueError` → 400, unhandled `Exception` → 500 with full traceback logging
+- **Consistent JSON shape:** `{ "success": false, "error": "message", "code": "MACHINE_CODE" }`
+- **Global handlers** registered for 400, 404, 405, 409, 500
+
+### 5.4 Request Validation (`validators.py`)
+
+All POST/PUT payloads are validated via **Marshmallow** schemas before reaching business logic:
+
+`BillCreateSchema`, `BillUpdateSchema`, `ProductCreateSchema`, `ProductUpdateSchema`, `WorkerCreateSchema`, `WorkerUpdateSchema`, `AdvanceCreateSchema`, `AttendanceSchema`, `SalaryGenerateSchema`, `InventoryCreateSchema`, `InventoryUpdateSchema`, `StockAdjustSchema`, `ExpenseCreateSchema`, `ExpenseUpdateSchema`, `CategoryCreateSchema`, `CategoryUpdateSchema`, `ReminderCreateSchema`, `SettingItemSchema`
+
+All schemas use `Meta: unknown = EXCLUDE` to silently drop unexpected fields.
+
+### 5.5 Rate Limiting (`limiter.py`)
+
+Uses `Flask-Limiter` with `get_remote_address` key function:
+- **Global defaults:** 1000/day, 100/hour per IP
+- **Per-endpoint:** `/api/bill/create` is limited to 60/minute
+
+### 5.6 Configuration (`config.py`)
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| Database | PostgreSQL via `DATABASE_URL` env var | Connection pool: 10 + 20 overflow, 1hr recycle, pre-ping health checks |
+| `DATA_DIR` | `backend/data/` (dev) or AppData (prod) | Overridable via `POS_DATA_DIR` env var |
+| `SECRET_KEY` | From env or fallback | Used for JWT signing |
+| `RESET_PASSWORD` | From env or fallback | Required for dangerous operations (DB reset, permanent delete) |
+| Flask port | `5050` (configurable via `--port` CLI arg) | Listens on `0.0.0.0` for LAN access |
+| React port | `3050` | Set in frontend's `package.json` start script |
 
 ---
 
-## 6. Flow Architectures
+## 6. Background Processes & Jobs
 
-### The Billing Flow (Checkout Event)
-1. **Frontend Initiation:** User compiles cart in POS interface and hits 'Print Bill' or `Enter`.
-2. **Payload:** Axios POST request to `/api/bill/create` contains items, total amount, and customer details.
-3. **Daily Token Generation:** System calculates `MAX(bill_no)` for the *current calendar date* to ensure numbering systematically resets every morning.
-4. **Transaction (ACID):**
-   - The `Bill` object is committed.
-   - Corresponding `Inventory` objects are fetched, and their `stock` floating values are deducted.
-   - Real-time updates push via Thread locks.
-5. **Hardware Invocation (Printer Service):** The `printer_service.py` is invoked to construct ESC/POS byte sequences based on the system's `settings` (58mm vs 80mm). Sending raw bytes via USB/Network to the selected local thermal printer.
-6. **Summary Cache Update:** The `DailySalesSummary` for the current date is momentarily appended to reflect live dashboard metrics.
+Two daemon threads are started from `app.py` on server boot:
 
-### System Initialization Flow
-1. **Launcher (`Product_Sales_Start.bat`):** Triggers `concurrently` script.
-2. **Setup:** If running locally, Python virtual environments prepare via `first_time_start.bat`. On production Electron, it boots pre-compiled binaries.
-3. **Database Spin-up:** `app.py` triggers `create_all()`. Additional patches like `ALTER TABLE for active reminders` fallback securely if models evolved across updates.
-4. **Ports Setup:** Flask listens on port `5050` (`0.0.0.0` for local area network casting capability), React serves on `3050`.
+### 6.1 Dashboard Refresher (`dashboard_refresher.py`)
+- **Library:** `schedule` (runs pending jobs in a `while True` loop, checks every 60s)
+- **Scheduled:** Daily at `00:01` (midnight)
+- **Actions:**
+  1. Reconciles yesterday's `DailySalesSummary` via `aggregation_service.update_daily_summary(yesterday)`
+  2. Reconciles today's summary as a safety net
+- **Logging:** Writes to `dashboard_refresh.log`
+- **Manual trigger:** `python dashboard_refresher.py --immediate`
+
+### 6.2 Reminder Micro-Checker (inline in `app.py`)
+- **Frequency:** Every 10 seconds
+- **Logic:** Queries `Reminder` where `status == 'pending'` AND `reminder_time <= now()`
+- **Action:** Sets `status = 'triggered'`, records `triggered_at` and `last_triggered_at`
+- **Fault tolerance:** On error, rolls back DB session and calls `db.session.remove()` to prevent poisoned sessions
+
+### 6.3 Real-Time Aggregation (`aggregation_service.py`)
+Not a background thread, but called synchronously (non-blocking) after:
+- Every `POST /api/bill/create` 
+- Every `PUT /api/bill/<id>/cancel`
+- Every `POST /api/expenses`
+- Every `DELETE /api/expenses/<id>`
+
+Performs: Sales aggregation (count + sum), expense aggregation (sum), top-10 products computation, and upserts the `DailySalesSummary` row.
 
 ---
 
-## 7. Configuration & File System
+## 7. Flow Architectures
 
-The Electron instance and Python backend manipulate local folders specifically categorized for portability:
+### 7.1 Billing Flow (Checkout)
+```
+User → POS Screen → Axios POST /api/bill/create
+  ├─ Marshmallow validates payload (BillCreateSchema)
+  ├─ Each product validated against DB (must exist + be active)
+  ├─ Total calculated server-side (price × qty per item)
+  ├─ Bill committed to DB with daily sequential bill_no
+  ├─ Inventory stock auto-decremented
+  ├─ If print=true → PrinterService constructs ESC/POS bytes → thermal printer
+  ├─ DailySalesSummary upserted via aggregation_service
+  ├─ Cache invalidated (products, products_with_stock)
+  └─ 201 response with bill details
+```
 
-* `backend/data/products.db`: The Holy Grail SQLite store holding all transactions.
-* `backend/data/images/`: Storage for product thumbnail assets uploaded from the frontend.
-* `backend/data/Sound/`: UI interaction sound effects.
-* `/exports`: The dumping ground for generated Daily Excel logic handled by `excel_service.py`.
+### 7.2 POS Bootstrap (Screen Load)
+```
+POS Screen Mount → Axios GET /api/pos/bootstrap
+  └─ Single response contains:
+       ├─ Products with stock (cached, 5min TTL)
+       ├─ Categories (cached, 5min TTL)
+       ├─ Active workers (cached, 10min TTL)
+       ├─ All settings (cached, 10min TTL)
+       ├─ Next bill number (always fresh DB query)
+       └─ Cache stats for debugging
+```
+Replaces 5 separate API calls with 1.
 
-## 8. Extensibility Rules
-- **No Direct Mutation on Bills:** Historic bills use dumped stringified JSON for inner items. Never join relationships to dynamic product state, as past pricing must remain immutable.
-- **Data Access Patterns:** All dashboard reads should utilize `DailySalesSummary` or custom DB abstractions from `sqlite_db_service.py` and `summary_service.py`.
-- **Port Mapping:** The frontend specifies `proxy: http://localhost:5050` directly in its `package.json` to bypass CORS headaches naturally during pure-React operation, while Flask handles CORS dynamically using `flask_cors`.
+### 7.3 Salary Cycle Flow
+```
+Worker advance recorded → Expense entry auto-created
+  └─ At month end: POST /api/workers/<id>/generate-salary
+       ├─ Calculates finance cycle dates
+       ├─ Sums advances in current cycle
+       ├─ final_salary = base_salary - advance_deduction
+       └─ SalaryPayment record created (paid=false)
+             └─ POST /api/salary/<id>/pay → marks paid=true
+```
+
+### 7.4 System Initialization Flow
+```
+1. Launcher: first_time_start.bat (first run) or InfoOS_Start.bat
+2. Electron app.whenReady():
+   ├─ startBackend() → spawns Python process with --data-dir and --port
+   │   ├─ Dev: python backend/app.py
+   │   └─ Prod: resources/backend/backend.exe (PyInstaller bundle)
+   ├─ waitForBackend() → polls GET /health every 1 second
+   └─ createWindow() → loads React app
+       ├─ Dev: http://localhost:3050 (+ opens DevTools)
+       └─ Prod: frontend/build/index.html
+3. Backend app.py __main__:
+   ├─ Creates Flask app (dev or production config)
+   ├─ db.create_all() → ensures tables exist
+   ├─ Database health check (SELECT 1)
+   ├─ Creates data directories (data/, bills/, archive/, exports/)
+   ├─ Starts dashboard refresher thread
+   └─ Flask.run(host='0.0.0.0', port=5050, use_reloader=False)
+```
+
+### 7.5 Electron Security Model
+- `nodeIntegration: false`, `contextIsolation: true`, `enableRemoteModule: false`
+- **Preload bridge** (`preload.js`): Exposes limited `electronAPI` via `contextBridge`:
+  - `getAppVersion()`, `getPlatform()`, `getSystemInfo()`
+  - `onNewBill(callback)` — IPC listener for menu shortcut
+  - `writeLog(level, message)` — writes to `data/logs/frontend.log`
+- **CSP Header** injected: `default-src 'self' 'unsafe-inline' 'unsafe-eval' data: http://localhost:* http://127.0.0.1:*`
+- Right-click context menu disabled
+- External links open in system browser, not Electron
+
+---
+
+## 8. Frontend Architecture
+
+### 8.1 Tech Stack
+React 18 + Create React App, React Router v7, Framer Motion, Recharts, Axios, Socket.io-client, FontAwesome + React Icons.
+
+### 8.2 Directory Structure
+```
+frontend/src/
+├── api/                  # API client modules
+│   ├── api.js            # Core Axios instance & product/bill APIs
+│   ├── expenses.js       # Expense API calls
+│   ├── pos.js            # POS bootstrap API
+│   ├── reminderAPI.js    # Reminder CRUD + polling
+│   ├── settings.js       # Settings API
+│   └── workers.js        # Worker/attendance/salary APIs
+├── components/
+│   ├── common/           # Reusable UI: modals, toasts, spinners, alerts
+│   ├── expenses/         # Expense management components
+│   ├── layout/           # PageContainer wrapper
+│   ├── screens/          # Main page components (8 screens)
+│   │   ├── Analytics.jsx     # Dashboard with Recharts
+│   │   ├── Bill.jsx          # POS checkout interface
+│   │   ├── CategoryManagement.jsx
+│   │   ├── Expenses.jsx
+│   │   ├── Inventory.jsx
+│   │   ├── Management.jsx    # Product management
+│   │   ├── Reminders.jsx
+│   │   └── Settings.jsx      # Shop, printer, theme settings
+│   ├── system/           # System-level components
+│   ├── ui/               # Low-level UI primitives
+│   └── workers/          # Worker management (10 components)
+├── context/              # React Context providers
+│   ├── AlertContext.js       # Global alert/notification state
+│   ├── POSDataContext.jsx    # POS bootstrap data provider
+│   ├── ReminderContext.jsx   # Reminder polling & state
+│   ├── SettingsContext.js    # App settings provider
+│   ├── ThemeContext.js       # Dark/light theme toggle
+│   └── ToastContext.js       # Toast notification system
+├── hooks/                # Custom React hooks
+├── services/
+│   └── workerService.js  # Worker-specific service utilities
+├── styles/               # CSS stylesheets
+├── utils/                # Utility functions
+├── App.jsx               # Root component with routing
+└── index.js              # Entry point
+```
+
+### 8.3 Data Flow
+- **Proxy:** `package.json` sets `"proxy": "http://localhost:5050"` — all `/api/*` calls are forwarded to Flask during development
+- **POS screen:** Uses `POSDataContext` which calls `/api/pos/bootstrap` once on mount
+- **Reminders:** `ReminderContext` polls for triggered reminders and shows `ReminderAlertModalPortal` as an overlay
+- **Theme:** `ThemeContext` provides `isDark` flag for conditional styling across all components
+
+---
+
+## 9. Configuration & File System
+
+### 9.1 Directory Layout
+
+| Path | Purpose |
+|------|---------|
+| `backend/data/products.db` | Legacy SQLite path (now PostgreSQL via `DATABASE_URL`) |
+| `backend/data/images/` | Product images (PNG, background-removed via rembg) |
+| `backend/data/Sound/` | UI sound effects served via `/api/sounds/<filename>` |
+| `backend/data/exports/` | Generated Excel/CSV reports |
+| `backend/data/bills/` | Bill data directory |
+| `backend/data/archive/` | Archived data |
+| `backend/data/logs/` | Frontend log files (written via Electron IPC) |
+| `backend/dashboard_refresh.log` | Dashboard refresher log |
+
+### 9.2 Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:dharmik@localhost:5432/rebill_db` |
+| `POS_DATA_DIR` | Data directory override | `backend/data/` |
+| `SECRET_KEY` | JWT signing key | Fallback dev key |
+| `RESET_PASSWORD` | Admin reset password | Fallback value |
+| `PRINTER_NAME` | Default printer | `Default Printer` |
+| `SHOP_NAME` | Shop display name | `FAST FOOD SHOP` |
+| `SHOP_ADDRESS` | Receipt address | Placeholder |
+| `SHOP_PHONE` | Receipt phone | Placeholder |
+| `TAX_RATE` | Tax as decimal (0.18 = 18%) | `0.0` |
+| `REPORTS_FOLDER` | External reports directory | `D:\Sales Data of other product` |
+
+---
+
+## 10. Extensibility Rules & Conventions
+
+1. **Immutable Bill History:** Bill items are stored as stringified JSON. Never join to live product tables for historical data — past pricing must remain frozen.
+2. **Dashboard Reads:** Always use `DailySalesSummary` or `SummaryService` for analytics. Never scan the full `bills` table for aggregations.
+3. **Cache Discipline:** Every write endpoint must call `cache.invalidate()` for affected domains. Never serve stale data to the POS.
+4. **Schema Validation First:** All POST/PUT payloads must pass through a Marshmallow schema before reaching business logic. Schemas use `EXCLUDE` for unknown fields.
+5. **Error Contract:** All API errors return `{ success: false, error: "message", code: "MACHINE_CODE" }`. Use custom exception classes, never raw `abort()`.
+6. **Auth Decorator:** Use `@require_auth` on all mutating endpoints. It's a no-op when PIN is disabled, so there's zero overhead.
+7. **Worker Schema Isolation:** All worker-related tables use the `worker` PostgreSQL schema. Foreign keys reference `worker.workers.worker_id`.
+8. **Soft Deletes:** Products and workers use soft-delete (set `active=false` / `status='inactive'`). Only permanent delete requires admin password.
+9. **Image Processing:** All product images are processed through `rembg` (u2netp model) for background removal before storage.
+10. **Port Convention:** Backend on `5050`, Frontend on `3050`. Frontend `proxy` in `package.json` handles API forwarding in dev mode. Flask `CORS` handles it in production.
