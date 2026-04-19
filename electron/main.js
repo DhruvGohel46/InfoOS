@@ -12,6 +12,7 @@ const isDev = !app.isPackaged; // Better check for dev mode
 // Keep global references
 let mainWindow;
 let backendProcess = null;
+const fs = require('fs');
 
 // Logger
 function log(message) {
@@ -215,8 +216,35 @@ app.on('web-contents-created', (event, contents) => {
     event.preventDefault();
     shell.openExternal(navigationUrl);
   });
+  
+  // Set Content-Security-Policy
+  contents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: http://localhost:* http://127.0.0.1:*;"
+        ]
+      }
+    });
+  });
 });
 
 // IPC handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-platform', () => process.platform);
+
+// Logging IPC
+ipcMain.handle('write-log', (event, level, message) => {
+  const logDir = isDev 
+    ? path.join(__dirname, '../backend/data/logs')
+    : path.join(app.getPath('userData'), 'logs');
+  
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  
+  const logFile = path.join(logDir, 'frontend.log');
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logFile, `[${timestamp}] [${level.toUpperCase()}] ${message}\n`);
+});

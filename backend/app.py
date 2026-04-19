@@ -1,9 +1,11 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_migrate import Migrate
 import os
 import threading
 from dotenv import load_dotenv
 from config import config
+from error_handler import register_error_handlers
 
 # Load environment variables from .env file
 load_dotenv()
@@ -89,13 +91,17 @@ def create_app(config_name='default'):
     from routes.expenses import expenses_bp
     from routes.reminders import reminders_bp
     from routes.pos import pos_bp
+    from auth import auth_bp
+    from limiter import limiter
     
     # Load configuration
     app.config.from_object(config[config_name])
     
-    # Initialize SQLAlchemy
+    # Initialize SQLAlchemy and Migrate
     from models import db
     db.init_app(app)
+    Migrate(app, db)
+    limiter.init_app(app)
     
     # Enable CORS for all routes
     CORS(app, resources={
@@ -118,6 +124,7 @@ def create_app(config_name='default'):
     app.register_blueprint(expenses_bp)
     app.register_blueprint(reminders_bp)
     app.register_blueprint(pos_bp)
+    app.register_blueprint(auth_bp)
     
 
     # Serve product images
@@ -171,33 +178,22 @@ def create_app(config_name='default'):
             'data_directory': app.config['DATA_DIR']
         })
     
-    # Error handlers
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({
-            'success': False,
-            'message': 'Endpoint not found',
-            'error': str(error)
-        }), 404
-    
-    @app.errorhandler(500)
-    def internal_error(error):
-        return jsonify({
-            'success': False,
-            'message': 'Internal server error',
-            'error': str(error)
-        }), 500
-    
-    @app.errorhandler(405)
-    def method_not_allowed(error):
-        return jsonify({
-            'success': False,
-            'message': 'Method not allowed',
-            'error': str(error)
-        }), 405
+    # Register centralized error handlers (400, 404, 405, 409, 500)
+    register_error_handlers(app)
     
     return app
 
+
+def db_health_check(app, db):
+    """Verify database connection and critical tables."""
+    from sqlalchemy import text
+    try:
+        with app.app_context():
+            db.session.execute(text("SELECT 1"))
+            db.session.commit()
+            print("Database health check: OK")
+    except Exception as e:
+        print(f"Database health check failed: {e}")
 
 if __name__ == '__main__':
     import argparse
@@ -229,28 +225,17 @@ if __name__ == '__main__':
                 db.session.execute(text("CREATE SCHEMA IF NOT EXISTS worker"))
                 db.session.commit()
             except Exception as e:
-                print(f"Schema creation warning (ignore if using SQLite): {e}")
+                print(f"Schema creation warning: {e}")
 
             db.create_all()
-
-            # Ensure reminder table has columns added in newer model versions.
-            try:
-                db.session.execute(
-                    text("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
-                )
-                db.session.execute(
-                    text("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS last_triggered_at TIMESTAMP")
-                )
-                db.session.commit()
-            except Exception as e:
-                print(f"Reminder column patch warning: {e}")
-                db.session.rollback()
-
             print("Database tables created/verified")
     except Exception as e:
         print(f"Error creating database tables: {e}")
         import traceback
         traceback.print_exc()
+
+    # Perform Database Health Check
+    db_health_check(app, db)
     
     # Ensure data directory exists
     try:

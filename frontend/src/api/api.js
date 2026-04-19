@@ -9,8 +9,85 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 15000, // 15s — extended for report generation endpoints
 });
+
+// ---------------------------------------------------------------------------
+// REQUEST INTERCEPTOR
+// ---------------------------------------------------------------------------
+// Stub for future JWT authentication (Section 3).
+// When auth is enabled, this attaches the Bearer token to every request.
+let _authToken = null;
+
+export const setAuthToken = (token) => {
+  _authToken = token;
+};
+
+api.interceptors.request.use(
+  (config) => {
+    if (_authToken) {
+      config.headers.Authorization = `Bearer ${_authToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ---------------------------------------------------------------------------
+// RESPONSE INTERCEPTOR
+// ---------------------------------------------------------------------------
+// Dispatches a custom 'api-error' DOM event on any non-2xx response.
+// ApiErrorListener.jsx listens for this event and shows a toast via AlertContext.
+api.interceptors.response.use(
+  (response) => response, // Pass through successful responses
+  (error) => {
+    const isNetworkError = !error.response;
+    const status = error.response?.status || 0;
+    const serverMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      '';
+
+    let message;
+    if (isNetworkError) {
+      message = 'Network error — Unable to connect to server';
+    } else if (status === 401) {
+      message = serverMessage || 'Authentication required';
+    } else if (status === 404) {
+      message = serverMessage || 'Resource not found';
+    } else if (status >= 500) {
+      message = serverMessage || 'Server error — please try again';
+    } else {
+      message = serverMessage || error.message || 'Request failed';
+    }
+
+    // Dispatch custom event for ApiErrorListener
+    window.dispatchEvent(
+      new CustomEvent('api-error', {
+        detail: { message, status, isNetworkError },
+      })
+    );
+
+    // Log to Electron IPC if available
+    if (window.electronAPI?.writeLog) {
+      try {
+        window.electronAPI.writeLog({
+          level: 'error',
+          source: 'Axios',
+          message,
+          url: error.config?.url,
+          method: error.config?.method,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (_) {
+        // IPC not available
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 // Product Management APIs
 export const productsAPI = {

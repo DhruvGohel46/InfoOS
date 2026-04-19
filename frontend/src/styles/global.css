@@ -18,6 +18,9 @@
 
   /* Derived header height */
   --header-height: calc(64px * var(--display-zoom));
+
+  /* Color RGB components for rgba() utilities */
+  --accent-primary-rgb: 249, 115, 22;
 }
 
 /* CSS Reset and Base Styles */

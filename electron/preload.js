@@ -13,9 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Remove all listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
   
-  // File operations (if needed)
-  openFile: () => ipcRenderer.invoke('dialog:openFile'),
-  saveFile: (data) => ipcRenderer.invoke('dialog:saveFile', data),
+  // Logging operations (Security hardened)
+  writeLog: (level, message) => ipcRenderer.invoke('write-log', level, message),
   
   // System info
   getSystemInfo: () => ipcRenderer.invoke('system:getInfo')

@@ -22,7 +22,8 @@ import {
     IoReceiptOutline,
     IoHardwareChipOutline,
     IoColorPaletteOutline,
-    IoCalendarOutline
+    IoCalendarOutline,
+    IoShieldCheckmarkOutline
 } from 'react-icons/io5';
 import { getLocalDateString } from '../../utils/api';
 
@@ -82,6 +83,9 @@ const Settings = () => {
         show_product_images: 'true',
         dark_mode: 'false',
         sound_enabled: 'true',
+        
+        // Security
+        require_pin_login: 'false',
 
         // Workers
         salary_day: '1'
@@ -129,7 +133,8 @@ const Settings = () => {
         { id: 'billing', label: 'Billing Configuration', icon: IoCardOutline },
         { id: 'printer', label: 'Printer Settings', icon: IoPrintOutline },
         { id: 'app', label: 'App Preferences', icon: IoAppsOutline },
-        { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline }
+        { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
+        { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline }
     ];
 
     if (loading) {
@@ -564,6 +569,35 @@ const Settings = () => {
                                                 Selected: <strong style={{ color: isDark ? '#fff' : '#0f172a' }}>Day {formSettings.salary_day || 1}</strong> of every month
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        
+                        {activeTab === 'security' && (
+                            <>
+                                <div className="stSectionTitle">
+                                    <IoShieldCheckmarkOutline size={22} color="var(--primary)" />
+                                    Access Control
+                                </div>
+
+                                <div className="stSectionContent">
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Require PIN Login</span>
+                                            <span className="stLabelDesc">Prompt for owner PIN on application launch</span>
+                                        </div>
+                                        <label className="stToggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={formSettings.require_pin_login === 'true'}
+                                                onChange={(e) => handleChange('require_pin_login', e.target.checked ? 'true' : 'false')}
+                                            />
+                                            <span className="stSlider"></span>
+                                        </label>
+                                    </div>
+                                    <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        Note: Disabling PIN Login leaves the system unlocked. Enabling it will require setting up a PIN if not done already.
                                     </div>
                                 </div>
                             </>

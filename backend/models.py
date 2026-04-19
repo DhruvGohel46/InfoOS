@@ -73,7 +73,7 @@ class Bill(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('bill_no', 'created_at', name='idx_daily_bill_unique'),
-        db.Index('idx_bills_created_at', 'created_at'),
+        db.Index('idx_bills_created_at_no', 'created_at', 'bill_no'),
         db.Index('idx_bills_status', 'status'),
     )
 
@@ -194,7 +194,10 @@ class SalaryPayment(db.Model):
 
 class Attendance(db.Model):
     __tablename__ = 'attendance'
-    __table_args__ = {'schema': 'worker'}
+    __table_args__ = (
+        db.Index('idx_attendance_worker_date', 'worker_id', 'date'),
+        {'schema': 'worker'}
+    )
 
     attendance_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(db.String(36), db.ForeignKey('worker.workers.worker_id'), nullable=False)
@@ -226,8 +229,7 @@ class Reminder(db.Model):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        db.Index('idx_reminder_time', 'reminder_time'),
-        db.Index('idx_status', 'status'),
+        db.Index('idx_reminder_status_time', 'status', 'reminder_time'),
         db.Index('idx_user_id', 'user_id'),
     )
 

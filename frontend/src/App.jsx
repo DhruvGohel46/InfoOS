@@ -61,6 +61,7 @@ import ProductManagement from './components/screens/Management';
 import Inventory from './components/screens/Inventory';
 import Expenses from './components/screens/Expenses';
 import Settings from './components/screens/Settings';
+import LoginScreen from './components/system/LoginScreen';
 import { settingsAPI } from './api/settings';
 import { setCurrencySymbol } from './utils/api';
 import NotificationSystem from './components/system/NotificationSystem';
@@ -88,6 +89,10 @@ import Button from './components/ui/Button';
 import Card from './components/ui/Card';
 import Sidebar from './components/ui/Sidebar';
 import { darkTheme } from './styles/theme';
+
+// System components (production hardening)
+import ErrorBoundary from './components/system/ErrorBoundary';
+import ApiErrorListener from './components/system/ApiErrorListener';
 
 // ─── Restore zoom/scale CSS vars immediately on every page load ───────────────
 // These vars are set by Settings.jsx but only applied while that component is
@@ -313,6 +318,9 @@ function AppContent() {
       fontFamily: currentTheme.typography.fontFamily.primary,
       overflow: 'hidden',
     }}>
+      {/* Global API Error → Toast bridge */}
+      <ApiErrorListener />
+
       {/* Search Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
@@ -839,19 +847,27 @@ function AppContent() {
 }
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
   return (
-    <ThemeProvider>
-      <AlertProvider>
-        <SettingsProvider>
-          <POSDataProvider>
-            <ReminderProvider>
-              <HashRouter>
-                <AppContent />
-              </HashRouter>
-            </ReminderProvider>
-          </POSDataProvider>
-        </SettingsProvider>
-      </AlertProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AlertProvider>
+          <SettingsProvider>
+            <POSDataProvider>
+              <ReminderProvider>
+                <HashRouter>
+                  {!isLoggedIn ? (
+                    <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />
+                  ) : (
+                    <AppContent />
+                  )}
+                </HashRouter>
+              </ReminderProvider>
+            </POSDataProvider>
+          </SettingsProvider>
+        </AlertProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

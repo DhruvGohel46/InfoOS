@@ -20,6 +20,14 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         "postgresql://postgres:dharmik@localhost:5432/rebill_db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Engine Options — Productionizing Postgres connection pool
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,          # Health check connections before usage
+        'pool_size': 10,                # Max concurrent connections in the pool
+        'max_overflow': 20,             # Max connections beyond pool_size
+        'pool_recycle': 3600,           # Recycle connections after 1 hour avoiding DB timeouts
+    }
 
     # Data directory - allow override via env var (passed from Electron)
     # Default to a 'data' folder next to the executable if not specified
