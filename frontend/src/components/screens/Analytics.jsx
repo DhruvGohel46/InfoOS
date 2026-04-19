@@ -192,6 +192,7 @@ function getYearDates(referenceDate) {
 // ═══════════════════════════════════════════════════════════════════════
 const Analytics = () => {
     const navigate = useNavigate();
+    const { isDark } = useTheme();
     const { 
         products: contextProducts, 
         categories: contextCategories,
