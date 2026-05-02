@@ -17,7 +17,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeLog: (level, message) => ipcRenderer.invoke('write-log', level, message),
   
   // System info
-  getSystemInfo: () => ipcRenderer.invoke('system:getInfo')
+  getSystemInfo: () => ipcRenderer.invoke('system:getInfo'),
+
+  // Auto-Updater
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
+  onUpdateProgress: (callback) => ipcRenderer.on('download-progress', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  installUpdate: () => ipcRenderer.send('install-update')
 });
 
 // Disable features for security

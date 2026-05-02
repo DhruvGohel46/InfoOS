@@ -59,8 +59,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
+import { useNetwork } from '../../context/NetworkContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { productsAPI, billingAPI, categoriesAPI } from '../../utils/api';
+import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
 import { CATEGORY_COLORS } from '../../utils/constants';
 import Button from '../ui/Button';
@@ -83,7 +85,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
   const { settings } = useSettings();
   const showImages = settings?.show_product_images !== 'false';
-  const { showSuccess } = useAlert();
+  const { showSuccess, showWarning } = useAlert();
+  const { isOnline } = useNetwork();
 
   // ── POS Data from global context (load-once pattern) ──
   const {
@@ -98,7 +101,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [selectedCategory, setSelectedCategory] = useState('favorites');
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300); // Debounced search
+  const [visibleCount, setVisibleCount] = useState(50); // For lazy rendering
   const [orderItems, setOrderItems] = useState([]);
+  const observerTarget = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -169,6 +174,35 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     const searchMatch = product.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     return categoryMatch && searchMatch;
   });
+
+  const displayedProducts = filteredProducts.slice(0, visibleCount);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [debouncedSearch, selectedCategory]);
+
+  // Intersection Observer for infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => Math.min(prev + 50, filteredProducts.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [observerTarget, filteredProducts.length]);
 
   const handleAddItem = (product, event) => {
     // Prevent event bubbling
@@ -242,6 +276,20 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
         showSuccess('Bill updated successfully');
         navigate('/analytics');
       } else {
+        // Handle Offline State
+        if (!isOnline) {
+          syncService.addToQueue(billData);
+          setOrderItems([]);
+          showWarning('You are offline. Bill saved locally and will sync automatically.');
+          if (onBillCreated) {
+            onBillCreated({
+              bill_no: 'OFFLINE',
+              total: calculateTotal()
+            });
+          }
+          return;
+        }
+
         const response = await billingAPI.createBill(billData);
         setOrderItems([]);
         if (onBillCreated) {
@@ -255,6 +303,23 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       }
 
     } catch (err) {
+      const isNetworkError = !err.response;
+      if (isNetworkError && !editingBill) {
+        // Fallback catch if network drops mid-request
+        const billData = {
+          products: orderItems.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity
+          })),
+          print: false,
+          customer_name: ''
+        };
+        syncService.addToQueue(billData);
+        setOrderItems([]);
+        showWarning('Network dropped. Bill saved locally and will sync automatically.');
+        return;
+      }
+
       const apiError = handleAPIError(err);
       setError(apiError.message);
     }
@@ -280,16 +345,19 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       if (editingBill) {
         await billingAPI.updateBill(editingBill.bill_no, billData);
-        // Print logic for update if needed - assumed API handles it if 'print: true' or separate call
-        // But backend update_bill doesn't seem to have print logic integrated yet in previous step.
-        // Wait, update_bill method in backend didn't handle printing. 
-        // So for "Update & Print", we might need to call print separately.
-
         await billingAPI.printBill(editingBill.bill_no); // Call print explicitly
 
         showSuccess('Bill updated and printed');
         navigate('/analytics');
       } else {
+        // Handle Offline State
+        if (!isOnline) {
+          syncService.addToQueue(billData);
+          setOrderItems([]);
+          showWarning('Offline mode. Bill saved locally. Printing may not work until reconnected.');
+          return;
+        }
+
         const response = await billingAPI.createBill(billData);
         setOrderItems([]);
         if (onBillCreated) {
@@ -303,6 +371,22 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       }
 
     } catch (err) {
+      const isNetworkError = !err.response;
+      if (isNetworkError && !editingBill) {
+        const billData = {
+          products: orderItems.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity
+          })),
+          print: true,
+          customer_name: ''
+        };
+        syncService.addToQueue(billData);
+        setOrderItems([]);
+        showWarning('Network dropped. Bill saved locally. Printing may not work.');
+        return;
+      }
+
       const apiError = handleAPIError(err);
       setError(apiError.message);
     }
@@ -529,7 +613,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 padding: '4px'
               }}
             >
-              {filteredProducts.map((product) => (
+              {displayedProducts.map((product) => (
                 <div
                     key={product.product_id}
                 >
@@ -642,6 +726,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     </div>
                 </div>
               ))}
+              
+              {/* Invisible sentinel for intersection observer */}
+              {visibleCount < filteredProducts.length && (
+                <div ref={observerTarget} style={{ height: '20px', width: '100%' }}></div>
+              )}
             </div>
           )}
         </div>

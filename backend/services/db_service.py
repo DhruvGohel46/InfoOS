@@ -290,19 +290,36 @@ class DatabaseService:
             print(f"Error getting bill: {e}")
             return None
 
-    def get_todays_bills(self) -> List[Dict[str, Any]]:
-        """Get all bills for today"""
+    def get_todays_bills(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
+        """Get all bills for today with optional pagination"""
         try:
             today = date.today()
-            bills = Bill.query.filter(
+            query = Bill.query.filter(
                 func.date(Bill.created_at) == today,
                 func.trim(Bill.status) != 'CANCELLED'
-            ).order_by(Bill.bill_no.asc()).all()
+            ).order_by(Bill.bill_no.asc())
             
+            if limit is not None:
+                query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+                
+            bills = query.all()
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
             print(f"Error getting today's bills: {e}")
             return []
+
+    def get_todays_bills_count(self) -> int:
+        """Get total count of bills for today"""
+        try:
+            today = date.today()
+            return Bill.query.filter(
+                func.date(Bill.created_at) == today,
+                func.trim(Bill.status) != 'CANCELLED'
+            ).count()
+        except Exception:
+            return 0
 
     def get_monthly_bills(self, month: int, year: int) -> List[Dict[str, Any]]:
         """Get all bills for a specific month and year"""
@@ -360,13 +377,27 @@ class DatabaseService:
         except Exception as e:
              return []
 
-    def get_all_bills_management(self) -> List[Dict[str, Any]]:
-        """Get ALL bills including cancelled"""
+    def get_all_bills_management(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
+        """Get ALL bills including cancelled with optional pagination"""
         try:
-            bills = Bill.query.order_by(Bill.created_at.desc()).all()
+            query = Bill.query.order_by(Bill.created_at.desc())
+            
+            if limit is not None:
+                query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+                
+            bills = query.all()
             return [self._bill_to_dict(b) for b in bills]
         except Exception:
             return []
+
+    def get_all_bills_management_count(self) -> int:
+        """Get count of ALL bills for management"""
+        try:
+            return Bill.query.count()
+        except Exception:
+            return 0
 
     def cancel_bill(self, bill_no: int) -> bool:
         """Cancel a bill"""

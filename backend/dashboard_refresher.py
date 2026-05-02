@@ -8,18 +8,10 @@ from datetime import datetime, timedelta
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
 from models import db
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('dashboard_refresh.log'),
-        logging.StreamHandler()
-    ]
-)
+# Use the root logger configured by logger.setup_logging()
+# (falls back to basicConfig defaults when run standalone)
 logger = logging.getLogger(__name__)
 
 class DashboardRefresher:

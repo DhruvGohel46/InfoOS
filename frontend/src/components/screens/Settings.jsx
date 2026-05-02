@@ -26,6 +26,8 @@ import {
     IoShieldCheckmarkOutline
 } from 'react-icons/io5';
 import { getLocalDateString } from '../../utils/api';
+import { setupPin, getAuthStatus, clearToken } from '../../api/auth';
+
 
 const Settings = () => {
     const { showSuccess, showError } = useToast();
@@ -58,6 +60,44 @@ const Settings = () => {
         document.documentElement.style.setProperty('--display-zoom', displayZoom);
         localStorage.setItem('display_zoom', displayZoom);
     }, [displayZoom]);
+
+    // ── PIN / Security state ──────────────────────────────────────────────
+    const [pinStatus, setPinStatus] = useState({ enabled: false, is_setup: false, loading: true });
+    const [pinForm, setPinForm] = useState({ currentPin: '', newPin: '', confirmPin: '' });
+    const [pinSaving, setPinSaving] = useState(false);
+
+    useEffect(() => {
+        getAuthStatus()
+            .then(s => setPinStatus({ enabled: s.enabled, is_setup: s.is_setup, loading: false }))
+            .catch(() => setPinStatus({ enabled: false, is_setup: false, loading: false }));
+    }, []);
+
+    const handlePinChange = (field, value) =>
+        setPinForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSavePinChange = async () => {
+        const { currentPin, newPin, confirmPin } = pinForm;
+        if (!newPin || newPin.length < 4 || newPin.length > 6 || !/^\d+$/.test(newPin)) {
+            showError('New PIN must be 4–6 numeric digits');
+            return;
+        }
+        if (newPin !== confirmPin) {
+            showError('PINs do not match');
+            return;
+        }
+        setPinSaving(true);
+        try {
+            await setupPin(newPin, pinStatus.is_setup ? currentPin : null);
+            showSuccess('PIN updated successfully');
+            setPinForm({ currentPin: '', newPin: '', confirmPin: '' });
+            setPinStatus(s => ({ ...s, is_setup: true, enabled: true }));
+        } catch (err) {
+            showError(err?.response?.data?.error || 'Failed to update PIN');
+        } finally {
+            setPinSaving(false);
+        }
+    };
+    // ────────────────────────────────────────────────────────────────────────
 
     const [formSettings, setFormSettings] = useState({
         // Shop
@@ -582,10 +622,11 @@ const Settings = () => {
                                 </div>
 
                                 <div className="stSectionContent">
+                                    {/* Toggle row */}
                                     <div className="stFormGroup">
                                         <div className="stLabel">
                                             <span className="stLabelTitle">Require PIN Login</span>
-                                            <span className="stLabelDesc">Prompt for owner PIN on application launch</span>
+                                            <span className="stLabelDesc">Prompt for owner PIN on every application launch</span>
                                         </div>
                                         <label className="stToggle">
                                             <input
@@ -596,9 +637,108 @@ const Settings = () => {
                                             <span className="stSlider"></span>
                                         </label>
                                     </div>
-                                    <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                        Note: Disabling PIN Login leaves the system unlocked. Enabling it will require setting up a PIN if not done already.
+
+                                    {/* Status badge */}
+                                    {!pinStatus.loading && (
+                                        <div style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            marginTop: '8px', marginBottom: '16px',
+                                            padding: '4px 12px', borderRadius: '999px',
+                                            fontSize: '12px', fontWeight: 600,
+                                            background: pinStatus.is_setup
+                                                ? 'rgba(34,197,94,0.12)' : 'rgba(249,115,22,0.12)',
+                                            color: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)'
+                                        }}>
+                                            <span style={{
+                                                width: 7, height: 7, borderRadius: '50%',
+                                                background: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)',
+                                                display: 'inline-block'
+                                            }} />
+                                            {pinStatus.is_setup ? 'PIN is configured' : 'No PIN set yet'}
+                                        </div>
+                                    )}
+
+                                    <div style={{
+                                        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '14px',
+                                        padding: '20px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '14px'
+                                    }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                                            {pinStatus.is_setup ? 'Change PIN' : 'Set Owner PIN'}
+                                        </div>
+
+                                        {/* Current PIN — only shown if PIN already configured */}
+                                        {pinStatus.is_setup && (
+                                            <div className="stInputGroup">
+                                                <label className="stInputLabel">Current PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="stInput"
+                                                    placeholder="Enter current PIN"
+                                                    value={pinForm.currentPin}
+                                                    onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div className="stInputGroup">
+                                                <label className="stInputLabel">New PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="stInput"
+                                                    placeholder="4–6 digits"
+                                                    value={pinForm.newPin}
+                                                    onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
+                                                />
+                                            </div>
+                                            <div className="stInputGroup">
+                                                <label className="stInputLabel">Confirm New PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="stInput"
+                                                    placeholder="Repeat PIN"
+                                                    value={pinForm.confirmPin}
+                                                    onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleSavePinChange}
+                                            loading={pinSaving}
+                                            disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
+                                            style={{ alignSelf: 'flex-start', minWidth: 140 }}
+                                        >
+                                            {pinSaving ? 'Saving…' : pinStatus.is_setup ? 'Update PIN' : 'Set PIN'}
+                                        </Button>
                                     </div>
+
+                                    {/* Warning when toggle is OFF */}
+                                    {formSettings.require_pin_login !== 'true' && (
+                                        <div style={{
+                                            marginTop: '14px',
+                                            padding: '10px 14px',
+                                            background: 'rgba(239,68,68,0.08)',
+                                            border: '1px solid rgba(239,68,68,0.2)',
+                                            borderRadius: '10px',
+                                            fontSize: '12px',
+                                            color: 'var(--error-500)'
+                                        }}>
+                                            ⚠️ PIN login is currently <strong>disabled</strong>. Anyone can access this system without a password.
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}

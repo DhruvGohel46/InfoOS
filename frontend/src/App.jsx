@@ -63,6 +63,7 @@ import Expenses from './components/screens/Expenses';
 import Settings from './components/screens/Settings';
 import LoginScreen from './components/system/LoginScreen';
 import { settingsAPI } from './api/settings';
+import { getStoredToken, isTokenValid, persistToken } from './api/auth';
 import { setCurrencySymbol } from './utils/api';
 import NotificationSystem from './components/system/NotificationSystem';
 
@@ -81,6 +82,11 @@ import ReminderAlert from './components/ui/ReminderAlert';
 import Reminders from './components/screens/Reminders';
 import { IoAlarmOutline, IoSyncOutline } from 'react-icons/io5';
 
+// Offline Sync
+import { NetworkProvider, useNetwork } from './context/NetworkContext';
+import OfflineBadge from './components/ui/OfflineBadge';
+import { syncService } from './api/sync';
+
 // POS Data Bootstrap (load-once pattern)
 import { POSDataProvider } from './context/POSDataContext';
 
@@ -93,6 +99,7 @@ import { darkTheme } from './styles/theme';
 // System components (production hardening)
 import ErrorBoundary from './components/system/ErrorBoundary';
 import ApiErrorListener from './components/system/ApiErrorListener';
+import UpdateNotification from './components/system/UpdateNotification';
 
 // ─── Restore zoom/scale CSS vars immediately on every page load ───────────────
 // These vars are set by Settings.jsx but only applied while that component is
@@ -111,6 +118,7 @@ function AppContent() {
   const { settings } = useSettings();
   const { pageVariants, pageTransition } = useAnimation();
   const { activeAlerts, dismissReminder } = useReminders();
+  const { isOnline } = useNetwork();
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
 
   const { addToast, showSuccess: alertSuccess } = useAlert();
@@ -144,19 +152,22 @@ function AppContent() {
           }
         }
       } catch (e) {
-        console.error("Status check failed", e);
+        console.error('Initial checks failed', e);
       }
     };
-
-    // Delay slightly to ensure settings are loaded (though text might pop in)
-    // or rely on settings dependency
-    if (settings?.salary_day) {
-      checkStatus();
-    } else {
-      // Initial check without settings, or just wait for settings to load
-      setTimeout(checkStatus, 3000);
-    }
+    setTimeout(checkStatus, 3000);
   }, [settings?.salary_day]);
+
+  // Handle Offline Sync
+  useEffect(() => {
+    if (isOnline) {
+      syncService.syncOfflineBills().then(count => {
+        if (count > 0) {
+          alertSuccess(`Successfully synced ${count} offline bill(s)`);
+        }
+      });
+    }
+  }, [isOnline, alertSuccess]);
 
   const [salaryNotification, setSalaryNotification] = useState(false);
 
@@ -841,33 +852,51 @@ function AppContent() {
 
         {/* Global Reminders */}
         <ReminderAlert />
+        
+        {/* Offline Badge */}
+        <OfflineBadge />
+
+        {/* Auto-Updater Notification */}
+        <UpdateNotification />
       </>
     </div>
   );
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+  // Restore session from sessionStorage so hot-reload / Electron
+  // page refresh within the same shift doesn't force a re-login.
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    const token = getStoredToken();
+    if (token && isTokenValid(token)) {
+      persistToken(token); // re-attach Bearer token to axios
+      return true;
+    }
+    return false;
+  });
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
         <AlertProvider>
           <SettingsProvider>
-            <POSDataProvider>
-              <ReminderProvider>
-                <HashRouter>
-                  {!isLoggedIn ? (
-                    <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />
-                  ) : (
-                    <AppContent />
-                  )}
-                </HashRouter>
-              </ReminderProvider>
-            </POSDataProvider>
+            <NetworkProvider>
+              <POSDataProvider>
+                <ReminderProvider>
+                  <HashRouter>
+                    {!isLoggedIn ? (
+                      <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />
+                    ) : (
+                      <AppContent />
+                    )}
+                  </HashRouter>
+                </ReminderProvider>
+              </POSDataProvider>
+            </NetworkProvider>
           </SettingsProvider>
         </AlertProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
 }
+

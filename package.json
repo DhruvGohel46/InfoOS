@@ -61,6 +61,13 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "InfoBill"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "DhruvGohel46",
+        "repo": "Rebill"
+      }
+    ]
   }
 }

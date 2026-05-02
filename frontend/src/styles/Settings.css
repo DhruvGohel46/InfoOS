@@ -227,10 +227,24 @@
     line-height: var(--line-normal);
 }
 
+/* Input groups (label + input stacked) */
+.stInputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stInputLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 /* Inputs - Premium Tactile Feel */
 .stInput {
     width: 100%;
-    max-width: 440px;
     padding: 10px 16px;
     border-radius: 999px;
     border: 1px solid var(--border-primary);

@@ -1,147 +1,298 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
-import { setAuthToken } from '../../api/api';
-import axios from 'axios';
+import {
+  getAuthStatus,
+  loginWithPin,
+  setupPin,
+  persistToken,
+  getStoredToken,
+  isTokenValid,
+} from '../../api/auth';
 import './LoginScreen.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+// ─── Sub-component: PIN dot row ───────────────────────────────────────────────
+const PinDots = ({ length, filled, shake }) => (
+  <motion.div
+    className="pin-display"
+    animate={shake ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { x: 0 }}
+    transition={{ duration: 0.4 }}
+  >
+    {[...Array(length)].map((_, i) => (
+      <div key={i} className={`pin-dot ${i < filled ? 'filled' : ''}`} />
+    ))}
+  </motion.div>
+);
 
+// ─── Sub-component: Numpad ────────────────────────────────────────────────────
+const Numpad = ({ onKey, onDelete, onSubmit, canSubmit, isLoading }) => {
+  const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  return (
+    <div className="numpad">
+      {keys.map((n) => (
+        <motion.button
+          key={n}
+          className="numpad-btn"
+          whileTap={{ scale: 0.88 }}
+          onClick={() => onKey(n.toString())}
+          disabled={isLoading}
+          aria-label={`Digit ${n}`}
+        >
+          {n}
+        </motion.button>
+      ))}
+      <motion.button
+        className="numpad-btn action-btn"
+        whileTap={{ scale: 0.88 }}
+        onClick={onDelete}
+        disabled={isLoading}
+        aria-label="Delete"
+      >
+        ⌫
+      </motion.button>
+      <motion.button
+        className="numpad-btn"
+        whileTap={{ scale: 0.88 }}
+        onClick={() => onKey('0')}
+        disabled={isLoading}
+        aria-label="Digit 0"
+      >
+        0
+      </motion.button>
+      <motion.button
+        className={`numpad-btn submit-btn ${canSubmit ? 'active' : ''}`}
+        whileTap={{ scale: 0.88 }}
+        onClick={onSubmit}
+        disabled={!canSubmit || isLoading}
+        aria-label="Confirm PIN"
+      >
+        {isLoading ? (
+          <span className="spin-loader" />
+        ) : (
+          '✓'
+        )}
+      </motion.button>
+    </div>
+  );
+};
+
+// ─── Main LoginScreen ─────────────────────────────────────────────────────────
 const LoginScreen = ({ onLoginSuccess }) => {
+  const [phase, setPhase] = useState('loading'); // 'loading' | 'login' | 'setup' | 'confirm'
   const [pin, setPin] = useState('');
-  const [isSetupMode, setIsSetupMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [confirmPin, setConfirmPin] = useState('');
+  const [shake, setShake] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { showError, showSuccess } = useAlert();
   const { refreshData } = usePOSData();
 
+  const triggerShake = useCallback(() => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  }, []);
+
+  // ── Boot: check auth status or use stored token ──────────────────────────
   useEffect(() => {
-    // Check if auth is enabled and setup
-    const checkAuthStatus = async () => {
+    const boot = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/auth/status`);
-        if (res.data.success) {
-          if (!res.data.enabled) {
-            // Auth not enforced globally, let them through perfectly
-            onLoginSuccess();
-          } else if (!res.data.is_setup) {
-            // Needs initial setup
-            setIsSetupMode(true);
-            setIsLoading(false);
-          } else {
-            // Ready for login
-            setIsSetupMode(false);
-            setIsLoading(false);
-          }
+        // 1. Check if we have a still-valid session token
+        const stored = getStoredToken();
+        if (stored && isTokenValid(stored)) {
+          persistToken(stored); // re-attach to axios
+          onLoginSuccess();
+          return;
         }
-      } catch (err) {
-        showError("Failed to connect to security server");
+
+        // 2. Ask server for auth config
+        const status = await getAuthStatus();
+        if (!status.enabled) {
+          // PIN is globally disabled — pass through
+          onLoginSuccess();
+          return;
+        }
+
+        if (!status.is_setup) {
+          setPhase('setup');
+        } else {
+          setPhase('login');
+        }
+      } catch {
+        // Backend unreachable — let them through in degraded mode
+        showError('Could not connect to security server');
+        onLoginSuccess();
       }
     };
-    checkAuthStatus();
-  }, [onLoginSuccess, showError]);
+    boot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleKeyPress = (num) => {
-    if (pin.length < 6) {
-      setPin(prev => prev + num);
+  // ── Auto-submit when max digits reached ────────────────────────────────────
+  const submitRef = useRef(null);
+  useEffect(() => {
+    const currentPin = phase === 'confirm' ? confirmPin : pin;
+    if (currentPin.length === 6) {
+      // Short delay so user can see the last dot fill
+      const t = setTimeout(() => submitRef.current?.(), 200);
+      return () => clearTimeout(t);
+    }
+  }, [pin, confirmPin, phase]);
+
+  // ── Keyboard support ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key >= '0' && e.key <= '9') handleKey(e.key);
+      else if (e.key === 'Backspace') handleDelete();
+      else if (e.key === 'Enter') submitRef.current?.();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, confirmPin, phase]);
+
+  const currentPin = phase === 'confirm' ? confirmPin : pin;
+  const setCurrentPin = phase === 'confirm' ? setConfirmPin : setPin;
+
+  const handleKey = (digit) => {
+    if (currentPin.length < 6) {
+      setCurrentPin((p) => p + digit);
     }
   };
 
   const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
+    setCurrentPin((p) => p.slice(0, -1));
   };
 
-  const handleSubmit = async () => {
-    if (pin.length < 4) {
-      showError("PIN must be at least 4 digits");
+  // ── Submit ──────────────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(async () => {
+    if (currentPin.length < 4) {
+      showError('PIN must be at least 4 digits');
+      triggerShake();
       return;
+    }
+
+    // Setup: first collect PIN, then confirm
+    if (phase === 'setup') {
+      setPhase('confirm');
+      return;
+    }
+
+    // Confirm step: validate match then create
+    if (phase === 'confirm') {
+      if (pin !== confirmPin) {
+        showError('PINs do not match — please try again');
+        triggerShake();
+        setConfirmPin('');
+        return;
+      }
     }
 
     setIsLoading(true);
     try {
-      const endpoint = isSetupMode ? '/api/auth/setup' : '/api/auth/login';
-      const res = await axios.post(`${API_BASE_URL}${endpoint}`, { pin });
+      let result;
+      if (phase === 'confirm') {
+        result = await setupPin(pin);
+      } else {
+        result = await loginWithPin(pin);
+      }
 
-      if (res.data.success && res.data.token) {
-        setAuthToken(res.data.token);
-        if (isSetupMode) showSuccess("Security PIN Setup Complete!");
-        
-        // Ensure data loads cleanly after auth grants permission
+      if (result.success && result.token) {
+        persistToken(result.token);
+        if (phase === 'confirm') showSuccess('Security PIN created — you\'re all set!');
         await refreshData();
         onLoginSuccess();
       }
     } catch (err) {
-      // Handled by API interceptor naturally, but we clear PIN locally
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        'Incorrect PIN';
+      showError(msg);
+      triggerShake();
       setPin('');
+      setConfirmPin('');
       setIsLoading(false);
     }
-  };
+  }, [phase, pin, confirmPin, currentPin, onLoginSuccess, showError, showSuccess, refreshData, triggerShake]);
 
-  if (isLoading && !pin) {
+  // Register submit ref for auto-submit & keyboard
+  submitRef.current = handleSubmit;
+
+  // ── Loading phase ───────────────────────────────────────────────────────────
+  if (phase === 'loading') {
     return (
       <div className="login-container">
-        <div className="login-loader">Loading Security Module...</div>
+        <div className="login-loader">
+          <span className="spin-loader large" />
+          <p>Initializing…</p>
+        </div>
       </div>
     );
   }
 
+  // ── Labels by phase ─────────────────────────────────────────────────────────
+  const titles = {
+    login: 'Welcome Back',
+    setup: 'Create Your PIN',
+    confirm: 'Confirm Your PIN',
+  };
+  const subtitles = {
+    login: 'Enter your owner PIN to continue',
+    setup: 'Choose a 4–6 digit PIN to secure InfoBill',
+    confirm: 'Enter the same PIN again to confirm',
+  };
+
   return (
     <div className="login-container">
-      <motion.div 
-        className="login-card glass-panel"
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="login-header">
-          <h2>{isSetupMode ? "Setup Owner PIN" : "Enter PIN"}</h2>
-          <p>{isSetupMode ? "Create a 4-6 digit PIN to secure your POS" : "Authentication Required"}</p>
-        </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={phase}
+          className="login-card"
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -16, scale: 0.97 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Logo / Brand */}
+          <div className="login-brand">
+            <div className="login-logo">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <rect width="36" height="36" rx="10" fill="var(--primary-500)" />
+                <path d="M10 24L14 12L18 20L22 15L26 24H10Z" fill="white" opacity="0.9" />
+              </svg>
+            </div>
+            <span className="login-brand-name">InfoBill</span>
+          </div>
 
-        <div className="pin-display">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className={`pin-dot ${i < pin.length ? 'filled' : ''}`} />
-          ))}
-        </div>
+          {/* Title */}
+          <div className="login-header">
+            <h2>{titles[phase]}</h2>
+            <p>{subtitles[phase]}</p>
+          </div>
 
-        <div className="numpad">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-            <motion.button 
-              key={num}
-              className="numpad-btn"
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleKeyPress(num.toString())}
-              disabled={isLoading}
+          {/* PIN dots */}
+          <PinDots length={6} filled={currentPin.length} shake={shake} />
+
+          {/* Numpad */}
+          <Numpad
+            onKey={handleKey}
+            onDelete={handleDelete}
+            onSubmit={handleSubmit}
+            canSubmit={currentPin.length >= 4}
+            isLoading={isLoading}
+          />
+
+          {/* Back button on confirm phase */}
+          {phase === 'confirm' && (
+            <button
+              className="login-back-btn"
+              onClick={() => { setPhase('setup'); setConfirmPin(''); }}
             >
-              {num}
-            </motion.button>
-          ))}
-          <motion.button 
-            className="numpad-btn action-btn" 
-            whileTap={{ scale: 0.9 }}
-            onClick={handleDelete}
-            disabled={isLoading}
-          >
-            C
-          </motion.button>
-          <motion.button 
-            className="numpad-btn" 
-            whileTap={{ scale: 0.9 }}
-            onClick={() => handleKeyPress('0')}
-            disabled={isLoading}
-          >
-            0
-          </motion.button>
-          <motion.button 
-            className="numpad-btn action-btn submit-btn" 
-            whileTap={{ scale: 0.9 }}
-            onClick={handleSubmit}
-            disabled={pin.length < 4 || isLoading}
-          >
-            OK
-          </motion.button>
-        </div>
-      </motion.div>
+              ← Back
+            </button>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

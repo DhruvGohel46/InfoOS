@@ -55,6 +55,8 @@ frontend/build/
 # Logs
 *.log
 logs/
+**/data/logs/
+backend/dashboard_refresh.log
 # Database
 *.db
 *.sqlite3

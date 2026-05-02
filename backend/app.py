@@ -2,16 +2,17 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 import os
+import logging
 import threading
 from dotenv import load_dotenv
 from config import config
 from error_handler import register_error_handlers
+from logger import setup_logging, register_logger_middleware
+
+_log = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
-
-
-
 
 
 def start_dashboard_refresher():
@@ -20,18 +21,17 @@ def start_dashboard_refresher():
     from models import db, Reminder
     import time
     from datetime import datetime
-    
+
     # Run dashboard refresher
     try:
         refresher = DashboardRefresher()
-        print("Dashboard Refresher started - Daily refresh at 12:01 AM")
-        
-        # Start dash refresher thread
-        import threading
-        dash_thread = threading.Thread(target=refresher.start_scheduler, daemon=True)
+        _log.info("Dashboard Refresher started — daily refresh at 00:01")
+        import threading as _t
+
+        dash_thread = _t.Thread(target=refresher.start_scheduler, daemon=True)
         dash_thread.start()
     except Exception as e:
-        print(f"Failed to start dashboard refresher: {e}")
+        _log.error("Failed to start dashboard refresher: %s", e)
 
     # Start reminder checker loop
     # Re-using the same background logic structure for reminders
@@ -39,7 +39,8 @@ def start_dashboard_refresher():
         # Access application instance through create_app inside thread
         from app import create_app
         import traceback
-        local_app = create_app('default') # Re-create or use existing? 
+
+        local_app = create_app("default")  # Re-create or use existing?
         # Better: use current_app context or create a context once.
         with local_app.app_context():
             while True:
@@ -47,37 +48,33 @@ def start_dashboard_refresher():
                     # Use local time since reminders are stored as local datetime strings.
                     now = datetime.now()
                     triggered_reminders = Reminder.query.filter(
-                        Reminder.status == 'pending',
-                        Reminder.reminder_time <= now
+                        Reminder.status == "pending", Reminder.reminder_time <= now
                     ).all()
-                    
+
                     for reminder in triggered_reminders:
-                        print(f"🔔 Reminder Triggered: {reminder.title}")
-                        reminder.status = 'triggered'
+                        _log.info("Reminder triggered: %s", reminder.title)
+                        reminder.status = "triggered"
                         reminder.triggered_at = now
                         reminder.last_triggered_at = now
                         db.session.commit()
-                        # Notification could be added here later if Sockets are needed
-                        
                 except Exception as e:
-                    print(f"Error in reminder checker: {e}")
+                    _log.error("Reminder checker error: %s", e)
                     db.session.rollback()
-                    traceback.print_exc()
                 finally:
                     # Reset the scoped session so one failed transaction does not
                     # poison future reminder checks in this thread.
                     db.session.remove()
-                time.sleep(10) # Check every 10 seconds
+                time.sleep(10)  # Check every 10 seconds
 
     reminder_thread = threading.Thread(target=check_reminders_loop, daemon=True)
     reminder_thread.start()
-    print("Reminder micro-checker started - Checking every 10s")
+    _log.info("Reminder micro-checker started — polling every 10 s")
 
 
-def create_app(config_name='default'):
+def create_app(config_name="default"):
     """Create and configure Flask application"""
     app = Flask(__name__)
-    
+
     # Import route blueprints logic moved inside to allow env vars to take effect before config loading in modules
     from dashboard_refresher import DashboardRefresher
     from routes.products import products_bp
@@ -92,26 +89,40 @@ def create_app(config_name='default'):
     from routes.reminders import reminders_bp
     from routes.pos import pos_bp
     from auth import auth_bp
+    from routes.logs import logs_bp
     from limiter import limiter
-    
+
     # Load configuration
     app.config.from_object(config[config_name])
-    
+
     # Initialize SQLAlchemy and Migrate
     from models import db
+
     db.init_app(app)
     Migrate(app, db)
     limiter.init_app(app)
-    
+
+    # Initialize Flask-Caching
+    from caching import cache
+
+    cache.init_app(app)
+
+    # Structured logging (must come before blueprints so routes get the logger)
+    setup_logging(app)
+    register_logger_middleware(app)
+
     # Enable CORS for all routes
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
-        }
-    })
-    
+    CORS(
+        app,
+        resources={
+            r"/api/*": {
+                "origins": "*",
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"],
+            }
+        },
+    )
+
     # Register blueprints
     app.register_blueprint(products_bp)
     app.register_blueprint(billing_bp)
@@ -125,140 +136,144 @@ def create_app(config_name='default'):
     app.register_blueprint(reminders_bp)
     app.register_blueprint(pos_bp)
     app.register_blueprint(auth_bp)
-    
+    app.register_blueprint(logs_bp)
 
     # Serve product images
-    @app.route('/api/images/<path:filename>')
+    @app.route("/api/images/<path:filename>")
     def serve_image(filename):
         from flask import send_from_directory
+
         # Use DATA_DIR from config, assuming images are in 'images' subdir
-        images_dir = os.path.join(app.config['DATA_DIR'], 'images')
+        images_dir = os.path.join(app.config["DATA_DIR"], "images")
         return send_from_directory(images_dir, filename, max_age=2592000)
-        
+
     # Serve sounds
-    @app.route('/api/sounds/<path:filename>')
+    @app.route("/api/sounds/<path:filename>")
     def serve_sound(filename):
         from flask import send_from_directory
+
         # Sounds are stored in the 'Sound' subdirectory
-        sounds_dir = os.path.join(app.config['DATA_DIR'], 'Sound')
+        sounds_dir = os.path.join(app.config["DATA_DIR"], "Sound")
         # Return the file without caching so changes are reflected immediately
         response = send_from_directory(sounds_dir, filename)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         return response
 
     # Root endpoint
-    @app.route('/')
+    @app.route("/")
     def index():
-        return jsonify({
-            'message': 'POS Backend API',
-            'version': '1.0.0',
-            'status': 'running',
-            'endpoints': {
-                'products': '/api/products',
-                'billing': '/api/bill',
-                'summary': '/api/summary',
-                'reports': '/api/reports',
-                'categories': '/api/categories',
-                'settings': '/api/settings',
-                'inventory': '/api/inventory',
-                'workers': '/api/workers',
-                'reminders': '/api/reminders',
-                'expenses': '/api/expenses'
+        return jsonify(
+            {
+                "message": "POS Backend API",
+                "version": "1.0.0",
+                "status": "running",
+                "endpoints": {
+                    "products": "/api/products",
+                    "billing": "/api/bill",
+                    "summary": "/api/summary",
+                    "reports": "/api/reports",
+                    "categories": "/api/categories",
+                    "settings": "/api/settings",
+                    "inventory": "/api/inventory",
+                    "workers": "/api/workers",
+                    "reminders": "/api/reminders",
+                    "expenses": "/api/expenses",
+                },
             }
-        })
-    
+        )
+
     # Health check endpoint
-    @app.route('/health')
+    @app.route("/health")
     def health_check():
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': str(os.times()),
-            'data_directory': app.config['DATA_DIR']
-        })
-    
+        return jsonify(
+            {
+                "status": "healthy",
+                "timestamp": str(os.times()),
+                "data_directory": app.config["DATA_DIR"],
+            }
+        )
+
     # Register centralized error handlers (400, 404, 405, 409, 500)
     register_error_handlers(app)
-    
+
     return app
 
 
 def db_health_check(app, db):
     """Verify database connection and critical tables."""
     from sqlalchemy import text
+
     try:
         with app.app_context():
             db.session.execute(text("SELECT 1"))
             db.session.commit()
-            print("Database health check: OK")
+            _log.info("Database health check: OK")
     except Exception as e:
-        print(f"Database health check failed: {e}")
+        _log.error("Database health check FAILED: %s", e)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import argparse
     import sys
     from sqlalchemy import text
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='POS Backend Server')
-    parser.add_argument('--data-dir', help='Path to data directory')
-    parser.add_argument('--port', type=int, default=5050, help='Port to run server on')
+    parser = argparse.ArgumentParser(description="POS Backend Server")
+    parser.add_argument("--data-dir", help="Path to data directory")
+    parser.add_argument("--port", type=int, default=5050, help="Port to run server on")
     args = parser.parse_args()
-    
+
     # Set data directory if provided
     if args.data_dir:
-        os.environ['POS_DATA_DIR'] = args.data_dir
-        print(f"Data directory set to: {args.data_dir}")
-        
+        os.environ["POS_DATA_DIR"] = args.data_dir
+        _log.info("Data directory overridden: %s", args.data_dir)
+
     # Create app and run
     # If frozen (PyInstaller), use 'production' config by default
-    config_name = 'production' if getattr(sys, 'frozen', False) else 'development'
+    config_name = "production" if getattr(sys, "frozen", False) else "development"
     app = create_app(config_name)
     from models import db
 
     # Create tables if they don't exist
     try:
         with app.app_context():
-            # Ensure worker schema exists (PostgreSQL specific)
             try:
                 db.session.execute(text("CREATE SCHEMA IF NOT EXISTS worker"))
                 db.session.commit()
             except Exception as e:
-                print(f"Schema creation warning: {e}")
-
+                _log.warning("Schema creation warning: %s", e)
             db.create_all()
-            print("Database tables created/verified")
+            _log.info("Database tables created/verified")
     except Exception as e:
-        print(f"Error creating database tables: {e}")
-        import traceback
-        traceback.print_exc()
+        _log.error("Error creating database tables: %s", e)
 
     # Perform Database Health Check
     db_health_check(app, db)
-    
+
     # Ensure data directory exists
     try:
-        os.makedirs(app.config['DATA_DIR'], exist_ok=True)
-        os.makedirs(app.config['BILLS_DIR'], exist_ok=True)
-        os.makedirs(app.config['ARCHIVE_DIR'], exist_ok=True)
-        os.makedirs(app.config['EXPORT_DIR'], exist_ok=True)
+        os.makedirs(app.config["DATA_DIR"], exist_ok=True)
+        os.makedirs(app.config["BILLS_DIR"], exist_ok=True)
+        os.makedirs(app.config["ARCHIVE_DIR"], exist_ok=True)
+        os.makedirs(app.config["EXPORT_DIR"], exist_ok=True)
     except OSError as e:
         print(f"Error creating directories: {e}")
         # Continue anyway, might be permission issue handled by user
-    
+
     # Start dashboard refresher in background thread
     refresher_thread = threading.Thread(target=start_dashboard_refresher, daemon=True)
     refresher_thread.start()
-    
-    print("Starting POS Backend Server...")
-    print(f"Data directory: {app.config['DATA_DIR']}")
-    print(f"Server running on: http://localhost:{args.port}")
-    print("Dashboard Refresher is running in background")
-    
+
+    _log.info("Starting InfoBill POS Backend...")
+    _log.info("Data directory : %s", app.config["DATA_DIR"])
+    _log.info("Server         : http://localhost:%d", args.port)
+    _log.info("Debug mode     : %s", app.config["DEBUG"])
+
     app.run(
-        host='0.0.0.0',
+        host="0.0.0.0",
         port=args.port,
-        debug=app.config['DEBUG'],
-        use_reloader=False  # Prevent duplicate refresher threads
+        debug=app.config["DEBUG"],
+        use_reloader=False,  # Prevent duplicate refresher threads
     )

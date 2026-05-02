@@ -5,7 +5,8 @@ from services.printer_service import PrinterService
 from config import config
 from error_handler import safe_route, ValidationError, NotFoundError
 from validators import BillCreateSchema, BillUpdateSchema, MarshmallowValidationError
-import cache
+import cache as local_cache
+from caching import cache
 import logging
 from limiter import limiter
 
@@ -104,8 +105,9 @@ def create_bill():
             logger.warning(f"Printer error (non-critical): {e}")
 
     # Invalidate product caches (stock levels changed)
-    cache.invalidate('products')
-    cache.invalidate('products_with_stock')
+    local_cache.invalidate('products')
+    local_cache.invalidate('products_with_stock')
+    cache.clear() # Invalidate Flask-Caching for summary endpoints
 
     # Update pre-aggregated daily summary (async-safe, non-blocking)
     try:
@@ -148,14 +150,13 @@ def get_today_bills():
     page = request.args.get('page', type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    bills = db.get_todays_bills()
-
-    # Apply pagination if requested
+    # Apply pagination at DB level if requested
     if page is not None:
-        total = len(bills)
         start = (page - 1) * per_page
+        
+        paginated_bills = db.get_todays_bills(limit=per_page, offset=start)
+        total = db.get_todays_bills_count()
         end = start + per_page
-        paginated_bills = bills[start:end]
 
         return jsonify({
             'success': True,
@@ -169,6 +170,7 @@ def get_today_bills():
             }
         }), 200
 
+    bills = db.get_todays_bills()
     return jsonify({
         'success': True,
         'bills': bills
@@ -217,11 +219,35 @@ def get_next_bill_number():
 def get_all_bills_management():
     """Get ALL bills for management (including cancelled)."""
     date_param = request.args.get('date')
+    page = request.args.get('page', type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     if date_param:
         bills = db.get_bills_by_date_range(date_param, date_param)
-    else:
-        bills = db.get_all_bills_management()
+        return jsonify({
+            'success': True,
+            'bills': bills
+        }), 200
+        
+    if page is not None:
+        start = (page - 1) * per_page
+        paginated_bills = db.get_all_bills_management(limit=per_page, offset=start)
+        total = db.get_all_bills_management_count()
+        end = start + per_page
+        
+        return jsonify({
+            'success': True,
+            'bills': paginated_bills,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page,
+                'has_more': end < total
+            }
+        }), 200
+
+    bills = db.get_all_bills_management()
 
     return jsonify({
         'success': True,
@@ -247,6 +273,8 @@ def cancel_bill(bill_no):
         update_daily_summary()
     except Exception:
         pass
+
+    cache.clear() # Invalidate Flask-Caching for summary endpoints
 
     return jsonify({
         'success': True,
@@ -314,6 +342,8 @@ def update_bill(bill_no):
             code="BILL_UPDATE_FAILED"
         )
 
+    cache.clear() # Invalidate Flask-Caching for summary endpoints
+
     return jsonify({
         'success': True,
         'message': f'Bill {bill_no} updated successfully'
@@ -373,6 +403,8 @@ def clear_all_bills():
 
     if not success:
         raise Exception("Failed to clear bills")
+
+    cache.clear() # Invalidate Flask-Caching for summary endpoints
 
     return jsonify({
         'success': True,

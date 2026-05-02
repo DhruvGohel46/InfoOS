@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const { autoUpdater } = require('electron-updater');
 
 // Configuration
 // Configuration
@@ -137,6 +138,33 @@ function createWindow() {
     mainWindow = null;
   });
 
+  // Setup auto-updater listeners attached to this window
+  autoUpdater.on('update-available', (info) => {
+    log('Update available.');
+    if (mainWindow) mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log('Update not available.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    log('Error in auto-updater. ' + err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    log(log_message);
+    if (mainWindow) mainWindow.webContents.send('download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log('Update downloaded');
+    if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
+  });
+
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -192,6 +220,12 @@ app.whenReady().then(() => {
   startBackend();
   waitForBackend(() => {
     createWindow();
+    
+    // Check for updates
+    if (!isDev) {
+        log('Checking for updates...');
+        autoUpdater.checkForUpdatesAndNotify();
+    }
   });
 });
 
@@ -234,17 +268,49 @@ app.on('web-contents-created', (event, contents) => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-platform', () => process.platform);
 
-// Logging IPC
-ipcMain.handle('write-log', (event, level, message) => {
-  const logDir = isDev 
-    ? path.join(__dirname, '../backend/data/logs')
-    : path.join(app.getPath('userData'), 'logs');
-  
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-  }
-  
-  const logFile = path.join(logDir, 'frontend.log');
-  const timestamp = new Date().toISOString();
-  fs.appendFileSync(logFile, `[${timestamp}] [${level.toUpperCase()}] ${message}\n`);
+// Update Installation
+ipcMain.on('install-update', () => {
+  log('Installing update...');
+  autoUpdater.quitAndInstall();
 });
+
+// Logging IPC — renderer → main → app.log (same file as Python backend)
+ipcMain.handle('write-log', (event, payload) => {
+  // payload can be a string (legacy) or an object { level, source, message, ...extra }
+  let level   = 'INFO';
+  let source  = 'renderer';
+  let message = '';
+
+  if (typeof payload === 'string') {
+    message = payload;
+  } else if (payload && typeof payload === 'object') {
+    level   = (payload.level  || 'info').toUpperCase();
+    source  = payload.source  || 'renderer';
+    message = payload.message || JSON.stringify(payload);
+  }
+
+  // Resolve log directory — same DATA_DIR the backend uses
+  const dataDir = process.env.POS_DATA_DIR ||
+    (isDev
+      ? path.join(__dirname, '../backend/data')
+      : path.join(app.getPath('userData'), 'data'));
+
+  const logDir  = path.join(dataDir, 'logs');
+  const logFile = path.join(logDir, 'app.log');
+
+  try {
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+
+    const ts   = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const loc  = `electron:${source}`;
+    const line = `${ts} | ${level.padEnd(8)} | ${loc.padEnd(32)} | [FRONTEND] ${message}  [rid=-]\n`;
+
+    fs.appendFileSync(logFile, line, 'utf8');
+  } catch (err) {
+    // Logging must never crash the renderer
+    console.error('[main] writeLog error:', err.message);
+  }
+});
+

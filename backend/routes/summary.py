@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from auth import require_auth
 from error_handler import safe_route, ValidationError
+from caching import cache
 import json
 from services.db_service import DatabaseService
 from services.summary_service import SummaryService
@@ -15,6 +16,7 @@ summary_service = SummaryService(db)
 
 @summary_bp.route('/today', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_today_summary():
     """Get today's sales summary."""
     summary = summary_service.get_today_summary()
@@ -27,6 +29,7 @@ def get_today_summary():
 
 @summary_bp.route('/date/<date_str>', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_summary_for_date(date_str):
     """Get summary for a specific date (YYYY-MM-DD format)."""
     # Basic date format validation
@@ -53,6 +56,7 @@ def get_summary_for_date(date_str):
 
 @summary_bp.route('/top-products', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_top_selling_products():
     """Get top selling products for today."""
     limit = 10
@@ -75,6 +79,7 @@ def get_top_selling_products():
 
 @summary_bp.route('/quick-stats', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_quick_stats():
     """Get quick statistics for dashboard."""
     summary = summary_service.get_today_summary()
@@ -97,6 +102,7 @@ def get_quick_stats():
 
 @summary_bp.route('/product-sales', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_product_sales():
     """Get detailed sales breakdown by individual products."""
     date_param = request.args.get('date')
@@ -143,6 +149,7 @@ def get_product_sales():
 
 @summary_bp.route('/range', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_range_summary():
     """Get aggregated summary for a date range."""
     from datetime import date
@@ -159,6 +166,7 @@ def get_range_summary():
 
 @summary_bp.route('/aggregated', methods=['GET'])
 @safe_route
+@cache.cached(timeout=300, query_string=True)
 def get_aggregated_summary():
     """Get pre-aggregated daily summaries for a date range.
 
