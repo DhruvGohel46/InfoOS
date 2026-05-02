@@ -60,9 +60,6 @@ logs/
 *.sqlite3
 
 # Data directories
-backend/data/bills/
-backend/data/archive/
-backend/data/images/
-backend/data/products.db
+backend/
 
 data\products.db
