@@ -1,6 +1,6 @@
 {
   "name": "infobill",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron/main.js",
   "scripts": {
     "start": "npm start --prefix frontend",
