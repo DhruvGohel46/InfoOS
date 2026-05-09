@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>InfoOS POS Loading</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none;
+            overflow: hidden;
+            -webkit-app-region: drag; /* Allows moving the window */
+        }
+        .logo-container {
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #58a6ff, #3fb950);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status {
+            font-size: 1rem;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo-container">
+        <div class="logo">InfoOS</div>
+    </div>
+    <div class="spinner"></div>
+    <div class="status" id="status-text">Starting backend server...</div>
+
+    <script>
+        // Simple client-side text updates if needed.
+        let dots = 0;
+        const baseText = "Starting POS system";
+        const textElement = document.getElementById("status-text");
+        
+        setInterval(() => {
+            dots = (dots + 1) % 4;
+            textElement.textContent = baseText + ".".repeat(dots);
+        }, 500);
+    </script>
+</body>
+</html>

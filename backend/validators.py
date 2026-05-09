@@ -18,8 +18,13 @@
 =============================================================================
 """
 
-from marshmallow import Schema, fields, validate, ValidationError as MarshmallowValidationError, EXCLUDE
-
+from marshmallow import (
+    Schema,
+    fields,
+    validate,
+    ValidationError as MarshmallowValidationError,
+    EXCLUDE,
+)
 
 # Re-export for convenience
 MarshmallowValidationError = MarshmallowValidationError
@@ -29,8 +34,10 @@ MarshmallowValidationError = MarshmallowValidationError
 # BILLING
 # ---------------------------------------------------------------------------
 
+
 class BillItemSchema(Schema):
     """Schema for a single item within a bill."""
+
     product_id = fields.String(required=True)
     quantity = fields.Integer(required=True, validate=validate.Range(min=1))
     name = fields.String(load_default=None)
@@ -42,10 +49,9 @@ class BillItemSchema(Schema):
 
 class BillCreateSchema(Schema):
     """Schema for POST /api/bill/create."""
+
     products = fields.List(
-        fields.Nested(BillItemSchema),
-        required=True,
-        validate=validate.Length(min=1)
+        fields.Nested(BillItemSchema), required=True, validate=validate.Length(min=1)
     )
     customer_name = fields.String(load_default="")
     payment_method = fields.String(load_default="CASH")
@@ -57,6 +63,7 @@ class BillCreateSchema(Schema):
 
 class BillUpdateSchema(Schema):
     """Schema for PUT /api/bill/<bill_no>/update."""
+
     products = fields.List(fields.Nested(BillItemSchema), load_default=[])
     customer_name = fields.String(load_default="")
     total_amount = fields.Float(load_default=0)
@@ -69,8 +76,10 @@ class BillUpdateSchema(Schema):
 # PRODUCTS
 # ---------------------------------------------------------------------------
 
+
 class ProductCreateSchema(Schema):
     """Schema for POST /api/products."""
+
     product_id = fields.String(required=True)
     name = fields.String(required=True, validate=validate.Length(min=1))
     price = fields.Float(required=True, validate=validate.Range(min=0))
@@ -87,6 +96,7 @@ class ProductUpdateSchema(Schema):
 
     Partial update — at least one field should be present (enforced in route).
     """
+
     name = fields.String(validate=validate.Length(min=1))
     price = fields.Float(validate=validate.Range(min=0, min_inclusive=False))
     category = fields.String()
@@ -102,8 +112,10 @@ class ProductUpdateSchema(Schema):
 # WORKERS
 # ---------------------------------------------------------------------------
 
+
 class WorkerCreateSchema(Schema):
     """Schema for POST /api/workers."""
+
     name = fields.String(required=True, validate=validate.Length(min=1))
     phone = fields.String(load_default=None)
     email = fields.String(load_default=None)
@@ -119,6 +131,7 @@ class WorkerCreateSchema(Schema):
 
 class WorkerUpdateSchema(Schema):
     """Schema for PUT /api/workers/<id>."""
+
     name = fields.String(validate=validate.Length(min=1))
     phone = fields.String()
     email = fields.String()
@@ -134,7 +147,10 @@ class WorkerUpdateSchema(Schema):
 
 class AdvanceCreateSchema(Schema):
     """Schema for POST /api/workers/<id>/advance."""
-    amount = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
+
+    amount = fields.Float(
+        required=True, validate=validate.Range(min=0, min_inclusive=False)
+    )
     reason = fields.String(load_default="")
 
     class Meta:
@@ -143,9 +159,10 @@ class AdvanceCreateSchema(Schema):
 
 class AttendanceSchema(Schema):
     """Schema for POST /api/workers/<id>/attendance."""
+
     status = fields.String(
         load_default="Present",
-        validate=validate.OneOf(["Present", "Absent", "Half-day"])
+        validate=validate.OneOf(["Present", "Absent", "Half-day"]),
     )
     check_in = fields.String(load_default=None)
     check_out = fields.String(load_default=None)
@@ -156,6 +173,7 @@ class AttendanceSchema(Schema):
 
 class SalaryGenerateSchema(Schema):
     """Schema for POST /api/workers/<id>/generate-salary."""
+
     month = fields.Integer(validate=validate.Range(min=1, max=12))
     year = fields.Integer(validate=validate.Range(min=2020, max=2099))
 
@@ -167,16 +185,19 @@ class SalaryGenerateSchema(Schema):
 # INVENTORY
 # ---------------------------------------------------------------------------
 
+
 class InventoryCreateSchema(Schema):
     """Schema for POST /api/inventory/create."""
+
     name = fields.String(required=True, validate=validate.Length(min=1))
     type = fields.String(
-        required=True,
-        validate=validate.OneOf(["DIRECT_SALE", "RAW_MATERIAL"])
+        required=True, validate=validate.OneOf(["DIRECT_SALE", "RAW_MATERIAL"])
     )
     unit = fields.String(
         required=True,
-        validate=validate.OneOf(["piece", "packet", "kg", "liter", "gram", "ml", "box", "bottle"])
+        validate=validate.OneOf(
+            ["piece", "packet", "kg", "liter", "gram", "ml", "box", "bottle"]
+        ),
     )
     stock = fields.Float(load_default=0.0)
     unit_price = fields.Float(load_default=0.0)
@@ -189,6 +210,7 @@ class InventoryCreateSchema(Schema):
 
 class InventoryUpdateSchema(Schema):
     """Schema for PUT /api/inventory/<id>."""
+
     name = fields.String()
     type = fields.String(validate=validate.OneOf(["DIRECT_SALE", "RAW_MATERIAL"]))
     unit = fields.String()
@@ -203,6 +225,7 @@ class InventoryUpdateSchema(Schema):
 
 class StockAdjustSchema(Schema):
     """Schema for POST /api/inventory/adjust."""
+
     id = fields.Integer(required=True)
     adjustment = fields.Float(required=True)
 
@@ -214,8 +237,10 @@ class StockAdjustSchema(Schema):
 # EXPENSES
 # ---------------------------------------------------------------------------
 
+
 class ExpenseItemSchema(Schema):
     """Schema for an individual expense line item."""
+
     product_id = fields.String(load_default=None)
     name = fields.String(load_default=None)
     quantity = fields.Raw(load_default="1")  # Can be string like "2 kg"
@@ -228,9 +253,12 @@ class ExpenseItemSchema(Schema):
 
 class ExpenseCreateSchema(Schema):
     """Schema for POST /api/expenses."""
+
     title = fields.String(required=True, validate=validate.Length(min=1))
     category = fields.String(required=True, validate=validate.Length(min=1))
-    amount = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
+    amount = fields.Float(
+        required=True, validate=validate.Range(min=0, min_inclusive=False)
+    )
     payment_method = fields.String(load_default="Cash")
     worker_id = fields.String(load_default=None)
     date = fields.Raw(load_default=None)  # Can be string or None
@@ -243,6 +271,7 @@ class ExpenseCreateSchema(Schema):
 
 class ExpenseUpdateSchema(Schema):
     """Schema for PUT /api/expenses/<id>."""
+
     title = fields.String()
     category = fields.String()
     amount = fields.Float(validate=validate.Range(min=0, min_inclusive=False))
@@ -260,8 +289,10 @@ class ExpenseUpdateSchema(Schema):
 # CATEGORIES
 # ---------------------------------------------------------------------------
 
+
 class CategoryCreateSchema(Schema):
     """Schema for POST /api/categories."""
+
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
     active = fields.Boolean(load_default=True)
@@ -272,6 +303,7 @@ class CategoryCreateSchema(Schema):
 
 class CategoryUpdateSchema(Schema):
     """Schema for PUT /api/categories/<id>."""
+
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
     active = fields.Boolean()
@@ -284,14 +316,16 @@ class CategoryUpdateSchema(Schema):
 # REMINDERS
 # ---------------------------------------------------------------------------
 
+
 class ReminderCreateSchema(Schema):
     """Schema for POST /api/reminders."""
+
     title = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default=None)
     reminder_time = fields.String(required=True)
     repeat_type = fields.String(
         load_default="once",
-        validate=validate.OneOf(["once", "daily", "weekly", "monthly", "none"])
+        validate=validate.OneOf(["once", "daily", "weekly", "monthly", "none"]),
     )
     user_id = fields.String(load_default="admin")
 
@@ -303,8 +337,10 @@ class ReminderCreateSchema(Schema):
 # SETTINGS
 # ---------------------------------------------------------------------------
 
+
 class SettingItemSchema(Schema):
     """Schema for a single setting entry in bulk update."""
+
     key = fields.String(required=True)
     value = fields.Raw(required=True)
     group_name = fields.String(load_default=None)

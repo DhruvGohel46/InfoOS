@@ -1,0 +1,79 @@
+name: Release — Build & Publish
+
+# Triggered only when a version tag is pushed: git tag v1.2.3 && git push --tags
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    name: Build Windows Installer & Publish to GitHub Releases
+    runs-on: windows-latest # Must be Windows to build a signed .exe with NSIS
+    timeout-minutes: 60
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js ─────────────────────────────────────────────────
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── 3. Set up Python (for PyInstaller backend compilation) ────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 4. Install all dependencies ───────────────────────────────────────
+      - name: Install root Node dependencies
+        run: npm ci
+
+      - name: Install frontend Node dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Python backend dependencies
+        run: pip install -r requirements.txt
+        working-directory: backend
+
+      # ── 5. Run backend tests before building ──────────────────────────────
+      - name: Run backend tests (gate)
+        run: python -m pytest --tb=short
+        working-directory: backend
+        env:
+          TESTING: "True"
+          DATABASE_URL: "sqlite:///test.db"
+
+      # ── 6. Build React frontend ───────────────────────────────────────────
+      - name: Build React frontend
+        run: npm run build
+        working-directory: frontend
+
+      # ── 7. Compile Python backend with PyInstaller ────────────────────────
+      - name: Compile Python backend (PyInstaller)
+        run: npm run build:backend
+
+      # ── 8. Build & publish Electron installer ─────────────────────────────
+      # GH_TOKEN is auto-provided by GitHub Actions — no manual secret needed for public repos.
+      # CSC_LINK / CSC_KEY_PASSWORD are optional — add these secrets if you have a code-signing cert.
+      - name: Build & publish Windows installer
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Optional: code-signing certificate (base64-encoded .pfx)
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      # ── 9. Upload build artifacts for inspection ──────────────────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InfoBill-Windows-Installer
+          path: dist/*.exe
+          retention-days: 30

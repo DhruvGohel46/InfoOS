@@ -23,11 +23,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-pos_bp = Blueprint('pos', __name__, url_prefix='/api/pos')
+pos_bp = Blueprint("pos", __name__, url_prefix="/api/pos")
 db_service = DatabaseService()
 
 
-@pos_bp.route('/bootstrap', methods=['GET'])
+@pos_bp.route("/bootstrap", methods=["GET"])
 @safe_route
 def bootstrap():
     """Single aggregated endpoint for POS initialization.
@@ -41,49 +41,56 @@ def bootstrap():
       GET /bill/next-number
     """
     # 1. Products (with stock)
-    products = cache.get('products_with_stock', 'active')
+    products = cache.get("products_with_stock", "active")
     if products is None:
         products = db_service.get_all_products_with_stock(include_inactive=False)
-        cache.set('products_with_stock', 'active', products)
+        cache.set("products_with_stock", "active", products)
 
     # 2. Categories
-    categories = cache.get('categories', 'active')
+    categories = cache.get("categories", "active")
     if categories is None:
         categories = db_service.get_all_categories(include_inactive=False)
-        cache.set('categories', 'active', categories)
+        cache.set("categories", "active", categories)
 
     # 3. Workers
-    workers = cache.get('workers', 'active')
+    workers = cache.get("workers", "active")
     if workers is None:
-        worker_objs = Worker.query.filter_by(status='active').all()
-        workers = [{
-            'worker_id': w.worker_id,
-            'name': w.name,
-            'role': w.role,
-            'phone': w.phone,
-            'status': w.status,
-        } for w in worker_objs]
-        cache.set('workers', 'active', workers)
+        worker_objs = Worker.query.filter_by(status="active").all()
+        workers = [
+            {
+                "worker_id": w.worker_id,
+                "name": w.name,
+                "role": w.role,
+                "phone": w.phone,
+                "status": w.status,
+            }
+            for w in worker_objs
+        ]
+        cache.set("workers", "active", workers)
 
     # 4. Settings
-    settings = cache.get('settings', 'all')
+    settings = cache.get("settings", "all")
     if settings is None:
         settings = db_service.get_all_settings()
-        cache.set('settings', 'all', settings)
+        cache.set("settings", "all", settings)
 
     # 5. Next bill number (always fresh — lightweight query)
     today = date.today()
-    max_bill = db.session.query(func.max(Bill.bill_no)).filter(
-        func.date(Bill.created_at) == today
-    ).scalar()
+    max_bill = (
+        db.session.query(func.max(Bill.bill_no))
+        .filter(func.date(Bill.created_at) == today)
+        .scalar()
+    )
     next_bill_number = (max_bill or 0) + 1
 
-    return jsonify({
-        'success': True,
-        'products': products,
-        'categories': categories,
-        'workers': workers,
-        'settings': settings,
-        'next_bill_number': next_bill_number,
-        '_cache_stats': cache.stats()
-    })
+    return jsonify(
+        {
+            "success": True,
+            "products": products,
+            "categories": categories,
+            "workers": workers,
+            "settings": settings,
+            "next_bill_number": next_bill_number,
+            "_cache_stats": cache.stats(),
+        }
+    )

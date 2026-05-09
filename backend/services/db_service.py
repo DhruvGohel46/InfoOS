@@ -5,6 +5,7 @@ from sqlalchemy import func, or_
 from models import db, Product, Bill, Category, Settings, Inventory
 from config import config
 
+
 class DatabaseService:
     def __init__(self):
         # No specific initialization needed for SQLAlchemy service
@@ -18,73 +19,77 @@ class DatabaseService:
     def get_all_products(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """Get all products with category info"""
         query = Product.query
-        
+
         if not include_inactive:
             query = query.filter(Product.active == True)
-            
+
         products = query.order_by(Product.name).all()
-        
+
         result = []
         for p in products:
             p_dict = {
-                'product_id': p.product_id,
-                'name': p.name,
-                'price': p.price,
-                'category_id': p.category_id,
-                'category': p.category, # Legacy field
-                'category_name': p.category_rel.name if p.category_rel else None,
-                'image_filename': p.image_filename,
-                'active': p.active,
-                'favorite': p.favorite,
-                'created_at': str(p.created_at),
-                'updated_at': str(p.updated_at)
+                "product_id": p.product_id,
+                "name": p.name,
+                "price": p.price,
+                "category_id": p.category_id,
+                "category": p.category,  # Legacy field
+                "category_name": p.category_rel.name if p.category_rel else None,
+                "image_filename": p.image_filename,
+                "active": p.active,
+                "favorite": p.favorite,
+                "created_at": str(p.created_at),
+                "updated_at": str(p.updated_at),
             }
             # Maintain legacy behavior
-            if not p_dict.get('category') and p_dict.get('category_name'):
-                p_dict['category'] = p_dict['category_name']
+            if not p_dict.get("category") and p_dict.get("category_name"):
+                p_dict["category"] = p_dict["category_name"]
             result.append(p_dict)
-            
+
         return result
 
-    def get_all_products_with_stock(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    def get_all_products_with_stock(
+        self, include_inactive: bool = False
+    ) -> List[Dict[str, Any]]:
         """Get all products with current stock info"""
         # Join Product with Inventory
-        query = db.session.query(Product, Inventory).outerjoin(Inventory, Product.product_id == Inventory.product_id)
-        
+        query = db.session.query(Product, Inventory).outerjoin(
+            Inventory, Product.product_id == Inventory.product_id
+        )
+
         if not include_inactive:
             query = query.filter(Product.active == True)
-            
+
         results = query.order_by(Product.name).all()
-        
+
         products = []
         for p, inv in results:
             p_dict = {
-                'product_id': p.product_id,
-                'name': p.name,
-                'price': p.price,
-                'category_id': p.category_id,
-                'category': p.category,
-                'category_name': p.category_rel.name if p.category_rel else None,
-                'image_filename': p.image_filename,
-                'active': p.active,
-                'favorite': p.favorite,
-                'stock': inv.stock if inv else 0, # Default 0 if not linked
-                'stock_status': 'In Stock' # Default
+                "product_id": p.product_id,
+                "name": p.name,
+                "price": p.price,
+                "category_id": p.category_id,
+                "category": p.category,
+                "category_name": p.category_rel.name if p.category_rel else None,
+                "image_filename": p.image_filename,
+                "active": p.active,
+                "favorite": p.favorite,
+                "stock": inv.stock if inv else 0,  # Default 0 if not linked
+                "stock_status": "In Stock",  # Default
             }
-            
+
             if inv:
                 if inv.stock <= 0:
-                    p_dict['stock_status'] = 'Out of Stock'
+                    p_dict["stock_status"] = "Out of Stock"
                 elif inv.stock <= inv.alert_threshold:
-                    p_dict['stock_status'] = 'Low Stock'
+                    p_dict["stock_status"] = "Low Stock"
             else:
-                 # If no inventory record, maybe assume infinite or 0? 
-                 # Let's say "N/A" or handled by Frontend
-                 p_dict['stock_status'] = 'N/A'
+                # If no inventory record, maybe assume infinite or 0?
+                # Let's say "N/A" or handled by Frontend
+                p_dict["stock_status"] = "N/A"
 
-            if not p_dict.get('category') and p_dict.get('category_name'):
-                p_dict['category'] = p_dict['category_name']
-                
+            if not p_dict.get("category") and p_dict.get("category_name"):
+                p_dict["category"] = p_dict["category_name"]
+
             products.append(p_dict)
         return products
 
@@ -93,38 +98,38 @@ class DatabaseService:
         p = Product.query.get(product_id)
         if not p:
             return None
-            
+
         p_dict = {
-            'product_id': p.product_id,
-            'name': p.name,
-            'price': p.price,
-            'category_id': p.category_id,
-            'category': p.category,
-            'category_name': p.category_rel.name if p.category_rel else None,
-            'image_filename': p.image_filename,
-            'active': p.active,
-            'favorite': p.favorite,
-            'created_at': str(p.created_at),
-            'updated_at': str(p.updated_at)
+            "product_id": p.product_id,
+            "name": p.name,
+            "price": p.price,
+            "category_id": p.category_id,
+            "category": p.category,
+            "category_name": p.category_rel.name if p.category_rel else None,
+            "image_filename": p.image_filename,
+            "active": p.active,
+            "favorite": p.favorite,
+            "created_at": str(p.created_at),
+            "updated_at": str(p.updated_at),
         }
-        if not p_dict.get('category') and p_dict.get('category_name'):
-             p_dict['category'] = p_dict['category_name']
+        if not p_dict.get("category") and p_dict.get("category_name"):
+            p_dict["category"] = p_dict["category_name"]
         return p_dict
 
     def create_product(self, product_data: Dict[str, Any]) -> bool:
         """Create a new product"""
         try:
-            if Product.query.get(product_data['product_id']):
+            if Product.query.get(product_data["product_id"]):
                 return False
 
             new_product = Product(
-                product_id=product_data['product_id'],
-                name=product_data['name'],
-                price=float(product_data['price']),
-                category_id=product_data.get('category_id'),
-                category=product_data.get('category'),
-                image_filename=product_data.get('image_filename'),
-                active=bool(product_data.get('active', True))
+                product_id=product_data["product_id"],
+                name=product_data["name"],
+                price=float(product_data["price"]),
+                category_id=product_data.get("category_id"),
+                category=product_data.get("category"),
+                image_filename=product_data.get("image_filename"),
+                active=bool(product_data.get("active", True)),
             )
             db.session.add(new_product)
             db.session.commit()
@@ -141,21 +146,21 @@ class DatabaseService:
             if not p:
                 return False
 
-            if 'name' in product_data:
-                p.name = product_data['name']
-            if 'price' in product_data:
-                p.price = float(product_data['price'])
-            if 'category_id' in product_data:
-                p.category_id = product_data['category_id']
-            if 'category' in product_data:
-                p.category = product_data['category']
-            if 'image_filename' in product_data:
-                p.image_filename = product_data['image_filename']
-            if 'active' in product_data:
-                p.active = bool(product_data['active'])
-            if 'favorite' in product_data:
-                p.favorite = bool(product_data['favorite'])
-            
+            if "name" in product_data:
+                p.name = product_data["name"]
+            if "price" in product_data:
+                p.price = float(product_data["price"])
+            if "category_id" in product_data:
+                p.category_id = product_data["category_id"]
+            if "category" in product_data:
+                p.category = product_data["category"]
+            if "image_filename" in product_data:
+                p.image_filename = product_data["image_filename"]
+            if "active" in product_data:
+                p.active = bool(product_data["active"])
+            if "favorite" in product_data:
+                p.favorite = bool(product_data["favorite"])
+
             p.updated_at = datetime.now()
             db.session.commit()
             return True
@@ -175,10 +180,10 @@ class DatabaseService:
                 return True
             return False
         except Exception as e:
-             print(f"Error deleting product: {e}")
-             db.session.rollback()
-             return False
-             
+            print(f"Error deleting product: {e}")
+            db.session.rollback()
+            return False
+
     def permanently_delete_product(self, product_id: str) -> bool:
         """Permanently delete a product (Hard Delete)"""
         try:
@@ -192,7 +197,7 @@ class DatabaseService:
             print(f"Error permanently deleting product: {e}")
             db.session.rollback()
             return False
-             
+
     def clear_all_products(self):
         """Clear all products"""
         try:
@@ -213,64 +218,69 @@ class DatabaseService:
         try:
             # Check bill reset setting
             # In SQLAlchemy, we query the Settings model
-            setting = Settings.query.get('bill_reset_daily')
-            reset_daily = (setting.value == 'true') if setting else True
-            
+            setting = Settings.query.get("bill_reset_daily")
+            reset_daily = (setting.value == "true") if setting else True
+
             next_bill_no = 1
             if reset_daily:
                 # Get max bill_no for today
                 # Postgres 'date' function on timestamp works, but func.date() is safer
                 today = date.today()
-                max_bill = db.session.query(func.max(Bill.bill_no))\
-                    .filter(func.date(Bill.created_at) == today).scalar()
+                max_bill = (
+                    db.session.query(func.max(Bill.bill_no))
+                    .filter(func.date(Bill.created_at) == today)
+                    .scalar()
+                )
                 if max_bill:
                     next_bill_no = max_bill + 1
             else:
                 max_bill = db.session.query(func.max(Bill.bill_no)).scalar()
                 if max_bill:
                     next_bill_no = max_bill + 1
-            
+
             # Create Items JSON
             # Enrich items logic mirrored from sqlite_db_service
             enriched_items = []
-            for item in bill_data['items']:
+            for item in bill_data["items"]:
                 # Optimizable: Bulk fetch products?
                 # For compatibility, keeping loop or doing single query
-                p = Product.query.get(item['product_id'])
+                p = Product.query.get(item["product_id"])
                 enriched_item = {
-                    'product_id': item['product_id'],
-                    'name': p.name if p else 'Unknown Product',
-                    'price': item['price'],
-                    'quantity': item['quantity']
+                    "product_id": item["product_id"],
+                    "name": p.name if p else "Unknown Product",
+                    "price": item["price"],
+                    "quantity": item["quantity"],
                 }
                 enriched_items.append(enriched_item)
 
                 # Inventory Deduction Integration
                 # Find linked inventory item and deduct stock
-                inv_item = Inventory.query.filter_by(product_id=item['product_id']).first()
+                inv_item = Inventory.query.filter_by(
+                    product_id=item["product_id"]
+                ).first()
                 if inv_item:
                     # Deduct stock
-                    inv_item.stock -= item['quantity']
+                    inv_item.stock -= item["quantity"]
                     # inv_item.updated_at = func.now() # SqlAlchemy handles onupdate usually, but explicit is fine if func imported
-                
+
             new_bill = Bill(
                 bill_no=next_bill_no,
-                customer_name=bill_data.get('customer_name', ''),
-                total_amount=float(bill_data['total_amount']),
-                payment_method=bill_data.get('payment_method', 'CASH'),
+                customer_name=bill_data.get("customer_name", ""),
+                total_amount=float(bill_data["total_amount"]),
+                payment_method=bill_data.get("payment_method", "CASH"),
                 items=json.dumps(enriched_items),
-                status='CONFIRMED',
-                created_at=datetime.now()
+                status="CONFIRMED",
+                created_at=datetime.now(),
             )
-            
+
             db.session.add(new_bill)
             db.session.commit()
             return next_bill_no
-            
+
         except Exception as e:
             print(f"Error creating bill: {e}")
             db.session.rollback()
-            return 0 # Error indicator
+            return 0  # Error indicator
 
     def get_bill(self, bill_no: int) -> Optional[Dict[str, Any]]:
         """Get a specific bill by number for today"""
@@ -279,10 +289,9 @@ class DatabaseService:
             # Assuming 'bill_no' is only unique per day if reset_daily is true.
             # So strict get_bill(bill_no) implies getting TODAY's bill with that number.
             bill = Bill.query.filter(
-                Bill.bill_no == bill_no, 
-                func.date(Bill.created_at) == today
+                Bill.bill_no == bill_no, func.date(Bill.created_at) == today
             ).first()
-            
+
             if bill:
                 return self._bill_to_dict(bill)
             return None
@@ -290,20 +299,22 @@ class DatabaseService:
             print(f"Error getting bill: {e}")
             return None
 
-    def get_todays_bills(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
+    def get_todays_bills(
+        self, limit: int = None, offset: int = None
+    ) -> List[Dict[str, Any]]:
         """Get all bills for today with optional pagination"""
         try:
             today = date.today()
             query = Bill.query.filter(
                 func.date(Bill.created_at) == today,
-                func.trim(Bill.status) != 'CANCELLED'
+                func.trim(Bill.status) != "CANCELLED",
             ).order_by(Bill.bill_no.asc())
-            
+
             if limit is not None:
                 query = query.limit(limit)
             if offset is not None:
                 query = query.offset(offset)
-                
+
             bills = query.all()
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
@@ -316,7 +327,7 @@ class DatabaseService:
             today = date.today()
             return Bill.query.filter(
                 func.date(Bill.created_at) == today,
-                func.trim(Bill.status) != 'CANCELLED'
+                func.trim(Bill.status) != "CANCELLED",
             ).count()
         except Exception:
             return 0
@@ -325,12 +336,16 @@ class DatabaseService:
         """Get all bills for a specific month and year"""
         try:
             # Extract month/year from created_at in Postgres
-            bills = Bill.query.filter(
-                func.extract('month', Bill.created_at) == month,
-                func.extract('year', Bill.created_at) == year,
-                func.trim(Bill.status) != 'CANCELLED'
-            ).order_by(Bill.created_at.asc()).all()
-            
+            bills = (
+                Bill.query.filter(
+                    func.extract("month", Bill.created_at) == month,
+                    func.extract("year", Bill.created_at) == year,
+                    func.trim(Bill.status) != "CANCELLED",
+                )
+                .order_by(Bill.created_at.asc())
+                .all()
+            )
+
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
             print(f"Error getting monthly bills: {e}")
@@ -340,29 +355,39 @@ class DatabaseService:
         """Get all bills for a specific date (YYYY-MM-DD)"""
         try:
             # date_str is expected YYYY-MM-DD
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            bills = Bill.query.filter(
-                func.date(Bill.created_at) == target_date,
-                func.trim(Bill.status) != 'CANCELLED'
-            ).order_by(Bill.created_at.asc()).all()
-            
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            bills = (
+                Bill.query.filter(
+                    func.date(Bill.created_at) == target_date,
+                    func.trim(Bill.status) != "CANCELLED",
+                )
+                .order_by(Bill.created_at.asc())
+                .all()
+            )
+
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
-             print(f"Error getting bills by date: {e}")
-             return []
-             
-    def get_bills_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+            print(f"Error getting bills by date: {e}")
+            return []
+
+    def get_bills_by_date_range(
+        self, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
         """Get bills in date range"""
         try:
-            s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            e_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-            
-            bills = Bill.query.filter(
-                func.date(Bill.created_at) >= s_date,
-                func.date(Bill.created_at) <= e_date,
-                func.trim(Bill.status) != 'CANCELLED'
-            ).order_by(Bill.created_at.asc()).all()
-            
+            s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+            bills = (
+                Bill.query.filter(
+                    func.date(Bill.created_at) >= s_date,
+                    func.date(Bill.created_at) <= e_date,
+                    func.trim(Bill.status) != "CANCELLED",
+                )
+                .order_by(Bill.created_at.asc())
+                .all()
+            )
+
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
             print(f"Error getting bills range: {e}")
@@ -371,22 +396,27 @@ class DatabaseService:
     def get_all_bills(self) -> List[Dict[str, Any]]:
         """Get all bills"""
         try:
-            bills = Bill.query.filter(func.trim(Bill.status) != 'CANCELLED')\
-                .order_by(Bill.created_at.desc()).all()
+            bills = (
+                Bill.query.filter(func.trim(Bill.status) != "CANCELLED")
+                .order_by(Bill.created_at.desc())
+                .all()
+            )
             return [self._bill_to_dict(b) for b in bills]
         except Exception as e:
-             return []
+            return []
 
-    def get_all_bills_management(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
+    def get_all_bills_management(
+        self, limit: int = None, offset: int = None
+    ) -> List[Dict[str, Any]]:
         """Get ALL bills including cancelled with optional pagination"""
         try:
             query = Bill.query.order_by(Bill.created_at.desc())
-            
+
             if limit is not None:
                 query = query.limit(limit)
             if offset is not None:
                 query = query.offset(offset)
-                
+
             bills = query.all()
             return [self._bill_to_dict(b) for b in bills]
         except Exception:
@@ -403,29 +433,30 @@ class DatabaseService:
         """Cancel a bill"""
         try:
             # Find the bill (latest one with this no? or today's?)
-            # Assuming user cancels recent bills usually. 
+            # Assuming user cancels recent bills usually.
             # Ideally should pass ID, but sticking to bill_no interface.
             # We search for the bill with this number created TODAY.
             today = date.today()
             bill = Bill.query.filter(
-                 Bill.bill_no == bill_no,
-                 func.date(Bill.created_at) == today
+                Bill.bill_no == bill_no, func.date(Bill.created_at) == today
             ).first()
-            
+
             if bill:
-                bill.status = 'CANCELLED'
+                bill.status = "CANCELLED"
                 bill.updated_at = datetime.now()
-                
+
                 # Restore inventory stock
                 try:
                     items = json.loads(bill.items)
                     for item in items:
-                        inv_item = Inventory.query.filter_by(product_id=item['product_id']).first()
+                        inv_item = Inventory.query.filter_by(
+                            product_id=item["product_id"]
+                        ).first()
                         if inv_item:
-                            inv_item.stock += item['quantity']
+                            inv_item.stock += item["quantity"]
                 except Exception as eval_err:
                     print(f"Error restoring inventory for cancelled bill: {eval_err}")
-                
+
                 db.session.commit()
                 return True
             return False
@@ -439,48 +470,52 @@ class DatabaseService:
         try:
             today = date.today()
             bill = Bill.query.filter(
-                 Bill.bill_no == bill_no,
-                 func.date(Bill.created_at) == today,
-                 func.trim(Bill.status) != 'CANCELLED'
+                Bill.bill_no == bill_no,
+                func.date(Bill.created_at) == today,
+                func.trim(Bill.status) != "CANCELLED",
             ).first()
-            
+
             if not bill:
                 return False
-                
+
             # Enrich items again
             enriched_items = []
-            for item in bill_data['items']:
-                p = Product.query.get(item['product_id'])
+            for item in bill_data["items"]:
+                p = Product.query.get(item["product_id"])
                 enriched_item = {
-                    'product_id': item['product_id'],
-                    'name': p.name if p else 'Unknown Product',
-                    'price': item['price'],
-                    'quantity': item['quantity']
+                    "product_id": item["product_id"],
+                    "name": p.name if p else "Unknown Product",
+                    "price": item["price"],
+                    "quantity": item["quantity"],
                 }
                 enriched_items.append(enriched_item)
-                
+
             # Adjust inventory stock
             try:
                 # 1. Restore stock from old items
                 old_items = json.loads(bill.items)
                 for old_item in old_items:
-                    inv_item = Inventory.query.filter_by(product_id=old_item['product_id']).first()
+                    inv_item = Inventory.query.filter_by(
+                        product_id=old_item["product_id"]
+                    ).first()
                     if inv_item:
-                        inv_item.stock += old_item['quantity']
-                        
+                        inv_item.stock += old_item["quantity"]
+
                 # 2. Deduct stock for new items
-                for new_item in bill_data['items']:
-                    inv_item = Inventory.query.filter_by(product_id=new_item['product_id']).first()
+                for new_item in bill_data["items"]:
+                    inv_item = Inventory.query.filter_by(
+                        product_id=new_item["product_id"]
+                    ).first()
                     if inv_item:
-                        inv_item.stock -= new_item['quantity']
+                        inv_item.stock -= new_item["quantity"]
             except Exception as eval_err:
                 print(f"Error adjusting inventory for updated bill: {eval_err}")
 
-            bill.customer_name = bill_data.get('customer_name', '')
-            bill.total_amount = float(bill_data['total_amount'])
+            bill.customer_name = bill_data.get("customer_name", "")
+            bill.total_amount = float(bill_data["total_amount"])
             bill.items = json.dumps(enriched_items)
             bill.updated_at = datetime.now()
-            
+
             db.session.commit()
             return True
         except Exception as e:
@@ -501,40 +536,42 @@ class DatabaseService:
     def _bill_to_dict(self, bill: Bill) -> Dict[str, Any]:
         """Helper to convert Bill model to dict"""
         return {
-            'id': bill.id,
-            'bill_no': bill.bill_no,
-            'customer_name': bill.customer_name,
-            'total_amount': bill.total_amount,
-            'items': json.loads(bill.items), # Deserialize JSON
-            'status': bill.status,
-            'created_at': str(bill.created_at),
-            'updated_at': str(bill.updated_at)
+            "id": bill.id,
+            "bill_no": bill.bill_no,
+            "customer_name": bill.customer_name,
+            "total_amount": bill.total_amount,
+            "items": json.loads(bill.items),  # Deserialize JSON
+            "status": bill.status,
+            "created_at": str(bill.created_at),
+            "updated_at": str(bill.updated_at),
         }
 
     # ---------------------------------------------------------
     # CATEGORY MANAGEMENT
     # ---------------------------------------------------------
 
-    def get_all_categories(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    def get_all_categories(
+        self, include_inactive: bool = False
+    ) -> List[Dict[str, Any]]:
         query = Category.query
         if not include_inactive:
             query = query.filter(Category.active == True)
-        
+
         cats = query.order_by(Category.name).all()
-        
+
         result = []
         for c in cats:
             # Count products
             count = len(c.products)
             c_dict = {
-                'id': c.id,
-                'name': c.name,
-                'description': c.description,
-                'active': c.active,
-                'created_at': str(c.created_at),
-                'updated_at': str(c.updated_at),
-                'product_count': count,
-                'is_used': count > 0 # Simple check
+                "id": c.id,
+                "name": c.name,
+                "description": c.description,
+                "active": c.active,
+                "created_at": str(c.created_at),
+                "updated_at": str(c.updated_at),
+                "product_count": count,
+                "is_used": count > 0,  # Simple check
             }
             result.append(c_dict)
         return result
@@ -543,30 +580,30 @@ class DatabaseService:
         c = Category.query.get(category_id)
         if c:
             return {
-                'id': c.id,
-                'name': c.name,
-                'description': c.description,
-                'active': c.active
+                "id": c.id,
+                "name": c.name,
+                "description": c.description,
+                "active": c.active,
             }
         return None
 
     def get_category_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         c = Category.query.filter(func.lower(Category.name) == func.lower(name)).first()
         if c:
-             return {
-                'id': c.id,
-                'name': c.name,
-                'description': c.description,
-                'active': c.active
+            return {
+                "id": c.id,
+                "name": c.name,
+                "description": c.description,
+                "active": c.active,
             }
         return None
 
     def create_category(self, data: Dict[str, Any]) -> Optional[int]:
         try:
             new_cat = Category(
-                name=data['name'],
-                description=data.get('description', ''),
-                active=bool(data.get('active', True))
+                name=data["name"],
+                description=data.get("description", ""),
+                active=bool(data.get("active", True)),
             )
             db.session.add(new_cat)
             db.session.commit()
@@ -578,12 +615,16 @@ class DatabaseService:
     def update_category(self, category_id: int, data: Dict[str, Any]) -> bool:
         try:
             c = Category.query.get(category_id)
-            if not c: return False
-            
-            if 'name' in data: c.name = data['name']
-            if 'description' in data: c.description = data['description']
-            if 'active' in data: c.active = bool(data['active'])
-            
+            if not c:
+                return False
+
+            if "name" in data:
+                c.name = data["name"]
+            if "description" in data:
+                c.description = data["description"]
+            if "active" in data:
+                c.active = bool(data["active"])
+
             c.updated_at = datetime.now()
             db.session.commit()
             return True
@@ -595,18 +636,18 @@ class DatabaseService:
         """Check usage"""
         c = Category.query.get(category_id)
         if not c:
-             return {'used': False, 'reason': 'Category not found'}
-             
+            return {"used": False, "reason": "Category not found"}
+
         # Check products
         if c.products:
-            return {'used': True, 'reason': f'linked to {len(c.products)} product(s)'}
-            
+            return {"used": True, "reason": f"linked to {len(c.products)} product(s)"}
+
         # Check bills? (Complex text search on JSON)
         # Mirroring logic: check products in this category, then check bills containing those products
         # For Postgres, we can do JSONB or text search, but 'items' is Text.
         # We can implement if strictly needed, but for now assuming product link is sufficient
         # or relying on same logic as SQLite service if we want full parity.
-        return {'used': False, 'reason': 'No usage found'}
+        return {"used": False, "reason": "No usage found"}
 
     def delete_category(self, category_id: int) -> bool:
         try:
@@ -632,66 +673,74 @@ class DatabaseService:
         items = Inventory.query.order_by(Inventory.name).all()
         result = []
         for i in items:
-            status = 'In Stock'
+            status = "In Stock"
             if i.stock <= 0:
-                status = 'Out of Stock'
+                status = "Out of Stock"
             elif i.stock <= i.alert_threshold:
-                status = 'Low Stock'
+                status = "Low Stock"
 
             # Ensure max_stock_history is at least 10 or current stock
             max_hist = i.max_stock_history if i.max_stock_history else 10.0
             if i.stock > max_hist:
                 max_hist = i.stock
-            
+
             product_active = True
             if i.product:
                 product_active = bool(i.product.active)
 
-            is_locked = bool(i.type == 'DIRECT_SALE' and i.product_id and not product_active)
+            is_locked = bool(
+                i.type == "DIRECT_SALE" and i.product_id and not product_active
+            )
 
-            result.append({
-                'id': i.id,
-                'name': i.name,
-                'type': i.type,
-                'unit': i.unit,
-                'stock': i.stock,
-                'unit_price': i.unit_price,
-                'alert_threshold': i.alert_threshold,
-                'max_stock_history': max_hist,
-                'product_id': i.product_id,
-                'product_name': i.product.name if i.product else None,
-                'status': status,
-                'product_status': 'inactive' if not product_active else 'active',
-                'product_active': product_active,
-                'is_locked': is_locked,
-                'updated_at': str(i.updated_at)
-            })
+            result.append(
+                {
+                    "id": i.id,
+                    "name": i.name,
+                    "type": i.type,
+                    "unit": i.unit,
+                    "stock": i.stock,
+                    "unit_price": i.unit_price,
+                    "alert_threshold": i.alert_threshold,
+                    "max_stock_history": max_hist,
+                    "product_id": i.product_id,
+                    "product_name": i.product.name if i.product else None,
+                    "status": status,
+                    "product_status": "inactive" if not product_active else "active",
+                    "product_active": product_active,
+                    "is_locked": is_locked,
+                    "updated_at": str(i.updated_at),
+                }
+            )
         return result
 
     def get_low_stock_products(self) -> List[Dict[str, Any]]:
         """Get only low stock or out of stock items"""
         # Filter where stock <= alert_threshold
-        items = Inventory.query.filter(Inventory.stock <= Inventory.alert_threshold).all()
+        items = Inventory.query.filter(
+            Inventory.stock <= Inventory.alert_threshold
+        ).all()
         result = []
         for i in items:
             # Skip inactive products
-            if i.type == 'DIRECT_SALE' and i.product and not i.product.active:
+            if i.type == "DIRECT_SALE" and i.product and not i.product.active:
                 continue
-                
-            status = 'Low Stock'
+
+            status = "Low Stock"
             if i.stock <= 0:
-                status = 'Out of Stock'
-            
-            result.append({
-                'id': i.id,
-                'name': i.name,
-                'type': i.type,
-                'stock': i.stock,
-                'alert_threshold': i.alert_threshold,
-                'unit': i.unit,
-                'status': status,
-                'product_id': i.product_id
-            })
+                status = "Out of Stock"
+
+            result.append(
+                {
+                    "id": i.id,
+                    "name": i.name,
+                    "type": i.type,
+                    "stock": i.stock,
+                    "alert_threshold": i.alert_threshold,
+                    "unit": i.unit,
+                    "status": status,
+                    "product_id": i.product_id,
+                }
+            )
         return result
 
     def get_inventory_item(self, item_id: int) -> Optional[Dict[str, Any]]:
@@ -705,52 +754,56 @@ class DatabaseService:
             if i.product:
                 product_active = bool(i.product.active)
 
-            is_locked = bool(i.type == 'DIRECT_SALE' and i.product_id and not product_active)
-                
+            is_locked = bool(
+                i.type == "DIRECT_SALE" and i.product_id and not product_active
+            )
+
             return {
-                'id': i.id,
-                'name': i.name,
-                'type': i.type,
-                'unit': i.unit,
-                'stock': i.stock,
-                'unit_price': i.unit_price,
-                'alert_threshold': i.alert_threshold,
-                'max_stock_history': max_hist,
-                'product_id': i.product_id,
-                'product_status': 'inactive' if not product_active else 'active',
-                'product_active': product_active,
-                'is_locked': is_locked,
-                'updated_at': str(i.updated_at)
+                "id": i.id,
+                "name": i.name,
+                "type": i.type,
+                "unit": i.unit,
+                "stock": i.stock,
+                "unit_price": i.unit_price,
+                "alert_threshold": i.alert_threshold,
+                "max_stock_history": max_hist,
+                "product_id": i.product_id,
+                "product_status": "inactive" if not product_active else "active",
+                "product_active": product_active,
+                "is_locked": is_locked,
+                "updated_at": str(i.updated_at),
             }
         return None
 
     def create_inventory_item(self, data: Dict[str, Any]) -> Optional[int]:
         try:
-             # Check if product is already linked?
-            if data.get('product_id'):
-                existing = Inventory.query.filter_by(product_id=data['product_id']).first()
+            # Check if product is already linked?
+            if data.get("product_id"):
+                existing = Inventory.query.filter_by(
+                    product_id=data["product_id"]
+                ).first()
                 if existing:
-                    return None # Product already linked
+                    return None  # Product already linked
 
-            item_name = data['name']
-            if data.get('product_id'):
-                product = Product.query.get(data['product_id'])
+            item_name = data["name"]
+            if data.get("product_id"):
+                product = Product.query.get(data["product_id"])
                 if product:
                     if not product.active:
                         return None
                     item_name = product.name
 
-            initial_stock = float(data.get('stock', 0))
-            
+            initial_stock = float(data.get("stock", 0))
+
             new_item = Inventory(
                 name=item_name,
-                type=data['type'],
-                unit=data['unit'],
+                type=data["type"],
+                unit=data["unit"],
                 stock=initial_stock,
-                unit_price=float(data.get('unit_price', 0.0)),
-                alert_threshold=float(data.get('alert_threshold', 0)),
-                product_id=data.get('product_id'),
-                max_stock_history=max(initial_stock, 10.0)
+                unit_price=float(data.get("unit_price", 0.0)),
+                alert_threshold=float(data.get("alert_threshold", 0)),
+                product_id=data.get("product_id"),
+                max_stock_history=max(initial_stock, 10.0),
             )
             db.session.add(new_item)
             db.session.commit()
@@ -763,25 +816,37 @@ class DatabaseService:
     def update_inventory(self, item_id: int, data: Dict[str, Any]) -> bool:
         try:
             i = Inventory.query.get(item_id)
-            if not i: return False
-            if i.type == 'DIRECT_SALE' and i.product_id and i.product and not i.product.active:
+            if not i:
+                return False
+            if (
+                i.type == "DIRECT_SALE"
+                and i.product_id
+                and i.product
+                and not i.product.active
+            ):
                 return False
 
-            if 'name' in data: i.name = data['name']
-            if 'type' in data: i.type = data['type'] 
-            if 'unit' in data: i.unit = data['unit']
-            
-            if 'stock' in data: 
-                new_stock = float(data['stock'])
+            if "name" in data:
+                i.name = data["name"]
+            if "type" in data:
+                i.type = data["type"]
+            if "unit" in data:
+                i.unit = data["unit"]
+
+            if "stock" in data:
+                new_stock = float(data["stock"])
                 i.stock = new_stock
                 # Update history
                 if new_stock > i.max_stock_history:
                     i.max_stock_history = new_stock
-            
-            if 'unit_price' in data: i.unit_price = float(data['unit_price'])
-                    
-            if 'alert_threshold' in data: i.alert_threshold = float(data['alert_threshold'])
-            if 'product_id' in data: i.product_id = data['product_id']
+
+            if "unit_price" in data:
+                i.unit_price = float(data["unit_price"])
+
+            if "alert_threshold" in data:
+                i.alert_threshold = float(data["alert_threshold"])
+            if "product_id" in data:
+                i.product_id = data["product_id"]
 
             i.updated_at = datetime.now()
             db.session.commit()
@@ -794,17 +859,23 @@ class DatabaseService:
     def adjust_inventory_stock(self, item_id: int, adjustment: float) -> bool:
         try:
             i = Inventory.query.get(item_id)
-            if not i: return False
-            if i.type == 'DIRECT_SALE' and i.product_id and i.product and not i.product.active:
+            if not i:
+                return False
+            if (
+                i.type == "DIRECT_SALE"
+                and i.product_id
+                and i.product
+                and not i.product.active
+            ):
                 return False
 
             i.stock += adjustment
-            
+
             # Update history
             cur_max = i.max_stock_history if i.max_stock_history else 10.0
             if i.stock > cur_max:
                 i.max_stock_history = i.stock
-            
+
             i.updated_at = datetime.now()
             db.session.commit()
             return True
@@ -828,7 +899,7 @@ class DatabaseService:
     # ---------------------------------------------------------
     # SETTINGS MANAGEMENT
     # ---------------------------------------------------------
-    
+
     def get_all_settings(self) -> Dict[str, Any]:
         """Get all settings"""
         settings = Settings.query.all()
@@ -841,10 +912,10 @@ class DatabaseService:
         """Update multiple settings"""
         try:
             for item in settings_list:
-                key = item.get('key')
-                value = item.get('value')
-                group_name = item.get('group_name')
-                
+                key = item.get("key")
+                value = item.get("value")
+                group_name = item.get("group_name")
+
                 if key:
                     setting = Settings.query.get(key)
                     if setting:
@@ -855,12 +926,10 @@ class DatabaseService:
                     else:
                         # Create if not exists
                         new_setting = Settings(
-                            key=key,
-                            value=str(value),
-                            group_name=group_name or 'app' 
+                            key=key, value=str(value), group_name=group_name or "app"
                         )
                         db.session.add(new_setting)
-            
+
             db.session.commit()
             return True
         except Exception as e:
@@ -876,8 +945,13 @@ class DatabaseService:
         """Get all expenses for today"""
         try:
             from models import Expense
+
             today = date.today()
-            expenses = Expense.query.filter(func.date(Expense.date) == today).order_by(Expense.created_at.desc()).all()
+            expenses = (
+                Expense.query.filter(func.date(Expense.date) == today)
+                .order_by(Expense.created_at.desc())
+                .all()
+            )
             return [expense.to_dict() for expense in expenses]
         except Exception as e:
             print(f"Error getting today's expenses: {e}")
@@ -887,23 +961,34 @@ class DatabaseService:
         """Get all expenses for a specific date (YYYY-MM-DD)"""
         try:
             from models import Expense
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            expenses = Expense.query.filter(func.date(Expense.date) == target_date).order_by(Expense.created_at.desc()).all()
+
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            expenses = (
+                Expense.query.filter(func.date(Expense.date) == target_date)
+                .order_by(Expense.created_at.desc())
+                .all()
+            )
             return [expense.to_dict() for expense in expenses]
         except Exception as e:
             print(f"Error getting expenses by date: {e}")
             return []
 
-    def get_expenses_by_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    def get_expenses_by_range(
+        self, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
         """Get expenses in date range (YYYY-MM-DD inclusive)"""
         try:
             from models import Expense
-            s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            e_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-            expenses = Expense.query.filter(
-                func.date(Expense.date) >= s_date,
-                func.date(Expense.date) <= e_date
-            ).order_by(Expense.date.asc()).all()
+
+            s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            expenses = (
+                Expense.query.filter(
+                    func.date(Expense.date) >= s_date, func.date(Expense.date) <= e_date
+                )
+                .order_by(Expense.date.asc())
+                .all()
+            )
             return [expense.to_dict() for expense in expenses]
         except Exception as e:
             print(f"Error getting expenses range: {e}")

@@ -3,6 +3,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import uuid
 from datetime import datetime
+import os
+
+WORKER_SCHEMA = None if os.environ.get('TESTING') == 'True' else 'worker'
 import enum
 import os
 

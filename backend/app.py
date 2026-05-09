@@ -239,11 +239,6 @@ if __name__ == "__main__":
     # Create tables if they don't exist
     try:
         with app.app_context():
-            try:
-                db.session.execute(text("CREATE SCHEMA IF NOT EXISTS worker"))
-                db.session.commit()
-            except Exception as e:
-                _log.warning("Schema creation warning: %s", e)
             db.create_all()
             _log.info("Database tables created/verified")
     except Exception as e:
@@ -271,9 +266,15 @@ if __name__ == "__main__":
     _log.info("Server         : http://localhost:%d", args.port)
     _log.info("Debug mode     : %s", app.config["DEBUG"])
 
-    app.run(
-        host="0.0.0.0",
-        port=args.port,
-        debug=app.config["DEBUG"],
-        use_reloader=False,  # Prevent duplicate refresher threads
-    )
+    if config_name == "production":
+        _log.info("Using Waitress WSGI server for production")
+        from waitress import serve
+        serve(app, host="0.0.0.0", port=args.port)
+    else:
+        _log.info("Using Flask development server")
+        app.run(
+            host="0.0.0.0",
+            port=args.port,
+            debug=app.config["DEBUG"],
+            use_reloader=False,  # Prevent duplicate refresher threads
+        )

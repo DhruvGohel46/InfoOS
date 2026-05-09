@@ -12,6 +12,7 @@ const isDev = !app.isPackaged; // Better check for dev mode
 
 // Keep global references
 let mainWindow;
+let splashWindow;
 let backendProcess = null;
 const fs = require('fs');
 
@@ -102,6 +103,26 @@ function waitForBackend(callback) {
   checkHealth();
 }
 
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
@@ -130,6 +151,9 @@ function createWindow() {
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
+    if (splashWindow) {
+      splashWindow.close();
+    }
     mainWindow.show();
   });
 
@@ -217,6 +241,7 @@ app.on('window-all-closed', () => {
 
 // App lifecycle
 app.whenReady().then(() => {
+  createSplashWindow();
   startBackend();
   waitForBackend(() => {
     createWindow();

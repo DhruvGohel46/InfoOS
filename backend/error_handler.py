@@ -34,10 +34,13 @@ logger = logging.getLogger(__name__)
 # Custom Exception Classes
 # ---------------------------------------------------------------------------
 
+
 class AppError(Exception):
     """Base application error that carries an HTTP status and machine-readable code."""
 
-    def __init__(self, message: str, status_code: int = 500, code: str = "INTERNAL_ERROR"):
+    def __init__(
+        self, message: str, status_code: int = 500, code: str = "INTERNAL_ERROR"
+    ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -47,7 +50,9 @@ class AppError(Exception):
 class ValidationError(AppError):
     """Raised when request data fails validation (400)."""
 
-    def __init__(self, message: str = "Invalid request data", code: str = "VALIDATION_ERROR"):
+    def __init__(
+        self, message: str = "Invalid request data", code: str = "VALIDATION_ERROR"
+    ):
         super().__init__(message, status_code=400, code=code)
 
 
@@ -76,22 +81,29 @@ class AuthorizationError(AppError):
 # Canonical error response builder
 # ---------------------------------------------------------------------------
 
+
 def error_response(message: str, status_code: int, code: str = "ERROR"):
     """Build a consistent JSON error response.
 
     Returns:
         tuple: (Response, status_code)
     """
-    return jsonify({
-        "success": False,
-        "error": message,
-        "code": code,
-    }), status_code
+    return (
+        jsonify(
+            {
+                "success": False,
+                "error": message,
+                "code": code,
+            }
+        ),
+        status_code,
+    )
 
 
 # ---------------------------------------------------------------------------
 # @safe_route decorator
 # ---------------------------------------------------------------------------
+
 
 def safe_route(fn):
     """Decorator that wraps a Flask route handler in structured error handling.
@@ -114,15 +126,15 @@ def safe_route(fn):
             return error_response(e.message, e.status_code, e.code)
         except ValueError as e:
             logger.warning(f"[VALIDATION_ERROR] {str(e)}")
-            return error_response(f"Invalid data format: {str(e)}", 400, "VALIDATION_ERROR")
+            return error_response(
+                f"Invalid data format: {str(e)}", 400, "VALIDATION_ERROR"
+            )
         except Exception as e:
             # Unexpected errors — log full traceback at ERROR level
             logger.error(f"Unhandled exception in {fn.__name__}: {str(e)}")
             logger.error(traceback.format_exc())
             return error_response(
-                f"Internal server error: {str(e)}",
-                500,
-                "INTERNAL_ERROR"
+                f"Internal server error: {str(e)}", 500, "INTERNAL_ERROR"
             )
 
     return wrapper
@@ -131,6 +143,7 @@ def safe_route(fn):
 # ---------------------------------------------------------------------------
 # Flask app-level error handler registration
 # ---------------------------------------------------------------------------
+
 
 def register_error_handlers(app):
     """Register global HTTP error handlers on the Flask app.
@@ -141,41 +154,29 @@ def register_error_handlers(app):
     @app.errorhandler(400)
     def bad_request(error):
         return error_response(
-            str(error.description) if hasattr(error, 'description') else "Bad request",
+            str(error.description) if hasattr(error, "description") else "Bad request",
             400,
-            "BAD_REQUEST"
+            "BAD_REQUEST",
         )
 
     @app.errorhandler(404)
     def not_found(error):
-        return error_response(
-            "Endpoint not found",
-            404,
-            "ENDPOINT_NOT_FOUND"
-        )
+        return error_response("Endpoint not found", 404, "ENDPOINT_NOT_FOUND")
 
     @app.errorhandler(405)
     def method_not_allowed(error):
-        return error_response(
-            "Method not allowed",
-            405,
-            "METHOD_NOT_ALLOWED"
-        )
+        return error_response("Method not allowed", 405, "METHOD_NOT_ALLOWED")
 
     @app.errorhandler(409)
     def conflict(error):
         return error_response(
-            str(error.description) if hasattr(error, 'description') else "Conflict",
+            str(error.description) if hasattr(error, "description") else "Conflict",
             409,
-            "CONFLICT"
+            "CONFLICT",
         )
 
     @app.errorhandler(500)
     def internal_error(error):
-        return error_response(
-            "Internal server error",
-            500,
-            "INTERNAL_ERROR"
-        )
+        return error_response("Internal server error", 500, "INTERNAL_ERROR")
 
     logger.info("Centralized error handlers registered")

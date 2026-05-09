@@ -5,41 +5,47 @@ from models import db, Inventory, func, extract
 from datetime import date, timedelta
 from models import Expense, ExpenseItem
 from error_handler import safe_route, ValidationError, NotFoundError
-from validators import ExpenseCreateSchema, ExpenseUpdateSchema, MarshmallowValidationError
+from validators import (
+    ExpenseCreateSchema,
+    ExpenseUpdateSchema,
+    MarshmallowValidationError,
+)
 import logging
 
 logger = logging.getLogger(__name__)
 
-expenses_bp = Blueprint('expenses', __name__, url_prefix='/api/expenses')
+expenses_bp = Blueprint("expenses", __name__, url_prefix="/api/expenses")
 
 # Reusable schema instances
 _create_schema = ExpenseCreateSchema()
 _update_schema = ExpenseUpdateSchema()
 
 
-@expenses_bp.route('', methods=['GET'])
+@expenses_bp.route("", methods=["GET"])
 @safe_route
 def get_expenses():
     """Get all expenses with optional filtering."""
-    limit = request.args.get('limit', 100, type=int)
-    category = request.args.get('category')
-    worker_id = request.args.get('worker_id')
+    limit = request.args.get("limit", 100, type=int)
+    category = request.args.get("category")
+    worker_id = request.args.get("worker_id")
 
     query = Expense.query
 
-    range_type = request.args.get('range')
+    range_type = request.args.get("range")
     if range_type:
         today = date.today()
-        if range_type == 'today':
+        if range_type == "today":
             query = query.filter(func.date(Expense.date) == today)
-        elif range_type == 'week':
+        elif range_type == "week":
             start_week = today - timedelta(days=today.weekday())
             query = query.filter(Expense.date >= start_week)
-        elif range_type == 'month':
-            query = query.filter(extract('month', Expense.date) == today.month,
-                                 extract('year', Expense.date) == today.year)
-        elif range_type == 'year':
-            query = query.filter(extract('year', Expense.date) == today.year)
+        elif range_type == "month":
+            query = query.filter(
+                extract("month", Expense.date) == today.month,
+                extract("year", Expense.date) == today.year,
+            )
+        elif range_type == "year":
+            query = query.filter(extract("year", Expense.date) == today.year)
 
     if category:
         query = query.filter_by(category=category)
@@ -48,12 +54,15 @@ def get_expenses():
 
     expenses = query.order_by(Expense.date.desc()).limit(limit).all()
 
-    return jsonify({
-        'success': True,
-        'expenses': [expense.to_dict() for expense in expenses]
-    }), 200
+    return (
+        jsonify(
+            {"success": True, "expenses": [expense.to_dict() for expense in expenses]}
+        ),
+        200,
+    )
 
-@expenses_bp.route('/<expense_id>', methods=['GET'])
+
+@expenses_bp.route("/<expense_id>", methods=["GET"])
 @safe_route
 def get_expense(expense_id):
     """Get specific expense details."""
@@ -61,12 +70,10 @@ def get_expense(expense_id):
     if not expense:
         raise NotFoundError("Expense not found", code="EXPENSE_NOT_FOUND")
 
-    return jsonify({
-        'success': True,
-        'expense': expense.to_dict()
-    }), 200
+    return jsonify({"success": True, "expense": expense.to_dict()}), 200
 
-@expenses_bp.route('', methods=['POST'])
+
+@expenses_bp.route("", methods=["POST"])
 @require_auth
 @safe_route
 def create_expense():
@@ -77,44 +84,43 @@ def create_expense():
         validated = _create_schema.load(data or {})
     except MarshmallowValidationError as e:
         raise ValidationError(
-            f"Invalid expense data: {e.messages}",
-            code="EXPENSE_VALIDATION_FAILED"
+            f"Invalid expense data: {e.messages}", code="EXPENSE_VALIDATION_FAILED"
         )
 
-    amount = float(validated['amount'])
+    amount = float(validated["amount"])
 
     # Create Expense
     new_expense = Expense(
         id=str(uuid.uuid4()),
-        title=validated['title'],
-        category=validated['category'],
+        title=validated["title"],
+        category=validated["category"],
         amount=amount,
-        payment_method=validated.get('payment_method', 'Cash'),
-        worker_id=validated.get('worker_id'),
-        date=validated.get('date') or func.now(),
-        notes=validated.get('notes', '')
+        payment_method=validated.get("payment_method", "Cash"),
+        worker_id=validated.get("worker_id"),
+        date=validated.get("date") or func.now(),
+        notes=validated.get("notes", ""),
     )
 
     db.session.add(new_expense)
 
     # Optional: Handle items if provided (backwards compatibility)
-    items = validated.get('items', [])
+    items = validated.get("items", [])
     for item in items:
-        product_id = item.get('product_id') or item.get('name')
-        quantity_str = str(item.get('quantity', '1'))
+        product_id = item.get("product_id") or item.get("name")
+        quantity_str = str(item.get("quantity", "1"))
 
         expense_item = ExpenseItem(
             id=str(uuid.uuid4()),
             expense_id=new_expense.id,
             product_id=product_id,
             quantity=quantity_str,
-            purchase_price=float(item.get('purchase_price', 0)),
-            subtotal=float(item.get('subtotal', 0))
+            purchase_price=float(item.get("purchase_price", 0)),
+            subtotal=float(item.get("subtotal", 0)),
         )
         db.session.add(expense_item)
 
         # Update inventory if it's an inventory purchase
-        if new_expense.category == 'Supplies' and product_id:
+        if new_expense.category == "Supplies" and product_id:
             try:
                 quantity_float = float(quantity_str.split()[0])
             except (ValueError, IndexError):
@@ -134,19 +140,26 @@ def create_expense():
     # Update pre-aggregated daily summary
     try:
         from services.aggregation_service import update_daily_summary
+
         update_daily_summary()
     except Exception as agg_err:
         logger.warning(f"Aggregation update warning: {agg_err}")
 
     logger.info(f"Expense created: {validated['title']} — ₹{amount:.2f}")
 
-    return jsonify({
-        'success': True,
-        'message': 'Expense created successfully',
-        'expense': new_expense.to_dict()
-    }), 201
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Expense created successfully",
+                "expense": new_expense.to_dict(),
+            }
+        ),
+        201,
+    )
 
-@expenses_bp.route('/<expense_id>', methods=['PUT'])
+
+@expenses_bp.route("/<expense_id>", methods=["PUT"])
 @require_auth
 @safe_route
 def update_expense(expense_id):
@@ -158,7 +171,7 @@ def update_expense(expense_id):
     except MarshmallowValidationError as e:
         raise ValidationError(
             f"Invalid update data: {e.messages}",
-            code="EXPENSE_UPDATE_VALIDATION_FAILED"
+            code="EXPENSE_UPDATE_VALIDATION_FAILED",
         )
 
     expense = Expense.query.get(expense_id)
@@ -166,45 +179,51 @@ def update_expense(expense_id):
         raise NotFoundError("Expense not found", code="EXPENSE_NOT_FOUND")
 
     # Update Expense fields
-    if 'title' in validated:
-        expense.title = validated['title']
-    if 'category' in validated:
-        expense.category = validated['category']
-    if 'amount' in validated:
-        expense.amount = float(validated['amount'])
-    if 'payment_method' in validated:
-        expense.payment_method = validated['payment_method']
-    if 'worker_id' in validated:
-        expense.worker_id = validated['worker_id']
-    if 'date' in validated and validated['date']:
-        expense.date = validated['date']
-    if 'notes' in validated:
-        expense.notes = validated['notes']
+    if "title" in validated:
+        expense.title = validated["title"]
+    if "category" in validated:
+        expense.category = validated["category"]
+    if "amount" in validated:
+        expense.amount = float(validated["amount"])
+    if "payment_method" in validated:
+        expense.payment_method = validated["payment_method"]
+    if "worker_id" in validated:
+        expense.worker_id = validated["worker_id"]
+    if "date" in validated and validated["date"]:
+        expense.date = validated["date"]
+    if "notes" in validated:
+        expense.notes = validated["notes"]
 
     # Update Items (Optional)
-    items_data = validated.get('items', [])
+    items_data = validated.get("items", [])
     if items_data:
         ExpenseItem.query.filter_by(expense_id=expense_id).delete()
         for item in items_data:
-            product_id = item.get('product_id') or item.get('name')
+            product_id = item.get("product_id") or item.get("name")
             new_item = ExpenseItem(
                 id=str(uuid.uuid4()),
                 expense_id=expense_id,
                 product_id=product_id,
-                quantity=str(item.get('quantity', '1')),
-                purchase_price=float(item.get('purchase_price', 0)),
-                subtotal=float(item.get('subtotal', 0))
+                quantity=str(item.get("quantity", "1")),
+                purchase_price=float(item.get("purchase_price", 0)),
+                subtotal=float(item.get("subtotal", 0)),
             )
             db.session.add(new_item)
 
     db.session.commit()
-    return jsonify({
-        'success': True,
-        'message': 'Expense updated successfully',
-        'expense': expense.to_dict()
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Expense updated successfully",
+                "expense": expense.to_dict(),
+            }
+        ),
+        200,
+    )
 
-@expenses_bp.route('/<expense_id>', methods=['DELETE'])
+
+@expenses_bp.route("/<expense_id>", methods=["DELETE"])
 @require_auth
 @safe_route
 def delete_expense(expense_id):
@@ -219,8 +238,9 @@ def delete_expense(expense_id):
     # Update pre-aggregated daily summary
     try:
         from services.aggregation_service import update_daily_summary
+
         update_daily_summary()
     except Exception:
         pass
 
-    return jsonify({'success': True, 'message': 'Expense deleted successfully'}), 200
+    return jsonify({"success": True, "message": "Expense deleted successfully"}), 200

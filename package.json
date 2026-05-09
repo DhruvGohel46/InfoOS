@@ -6,6 +6,7 @@
     "start": "npm start --prefix frontend",
     "build": "cd frontend && npm run build",
     "test": "cd frontend && npm test",
+    "test:e2e": "playwright test",
     "eject": "cd frontend && npm run eject",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3050 && electron .\"",
@@ -14,12 +15,14 @@
     "preelectron-pack": "npm run build",
     "backend": "cd backend && python app.py",
     "dev": "npm run electron-dev",
-    "build-all": "npm run dist"
+    "build-all": "npm run dist",
+    "release": "electron-builder --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.7.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",

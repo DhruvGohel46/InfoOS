@@ -25,19 +25,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Max items per cache bucket.  Each bucket holds ONE key (the full dataset).
 # TTL is in seconds.
-_DEFAULT_TTL = 300        # 5 minutes
-_SETTINGS_TTL = 600       # 10 minutes  (settings rarely change)
-_WORKERS_TTL = 600        # 10 minutes
+_DEFAULT_TTL = 300  # 5 minutes
+_SETTINGS_TTL = 600  # 10 minutes  (settings rarely change)
+_WORKERS_TTL = 600  # 10 minutes
 
 _lock = threading.Lock()
 
 # Individual cache stores keyed by domain
 _caches = {
-    'products':            TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
-    'products_with_stock': TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
-    'categories':          TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
-    'settings':            TTLCache(maxsize=4, ttl=_SETTINGS_TTL),
-    'workers':             TTLCache(maxsize=4, ttl=_WORKERS_TTL),
+    "products": TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
+    "products_with_stock": TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
+    "categories": TTLCache(maxsize=8, ttl=_DEFAULT_TTL),
+    "settings": TTLCache(maxsize=4, ttl=_SETTINGS_TTL),
+    "workers": TTLCache(maxsize=4, ttl=_WORKERS_TTL),
 }
 
 
@@ -45,10 +45,11 @@ _caches = {
 # Public API
 # ---------------------------------------------------------------------------
 
-def get(domain: str, key: str = 'default'):
+
+def get(domain: str, key: str = "default"):
     """
     Return cached value or None if not present / expired.
-    
+
     Usage:
         data = cache.get('products', 'active')
         if data is None:
@@ -65,7 +66,7 @@ def get(domain: str, key: str = 'default'):
 def set(domain: str, key: str, value, ttl: int = None):
     """
     Store a value in the cache.
-    
+
     If `ttl` is provided it replaces the store for that domain with a
     fresh TTLCache using the new TTL — use sparingly (mostly for testing).
     """
@@ -83,7 +84,7 @@ def set(domain: str, key: str, value, ttl: int = None):
 def invalidate(domain: str, key: str = None):
     """
     Invalidate (clear) cached data.
-    
+
     - If `key` is None → clear the entire domain bucket.
     - If `key` is given → remove only that key.
     """
