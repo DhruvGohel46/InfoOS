@@ -48,123 +48,125 @@ class PrinterService:
     def print_bill(self, bill_data: Dict) -> bool:
         """
         Print bill to thermal printer
-        Returns True if successful, False otherwise
         """
         try:
             settings = self._get_settings()
-
             if not settings["printer_enabled"]:
-                print("Printing disabled in settings.")
-                return True  # Treat as success to avoid errors in UI
+                return True
 
-            # Generate bill text
             bill_text = self._generate_bill_text(bill_data, settings)
 
-            # Print to actual thermal printer
             if self.printer_name:
-                success = self._send_to_printer(bill_text, settings)
-                if success:
-                    print(
-                        f"Bill {bill_data['bill_no']} printed successfully to {self.printer_name}"
-                    )
-                    return True
-                else:
-                    print(f"Failed to print bill to {self.printer_name}")
-                    return False
+                return self._send_to_printer(bill_text, settings, "Bill")
             else:
-                print("No printer available, falling back to console output")
-                print("=== THERMAL PRINTER OUTPUT ===")
+                print("=== THERMAL PRINTER (BILL) ===")
                 print(bill_text)
-                print("=== END PRINTER OUTPUT ===")
                 return True
 
         except Exception as e:
             print(f"Error printing bill: {e}")
             return False
 
-    def _generate_bill_text(self, bill_data: Dict, settings: Dict) -> str:
-        """Generate formatted bill text"""
-        # Determine width
-        max_chars = 48 if settings["is_80mm"] else 32
+    def print_kot(self, bill_data: Dict) -> bool:
+        """
+        Print KOT (Kitchen Order Ticket) to thermal printer
+        """
+        try:
+            settings = self._get_settings()
+            if not settings["printer_enabled"]:
+                return True
 
+            kot_text = self._generate_kot_text(bill_data, settings)
+
+            if self.printer_name:
+                return self._send_to_printer(kot_text, settings, "KOT")
+            else:
+                print("=== THERMAL PRINTER (KOT) ===")
+                print(kot_text)
+                return True
+
+        except Exception as e:
+            print(f"Error printing KOT: {e}")
+            return False
+
+    def _generate_bill_text(self, bill_data: Dict, settings: Dict) -> str:
+        """Generate formatted bill text (Paper Efficient)"""
+        max_chars = 48 if settings["is_80mm"] else 32
         lines = []
 
-        # Header
-        lines.append(self._center_text(settings["shop_name"], max_chars))
+        # Compact Header
+        lines.append(self._center_text(settings["shop_name"].upper(), max_chars))
         if settings["shop_address"]:
             lines.append(self._center_text(settings["shop_address"], max_chars))
-        if settings["shop_contact"]:
-            lines.append(
-                self._center_text(f"Tel: {settings['shop_contact']}", max_chars)
-            )
-
-        lines.append("-" * max_chars)
-
-        # Bill info
-        date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%Y")))
+        
+        # Merge Bill Info into single line for efficiency
+        date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%y")))
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
         bill_no = str(bill_data["bill_no"])
-
-        if not settings["is_80mm"] and len(date_str) == 10:
-            # Shorten DD-MM-YYYY to DD-MM-YY for 58mm width
-            parts = date_str.split("-")
-            if len(parts) == 3 and len(parts[2]) == 4:
-                date_str = f"{parts[0]}-{parts[1]}-{parts[2][2:]}"
-
-        # Combine bill info into a single line to save paper
-        if settings["is_80mm"]:
-            dt_str = f"Date: {date_str} {time_str}"
-            bill_str = f"Bill No: {bill_no}"
-            padding = max_chars - len(bill_str) - len(dt_str)
-            if padding >= 0:
-                lines.append(f"{bill_str}{' ' * padding}{dt_str}")
-            else:
-                lines.append(f"{bill_str} {dt_str}")
-        else:
-            lines.append(f"BillNo:{bill_no:<5} Dt:{date_str} {time_str}")
-
+        
+        lines.append("-" * max_chars)
+        info_line = f"B#{bill_no} | {date_str} {time_str}"
+        lines.append(self._center_text(info_line, max_chars))
         lines.append("-" * max_chars)
 
-        # Product headers
+        # Product headers (Compact)
         if settings["is_80mm"]:
-            # 48 chars: Item(22) Qty(4) Price(9) Total(10)
-            header = f"{'Item':<22} {'Qty':>4} {'Price':>9} {'Total':>10}"
+            header = f"{'Item':<26} {'Qty':>4} {'Price':>8} {'Total':>8}"
         else:
-            # 32 chars: Item(14) Qty(3) Price(6) Total(6)
-            header = f"{'Item':<14} {'Qty':>3} {'Price':>6} {'Total':>6}"
-
+            header = f"{'Item':<16} {'Qty':>3} {'Price':>6} {'Total':>6}"
         lines.append(header)
-        lines.append("-" * max_chars)
 
         # Products
         for product in bill_data["products"]:
             name = str(product["name"])
             qty = str(product["quantity"])
-            price = f"{float(product['price']):.2f}"
-            total = f"{float(product['price']) * float(product['quantity']):.2f}"
+            price = f"{float(product['price']):.1f}"
+            total = f"{float(product['price']) * float(product['quantity']):.1f}"
 
             if settings["is_80mm"]:
-                name = name[:22]
-                lines.append(f"{name:<22} {qty:>4} {price:>9} {total:>10}")
+                lines.append(f"{name[:26]:<26} {qty:>4} {price:>8} {total:>8}")
             else:
-                name = name[:14]
-                lines.append(f"{name:<14} {qty:>3} {price:>6} {total:>6}")
+                lines.append(f"{name[:16]:<16} {qty:>3} {price:>6} {total:>6}")
 
-        # Footer
         lines.append("-" * max_chars)
-        total_label = "TOTAL:"
         total_val = f"{float(bill_data['total']):.2f}"
-
-        # Right align total
-        gap = max_chars - len(total_label) - len(total_val)
-        if gap < 1:
-            gap = 1
-        lines.append(f"{total_label}{' ' * gap}{total_val}")
-
+        lines.append(f"{'TOTAL:':<15} {total_val:>16}" if not settings["is_80mm"] else f"{'TOTAL:':<30} {total_val:>18}")
         lines.append("-" * max_chars)
-        lines.append(self._center_text("Thank You! Visit Again", max_chars))
+        lines.append(self._center_text("Thank You!", max_chars))
 
-        return "\n".join(lines) + "\n"
+        return "\n".join(lines)
+
+    def _generate_kot_text(self, bill_data: Dict, settings: Dict) -> str:
+        """Generate Kitchen Order Ticket (KOT) - Highly Visible & Efficient"""
+        max_chars = 48 if settings["is_80mm"] else 32
+        lines = []
+
+        lines.append(self._center_text("*** KITCHEN ORDER ***", max_chars))
+        bill_no = str(bill_data["bill_no"])
+        time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
+        
+        lines.append(self._center_text(f"ORDER #{bill_no} | {time_str}", max_chars))
+        lines.append("=" * max_chars)
+
+        # KOT focuses on Item and Qty only (No Prices for Kitchen)
+        if settings["is_80mm"]:
+            header = f"{'ITEM NAME':<40} {'QTY':>7}"
+        else:
+            header = f"{'ITEM NAME':<25} {'QTY':>6}"
+        lines.append(header)
+        lines.append("-" * max_chars)
+
+        for product in bill_data["products"]:
+            name = str(product["name"]).upper()
+            qty = f"x{product['quantity']}"
+            
+            if settings["is_80mm"]:
+                lines.append(f"{name[:40]:<40} {qty:>7}")
+            else:
+                lines.append(f"{name[:25]:<25} {qty:>6}")
+
+        lines.append("=" * max_chars)
+        return "\n".join(lines)
 
     def _center_text(self, text: str, width: int) -> str:
         """Center text within width"""
@@ -173,28 +175,26 @@ class PrinterService:
         padding = (width - len(text)) // 2
         return " " * padding + text
 
-    def _send_to_printer(self, text: str, settings: Dict) -> bool:
-        """Send text to printer"""
+    def _send_to_printer(self, text: str, settings: Dict, job_name: str = "PrintJob") -> bool:
+        """Send text to printer with ESC/POS commands"""
         try:
-            # Open printer
             hPrinter = win32print.OpenPrinter(self.printer_name)
             try:
-                # Start document
-                win32print.StartDocPrinter(hPrinter, 1, ("Bill", None, "RAW"))
+                win32print.StartDocPrinter(hPrinter, 1, (job_name, None, "RAW"))
                 try:
-                    # Start page
                     win32print.StartPagePrinter(hPrinter)
 
-                    # Init commands
+                    # ESC/POS Commands
                     init_commands = b"\x1b@"
-
-                    # Character size
-                    char_size_cmd = b"\x1b!\x08"  # Bold
-
+                    char_size_cmd = b"\x1b!\x00"  # Normal size
+                    
+                    if job_name == "KOT":
+                        char_size_cmd = b"\x1b!\x10"  # Double height for KOT
+                    
                     text_bytes = text.encode("utf-8")
 
-                    # Feed and Cut
-                    feed_lines = b"\x1b\x64\x04"
+                    # Paper Efficiency: Minimum feed before cut
+                    feed_lines = b"\x1b\x64\x02"  # Feed 2 lines (instead of 4)
                     cut_command = b"\x1d\x56\x00"  # Full cut
 
                     full_command = (
@@ -207,11 +207,11 @@ class PrinterService:
 
                     win32print.WritePrinter(hPrinter, full_command)
                     win32print.EndPagePrinter(hPrinter)
+                    return True
                 finally:
                     win32print.EndDocPrinter(hPrinter)
             finally:
                 win32print.ClosePrinter(hPrinter)
-            return True
         except Exception as e:
-            print(f"Error sending to printer: {e}")
+            print(f"Error sending to printer ({job_name}): {e}")
             return False

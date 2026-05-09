@@ -65,6 +65,7 @@ import { productsAPI, billingAPI, categoriesAPI } from '../../utils/api';
 import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
 import { CATEGORY_COLORS } from '../../utils/constants';
+import { printerService } from '../../services/printerService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -109,6 +110,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearPassword, setClearPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState('');
 
   // Edit Mode State
   const location = useLocation();
@@ -325,7 +328,48 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
   };
 
-  const handleSaveAndPrintOrder = async () => {
+  const handlePrintOnly = async (billNo, type = 'bill') => {
+    try {
+      setIsPrinting(true);
+      setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
+      
+      if (type === 'bill') {
+        await printerService.printBill(billNo);
+      } else {
+        await printerService.printKOT(billNo);
+      }
+      
+      showSuccess(`${type.toUpperCase()} printed successfully`);
+    } catch (err) {
+      showWarning('Printer error. Please check connections.');
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
+    }
+  };
+
+  const handleBillAndKOT = async (billNo) => {
+    try {
+      setIsPrinting(true);
+      setPrintStatus('Printing Bill...');
+      await printerService.printBill(billNo);
+      
+      setPrintStatus('Cutting & Preparing KOT...');
+      await new Promise(r => setTimeout(r, 1500)); // Buffer wait
+      
+      setPrintStatus('Printing KOT...');
+      await printerService.printKOT(billNo);
+      
+      showSuccess('Bill & KOT printed successfully');
+    } catch (err) {
+      showWarning('Sequence interrupted. Check printer.');
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
+    }
+  };
+
+  const handleSaveAndPrintOrder = async (mode = 'both') => {
     if (orderItems.length === 0) {
       setError('Please add items to the order');
       return;
@@ -333,62 +377,56 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     try {
       setError('');
+      setIsPrinting(true);
+      setPrintStatus('Saving Bill...');
 
       const billData = {
         products: orderItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity
         })),
-        print: true,
+        print: false, // We handle printing manually for better control
         customer_name: editingBill ? editingBill.customer_name : ''
       };
 
+      let billNo;
       if (editingBill) {
         await billingAPI.updateBill(editingBill.bill_no, billData);
-        await billingAPI.printBill(editingBill.bill_no); // Call print explicitly
-
-        showSuccess('Bill updated and printed');
-        navigate('/analytics');
+        billNo = editingBill.bill_no;
       } else {
-        // Handle Offline State
         if (!isOnline) {
           syncService.addToQueue(billData);
           setOrderItems([]);
-          showWarning('Offline mode. Bill saved locally. Printing may not work until reconnected.');
+          showWarning('Offline mode. Bill saved locally.');
           return;
         }
 
         const response = await billingAPI.createBill(billData);
-        setOrderItems([]);
-        if (onBillCreated) {
-          onBillCreated({
-            bill_no: response.data.bill.bill_no,
-            total: calculateTotal()
-          });
-        }
-        // Refresh stock levels via global context
-        refreshProducts();
+        billNo = response.data.bill.bill_no;
       }
+
+      // Execute Printing Workflow
+      if (mode === 'both') {
+        await handleBillAndKOT(billNo);
+      } else if (mode === 'bill') {
+        await handlePrintOnly(billNo, 'bill');
+      } else if (mode === 'kot') {
+        await handlePrintOnly(billNo, 'kot');
+      }
+
+      setOrderItems([]);
+      if (onBillCreated && !editingBill) {
+        onBillCreated({ bill_no: billNo, total: calculateTotal() });
+      }
+      refreshProducts();
+      if (editingBill) navigate('/analytics');
 
     } catch (err) {
-      const isNetworkError = !err.response;
-      if (isNetworkError && !editingBill) {
-        const billData = {
-          products: orderItems.map(item => ({
-            product_id: item.product_id,
-            quantity: item.quantity
-          })),
-          print: true,
-          customer_name: ''
-        };
-        syncService.addToQueue(billData);
-        setOrderItems([]);
-        showWarning('Network dropped. Bill saved locally. Printing may not work.');
-        return;
-      }
-
       const apiError = handleAPIError(err);
       setError(apiError.message);
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
     }
   };
 
@@ -939,15 +977,41 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           </div>
 
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 'calc(12px * var(--display-zoom))',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'calc(10px * var(--display-zoom))',
           }}>
-            <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth>
-              {editingBill ? 'Update' : 'Save Bill'}
-            </Button>
-            <Button variant="primary" onClick={handleSaveAndPrintOrder} size="lg" fullWidth>
-              {editingBill ? 'Update & Print' : 'Save & Print'}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'calc(10px * var(--display-zoom))' }}>
+               <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth disabled={isPrinting}>
+                {editingBill ? 'Update Only' : 'Save Only'}
+              </Button>
+              <Button variant="primary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
+                {isPrinting && printStatus.includes('Bill') ? 'Printing...' : 'Print Bill'}
+              </Button>
+            </div>
+            
+            <Button 
+              variant="primary" 
+              onClick={() => handleSaveAndPrintOrder('both')} 
+              size="lg" 
+              fullWidth 
+              disabled={isPrinting}
+              style={{
+                background: 'linear-gradient(135deg, var(--primary-500) 0%, #f97316 100%)',
+                boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
+                height: 'calc(54px * var(--display-zoom))',
+                fontSize: 'calc(16px * var(--text-scale))',
+                fontWeight: 800
+              }}
+            >
+              {isPrinting ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="animate-spin" style={{ width: '18px', height: '18px', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                  {printStatus || 'Processing...'}
+                </div>
+              ) : (
+                'BILL & KOT'
+              )}
             </Button>
           </div>
         </div>

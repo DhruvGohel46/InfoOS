@@ -95,10 +95,10 @@ export const ReminderProvider = ({ children }) => {
         }
     };
 
-    // Poll every 15s to stay in sync
+    // Poll every 60s to stay in sync
     useEffect(() => {
         fetchReminders();
-        const interval = setInterval(fetchReminders, 15000);
+        const interval = setInterval(fetchReminders, 60000);
         return () => clearInterval(interval);
     }, [fetchReminders]);
 

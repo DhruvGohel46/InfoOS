@@ -25,10 +25,10 @@ jobs:
           cache: "npm"
 
       # ── 3. Set up Python (for PyInstaller backend compilation) ────────────
-      - name: Set up Python 3.11
+      - name: Set up Python 3.13.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13.11"
 
       # ── 4. Install all dependencies ───────────────────────────────────────
       - name: Install root Node dependencies
@@ -65,15 +65,12 @@ jobs:
       - name: Build & publish Windows installer
         run: npx electron-builder --win --publish always
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          # Optional: code-signing certificate (base64-encoded .pfx)
-          # CSC_LINK: ${{ secrets.CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GH_TOKEN: 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
 
       # ── 9. Upload build artifacts for inspection ──────────────────────────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: InfoBill-Windows-Installer
+          name: InfoOS-Windows-Installer
           path: dist/*.exe
           retention-days: 30

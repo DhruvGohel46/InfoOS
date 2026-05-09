@@ -15,6 +15,7 @@ let mainWindow;
 let splashWindow;
 let backendProcess = null;
 const fs = require('fs');
+const printerManager = require('./services/printerManager');
 
 // Logger
 function log(message) {
@@ -246,6 +247,9 @@ app.whenReady().then(() => {
   waitForBackend(() => {
     createWindow();
     
+    // Setup printer handlers
+    printerManager.setupHandlers();
+
     // Check for updates
     if (!isDev) {
         log('Checking for updates...');

@@ -261,7 +261,7 @@ class ExpenseCreateSchema(Schema):
     )
     payment_method = fields.String(load_default="Cash")
     worker_id = fields.String(load_default=None)
-    date = fields.Raw(load_default=None)  # Can be string or None
+    date = fields.Date(load_default=None)  # Automatically parses ISO date strings
     notes = fields.String(load_default="")
     items = fields.List(fields.Nested(ExpenseItemSchema), load_default=[])
 
@@ -277,7 +277,7 @@ class ExpenseUpdateSchema(Schema):
     amount = fields.Float(validate=validate.Range(min=0, min_inclusive=False))
     payment_method = fields.String()
     worker_id = fields.String(allow_none=True)
-    date = fields.Raw()
+    date = fields.Date()
     notes = fields.String()
     items = fields.List(fields.Nested(ExpenseItemSchema), load_default=[])
 

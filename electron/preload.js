@@ -23,7 +23,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onUpdateProgress: (callback) => ipcRenderer.on('download-progress', callback),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
-  installUpdate: () => ipcRenderer.send('install-update')
+  installUpdate: () => ipcRenderer.send('install-update'),
+
+  // Printing APIs
+  printBill: (billNo) => ipcRenderer.invoke('print:bill', billNo),
+  printKOT: (billNo) => ipcRenderer.invoke('print:kot', billNo),
+  printBillAndKOT: (billNo) => ipcRenderer.invoke('print:billAndKOT', billNo),
+  isPrinting: () => ipcRenderer.invoke('print:isPrinting')
 });
 
 // Disable features for security

@@ -352,6 +352,7 @@ def update_bill(bill_no):
 @safe_route
 def print_bill(bill_no):
     """Print an existing bill."""
+    logger.info(f"Print request received for Bill #{bill_no}")
     db_local = DatabaseService()
     bill = db_local.get_bill(bill_no)
 
@@ -368,6 +369,32 @@ def print_bill(bill_no):
 
     return (
         jsonify({"success": True, "message": f"Bill {bill_no} printed successfully"}),
+        200,
+    )
+
+
+@billing_bp.route("/print-kot/<int:bill_no>", methods=["POST"])
+@require_auth
+@safe_route
+def print_kot(bill_no):
+    """Print an existing bill's KOT."""
+    logger.info(f"KOT Print request received for Bill #{bill_no}")
+    db_local = DatabaseService()
+    bill = db_local.get_bill(bill_no)
+
+    if not bill:
+        raise NotFoundError(
+            f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND"
+        )
+
+    # Print the KOT
+    success = printer_service.print_kot(bill)
+
+    if not success:
+        raise Exception("Failed to print KOT")
+
+    return (
+        jsonify({"success": True, "message": f"KOT for Bill {bill_no} printed successfully"}),
         200,
     )
 
