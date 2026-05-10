@@ -67,3 +67,8 @@ backend/build/
 backend/dist/
 
 data\products.db
+
+# Compiled Python
+**/__pycache__/
+*.pyc
+*.pyo
