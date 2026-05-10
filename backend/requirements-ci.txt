@@ -1,0 +1,31 @@
+# CI-only requirements — strips out Windows-specific and heavy ML packages
+# that are not needed to run the test suite on GitHub Actions (ubuntu-latest).
+#
+# Excluded from requirements.txt:
+#   - pywin32       (Windows-only, used for printer/COM access)
+#   - rembg         (background removal ML model, not tested)
+#   - onnxruntime   (ML runtime dependency of rembg)
+#   - fastapi       (not used in Flask tests)
+#   - uvicorn       (not used in Flask tests)
+
+Flask==2.3.3
+Flask-CORS==4.0.0
+openpyxl==3.1.2
+python-dotenv==1.0.0
+schedule==1.2.2
+pandas>=2.0.0
+Flask-SQLAlchemy==3.0.5
+waitress>=3.0.0
+APScheduler==3.10.4
+python-socketio>=5.9.0
+python-engineio>=4.7.0
+sqlalchemy>=2.0.0
+cachetools>=5.3.0
+marshmallow>=3.20.0
+Flask-Migrate>=4.0.5
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+Flask-Limiter>=3.5.0
+Flask-Caching>=2.0.2
+pytest>=8.0.0
+black>=24.0.0
