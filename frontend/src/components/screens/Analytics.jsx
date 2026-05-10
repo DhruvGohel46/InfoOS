@@ -91,18 +91,17 @@ const renderActiveShape = (props) => {
                 outerRadius={outerRadius + 8}
                 startAngle={startAngle} endAngle={endAngle}
                 fill={fill}
-                style={{ filter: `drop-shadow(0 4px 12px ${fill}55)`, transition: 'all 0.3s ease' }}
             />
-            <text x={cx} y={cy - 12} textAnchor="middle" fill="var(--text-primary)"
-                style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+            <text x={cx} y={cy - 16} textAnchor="middle" fill="var(--text-primary)"
+                style={{ fontSize: '1.2rem', fontWeight: 700 }}>
                 {payload.name}
             </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-secondary)"
-                style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+            <text x={cx} y={cy + 8} textAnchor="middle" fill="var(--text-secondary)"
+                style={{ fontSize: '1rem', fontWeight: 600 }}>
                 {formatCurrency(payload.total_amount || payload.value || 0)}
             </text>
             <text x={cx} y={cy + 28} textAnchor="middle" fill="var(--text-secondary)"
-                style={{ fontSize: '0.7rem' }}>
+                style={{ fontSize: '0.9rem' }}>
                 {(percent * 100).toFixed(1)}%
             </text>
         </g>
@@ -856,13 +855,14 @@ const Analytics = () => {
                                                         dataKey="total_amount"
                                                         nameKey="name"
                                                         cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3}
+                                                        isAnimationActive={false}
                                                     >
                                                         {Object.entries(rangeSummary.category_totals || {}).map((_, i) => (
                                                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
-                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -1091,6 +1091,7 @@ const Analytics = () => {
                                                         nameKey="name"
                                                         cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={2}
                                                         stroke="none"
+                                                        isAnimationActive={false}
                                                     >
                                                         {Object.entries(
                                                             filteredRangeExpenses.reduce((acc, curr) => {
@@ -1102,7 +1103,7 @@ const Analytics = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
-                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         ) : (
@@ -1122,8 +1123,8 @@ const Analytics = () => {
                                             }, {})
                                         ).slice(0, 4).map(([name, value], i) => (
                                             <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: 12, height: 12, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{name}: <b>{formatCurrency(value)}</b></span>
+                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                                <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>{name}: <b>{formatCurrency(value)}</b></span>
                                             </div>
                                         ))}
                                     </div>
@@ -1132,15 +1133,15 @@ const Analytics = () => {
                                  {/* Right: Summary Metrics */}
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                     <Card style={{ padding: '24px', background: isDark ? 'rgba(79, 70, 229, 0.08)' : 'rgba(79, 70, 229, 0.04)', border: '1px solid rgba(79, 70, 229, 0.1)' }}>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Total Outflow</div>
-                                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--error-500)' }}>
+                                        <div style={{ fontSize: '1.2rem', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Total Outflow</div>
+                                        <div style={{ fontSize: '2.8rem', fontWeight: 800, color: 'var(--error-500)' }}>
                                             {formatCurrency(filteredRangeExpenses.reduce((acc, curr) => acc + curr.amount, 0))}
                                         </div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Across {filteredRangeExpenses.length} categories</div>
+                                        <div style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginTop: '4px' }}>Across {filteredRangeExpenses.length} categories</div>
                                     </Card>
 
                                     <Card style={{ padding: '24px' }}>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '12px' }}>Highest Spending</div>
+                                        <div style={{ fontSize: '1.2rem', color: 'var(--text-tertiary)', marginBottom: '12px' }}>Highest Spending</div>
                                         {filteredRangeExpenses.length > 0 ? (
                                             (() => {
                                                 const highest = Object.entries(
@@ -1150,13 +1151,13 @@ const Analytics = () => {
                                                     }, {})
                                                 ).sort((a, b) => b[1] - a[1])[0];
                                                 return (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                        <div style={{ width: 48, height: 48, borderRadius: '14px', background: 'rgba(239, 68, 68, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                        <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(239, 68, 68, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', fontSize: '1.2rem' }}>
                                                             {getExpenseIcon(highest[0])}
                                                         </div>
                                                         <div>
-                                                            <div style={{ fontWeight: 700 }}>{highest[0]}</div>
-                                                            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{formatCurrency(highest[1])}</div>
+                                                            <div style={{ fontWeight: 700, fontSize: '1.6rem' }}>{highest[0]}</div>
+                                                            <div style={{ fontSize: '1.3rem', opacity: 0.8, marginTop: '4px' }}>{formatCurrency(highest[1])}</div>
                                                         </div>
                                                     </div>
                                                 );

@@ -2,7 +2,7 @@ import uuid
 from flask import Blueprint, jsonify, request
 from auth import require_auth
 from models import db, Inventory, func, extract
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from models import Expense, ExpenseItem
 from error_handler import safe_route, ValidationError, NotFoundError
 from validators import (
@@ -32,20 +32,28 @@ def get_expenses():
     query = Expense.query
 
     range_type = request.args.get("range")
+    date_param = request.args.get("date")
+
     if range_type:
-        today = date.today()
-        if range_type == "today":
-            query = query.filter(func.date(Expense.date) == today)
+        ref_date = date.today()
+        if date_param:
+            try:
+                ref_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        if range_type in ("today", "day"):
+            query = query.filter(func.date(Expense.date) == ref_date)
         elif range_type == "week":
-            start_week = today - timedelta(days=today.weekday())
+            start_week = ref_date - timedelta(days=ref_date.weekday())
             query = query.filter(Expense.date >= start_week)
         elif range_type == "month":
             query = query.filter(
-                extract("month", Expense.date) == today.month,
-                extract("year", Expense.date) == today.year,
+                extract("month", Expense.date) == ref_date.month,
+                extract("year", Expense.date) == ref_date.year,
             )
         elif range_type == "year":
-            query = query.filter(extract("year", Expense.date) == today.year)
+            query = query.filter(extract("year", Expense.date) == ref_date.year)
 
     if category:
         query = query.filter_by(category=category)
