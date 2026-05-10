@@ -30,7 +30,7 @@ module.exports = defineConfig({
 
   use: {
     // Base URL — React dev server
-    baseURL: "http://localhost:3050",
+    baseURL: "http://127.0.0.1:3050",
 
     // Capture screenshot on failure for debugging
     screenshot: "only-on-failure",
@@ -51,9 +51,9 @@ module.exports = defineConfig({
 
   // Start the React dev server automatically before tests
   webServer: {
-    command: "set BROWSER=none && npm start --prefix frontend",
-    url: "http://localhost:3050",
+    command: "set HOST=127.0.0.1 && set BROWSER=none && npm start --prefix frontend",
+    url: "http://127.0.0.1:3050",
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000, // 3 min to start the dev server
+    timeout: 240_000, // 4 min to start the dev server
   },
 });

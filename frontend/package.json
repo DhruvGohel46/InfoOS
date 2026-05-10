@@ -19,7 +19,7 @@
     "yaml": "2.8.4"
   },
   "scripts": {
-    "start": "set PORT=3050 && react-scripts start",
+    "start": "set HOST=127.0.0.1 && set PORT=3050 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -42,7 +42,7 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:5050",
+  "proxy": "http://127.0.0.1:5050",
   "devDependencies": {
     "electron": "^40.1.0",
     "electron-builder": "^26.4.0"
