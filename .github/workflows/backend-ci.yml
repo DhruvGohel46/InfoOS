@@ -67,7 +67,7 @@ jobs:
       - name: Run Pytest
         working-directory: backend
         run: |
-          python -m pytest --tb=short -v
+          python -m pytest tests/ --tb=short -v
         # Exit code 0 = all tests passed → green check
         # Exit code 1 = any failure → red X, blocks merge
 
