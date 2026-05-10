@@ -27,10 +27,10 @@ from typing import Dict, Optional
 
 from .db_service import DatabaseService
 
-
 # ---------------------------------------------------------------------------
 # Platform helpers
 # ---------------------------------------------------------------------------
+
 
 def is_windows() -> bool:
     """Return True when running on Microsoft Windows."""
@@ -52,9 +52,9 @@ def load_win32_modules() -> Optional[Dict]:
         return None
 
     try:
-        import win32print   # noqa: PLC0415  (intentional lazy import)
-        import win32ui      # noqa: PLC0415
-        import pywintypes   # noqa: PLC0415
+        import win32print  # noqa: PLC0415  (intentional lazy import)
+        import win32ui  # noqa: PLC0415
+        import pywintypes  # noqa: PLC0415
 
         return {
             "win32print": win32print,
@@ -71,6 +71,7 @@ def load_win32_modules() -> Optional[Dict]:
 # ---------------------------------------------------------------------------
 # Service class
 # ---------------------------------------------------------------------------
+
 
 class PrinterService:
     """Thermal printer service for bill / KOT printing.
@@ -304,9 +305,7 @@ class PrinterService:
     # Low-level printer I/O  (Windows + pywin32 required)
     # ------------------------------------------------------------------
 
-    def _send_to_printer(
-        self, text: str, settings: Dict, job_name: str = "PrintJob"
-    ) -> bool:
+    def _send_to_printer(self, text: str, settings: Dict, job_name: str = "PrintJob") -> bool:
         """
         Spool a raw ESC/POS byte stream to the Windows print queue.
 
@@ -336,8 +335,8 @@ class PrinterService:
                     text_bytes = text.encode("utf-8")
 
                     # Paper efficiency: minimal feed before cut (2 lines vs 4)
-                    feed_cmd = b"\x1bd\x02"   # Feed 2 lines
-                    cut_cmd = b"\x1dV\x00"    # Full cut
+                    feed_cmd = b"\x1bd\x02"  # Feed 2 lines
+                    cut_cmd = b"\x1dV\x00"  # Full cut
 
                     win32print.WritePrinter(
                         hPrinter,
@@ -360,6 +359,7 @@ class PrinterService:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _log_unavailable(caller: str) -> None:
     """
     Emit a structured warning when Windows printer modules are unavailable.
@@ -373,6 +373,7 @@ def _log_unavailable(caller: str) -> None:
     )
     try:
         from flask import current_app  # noqa: PLC0415  (lazy to avoid circular import)
+
         current_app.logger.warning(msg)
     except RuntimeError:
         # Outside Flask application context — log to stdout
