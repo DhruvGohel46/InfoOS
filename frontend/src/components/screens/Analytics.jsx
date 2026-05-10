@@ -15,7 +15,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
     ResponsiveContainer, PieChart, Pie, Cell, Sector
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
@@ -99,7 +99,7 @@ const renderActiveShape = (props) => {
             </text>
             <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-secondary)"
                 style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                {formatCurrency(payload.total_amount)}
+                {formatCurrency(payload.total_amount || payload.value || 0)}
             </text>
             <text x={cx} y={cy + 28} textAnchor="middle" fill="var(--text-secondary)"
                 style={{ fontSize: '0.7rem' }}>
@@ -848,6 +848,10 @@ const Analytics = () => {
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
                                                     <Pie
+                                                        activeIndex={activePieIndex}
+                                                        activeShape={renderActiveShape}
+                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                        onMouseLeave={() => setActivePieIndex(-1)}
                                                         data={Object.entries(rangeSummary.category_totals || {}).map(([name, val]) => ({ name, total_amount: val }))}
                                                         dataKey="total_amount"
                                                         nameKey="name"
@@ -858,6 +862,7 @@ const Analytics = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -1072,6 +1077,10 @@ const Analytics = () => {
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
                                                     <Pie
+                                                        activeIndex={activePieIndex}
+                                                        activeShape={renderActiveShape}
+                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                        onMouseLeave={() => setActivePieIndex(-1)}
                                                         data={Object.entries(
                                                             filteredRangeExpenses.reduce((acc, curr) => {
                                                                 acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
@@ -1093,6 +1102,7 @@ const Analytics = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         ) : (

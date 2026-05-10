@@ -106,12 +106,18 @@ export default function Expenses() {
     }
   };
 
-  const filteredExpenses = expenses.filter(expense => {
-    const matchesSearch = expense.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (expense.worker_name && expense.worker_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = filterCategory === 'All' || expense.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredExpenses = expenses
+    .filter(expense => {
+      const matchesSearch = expense.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            (expense.worker_name && expense.worker_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = filterCategory === 'All' || expense.category === filterCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.date || a.created_at || 0);
+      const dateB = new Date(b.date || b.created_at || 0);
+      return dateB - dateA || b.id - a.id;
+    });
 
   const categories = ['All', 'Salary', 'Utilities', 'Rent', 'Maintenance', 'Supplies', 'Equipment', 'Transport', 'Other'];
 

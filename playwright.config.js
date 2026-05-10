@@ -51,7 +51,7 @@ module.exports = defineConfig({
 
   // Start the React dev server automatically before tests
   webServer: {
-    command: "set HOST=127.0.0.1 && set BROWSER=none && npm start --prefix frontend",
+    command: "set HOST=127.0.0.1&& set BROWSER=none&& npm start --prefix frontend",
     url: "http://127.0.0.1:3050",
     reuseExistingServer: !process.env.CI,
     timeout: 240_000, // 4 min to start the dev server

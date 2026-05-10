@@ -9,6 +9,14 @@ class SummaryService:
     def __init__(self, db_service: DatabaseService):
         self.db_service = db_service
 
+    def _normalize_category(self, product_info: Optional[Dict]) -> str:
+        if not product_info:
+            return "Unknown"
+        cat = product_info.get("category_name") or product_info.get("category")
+        if not cat:
+            return "Unknown"
+        return str(cat).strip().title()
+
     def get_today_summary(self) -> Dict:
         """
         Generate comprehensive daily summary
@@ -109,6 +117,10 @@ class SummaryService:
         """Calculate total sales per category"""
         category_totals = {}
 
+        # Pre-fetch products ONCE and include inactive ones to preserve historical categories
+        all_products = self.db_service.get_all_products(include_inactive=True)
+        product_map = {p["product_id"]: p for p in all_products}
+
         for bill in bills:
             # Items are stored as JSON string in SQLite
             import json
@@ -116,14 +128,8 @@ class SummaryService:
             items = json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
 
             for product in items:
-                # Get product category from products database
-                products = self.db_service.get_all_products()
-                product_category = "unknown"
-
-                for prod in products:
-                    if prod["product_id"] == product["product_id"]:
-                        product_category = prod["category"]
-                        break
+                prod_info = product_map.get(product["product_id"])
+                product_category = self._normalize_category(prod_info)
 
                 line_total = product["price"] * product["quantity"]
 
@@ -317,7 +323,7 @@ class SummaryService:
                     if product_id not in product_sales:
                         # Get category from map or fallback to unknown
                         product_info = product_map.get(product_id)
-                        category = product_info["category"] if product_info else "unknown"
+                        category = self._normalize_category(product_info)
 
                         product_sales[product_id] = {
                             "product_id": product_id,
@@ -395,7 +401,7 @@ class SummaryService:
 
                     if product_id not in product_sales:
                         product_info = product_map.get(product_id)
-                        category = product_info["category"] if product_info else "unknown"
+                        category = self._normalize_category(product_info)
 
                         product_sales[product_id] = {
                             "product_id": product_id,
@@ -495,7 +501,7 @@ class SummaryService:
                         pinfo = product_map.get(pid)
                         product_sales[pid] = {
                             "name": item["name"],
-                            "category": pinfo["category"] if pinfo else "unknown",
+                            "category": self._normalize_category(pinfo),
                             "quantity": 0,
                             "total_amount": 0.0,
                         }
