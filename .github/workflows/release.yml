@@ -65,7 +65,7 @@ jobs:
       - name: Build & publish Windows installer
         run: npx electron-builder --win --publish always
         env:
-          GH_TOKEN: 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
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 9. Upload build artifacts for inspection ──────────────────────────
       - name: Upload installer artifact
