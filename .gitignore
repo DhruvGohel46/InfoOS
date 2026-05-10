@@ -61,7 +61,9 @@ backend/dashboard_refresh.log
 *.db
 *.sqlite3
 
-# Data directories
-backend/
+# Data directories (only exclude runtime data, not source code)
+backend/data/
+backend/build/
+backend/dist/
 
 data\products.db
