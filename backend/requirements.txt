@@ -1,30 +1,59 @@
+# =============================================================================
+# requirements.txt  —  Full production dependencies (Windows POS terminals)
+# =============================================================================
+# For CI / Linux environments use requirements-ci.txt instead, which strips
+# Windows-only and heavy ML packages that are not needed on GitHub Actions.
+# =============================================================================
+
+# ── Core Flask stack ──────────────────────────────────────────────────────────
 Flask==2.3.3
 Flask-CORS==4.0.0
-openpyxl==3.1.2
-pywin32==307
-python-dotenv==1.0.0
-schedule==1.2.2
-pandas>=2.0.0
-# ── Core image handling (always required)
-Pillow>=10.0.0
-
-# ── Optional: AI background removal (production only)
-# Remove these lines in CI/lightweight environments.
-# See requirements-ai.txt for isolated installation.
-rembg==2.0.62
-onnxruntime>=1.16.0
 Flask-SQLAlchemy==3.0.5
-APScheduler==3.10.4
-waitress>=3.0.0
-python-socketio>=5.9.0
-python-engineio>=4.7.0
-sqlalchemy>=2.0.0
-cachetools>=5.3.0
-marshmallow>=3.20.0
 Flask-Migrate>=4.0.5
-bcrypt>=4.0.0
-PyJWT>=2.8.0
 Flask-Limiter>=3.5.0
 Flask-Caching>=2.0.2
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0.0
+
+# ── Auth & security ───────────────────────────────────────────────────────────
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+
+# ── Async / realtime ──────────────────────────────────────────────────────────
+APScheduler==3.10.4
+python-socketio>=5.9.0
+python-engineio>=4.7.0
+
+# ── Data & export ─────────────────────────────────────────────────────────────
+pandas>=2.0.0
+openpyxl==3.1.2
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.0
+schedule==1.2.2
+cachetools>=5.3.0
+marshmallow>=3.20.0
+waitress>=3.0.0
+
+# ── Core image handling (always required) ─────────────────────────────────────
+Pillow>=10.0.0
+
+# ── Optional: AI background removal (production only) ─────────────────────────
+# Remove / exclude these in CI or lightweight environments.
+# Install separately via:  pip install -r requirements-ai.txt
+rembg==2.0.62
+onnxruntime>=1.16.0
+
+# ── Windows-only: thermal printer support ─────────────────────────────────────
+# pywin32 provides win32print / win32ui / pywintypes used by PrinterService.
+# These packages are intentionally NOT imported at module level — PrinterService
+# uses lazy imports with platform detection so the Flask app boots on any OS.
+#
+# DO NOT add pywin32 to requirements-ci.txt — GitHub Actions runs on Linux.
+# Install on Windows POS terminals / PyInstaller builds only.
+pywin32==307
+
+# ── Dev / testing ─────────────────────────────────────────────────────────────
 pytest>=8.0.0
 black>=24.0.0

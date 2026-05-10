@@ -1,19 +1,100 @@
+"""
+services/printer_service.py
+===========================
+Thermal-printer integration for Windows POS terminals.
+
+Platform notes
+--------------
+* win32print / win32ui / pywintypes are Windows-ONLY packages shipped as
+  part of the `pywin32` distribution.  They are NOT available on Linux or
+  macOS and must therefore NEVER be imported at module load time.
+* On non-Windows hosts (GitHub Actions, developer laptops, Docker containers)
+  the service degrades gracefully: every public method returns a safe
+  fallback value so callers never crash.
+* On Windows, if pywin32 is not installed (e.g. a stripped-down venv) the
+  same fallback path is taken, and a warning is logged.
+
+Packaging targets
+-----------------
+* GitHub Actions CI  — Linux, pywin32 absent  → graceful degradation
+* Windows POS terminal — pywin32 present        → full print support
+* PyInstaller / Electron bundle — Windows only  → full print support
+"""
+
+import platform
 from datetime import datetime
-from typing import Dict, List
-import win32print
+from typing import Dict, Optional
+
 from .db_service import DatabaseService
 
 
+# ---------------------------------------------------------------------------
+# Platform helpers
+# ---------------------------------------------------------------------------
+
+def is_windows() -> bool:
+    """Return True when running on Microsoft Windows."""
+    return platform.system() == "Windows"
+
+
+def load_win32_modules() -> Optional[Dict]:
+    """
+    Attempt to import Windows printer modules at call time (lazy import).
+
+    Returns a dict of loaded modules on success, or None when:
+      - the host OS is not Windows, OR
+      - pywin32 is not installed in the current environment.
+
+    This function is called inside methods that need printer access, never
+    at module import time, so the service is always importable on Linux/macOS.
+    """
+    if not is_windows():
+        return None
+
+    try:
+        import win32print   # noqa: PLC0415  (intentional lazy import)
+        import win32ui      # noqa: PLC0415
+        import pywintypes   # noqa: PLC0415
+
+        return {
+            "win32print": win32print,
+            "win32ui": win32ui,
+            "pywintypes": pywintypes,
+        }
+
+    except ImportError:
+        # pywin32 not installed even though we're on Windows (stripped venv,
+        # CI running on Windows, etc.).  Degrade gracefully.
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Service class
+# ---------------------------------------------------------------------------
+
 class PrinterService:
-    """Thermal printer service for bill printing"""
+    """Thermal printer service for bill / KOT printing.
+
+    Public methods always return a value safe for callers to inspect:
+      - print_bill / print_kot  → bool  (True = success / skipped gracefully)
+      - _send_to_printer        → bool
+    On platforms without pywin32 every printing call short-circuits with a
+    warning log and returns True (i.e. "handled, do not fail the request").
+    """
 
     def __init__(self):
-        # Must match Settings API (PostgreSQL / SQLAlchemy), not legacy SQLite products.db
+        # Must match Settings API (PostgreSQL / SQLAlchemy), not legacy SQLite
         self.db_service = DatabaseService()
-        self.printer_name = self._find_champ_printer()
+        # Printer discovery is deferred to the first print call on Windows.
+        # On non-Windows hosts this stays None and the fallback path is used.
+        self.printer_name: Optional[str] = self._find_champ_printer()
 
-    def _get_settings(self):
-        """Fetch current settings from DB"""
+    # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+
+    def _get_settings(self) -> Dict:
+        """Fetch current printer settings from the database."""
         settings = self.db_service.get_all_settings()
         return {
             "shop_name": settings.get("shop_name", "Burger Bhau"),
@@ -24,98 +105,139 @@ class PrinterService:
             "is_80mm": str(settings.get("printer_width", "58mm")).strip().lower() == "80mm",
         }
 
-    def _find_champ_printer(self):
-        """Find Champ RP Series printer from available printers"""
+    # ------------------------------------------------------------------
+    # Printer discovery  (Windows only)
+    # ------------------------------------------------------------------
+
+    def _find_champ_printer(self) -> Optional[str]:
+        """
+        Discover a Champ RP-series thermal printer from the Windows spooler.
+
+        Returns the printer name string on success, or None if:
+          - not running on Windows,
+          - pywin32 not installed, or
+          - any OS-level error occurs.
+        """
+        modules = load_win32_modules()
+        if not modules:
+            # Non-Windows host or pywin32 absent — printer discovery skipped.
+            return None
+
+        win32print = modules["win32print"]
         try:
             printers = win32print.EnumPrinters(
                 win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
             )
             for printer in printers:
-                printer_name = printer[2]  # Printer name is at index 2
+                printer_name = printer[2]  # Index 2 holds the printer name
                 if "champ" in printer_name.lower() or "rp" in printer_name.lower():
-                    # print(f"Found Champ printer: {printer_name}")
                     return printer_name
 
-            # If no Champ printer found, use default printer
-            default_printer = win32print.GetDefaultPrinter()
-            # print(f"Champ printer not found, using default: {default_printer}")
-            return default_printer
-        except Exception as e:
-            print(f"Error finding printer: {e}")
+            # Fall back to the system default printer
+            return win32print.GetDefaultPrinter()
+
+        except Exception as exc:
+            print(f"[PrinterService] Error during printer discovery: {exc}")
             return None
+
+    # ------------------------------------------------------------------
+    # Public print methods
+    # ------------------------------------------------------------------
 
     def print_bill(self, bill_data: Dict) -> bool:
         """
-        Print bill to thermal printer
+        Send a formatted customer bill to the thermal printer.
+
+        Returns True on success or when printing is disabled / unavailable.
+        Returns False only when a genuine print error occurs on Windows.
         """
         try:
             settings = self._get_settings()
             if not settings["printer_enabled"]:
                 return True
+
+            # Guard: ensure win32 modules are available before attempting print
+            modules = load_win32_modules()
+            if not modules:
+                _log_unavailable("print_bill")
+                return True  # Degrade gracefully — do not fail the request
 
             bill_text = self._generate_bill_text(bill_data, settings)
 
             if self.printer_name:
                 return self._send_to_printer(bill_text, settings, "Bill")
-            else:
-                print("=== THERMAL PRINTER (BILL) ===")
-                print(bill_text)
-                return True
 
-        except Exception as e:
-            print(f"Error printing bill: {e}")
+            # No printer configured — echo to stdout (useful for dev debugging)
+            print("=== THERMAL PRINTER (BILL) ===")
+            print(bill_text)
+            return True
+
+        except Exception as exc:
+            print(f"[PrinterService] Error printing bill: {exc}")
             return False
 
     def print_kot(self, bill_data: Dict) -> bool:
         """
-        Print KOT (Kitchen Order Ticket) to thermal printer
+        Send a Kitchen Order Ticket (KOT) to the thermal printer.
+
+        Returns True on success or when printing is disabled / unavailable.
+        Returns False only when a genuine print error occurs on Windows.
         """
         try:
             settings = self._get_settings()
             if not settings["printer_enabled"]:
                 return True
 
+            # Guard: ensure win32 modules are available before attempting print
+            modules = load_win32_modules()
+            if not modules:
+                _log_unavailable("print_kot")
+                return True  # Degrade gracefully — do not fail the request
+
             kot_text = self._generate_kot_text(bill_data, settings)
 
             if self.printer_name:
                 return self._send_to_printer(kot_text, settings, "KOT")
-            else:
-                print("=== THERMAL PRINTER (KOT) ===")
-                print(kot_text)
-                return True
 
-        except Exception as e:
-            print(f"Error printing KOT: {e}")
+            print("=== THERMAL PRINTER (KOT) ===")
+            print(kot_text)
+            return True
+
+        except Exception as exc:
+            print(f"[PrinterService] Error printing KOT: {exc}")
             return False
 
+    # ------------------------------------------------------------------
+    # Text generation  (platform-independent, pure Python)
+    # ------------------------------------------------------------------
+
     def _generate_bill_text(self, bill_data: Dict, settings: Dict) -> str:
-        """Generate formatted bill text (Paper Efficient)"""
+        """Generate formatted bill text (paper-efficient layout)."""
         max_chars = 48 if settings["is_80mm"] else 32
         lines = []
 
-        # Compact Header
+        # Compact header
         lines.append(self._center_text(settings["shop_name"].upper(), max_chars))
         if settings["shop_address"]:
             lines.append(self._center_text(settings["shop_address"], max_chars))
 
-        # Merge Bill Info into single line for efficiency
+        # Merge bill info into a single line for efficiency
         date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%y")))
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
         bill_no = str(bill_data["bill_no"])
 
         lines.append("-" * max_chars)
-        info_line = f"B#{bill_no} | {date_str} {time_str}"
-        lines.append(self._center_text(info_line, max_chars))
+        lines.append(self._center_text(f"B#{bill_no} | {date_str} {time_str}", max_chars))
         lines.append("-" * max_chars)
 
-        # Product headers (Compact)
+        # Column headers
         if settings["is_80mm"]:
             header = f"{'Item':<26} {'Qty':>4} {'Price':>8} {'Total':>8}"
         else:
             header = f"{'Item':<16} {'Qty':>3} {'Price':>6} {'Total':>6}"
         lines.append(header)
 
-        # Products
+        # Product rows
         for product in bill_data["products"]:
             name = str(product["name"])
             qty = str(product["quantity"])
@@ -140,7 +262,7 @@ class PrinterService:
         return "\n".join(lines)
 
     def _generate_kot_text(self, bill_data: Dict, settings: Dict) -> str:
-        """Generate Kitchen Order Ticket (KOT) - Highly Visible & Efficient"""
+        """Generate Kitchen Order Ticket (KOT) — highly visible & efficient."""
         max_chars = 48 if settings["is_80mm"] else 32
         lines = []
 
@@ -151,7 +273,7 @@ class PrinterService:
         lines.append(self._center_text(f"ORDER #{bill_no} | {time_str}", max_chars))
         lines.append("=" * max_chars)
 
-        # KOT focuses on Item and Qty only (No Prices for Kitchen)
+        # KOT shows item + qty only — no prices for kitchen staff
         if settings["is_80mm"]:
             header = f"{'ITEM NAME':<40} {'QTY':>7}"
         else:
@@ -172,14 +294,33 @@ class PrinterService:
         return "\n".join(lines)
 
     def _center_text(self, text: str, width: int) -> str:
-        """Center text within width"""
+        """Centre text within the given character width."""
         if len(text) >= width:
             return text[:width]
         padding = (width - len(text)) // 2
         return " " * padding + text
 
-    def _send_to_printer(self, text: str, settings: Dict, job_name: str = "PrintJob") -> bool:
-        """Send text to printer with ESC/POS commands"""
+    # ------------------------------------------------------------------
+    # Low-level printer I/O  (Windows + pywin32 required)
+    # ------------------------------------------------------------------
+
+    def _send_to_printer(
+        self, text: str, settings: Dict, job_name: str = "PrintJob"
+    ) -> bool:
+        """
+        Spool a raw ESC/POS byte stream to the Windows print queue.
+
+        Requires pywin32 — callers must verify `load_win32_modules()` returns
+        a non-None value before invoking this method.
+        """
+        # Defensive check: refuse to proceed if modules are absent.
+        modules = load_win32_modules()
+        if not modules:
+            _log_unavailable("_send_to_printer")
+            return False
+
+        win32print = modules["win32print"]
+
         try:
             hPrinter = win32print.OpenPrinter(self.printer_name)
             try:
@@ -187,30 +328,52 @@ class PrinterService:
                 try:
                     win32print.StartPagePrinter(hPrinter)
 
-                    # ESC/POS Commands
-                    init_commands = b"\x1b@"
-                    char_size_cmd = b"\x1b!\x00"  # Normal size
-
-                    if job_name == "KOT":
-                        char_size_cmd = b"\x1b!\x10"  # Double height for KOT
+                    # ESC/POS initialisation + optional size command
+                    init_cmd = b"\x1b@"
+                    # Normal size for bills, double-height for KOT readability
+                    size_cmd = b"\x1b!\x10" if job_name == "KOT" else b"\x1b!\x00"
 
                     text_bytes = text.encode("utf-8")
 
-                    # Paper Efficiency: Minimum feed before cut
-                    feed_lines = b"\x1b\x64\x02"  # Feed 2 lines (instead of 4)
-                    cut_command = b"\x1d\x56\x00"  # Full cut
+                    # Paper efficiency: minimal feed before cut (2 lines vs 4)
+                    feed_cmd = b"\x1bd\x02"   # Feed 2 lines
+                    cut_cmd = b"\x1dV\x00"    # Full cut
 
-                    full_command = (
-                        init_commands + char_size_cmd + text_bytes + feed_lines + cut_command
+                    win32print.WritePrinter(
+                        hPrinter,
+                        init_cmd + size_cmd + text_bytes + feed_cmd + cut_cmd,
                     )
-
-                    win32print.WritePrinter(hPrinter, full_command)
                     win32print.EndPagePrinter(hPrinter)
                     return True
+
                 finally:
                     win32print.EndDocPrinter(hPrinter)
             finally:
                 win32print.ClosePrinter(hPrinter)
-        except Exception as e:
-            print(f"Error sending to printer ({job_name}): {e}")
+
+        except Exception as exc:
+            print(f"[PrinterService] Error spooling job '{job_name}': {exc}")
             return False
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _log_unavailable(caller: str) -> None:
+    """
+    Emit a structured warning when Windows printer modules are unavailable.
+
+    Uses Flask's application logger when inside a request context, falls back
+    to print() otherwise (e.g. during startup or background tasks).
+    """
+    msg = (
+        f"[PrinterService.{caller}] Windows printer modules (pywin32) are "
+        "unavailable on this platform. Printing is skipped."
+    )
+    try:
+        from flask import current_app  # noqa: PLC0415  (lazy to avoid circular import)
+        current_app.logger.warning(msg)
+    except RuntimeError:
+        # Outside Flask application context — log to stdout
+        print(msg)
