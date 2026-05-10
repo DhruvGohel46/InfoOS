@@ -101,9 +101,7 @@ def update_inventory(item_id):
     success = db.update_inventory(item_id, validated)
 
     if not success:
-        raise NotFoundError(
-            "Item not found or update failed", code="INVENTORY_NOT_FOUND"
-        )
+        raise NotFoundError("Item not found or update failed", code="INVENTORY_NOT_FOUND")
 
     return jsonify({"success": True, "message": "Inventory updated successfully"})
 

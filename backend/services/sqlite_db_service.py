@@ -63,9 +63,7 @@ class SQLiteDatabaseService:
             if "image_filename" not in prod_columns:
                 print("Migrating products: Adding image_filename column")
                 try:
-                    cursor.execute(
-                        "ALTER TABLE products ADD COLUMN image_filename TEXT"
-                    )
+                    cursor.execute("ALTER TABLE products ADD COLUMN image_filename TEXT")
                 except Exception as e:
                     print(f"Migration error (image_filename): {e}")
 
@@ -100,9 +98,7 @@ class SQLiteDatabaseService:
                     print(f"Migration error (status): {e}")
 
             # Ensure any 'ACTIVE' statuses from previous versions are converted to 'CONFIRMED'
-            cursor.execute(
-                "UPDATE bills SET status = 'CONFIRMED' WHERE status = 'ACTIVE'"
-            )
+            cursor.execute("UPDATE bills SET status = 'CONFIRMED' WHERE status = 'ACTIVE'")
 
             if "updated_at" not in columns:
                 print("Migrating database: Adding updated_at column to bills table")
@@ -119,9 +115,7 @@ class SQLiteDatabaseService:
             prod_columns = [info[1] for info in cursor.fetchall()]
 
             if "category_id" not in prod_columns:
-                print(
-                    "Migrating products: Adding category_id and moving legacy category data"
-                )
+                print("Migrating products: Adding category_id and moving legacy category data")
                 try:
                     cursor.execute(
                         "ALTER TABLE products ADD COLUMN category_id INTEGER REFERENCES categories(id)"
@@ -158,9 +152,7 @@ class SQLiteDatabaseService:
             if cursor.fetchone()[0] == 0:
                 print("Seeding default categories...")
                 for cat in ["coldrink", "paan", "other"]:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO categories (name) VALUES (?)", (cat,)
-                    )
+                    cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (cat,))
 
             # Create index for faster queries
             cursor.execute("""
@@ -313,9 +305,7 @@ class SQLiteDatabaseService:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "DELETE FROM products WHERE product_id = ?", (product_id,)
-                )
+                cursor.execute("DELETE FROM products WHERE product_id = ?", (product_id,))
                 conn.commit()
                 return cursor.rowcount > 0
         except sqlite3.Error:
@@ -474,9 +464,7 @@ class SQLiteDatabaseService:
             print(f"Error getting bills by date: {e}")
             return []
 
-    def get_bills_by_date_range(
-        self, start_date: str, end_date: str
-    ) -> List[Dict[str, Any]]:
+    def get_bills_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
         """
         Get all bills within a specific date range (inclusive)
         Dates should be in 'YYYY-MM-DD' format
@@ -638,9 +626,7 @@ class SQLiteDatabaseService:
 
     # CATEGORY MANAGEMENT METHODS
 
-    def get_all_categories(
-        self, include_inactive: bool = False
-    ) -> List[Dict[str, Any]]:
+    def get_all_categories(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """Get all categories with usage counters"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -689,9 +675,7 @@ class SQLiteDatabaseService:
         """Get category by name (case-insensitive)"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM categories WHERE LOWER(name) = LOWER(?)", (name,)
-            )
+            cursor.execute("SELECT * FROM categories WHERE LOWER(name) = LOWER(?)", (name,))
             row = cursor.fetchone()
             if row:
                 cat = dict(row)
@@ -765,9 +749,7 @@ class SQLiteDatabaseService:
             cursor = conn.cursor()
 
             # 1. Check products linked to category_id
-            cursor.execute(
-                "SELECT COUNT(*) FROM products WHERE category_id = ?", (category_id,)
-            )
+            cursor.execute("SELECT COUNT(*) FROM products WHERE category_id = ?", (category_id,))
             linked_products = cursor.fetchone()[0]
             if linked_products > 0:
                 return {

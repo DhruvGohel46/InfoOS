@@ -21,8 +21,7 @@ class PrinterService:
             "printer_enabled": settings.get("printer_enabled", "false") == "true",
             "shop_address": settings.get("shop_address", ""),
             "shop_contact": settings.get("shop_contact", ""),
-            "is_80mm": str(settings.get("printer_width", "58mm")).strip().lower()
-            == "80mm",
+            "is_80mm": str(settings.get("printer_width", "58mm")).strip().lower() == "80mm",
         }
 
     def _find_champ_printer(self):
@@ -98,12 +97,12 @@ class PrinterService:
         lines.append(self._center_text(settings["shop_name"].upper(), max_chars))
         if settings["shop_address"]:
             lines.append(self._center_text(settings["shop_address"], max_chars))
-        
+
         # Merge Bill Info into single line for efficiency
         date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%y")))
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
         bill_no = str(bill_data["bill_no"])
-        
+
         lines.append("-" * max_chars)
         info_line = f"B#{bill_no} | {date_str} {time_str}"
         lines.append(self._center_text(info_line, max_chars))
@@ -130,7 +129,11 @@ class PrinterService:
 
         lines.append("-" * max_chars)
         total_val = f"{float(bill_data['total']):.2f}"
-        lines.append(f"{'TOTAL:':<15} {total_val:>16}" if not settings["is_80mm"] else f"{'TOTAL:':<30} {total_val:>18}")
+        lines.append(
+            f"{'TOTAL:':<15} {total_val:>16}"
+            if not settings["is_80mm"]
+            else f"{'TOTAL:':<30} {total_val:>18}"
+        )
         lines.append("-" * max_chars)
         lines.append(self._center_text("Thank You!", max_chars))
 
@@ -144,7 +147,7 @@ class PrinterService:
         lines.append(self._center_text("*** KITCHEN ORDER ***", max_chars))
         bill_no = str(bill_data["bill_no"])
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
-        
+
         lines.append(self._center_text(f"ORDER #{bill_no} | {time_str}", max_chars))
         lines.append("=" * max_chars)
 
@@ -159,7 +162,7 @@ class PrinterService:
         for product in bill_data["products"]:
             name = str(product["name"]).upper()
             qty = f"x{product['quantity']}"
-            
+
             if settings["is_80mm"]:
                 lines.append(f"{name[:40]:<40} {qty:>7}")
             else:
@@ -187,10 +190,10 @@ class PrinterService:
                     # ESC/POS Commands
                     init_commands = b"\x1b@"
                     char_size_cmd = b"\x1b!\x00"  # Normal size
-                    
+
                     if job_name == "KOT":
                         char_size_cmd = b"\x1b!\x10"  # Double height for KOT
-                    
+
                     text_bytes = text.encode("utf-8")
 
                     # Paper Efficiency: Minimum feed before cut
@@ -198,11 +201,7 @@ class PrinterService:
                     cut_command = b"\x1d\x56\x00"  # Full cut
 
                     full_command = (
-                        init_commands
-                        + char_size_cmd
-                        + text_bytes
-                        + feed_lines
-                        + cut_command
+                        init_commands + char_size_cmd + text_bytes + feed_lines + cut_command
                     )
 
                     win32print.WritePrinter(hPrinter, full_command)

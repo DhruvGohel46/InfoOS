@@ -47,9 +47,7 @@ class DatabaseService:
 
         return result
 
-    def get_all_products_with_stock(
-        self, include_inactive: bool = False
-    ) -> List[Dict[str, Any]]:
+    def get_all_products_with_stock(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """Get all products with current stock info"""
         # Join Product with Inventory
         query = db.session.query(Product, Inventory).outerjoin(
@@ -255,9 +253,7 @@ class DatabaseService:
 
                 # Inventory Deduction Integration
                 # Find linked inventory item and deduct stock
-                inv_item = Inventory.query.filter_by(
-                    product_id=item["product_id"]
-                ).first()
+                inv_item = Inventory.query.filter_by(product_id=item["product_id"]).first()
                 if inv_item:
                     # Deduct stock
                     inv_item.stock -= item["quantity"]
@@ -299,9 +295,7 @@ class DatabaseService:
             print(f"Error getting bill: {e}")
             return None
 
-    def get_todays_bills(
-        self, limit: int = None, offset: int = None
-    ) -> List[Dict[str, Any]]:
+    def get_todays_bills(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
         """Get all bills for today with optional pagination"""
         try:
             today = date.today()
@@ -370,9 +364,7 @@ class DatabaseService:
             print(f"Error getting bills by date: {e}")
             return []
 
-    def get_bills_by_date_range(
-        self, start_date: str, end_date: str
-    ) -> List[Dict[str, Any]]:
+    def get_bills_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
         """Get bills in date range"""
         try:
             s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -449,9 +441,7 @@ class DatabaseService:
                 try:
                     items = json.loads(bill.items)
                     for item in items:
-                        inv_item = Inventory.query.filter_by(
-                            product_id=item["product_id"]
-                        ).first()
+                        inv_item = Inventory.query.filter_by(product_id=item["product_id"]).first()
                         if inv_item:
                             inv_item.stock += item["quantity"]
                 except Exception as eval_err:
@@ -495,17 +485,13 @@ class DatabaseService:
                 # 1. Restore stock from old items
                 old_items = json.loads(bill.items)
                 for old_item in old_items:
-                    inv_item = Inventory.query.filter_by(
-                        product_id=old_item["product_id"]
-                    ).first()
+                    inv_item = Inventory.query.filter_by(product_id=old_item["product_id"]).first()
                     if inv_item:
                         inv_item.stock += old_item["quantity"]
 
                 # 2. Deduct stock for new items
                 for new_item in bill_data["items"]:
-                    inv_item = Inventory.query.filter_by(
-                        product_id=new_item["product_id"]
-                    ).first()
+                    inv_item = Inventory.query.filter_by(product_id=new_item["product_id"]).first()
                     if inv_item:
                         inv_item.stock -= new_item["quantity"]
             except Exception as eval_err:
@@ -550,9 +536,7 @@ class DatabaseService:
     # CATEGORY MANAGEMENT
     # ---------------------------------------------------------
 
-    def get_all_categories(
-        self, include_inactive: bool = False
-    ) -> List[Dict[str, Any]]:
+    def get_all_categories(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         query = Category.query
         if not include_inactive:
             query = query.filter(Category.active == True)
@@ -688,9 +672,7 @@ class DatabaseService:
             if i.product:
                 product_active = bool(i.product.active)
 
-            is_locked = bool(
-                i.type == "DIRECT_SALE" and i.product_id and not product_active
-            )
+            is_locked = bool(i.type == "DIRECT_SALE" and i.product_id and not product_active)
 
             result.append(
                 {
@@ -716,9 +698,7 @@ class DatabaseService:
     def get_low_stock_products(self) -> List[Dict[str, Any]]:
         """Get only low stock or out of stock items"""
         # Filter where stock <= alert_threshold
-        items = Inventory.query.filter(
-            Inventory.stock <= Inventory.alert_threshold
-        ).all()
+        items = Inventory.query.filter(Inventory.stock <= Inventory.alert_threshold).all()
         result = []
         for i in items:
             # Skip inactive products
@@ -754,9 +734,7 @@ class DatabaseService:
             if i.product:
                 product_active = bool(i.product.active)
 
-            is_locked = bool(
-                i.type == "DIRECT_SALE" and i.product_id and not product_active
-            )
+            is_locked = bool(i.type == "DIRECT_SALE" and i.product_id and not product_active)
 
             return {
                 "id": i.id,
@@ -779,9 +757,7 @@ class DatabaseService:
         try:
             # Check if product is already linked?
             if data.get("product_id"):
-                existing = Inventory.query.filter_by(
-                    product_id=data["product_id"]
-                ).first()
+                existing = Inventory.query.filter_by(product_id=data["product_id"]).first()
                 if existing:
                     return None  # Product already linked
 
@@ -818,12 +794,7 @@ class DatabaseService:
             i = Inventory.query.get(item_id)
             if not i:
                 return False
-            if (
-                i.type == "DIRECT_SALE"
-                and i.product_id
-                and i.product
-                and not i.product.active
-            ):
+            if i.type == "DIRECT_SALE" and i.product_id and i.product and not i.product.active:
                 return False
 
             if "name" in data:
@@ -861,12 +832,7 @@ class DatabaseService:
             i = Inventory.query.get(item_id)
             if not i:
                 return False
-            if (
-                i.type == "DIRECT_SALE"
-                and i.product_id
-                and i.product
-                and not i.product.active
-            ):
+            if i.type == "DIRECT_SALE" and i.product_id and i.product and not i.product.active:
                 return False
 
             i.stock += adjustment
@@ -973,9 +939,7 @@ class DatabaseService:
             print(f"Error getting expenses by date: {e}")
             return []
 
-    def get_expenses_by_range(
-        self, start_date: str, end_date: str
-    ) -> List[Dict[str, Any]]:
+    def get_expenses_by_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
         """Get expenses in date range (YYYY-MM-DD inclusive)"""
         try:
             from models import Expense

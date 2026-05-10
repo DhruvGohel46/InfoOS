@@ -59,9 +59,7 @@ class Inventory(db.Model):
     unit_price = db.Column(db.Float, default=0.0)  # Cost per unit for raw materials
     alert_threshold = db.Column(db.Float, default=0.0)
     max_stock_history = db.Column(db.Float, default=10.0)  # Track highest stock level
-    product_id = db.Column(
-        db.String(50), db.ForeignKey("products.product_id"), nullable=True
-    )
+    product_id = db.Column(db.String(50), db.ForeignKey("products.product_id"), nullable=True)
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
     product = db.relationship("Product", backref=db.backref("inventory", uselist=False))
@@ -75,9 +73,7 @@ class Bill(db.Model):
     total_amount = db.Column(db.Float, nullable=False)
     today_token = db.Column(db.Integer, default=0)  # For daily token number if needed
     payment_method = db.Column(db.String(50), default="CASH")
-    items = db.Column(
-        db.Text, nullable=False
-    )  # Stored as JSON string to maintain compatibility
+    items = db.Column(db.Text, nullable=False)  # Stored as JSON string to maintain compatibility
     status = db.Column(db.String(50), default="CONFIRMED")
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
@@ -129,9 +125,7 @@ class Expense(db.Model):
             "payment_method": self.payment_method,
             "worker_id": self.worker_id,
             "worker_name": self.worker.name if self.worker else None,
-            "date": (
-                self.date.isoformat() if hasattr(self.date, "isoformat") else self.date
-            ),
+            "date": (self.date.isoformat() if hasattr(self.date, "isoformat") else self.date),
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -170,9 +164,7 @@ class ExpenseItem(db.Model):
 class Worker(db.Model):
     __tablename__ = "workers"
 
-    worker_id = db.Column(
-        db.String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    worker_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(15))
     email = db.Column(db.String(255))
@@ -193,9 +185,7 @@ class Worker(db.Model):
 class Advance(db.Model):
     __tablename__ = "advances"
 
-    advance_id = db.Column(
-        db.String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    advance_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(
         db.String(36),
         db.ForeignKey("workers.worker_id"),
@@ -210,9 +200,7 @@ class Advance(db.Model):
 class SalaryPayment(db.Model):
     __tablename__ = "salary_payments"
 
-    payment_id = db.Column(
-        db.String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    payment_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(
         db.String(36),
         db.ForeignKey("workers.worker_id"),
@@ -230,13 +218,9 @@ class SalaryPayment(db.Model):
 
 class Attendance(db.Model):
     __tablename__ = "attendance"
-    __table_args__ = (
-        db.Index("idx_attendance_worker_date", "worker_id", "date"),
-    )
+    __table_args__ = (db.Index("idx_attendance_worker_date", "worker_id", "date"),)
 
-    attendance_id = db.Column(
-        db.String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    attendance_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(
         db.String(36),
         db.ForeignKey("workers.worker_id"),
@@ -262,12 +246,8 @@ class Reminder(db.Model):
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     reminder_time = db.Column(db.DateTime, nullable=False)
-    status = db.Column(
-        db.String(20), default="pending"
-    )  # 'pending', 'triggered', 'completed'
-    repeat_type = db.Column(
-        db.String(20), default="once"
-    )  # 'once', 'daily', 'weekly', 'monthly'
+    status = db.Column(db.String(20), default="pending")  # 'pending', 'triggered', 'completed'
+    repeat_type = db.Column(db.String(20), default="once")  # 'once', 'daily', 'weekly', 'monthly'
     is_active = db.Column(db.Boolean, default=True)
     is_dismissed = db.Column(db.Boolean, default=False)
     triggered_at = db.Column(db.DateTime, nullable=True)
@@ -286,16 +266,12 @@ class Reminder(db.Model):
             "user_id": self.user_id,
             "title": self.title,
             "description": self.description,
-            "reminder_time": (
-                self.reminder_time.isoformat() if self.reminder_time else None
-            ),
+            "reminder_time": (self.reminder_time.isoformat() if self.reminder_time else None),
             "status": self.status,
             "repeat_type": self.repeat_type,
             "is_active": self.is_active,
             "is_dismissed": self.is_dismissed,
-            "triggered_at": (
-                self.triggered_at.isoformat() if self.triggered_at else None
-            ),
+            "triggered_at": (self.triggered_at.isoformat() if self.triggered_at else None),
             "last_triggered_at": (
                 self.last_triggered_at.isoformat() if self.last_triggered_at else None
             ),
@@ -349,8 +325,6 @@ class DailySalesSummary(db.Model):
             "total_expenses": self.total_expenses,
             "net_profit": self.net_profit,
             "average_bill_value": self.average_bill_value,
-            "top_products": (
-                _json.loads(self.top_products_json) if self.top_products_json else []
-            ),
+            "top_products": (_json.loads(self.top_products_json) if self.top_products_json else []),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

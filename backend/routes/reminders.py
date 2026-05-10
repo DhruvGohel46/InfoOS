@@ -47,9 +47,7 @@ def create_reminder():
     new_reminder = Reminder(
         title=validated["title"],
         description=validated.get("description"),
-        reminder_time=datetime.fromisoformat(
-            validated["reminder_time"].replace("Z", "")
-        ),
+        reminder_time=datetime.fromisoformat(validated["reminder_time"].replace("Z", "")),
         repeat_type=validated.get("repeat_type", "once"),
         user_id=validated.get("user_id", "admin") or "admin",
     )

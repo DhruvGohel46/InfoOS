@@ -55,9 +55,7 @@ def get_expenses():
     expenses = query.order_by(Expense.date.desc()).limit(limit).all()
 
     return (
-        jsonify(
-            {"success": True, "expenses": [expense.to_dict() for expense in expenses]}
-        ),
+        jsonify({"success": True, "expenses": [expense.to_dict() for expense in expenses]}),
         200,
     )
 

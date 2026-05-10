@@ -38,9 +38,7 @@ def generate_token(user_id="admin") -> str:
         "iat": datetime.datetime.utcnow(),
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8),
     }
-    secret = current_app.config.get(
-        "SECRET_KEY", "fallback-secret-key-do-not-use-in-prod"
-    )
+    secret = current_app.config.get("SECRET_KEY", "fallback-secret-key-do-not-use-in-prod")
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
@@ -58,14 +56,10 @@ def require_auth(f):
 
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            raise AuthorizationError(
-                "Missing or invalid Authorization header", code="AUTH_MISSING"
-            )
+            raise AuthorizationError("Missing or invalid Authorization header", code="AUTH_MISSING")
 
         token = auth_header.split(" ")[1]
-        secret = current_app.config.get(
-            "SECRET_KEY", "fallback-secret-key-do-not-use-in-prod"
-        )
+        secret = current_app.config.get("SECRET_KEY", "fallback-secret-key-do-not-use-in-prod")
 
         try:
             payload = jwt.decode(token, secret, algorithms=["HS256"])
@@ -102,9 +96,7 @@ def setup_pin():
     pin = str(data.get("pin", ""))
 
     if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
-        raise ValidationError(
-            "PIN must be 4 to 6 numeric digits", code="INVALID_PIN_FORMAT"
-        )
+        raise ValidationError("PIN must be 4 to 6 numeric digits", code="INVALID_PIN_FORMAT")
 
     settings = db.get_all_settings()
 

@@ -33,9 +33,7 @@ def create_bill():
     try:
         validated = _bill_create_schema.load(data or {})
     except MarshmallowValidationError as e:
-        raise ValidationError(
-            f"Invalid bill data: {e.messages}", code="BILL_VALIDATION_FAILED"
-        )
+        raise ValidationError(f"Invalid bill data: {e.messages}", code="BILL_VALIDATION_FAILED")
 
     products = validated["products"]
 
@@ -51,9 +49,7 @@ def create_bill():
         product_found = db.get_product(product_id)
 
         if not product_found:
-            raise NotFoundError(
-                f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND"
-            )
+            raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
         if not product_found.get("active", False):
             raise ValidationError(
@@ -117,9 +113,7 @@ def create_bill():
     except Exception as agg_err:
         logger.warning(f"Aggregation update warning: {agg_err}")
 
-    logger.info(
-        f"Bill #{bill_no} created — Total: {total:.2f} ({len(validated_products)} items)"
-    )
+    logger.info(f"Bill #{bill_no} created — Total: {total:.2f} ({len(validated_products)} items)")
 
     return (
         jsonify(
@@ -140,9 +134,7 @@ def get_bill(bill_no):
     bill = db.get_bill(bill_no)
 
     if not bill:
-        raise NotFoundError(
-            f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND"
-        )
+        raise NotFoundError(f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND")
 
     return jsonify({"success": True, "bill": bill}), 200
 
@@ -192,9 +184,7 @@ def get_bills_by_date(date_str):
     try:
         datetime.datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError:
-        raise ValidationError(
-            "Invalid date format. Use YYYY-MM-DD", code="INVALID_DATE_FORMAT"
-        )
+        raise ValidationError("Invalid date format. Use YYYY-MM-DD", code="INVALID_DATE_FORMAT")
 
     bills = db.get_bills_by_date(date_str)
 
@@ -261,9 +251,7 @@ def cancel_bill(bill_no):
     """Cancel a specific bill."""
     success = db.cancel_bill(bill_no)
     if not success:
-        raise ValidationError(
-            f"Failed to cancel bill {bill_no}", code="BILL_CANCEL_FAILED"
-        )
+        raise ValidationError(f"Failed to cancel bill {bill_no}", code="BILL_CANCEL_FAILED")
 
     # Re-aggregate after cancellation
     try:
@@ -357,9 +345,7 @@ def print_bill(bill_no):
     bill = db_local.get_bill(bill_no)
 
     if not bill:
-        raise NotFoundError(
-            f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND"
-        )
+        raise NotFoundError(f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND")
 
     # Print the bill
     success = printer_service.print_bill(bill)
@@ -383,9 +369,7 @@ def print_kot(bill_no):
     bill = db_local.get_bill(bill_no)
 
     if not bill:
-        raise NotFoundError(
-            f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND"
-        )
+        raise NotFoundError(f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND")
 
     # Print the KOT
     success = printer_service.print_kot(bill)

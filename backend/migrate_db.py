@@ -2,7 +2,7 @@ from app import create_app
 from models import db
 from sqlalchemy import text
 
-app = create_app('development')
+app = create_app("development")
 with app.app_context():
     try:
         # For PostgreSQL
@@ -13,7 +13,7 @@ with app.app_context():
         db.session.rollback()
         print(f"Postgres alter failed, trying SQLite: {e}")
         try:
-            # SQLite doesn't support ALTER COLUMN TYPE easily. 
+            # SQLite doesn't support ALTER COLUMN TYPE easily.
             # But usually db_service.py's config indicates Postgres.
             # If it were SQLite, we'd have to recreate the table.
             pass

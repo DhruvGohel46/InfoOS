@@ -59,9 +59,7 @@ def update_daily_summary(target_date=None):
 
         # --- Expense aggregation ---
         expense_result = (
-            db.session.query(
-                func.coalesce(func.sum(Expense.amount), 0).label("total_expenses")
-            )
+            db.session.query(func.coalesce(func.sum(Expense.amount), 0).label("total_expenses"))
             .filter(func.date(Expense.date) == target_date)
             .first()
         )
@@ -106,9 +104,7 @@ def _compute_top_products(target_date) -> str:
 
         product_sales = {}
         for bill in bills:
-            items = (
-                json.loads(bill.items) if isinstance(bill.items, str) else bill.items
-            )
+            items = json.loads(bill.items) if isinstance(bill.items, str) else bill.items
             for item in items:
                 pid = item.get("product_id", "unknown")
                 name = item.get("name", "Unknown")
@@ -128,9 +124,9 @@ def _compute_top_products(target_date) -> str:
                     }
 
         # Sort by revenue, take top 10
-        sorted_products = sorted(
-            product_sales.values(), key=lambda x: x["revenue"], reverse=True
-        )[:10]
+        sorted_products = sorted(product_sales.values(), key=lambda x: x["revenue"], reverse=True)[
+            :10
+        ]
 
         return json.dumps(sorted_products)
 
@@ -163,7 +159,5 @@ def backfill_summaries(start_date, end_date=None):
             logger.error(f"Backfill failed for {current}: {e}")
         current += timedelta(days=1)
 
-    logger.info(
-        f"Backfill complete: {count} days processed ({start_date} → {end_date})"
-    )
+    logger.info(f"Backfill complete: {count} days processed ({start_date} → {end_date})")
     return count

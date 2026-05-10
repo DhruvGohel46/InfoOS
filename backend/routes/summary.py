@@ -31,9 +31,7 @@ def get_summary_for_date(date_str):
     """Get summary for a specific date (YYYY-MM-DD format)."""
     # Basic date format validation
     if len(date_str) != 10 or date_str[4] != "-" or date_str[7] != "-":
-        raise ValidationError(
-            "Invalid date format. Use YYYY-MM-DD", code="INVALID_DATE_FORMAT"
-        )
+        raise ValidationError("Invalid date format. Use YYYY-MM-DD", code="INVALID_DATE_FORMAT")
 
     try:
         year, month, day = map(int, date_str.split("-"))
@@ -64,9 +62,7 @@ def get_top_selling_products():
     top_products = summary_service.get_top_selling_products(limit)
 
     return (
-        jsonify(
-            {"success": True, "top_products": top_products, "count": len(top_products)}
-        ),
+        jsonify({"success": True, "top_products": top_products, "count": len(top_products)}),
         200,
     )
 
@@ -108,11 +104,7 @@ def get_product_sales():
     product_sales = {}
 
     for bill in all_bills:
-        items = (
-            json.loads(bill["items"])
-            if isinstance(bill["items"], str)
-            else bill["items"]
-        )
+        items = json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
 
         for item in items:
             product_id = item["product_id"]
@@ -201,12 +193,8 @@ def get_aggregated_summary():
                     "total_orders": total_orders,
                     "total_expenses": total_expenses,
                     "net_profit": net_profit,
-                    "average_daily_sales": (
-                        total_sales / len(summaries) if summaries else 0
-                    ),
-                    "average_bill_value": (
-                        total_sales / total_orders if total_orders > 0 else 0
-                    ),
+                    "average_daily_sales": (total_sales / len(summaries) if summaries else 0),
+                    "average_bill_value": (total_sales / total_orders if total_orders > 0 else 0),
                 },
                 "daily": [s.to_dict() for s in summaries],
             }

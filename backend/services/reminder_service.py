@@ -56,9 +56,7 @@ class ReminderService:
 
     def _job_error(self, event):
         """Handle job execution errors"""
-        logger.error(
-            f"Reminder job execution error: {event.job_id} - {event.exception}"
-        )
+        logger.error(f"Reminder job execution error: {event.job_id} - {event.exception}")
 
     def _schedule_all_active_reminders(self):
         """Schedule all active reminders from database"""
@@ -82,18 +80,14 @@ class ReminderService:
             # Calculate next trigger time
             trigger_time = self._calculate_next_trigger_time(reminder)
             if not trigger_time or trigger_time <= datetime.utcnow():
-                logger.warning(
-                    f"Reminder {reminder.id} has invalid or past trigger time"
-                )
+                logger.warning(f"Reminder {reminder.id} has invalid or past trigger time")
                 return
 
             # Create appropriate trigger
             if reminder.repeat_type == "once":
                 trigger = DateTrigger(run_date=trigger_time)
             elif reminder.repeat_type == "daily":
-                trigger = IntervalTrigger(
-                    days=1, start_date=trigger_time, timezone="UTC"
-                )
+                trigger = IntervalTrigger(days=1, start_date=trigger_time, timezone="UTC")
             else:
                 logger.error(f"Unknown repeat type: {reminder.repeat_type}")
                 return
@@ -134,9 +128,7 @@ class ReminderService:
                 reminder_time = reminder.reminder_time
 
                 # Create today's reminder time
-                today_trigger = reminder_time.replace(
-                    year=now.year, month=now.month, day=now.day
-                )
+                today_trigger = reminder_time.replace(year=now.year, month=now.month, day=now.day)
 
                 # If today's time has passed, schedule for tomorrow
                 if today_trigger <= now:
@@ -206,9 +198,7 @@ class ReminderService:
             return None
 
         except Exception as e:
-            logger.error(
-                f"Error calculating trigger time for reminder {reminder.id}: {e}"
-            )
+            logger.error(f"Error calculating trigger time for reminder {reminder.id}: {e}")
             return None
 
     def _trigger_reminder(self, reminder_id: str):
@@ -253,9 +243,7 @@ class ReminderService:
                                 replace_existing=True,
                             )
 
-                        self._active_reminders[reminder_id][
-                            "next_trigger"
-                        ] = next_trigger
+                        self._active_reminders[reminder_id]["next_trigger"] = next_trigger
 
                 db.session.commit()
 
@@ -418,9 +406,7 @@ class ReminderService:
                 # Reschedule the reminder
                 self._schedule_reminder(reminder)
 
-                logger.info(
-                    f"Snoozed reminder '{reminder.title}' for {minutes} minutes"
-                )
+                logger.info(f"Snoozed reminder '{reminder.title}' for {minutes} minutes")
                 return reminder
 
         except Exception as e:
@@ -431,9 +417,7 @@ class ReminderService:
         """Get scheduler status and statistics"""
         try:
             return {
-                "scheduler_running": (
-                    self.scheduler.running if self.scheduler else False
-                ),
+                "scheduler_running": (self.scheduler.running if self.scheduler else False),
                 "active_jobs": len(self.scheduler.get_jobs()) if self.scheduler else 0,
                 "active_reminders": len(self._active_reminders),
                 "next_triggers": [

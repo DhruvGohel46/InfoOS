@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = r'c:\Users\admin\Documents\GitHub\Product_Sales_Mangment\backend\data\shop.db'
+db_path = r"c:\Users\admin\Documents\GitHub\Product_Sales_Mangment\backend\data\shop.db"
 if not os.path.exists(db_path):
     print("DB not found")
 else:

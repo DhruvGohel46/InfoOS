@@ -52,9 +52,7 @@ def export_today_excel():
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            raise Exception(
-                "No bills found for today and failed to create sample report"
-            )
+            raise Exception("No bills found for today and failed to create sample report")
 
     report_type = request.args.get("type", "detailed")
 

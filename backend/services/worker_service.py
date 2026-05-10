@@ -72,9 +72,7 @@ class WorkerService:
         worker = Worker.query.get(worker_id)
         worker_name = worker.name if worker else "Unknown Worker"
 
-        advance = Advance(
-            worker_id=worker_id, amount=amount, reason=reason, date=date.today()
-        )
+        advance = Advance(worker_id=worker_id, amount=amount, reason=reason, date=date.today())
         db.session.add(advance)
 
         # ALSO RECORD AS EXPENSE
@@ -94,11 +92,7 @@ class WorkerService:
 
     @staticmethod
     def get_advances(worker_id):
-        return (
-            Advance.query.filter_by(worker_id=worker_id)
-            .order_by(Advance.date.desc())
-            .all()
-        )
+        return Advance.query.filter_by(worker_id=worker_id).order_by(Advance.date.desc()).all()
 
     @staticmethod
     def _get_finance_cycle_dates():
@@ -348,7 +342,5 @@ class WorkerService:
     @staticmethod
     def get_attendance_history(worker_id):
         return (
-            Attendance.query.filter_by(worker_id=worker_id)
-            .order_by(Attendance.date.desc())
-            .all()
+            Attendance.query.filter_by(worker_id=worker_id).order_by(Attendance.date.desc()).all()
         )

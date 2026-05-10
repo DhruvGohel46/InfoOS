@@ -17,9 +17,7 @@ class ExcelXLSXService:
 
         # Define styles
         self.header_font = Font(bold=True, color="FFFFFF")
-        self.header_fill = PatternFill(
-            start_color="366092", end_color="366092", fill_type="solid"
-        )
+        self.header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         self.header_alignment = Alignment(horizontal="center", vertical="center")
 
         self.data_font = Font(size=11)
@@ -40,25 +38,19 @@ class ExcelXLSXService:
         ws.merge_cells(f"A1:{max_col_letter}1")
         ws["A1"] = "InfoBill"
         ws["A1"].font = Font(bold=True, size=18, color="FFFFFF")
-        ws["A1"].fill = PatternFill(
-            start_color="2c3e50", end_color="2c3e50", fill_type="solid"
-        )
+        ws["A1"].fill = PatternFill(start_color="2c3e50", end_color="2c3e50", fill_type="solid")
         ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
 
         # Shop Name
         ws.merge_cells(f"A2:{max_col_letter}2")
         ws["A2"] = Config.SHOP_NAME
         ws["A2"].font = Font(bold=True, size=12, color="FFFFFF")
-        ws["A2"].fill = PatternFill(
-            start_color="34495e", end_color="34495e", fill_type="solid"
-        )
+        ws["A2"].fill = PatternFill(start_color="34495e", end_color="34495e", fill_type="solid")
         ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
 
         return 4  # Next available row (leaving row 3 as spacer)
 
-    def export_detailed_sales_report(
-        self, bills: List[Dict], summary_data: Dict
-    ) -> str:
+    def export_detailed_sales_report(self, bills: List[Dict], summary_data: Dict) -> str:
         """Create a comprehensive Excel report with detailed bills and summary"""
         try:
             today_str = date.today().strftime("%Y-%m-%d")
@@ -88,9 +80,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Summary data
@@ -117,9 +107,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             ws[f"A{current_row}"] = "Category"
@@ -148,9 +136,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Headers
@@ -176,21 +162,15 @@ class ExcelXLSXService:
                 for item in bill.get("items", []):
                     ws[f"A{current_row}"] = bill.get("bill_no", "")
                     ws[f"B{current_row}"] = (
-                        bill.get("created_at", "").split(" ")[0]
-                        if bill.get("created_at")
-                        else ""
+                        bill.get("created_at", "").split(" ")[0] if bill.get("created_at") else ""
                     )
                     ws[f"C{current_row}"] = (
-                        bill.get("created_at", "").split(" ")[1]
-                        if bill.get("created_at")
-                        else ""
+                        bill.get("created_at", "").split(" ")[1] if bill.get("created_at") else ""
                     )
                     ws[f"D{current_row}"] = item.get("product_id", "")
                     ws[f"E{current_row}"] = item.get("name", "")
                     ws[f"F{current_row}"] = item.get("quantity", 0)
-                    ws[f"G{current_row}"] = (
-                        f"{item.get('price', 0) * item.get('quantity', 0):.2f}"
-                    )
+                    ws[f"G{current_row}"] = f"{item.get('price', 0) * item.get('quantity', 0):.2f}"
 
                     # Apply formatting
                     for col in range(1, 8):
@@ -257,21 +237,15 @@ class ExcelXLSXService:
                 for item in bill.get("items", []):
                     ws[f"A{current_row}"] = bill.get("bill_no", "")
                     ws[f"B{current_row}"] = (
-                        bill.get("created_at", "").split(" ")[0]
-                        if bill.get("created_at")
-                        else ""
+                        bill.get("created_at", "").split(" ")[0] if bill.get("created_at") else ""
                     )
                     ws[f"C{current_row}"] = (
-                        bill.get("created_at", "").split(" ")[1]
-                        if bill.get("created_at")
-                        else ""
+                        bill.get("created_at", "").split(" ")[1] if bill.get("created_at") else ""
                     )
                     ws[f"D{current_row}"] = item.get("product_id", "")
                     ws[f"E{current_row}"] = item.get("name", "")
                     ws[f"F{current_row}"] = item.get("quantity", 0)
-                    ws[f"G{current_row}"] = (
-                        f"{item.get('price', 0) * item.get('quantity', 0):.2f}"
-                    )
+                    ws[f"G{current_row}"] = f"{item.get('price', 0) * item.get('quantity', 0):.2f}"
 
                     # Apply formatting
                     for col in range(1, 8):
@@ -317,9 +291,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
 
             # Summary data
             summary_items = [
@@ -390,9 +362,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Sample summary data
@@ -419,9 +389,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             ws[f"A{current_row}"] = "Category"
@@ -446,9 +414,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Note
@@ -457,9 +423,7 @@ class ExcelXLSXService:
                 "Note: No bills found for today. This is a sample report format."
             )
             ws[f"A{current_row}"].font = Font(italic=True)
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Headers
@@ -523,9 +487,7 @@ class ExcelXLSXService:
                 for col in range(1, 8):
                     cell = ws.cell(row=current_row, column=col)
                     cell.font = self.data_font
-                    cell.alignment = (
-                        self.currency_alignment if col == 7 else self.data_alignment
-                    )
+                    cell.alignment = self.currency_alignment if col == 7 else self.data_alignment
                     cell.border = self.border
 
                 current_row += 1
@@ -569,16 +531,12 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Summary stats
             ws.merge_cells(f"A{current_row}:E{current_row}")
-            ws[f"A{current_row}"] = (
-                f"Total Revenue: {report_data.get('total_sales', 0):.2f}"
-            )
+            ws[f"A{current_row}"] = f"Total Revenue: {report_data.get('total_sales', 0):.2f}"
             ws[f"A{current_row}"].font = Font(bold=True, size=12)
             ws[f"A{current_row}"].alignment = Alignment(horizontal="right")
             current_row += 2
@@ -677,9 +635,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 1
 
             ws.merge_cells(f"A{current_row}:E{current_row}")
@@ -690,16 +646,12 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Summary stats
             ws.merge_cells(f"A{current_row}:E{current_row}")
-            ws[f"A{current_row}"] = (
-                f"Total Revenue: {report_data.get('total_sales', 0):.2f}"
-            )
+            ws[f"A{current_row}"] = f"Total Revenue: {report_data.get('total_sales', 0):.2f}"
             ws[f"A{current_row}"].font = Font(bold=True, size=12)
             ws[f"A{current_row}"].alignment = Alignment(horizontal="right")
             current_row += 2
@@ -761,9 +713,7 @@ class ExcelXLSXService:
             print(f"Error creating weekly report: {e}")
             return None
 
-    def export_expenses_report(
-        self, expenses: List[Dict], title: str, filename: str
-    ) -> str:
+    def export_expenses_report(self, expenses: List[Dict], title: str, filename: str) -> str:
         """Create a professional Excel report for business expenses"""
         try:
             filepath = os.path.join(self.export_dir, filename)
@@ -788,9 +738,7 @@ class ExcelXLSXService:
             ws[f"A{current_row}"].fill = PatternFill(
                 start_color="e74c3c", end_color="e74c3c", fill_type="solid"
             )
-            ws[f"A{current_row}"].alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
+            ws[f"A{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
             current_row += 2
 
             # Headers
@@ -798,9 +746,7 @@ class ExcelXLSXService:
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=current_row, column=col, value=header)
                 cell.font = self.header_font
-                cell.fill = PatternFill(
-                    start_color="c0392b", end_color="c0392b", fill_type="solid"
-                )
+                cell.fill = PatternFill(start_color="c0392b", end_color="c0392b", fill_type="solid")
                 cell.alignment = self.header_alignment
                 cell.border = self.border
             current_row += 1
@@ -825,9 +771,7 @@ class ExcelXLSXService:
                     cell = ws.cell(row=current_row, column=col)
                     cell.font = self.data_font
                     cell.border = self.border
-                    cell.alignment = (
-                        self.currency_alignment if col == 4 else self.data_alignment
-                    )
+                    cell.alignment = self.currency_alignment if col == 4 else self.data_alignment
                 current_row += 1
 
             # Total Row

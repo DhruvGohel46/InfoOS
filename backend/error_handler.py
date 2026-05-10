@@ -38,9 +38,7 @@ logger = logging.getLogger(__name__)
 class AppError(Exception):
     """Base application error that carries an HTTP status and machine-readable code."""
 
-    def __init__(
-        self, message: str, status_code: int = 500, code: str = "INTERNAL_ERROR"
-    ):
+    def __init__(self, message: str, status_code: int = 500, code: str = "INTERNAL_ERROR"):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -50,9 +48,7 @@ class AppError(Exception):
 class ValidationError(AppError):
     """Raised when request data fails validation (400)."""
 
-    def __init__(
-        self, message: str = "Invalid request data", code: str = "VALIDATION_ERROR"
-    ):
+    def __init__(self, message: str = "Invalid request data", code: str = "VALIDATION_ERROR"):
         super().__init__(message, status_code=400, code=code)
 
 
@@ -126,16 +122,12 @@ def safe_route(fn):
             return error_response(e.message, e.status_code, e.code)
         except ValueError as e:
             logger.warning(f"[VALIDATION_ERROR] {str(e)}")
-            return error_response(
-                f"Invalid data format: {str(e)}", 400, "VALIDATION_ERROR"
-            )
+            return error_response(f"Invalid data format: {str(e)}", 400, "VALIDATION_ERROR")
         except Exception as e:
             # Unexpected errors — log full traceback at ERROR level
             logger.error(f"Unhandled exception in {fn.__name__}: {str(e)}")
             logger.error(traceback.format_exc())
-            return error_response(
-                f"Internal server error: {str(e)}", 500, "INTERNAL_ERROR"
-            )
+            return error_response(f"Internal server error: {str(e)}", 500, "INTERNAL_ERROR")
 
     return wrapper
 

@@ -72,9 +72,7 @@ def create_worker():
     try:
         validated = _worker_create_schema.load(data or {})
     except MarshmallowValidationError as e:
-        raise ValidationError(
-            f"Invalid worker data: {e.messages}", code="WORKER_VALIDATION_FAILED"
-        )
+        raise ValidationError(f"Invalid worker data: {e.messages}", code="WORKER_VALIDATION_FAILED")
 
     worker = WorkerService.create_worker(validated)
     cache.invalidate("workers")
@@ -171,9 +169,7 @@ def add_advance(worker_id):
             f"Invalid advance data: {e.messages}", code="ADVANCE_VALIDATION_FAILED"
         )
 
-    advance = WorkerService.add_advance(
-        worker_id, validated["amount"], validated.get("reason", "")
-    )
+    advance = WorkerService.add_advance(worker_id, validated["amount"], validated.get("reason", ""))
     return jsonify({"success": True, "advance_id": advance.advance_id})
 
 
@@ -201,9 +197,7 @@ def get_worker_expenses(worker_id):
     """Get all expenses linked to a specific worker."""
     from models import Expense
 
-    expenses = (
-        Expense.query.filter_by(worker_id=worker_id).order_by(Expense.date.desc()).all()
-    )
+    expenses = Expense.query.filter_by(worker_id=worker_id).order_by(Expense.date.desc()).all()
     total_paid = sum(e.amount for e in expenses)
 
     return jsonify(
@@ -248,9 +242,7 @@ def generate_salary(worker_id):
     try:
         validated = _salary_schema.load(data or {})
     except MarshmallowValidationError as e:
-        raise ValidationError(
-            f"Invalid salary data: {e.messages}", code="SALARY_VALIDATION_FAILED"
-        )
+        raise ValidationError(f"Invalid salary data: {e.messages}", code="SALARY_VALIDATION_FAILED")
 
     month = validated.get("month", date.today().month)
     year = validated.get("year", date.today().year)
@@ -413,9 +405,7 @@ def update_attendance(worker_id):
     data = request.json
     date_str = data.get("date", date.today().isoformat())
     check_out = (
-        datetime.strptime(data["check_out"], "%H:%M").time()
-        if data.get("check_out")
-        else None
+        datetime.strptime(data["check_out"], "%H:%M").time() if data.get("check_out") else None
     )
 
     attendance = Attendance.query.filter_by(

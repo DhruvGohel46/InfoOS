@@ -54,9 +54,7 @@ def create_category():
     # Check if category already exists
     existing = db.get_category_by_name(name)
     if existing:
-        raise ValidationError(
-            f'Category "{name}" already exists', code="CATEGORY_DUPLICATE"
-        )
+        raise ValidationError(f'Category "{name}" already exists', code="CATEGORY_DUPLICATE")
 
     category_id = db.create_category(
         {
@@ -108,9 +106,7 @@ def update_category(category_id):
     success = db.update_category(category_id, validated)
 
     if not success:
-        raise NotFoundError(
-            "Category not found or no changes made", code="CATEGORY_NOT_FOUND"
-        )
+        raise NotFoundError("Category not found or no changes made", code="CATEGORY_NOT_FOUND")
 
     cache.invalidate("categories")
     return jsonify({"success": True, "message": "Category updated successfully"}), 200

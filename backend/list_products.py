@@ -1,4 +1,5 @@
 from services.sqlite_db_service import SQLiteDatabaseService
+
 db = SQLiteDatabaseService()
 products = db.get_all_products(include_inactive=True)
 

@@ -51,9 +51,7 @@ class ExcelService:
                             bill["time"],
                             product["product_id"],
                             product["name"],
-                            product.get(
-                                "category", "N/A"
-                            ),  # Category might not be in bill data
+                            product.get("category", "N/A"),  # Category might not be in bill data
                             product["quantity"],
                             f"{product['price']:.2f}",
                             f"{product['price'] * product['quantity']:.2f}",
@@ -84,15 +82,9 @@ class ExcelService:
                 writer.writerow(["Metric", "Value"])
                 writer.writerow(["Date", summary_data.get("date", today_str)])
                 writer.writerow(["Total Bills", summary_data.get("total_bills", 0)])
-                writer.writerow(
-                    ["Total Sales", f"{summary_data.get('total_sales', 0):.2f}"]
-                )
-                writer.writerow(
-                    ["First Bill Time", summary_data.get("first_bill_time", "N/A")]
-                )
-                writer.writerow(
-                    ["Last Bill Time", summary_data.get("last_bill_time", "N/A")]
-                )
+                writer.writerow(["Total Sales", f"{summary_data.get('total_sales', 0):.2f}"])
+                writer.writerow(["First Bill Time", summary_data.get("first_bill_time", "N/A")])
+                writer.writerow(["Last Bill Time", summary_data.get("last_bill_time", "N/A")])
 
                 # Category-wise totals
                 writer.writerow(["", ""])  # Empty row
@@ -121,9 +113,7 @@ class ExcelService:
             print(f"Error reading CSV file: {e}")
             return f"Error reading file: {e}"
 
-    def create_detailed_sales_report(
-        self, bills: List[Dict], summary_data: Dict
-    ) -> str:
+    def create_detailed_sales_report(self, bills: List[Dict], summary_data: Dict) -> str:
         """
         Create a comprehensive sales report with both detailed bills and summary
         Returns the file path of the exported file
@@ -140,15 +130,9 @@ class ExcelService:
                 writer.writerow(["=== DAILY SALES SUMMARY ==="])
                 writer.writerow(["Date", summary_data.get("date", today_str)])
                 writer.writerow(["Total Bills", summary_data.get("total_bills", 0)])
-                writer.writerow(
-                    ["Total Sales", f"{summary_data.get('total_sales', 0):.2f}"]
-                )
-                writer.writerow(
-                    ["First Bill Time", summary_data.get("first_bill_time", "N/A")]
-                )
-                writer.writerow(
-                    ["Last Bill Time", summary_data.get("last_bill_time", "N/A")]
-                )
+                writer.writerow(["Total Sales", f"{summary_data.get('total_sales', 0):.2f}"])
+                writer.writerow(["First Bill Time", summary_data.get("first_bill_time", "N/A")])
+                writer.writerow(["Last Bill Time", summary_data.get("last_bill_time", "N/A")])
 
                 # Category-wise totals
                 writer.writerow(["", ""])  # Empty row
@@ -254,9 +238,7 @@ class ExcelService:
                 # Detailed bills section
                 writer.writerow(["", ""])  # Empty row
                 writer.writerow(["=== DETAILED BILLS ==="])
-                writer.writerow(
-                    ["Note: No bills found for today. This is a sample report format."]
-                )
+                writer.writerow(["Note: No bills found for today. This is a sample report format."])
 
                 # Detailed headers
                 detailed_headers = [

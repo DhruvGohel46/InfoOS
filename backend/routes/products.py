@@ -189,9 +189,7 @@ def update_product(product_id):
     success = db.update_product(product_id, update_data)
 
     if not success:
-        raise NotFoundError(
-            f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND"
-        )
+        raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
     # Invalidate product caches
     cache.invalidate("products")
@@ -217,9 +215,7 @@ def get_product(product_id):
     product = db.get_product(product_id)
 
     if not product:
-        raise NotFoundError(
-            f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND"
-        )
+        raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
     return jsonify({"success": True, "product": product}), 200
 
@@ -370,9 +366,7 @@ def delete_product(product_id):
     """Soft-delete (deactivate) a product."""
     product = db.get_product(product_id)
     if not product:
-        raise NotFoundError(
-            f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND"
-        )
+        raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
     # Check for permanent delete flag
     is_permanent = request.args.get("permanent", "false").lower() == "true"

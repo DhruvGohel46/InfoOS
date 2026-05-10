@@ -148,9 +148,7 @@ class WorkerUpdateSchema(Schema):
 class AdvanceCreateSchema(Schema):
     """Schema for POST /api/workers/<id>/advance."""
 
-    amount = fields.Float(
-        required=True, validate=validate.Range(min=0, min_inclusive=False)
-    )
+    amount = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
     reason = fields.String(load_default="")
 
     class Meta:
@@ -190,14 +188,10 @@ class InventoryCreateSchema(Schema):
     """Schema for POST /api/inventory/create."""
 
     name = fields.String(required=True, validate=validate.Length(min=1))
-    type = fields.String(
-        required=True, validate=validate.OneOf(["DIRECT_SALE", "RAW_MATERIAL"])
-    )
+    type = fields.String(required=True, validate=validate.OneOf(["DIRECT_SALE", "RAW_MATERIAL"]))
     unit = fields.String(
         required=True,
-        validate=validate.OneOf(
-            ["piece", "packet", "kg", "liter", "gram", "ml", "box", "bottle"]
-        ),
+        validate=validate.OneOf(["piece", "packet", "kg", "liter", "gram", "ml", "box", "bottle"]),
     )
     stock = fields.Float(load_default=0.0)
     unit_price = fields.Float(load_default=0.0)
@@ -256,9 +250,7 @@ class ExpenseCreateSchema(Schema):
 
     title = fields.String(required=True, validate=validate.Length(min=1))
     category = fields.String(required=True, validate=validate.Length(min=1))
-    amount = fields.Float(
-        required=True, validate=validate.Range(min=0, min_inclusive=False)
-    )
+    amount = fields.Float(required=True, validate=validate.Range(min=0, min_inclusive=False))
     payment_method = fields.String(load_default="Cash")
     worker_id = fields.String(load_default=None)
     date = fields.Date(load_default=None)  # Automatically parses ISO date strings

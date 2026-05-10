@@ -23,8 +23,7 @@ class Config:
 
     # Use environment variable for DB URI, fallback to SQLite in DATA_DIR
     SQLALCHEMY_DATABASE_URI = (
-        os.environ.get("DATABASE_URL")
-        or f"sqlite:///{os.path.join(DATA_DIR, 'pos.db')}"
+        os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(DATA_DIR, 'pos.db')}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -38,9 +37,7 @@ class Config:
     EXPORT_DIR = os.path.join(DATA_DIR, "exports")
 
     # Reports directory for automated reports
-    REPORTS_FOLDER = (
-        os.environ.get("REPORTS_FOLDER") or r"D:\Sales Data of other product"
-    )
+    REPORTS_FOLDER = os.environ.get("REPORTS_FOLDER") or r"D:\Sales Data of other product"
 
     # Flask configuration
     SECRET_KEY = os.environ.get("SECRET_KEY") or "pos-secret-key-for-local-development"
@@ -57,10 +54,10 @@ class Config:
 
     # Business configuration
     DEFAULT_CURRENCY = "₹"
-    MAX_CHARS_PER_LINE = 32  # Re-declare to be safe if overwritten above? No, just good practice to keep grouped.
-    TAX_RATE = float(
-        os.environ.get("TAX_RATE", 0.0)
-    )  # Tax rate as decimal (0.18 for 18%)
+    MAX_CHARS_PER_LINE = (
+        32  # Re-declare to be safe if overwritten above? No, just good practice to keep grouped.
+    )
+    TAX_RATE = float(os.environ.get("TAX_RATE", 0.0))  # Tax rate as decimal (0.18 for 18%)
 
     # Security configuration
     RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or "Karam2@15"

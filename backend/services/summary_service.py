@@ -24,9 +24,7 @@ class SummaryService:
                 all_bills = self.db_service.get_all_bills()
                 if all_bills:
                     # Get the most recent date with bills
-                    dates_with_bills = set(
-                        bill["created_at"].split(" ")[0] for bill in all_bills
-                    )
+                    dates_with_bills = set(bill["created_at"].split(" ")[0] for bill in all_bills)
                     if dates_with_bills:
                         most_recent_date = max(dates_with_bills)
                         bills = [
@@ -42,19 +40,13 @@ class SummaryService:
                     "total_bills": 0,
                     "total_sales": 0.0,
                     "total_expenses": (
-                        sum(
-                            expense["amount"]
-                            for expense in self.db_service.get_todays_expenses()
-                        )
+                        sum(expense["amount"] for expense in self.db_service.get_todays_expenses())
                         if hasattr(self.db_service, "get_todays_expenses")
                         else 0.0
                     ),
                     "net_profit": 0.0
                     - (
-                        sum(
-                            expense["amount"]
-                            for expense in self.db_service.get_todays_expenses()
-                        )
+                        sum(expense["amount"] for expense in self.db_service.get_todays_expenses())
                         if hasattr(self.db_service, "get_todays_expenses")
                         else 0.0
                     ),
@@ -97,9 +89,7 @@ class SummaryService:
                 "average_bill_value": average_bill_value,
                 "hourly_sales": hourly_sales,
                 "peak_hour": self._get_peak_hour(hourly_sales),
-                "expense_category_totals": self._calculate_expense_category_totals(
-                    expenses
-                ),
+                "expense_category_totals": self._calculate_expense_category_totals(expenses),
             }
 
         except Exception as e:
@@ -123,11 +113,7 @@ class SummaryService:
             # Items are stored as JSON string in SQLite
             import json
 
-            items = (
-                json.loads(bill["items"])
-                if isinstance(bill["items"], str)
-                else bill["items"]
-            )
+            items = json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
 
             for product in items:
                 # Get product category from products database
@@ -185,11 +171,7 @@ class SummaryService:
         try:
             # Get all bills and filter for target date
             all_bills = self.db_service.get_all_bills()
-            bills = [
-                bill
-                for bill in all_bills
-                if bill["created_at"].split(" ")[0] == target_date
-            ]
+            bills = [bill for bill in all_bills if bill["created_at"].split(" ")[0] == target_date]
 
             if not bills:
                 expenses = (
@@ -241,9 +223,7 @@ class SummaryService:
                 "last_bill_time": last_bill_time,
                 "average_bill_value": total_sales / len(bills) if bills else 0.0,
                 "peak_hour": self._get_peak_hour(hourly_sales),
-                "expense_category_totals": self._calculate_expense_category_totals(
-                    expenses
-                ),
+                "expense_category_totals": self._calculate_expense_category_totals(expenses),
             }
 
         except Exception as e:
@@ -328,9 +308,7 @@ class SummaryService:
 
             for bill in bills:
                 items = (
-                    json.loads(bill["items"])
-                    if isinstance(bill["items"], str)
-                    else bill["items"]
+                    json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
                 )
 
                 for item in items:
@@ -339,9 +317,7 @@ class SummaryService:
                     if product_id not in product_sales:
                         # Get category from map or fallback to unknown
                         product_info = product_map.get(product_id)
-                        category = (
-                            product_info["category"] if product_info else "unknown"
-                        )
+                        category = product_info["category"] if product_info else "unknown"
 
                         product_sales[product_id] = {
                             "product_id": product_id,
@@ -352,9 +328,7 @@ class SummaryService:
                         }
 
                     product_sales[product_id]["total_quantity"] += item["quantity"]
-                    product_sales[product_id]["total_revenue"] += (
-                        item["price"] * item["quantity"]
-                    )
+                    product_sales[product_id]["total_revenue"] += item["price"] * item["quantity"]
 
             # Convert to list and sort by total revenue (descending)
             sorted_products = sorted(
@@ -413,9 +387,7 @@ class SummaryService:
 
             for bill in bills:
                 items = (
-                    json.loads(bill["items"])
-                    if isinstance(bill["items"], str)
-                    else bill["items"]
+                    json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
                 )
 
                 for item in items:
@@ -423,9 +395,7 @@ class SummaryService:
 
                     if product_id not in product_sales:
                         product_info = product_map.get(product_id)
-                        category = (
-                            product_info["category"] if product_info else "unknown"
-                        )
+                        category = product_info["category"] if product_info else "unknown"
 
                         product_sales[product_id] = {
                             "product_id": product_id,
@@ -436,9 +406,7 @@ class SummaryService:
                         }
 
                     product_sales[product_id]["total_quantity"] += item["quantity"]
-                    product_sales[product_id]["total_revenue"] += (
-                        item["price"] * item["quantity"]
-                    )
+                    product_sales[product_id]["total_revenue"] += item["price"] * item["quantity"]
 
             # Sort by revenue
             sorted_products = sorted(
@@ -458,9 +426,7 @@ class SummaryService:
             print(f"Error generating weekly summary: {e}")
             return {"error": str(e)}
 
-    def _calculate_expense_category_totals(
-        self, expenses: List[Dict]
-    ) -> Dict[str, float]:
+    def _calculate_expense_category_totals(self, expenses: List[Dict]) -> Dict[str, float]:
         """Calculate total expenses per category"""
         totals = {}
         for exp in expenses:
@@ -521,9 +487,7 @@ class SummaryService:
 
             for bill in bills:
                 items = (
-                    json.loads(bill["items"])
-                    if isinstance(bill["items"], str)
-                    else bill["items"]
+                    json.loads(bill["items"]) if isinstance(bill["items"], str) else bill["items"]
                 )
                 for item in items:
                     pid = item["product_id"]
@@ -536,9 +500,7 @@ class SummaryService:
                             "total_amount": 0.0,
                         }
                     product_sales[pid]["quantity"] += item["quantity"]
-                    product_sales[pid]["total_amount"] += (
-                        item["price"] * item["quantity"]
-                    )
+                    product_sales[pid]["total_amount"] += item["price"] * item["quantity"]
 
             sorted_products = sorted(
                 product_sales.values(), key=lambda x: x["total_amount"], reverse=True

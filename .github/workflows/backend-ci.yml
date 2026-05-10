@@ -30,8 +30,8 @@ jobs:
 
       - name: Run Black format check
         working-directory: backend
-        run: black --check app.py models.py config.py validators.py auth.py error_handler.py routes/ services/ tests/
-        # Uses pyproject.toml for line-length=100 and excludes migrations
+        run: black --check .
+        # Reads line-length and excludes from pyproject.toml automatically
         # Fail = file needs reformatting → block the PR
 
   # ──────────────────────────────────────────────
@@ -59,7 +59,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: backend/requirements-ci.txt
+          cache-dependency-path: "**/requirements-ci.txt"
 
       - name: Install dependencies
         run: |

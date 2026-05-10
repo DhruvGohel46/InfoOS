@@ -269,6 +269,7 @@ if __name__ == "__main__":
     if config_name == "production":
         _log.info("Using Waitress WSGI server for production")
         from waitress import serve
+
         serve(app, host="0.0.0.0", port=args.port)
     else:
         _log.info("Using Flask development server")

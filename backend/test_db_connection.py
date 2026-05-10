@@ -1,15 +1,10 @@
 import psycopg2
 from psycopg2 import OperationalError
 
+
 def test_connection(dbname, user, password, host, port):
     try:
-        conn = psycopg2.connect(
-            dbname=dbname,
-            user=user,
-            password=password,
-            host=host,
-            port=port
-        )
+        conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host, port=port)
         print(f"SUCCESS: Connected to {dbname} as {user}")
         conn.close()
         return True
@@ -17,6 +12,7 @@ def test_connection(dbname, user, password, host, port):
         print(f"FAILED: Could not connect to {dbname} as {user}")
         print(e)
         return False
+
 
 if __name__ == "__main__":
     print("Testing connection to 'rebill_db'...")
@@ -31,7 +27,7 @@ if __name__ == "__main__":
                     user="postgres",
                     password="dharmik",
                     host="localhost",
-                    port="5432"
+                    port="5432",
                 )
                 conn.autocommit = True
                 cursor = conn.cursor()
