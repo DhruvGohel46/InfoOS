@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "main": "electron/main.js",
   "scripts": {
-    "start": "npm start --prefix frontend",
+    "start": "set BROWSER=none && npm start --prefix frontend",
     "build": "cd frontend && npm run build",
     "test": "cd frontend && npm test",
     "test:e2e": "playwright test",
