@@ -10,6 +10,8 @@
 
 Flask==2.3.3
 Flask-CORS==4.0.0
+# Core image handling (rembg is excluded in CI — see requirements-ai.txt)
+Pillow>=10.0.0
 openpyxl==3.1.2
 python-dotenv==1.0.0
 schedule==1.2.2

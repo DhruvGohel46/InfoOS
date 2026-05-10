@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from auth import require_auth
 from services.db_service import DatabaseService
 from config import config
@@ -12,23 +12,103 @@ import cache
 import os
 import re
 import logging
-from werkzeug.utils import secure_filename
-from rembg import remove, new_session
+
+# PIL is bundled with Pillow which IS in requirements — safe to import at module level
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Initialize rembg session with u2netp (fastest) as requested
-# Loading it globally prevents reloading on every request
-bg_session = new_session("u2netp")
+# ─── rembg Lazy Loader ────────────────────────────────────────────────────────
+# rembg / onnxruntime are heavy ML dependencies.
+# They are OPTIONAL: production installs include them for background removal,
+# but CI / lightweight deploys intentionally omit them.
+# We lazy-load them inside a helper so the Flask app starts up regardless.
 
+_rembg_session = None  # Module-level singleton — initialised at first real use
+_rembg_available: bool | None = None  # None = not yet checked
+
+
+def get_rembg():
+    """
+    Lazy-load rembg and return (remove_fn, session).
+
+    Returns (None, None) when rembg is not installed so callers can
+    gracefully degrade to a 503 instead of crashing.
+
+    The session is cached as a module-level singleton so the ONNX model
+    is only loaded once per process lifecycle — identical to the previous
+    global `bg_session = new_session("u2netp")` but without crashing on import.
+    """
+    global _rembg_session, _rembg_available
+
+    # Fast path: already tried, already know result
+    if _rembg_available is False:
+        return None, None
+
+    if _rembg_available is True and _rembg_session is not None:
+        from rembg import remove  # noqa: F811 — already confirmed importable
+
+        return remove, _rembg_session
+
+    # First call — attempt to import and warm up the model
+    try:
+        from rembg import remove, new_session
+
+        _rembg_session = new_session("u2netp")
+        _rembg_available = True
+        logger.info("rembg loaded successfully — background removal enabled")
+        return remove, _rembg_session
+
+    except ImportError:
+        _rembg_available = False
+        logger.warning(
+            "rembg dependency not installed — background removal disabled. "
+            "Install rembg and onnxruntime to enable this feature."
+        )
+        return None, None
+
+    except Exception as exc:  # onnxruntime model load failure, etc.
+        _rembg_available = False
+        logger.error("rembg initialisation failed: %s", exc)
+        return None, None
+
+
+def _rembg_unavailable_response():
+    """Standard 503 response when rembg is absent."""
+    current_app.logger.warning("rembg dependency not installed — returning 503")
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": "Background removal service is unavailable",
+                "hint": "rembg / onnxruntime are not installed on this server",
+            }
+        ),
+        503,
+    )
+
+
+# ─── Blueprint & Shared Instances ─────────────────────────────────────────────
 
 products_bp = Blueprint("products", __name__, url_prefix="/api/products")
 db = DatabaseService()
 
-# Reusable schema instances
 _product_create_schema = ProductCreateSchema()
 _product_update_schema = ProductUpdateSchema()
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def get_safe_filename(product_name):
+    """Convert product name to safe filename (lowercase, hyphens)."""
+    s = str(product_name).lower().strip()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"[\s-]+", "-", s)
+    return s
+
+
+# ─── Product CRUD Routes ──────────────────────────────────────────────────────
 
 
 @products_bp.route("", methods=["POST"])
@@ -51,7 +131,6 @@ def create_product():
     category_name = validated.get("category")
     active = validated.get("active", True)
 
-    # If category_id is not provided but name is, find the ID
     if not category_id and category_name:
         cat = db.get_category_by_name(category_name)
         if cat:
@@ -65,7 +144,7 @@ def create_product():
         "name": name,
         "price": price,
         "category_id": category_id,
-        "category": category_name,  # Legacy field
+        "category": category_name,
         "active": active,
     }
 
@@ -74,7 +153,6 @@ def create_product():
     if not success:
         raise ValidationError("Product ID already exists", code="PRODUCT_ID_DUPLICATE")
 
-    # Invalidate product caches
     cache.invalidate("products")
     cache.invalidate("products_with_stock")
 
@@ -95,10 +173,8 @@ def create_product():
 def get_all_products():
     """Get all active products (cached)."""
     include_inactive = request.args.get("include_inactive", "false").lower() == "true"
-    include_deleted = request.args.get("include_deleted", "false").lower() == "true"
     include_stock = request.args.get("include_stock", "false").lower() == "true"
 
-    # Use cache for common queries
     cache_domain = "products_with_stock" if include_stock else "products"
     cache_key = "all" if include_inactive else "active"
 
@@ -164,7 +240,7 @@ def update_product(product_id):
             favorite = favorite.lower() in ["true", "1", "yes"]
         update_data["favorite"] = bool(favorite)
 
-    # Handle product name change -> Rename image
+    # Handle product name change → rename image on disk
     if "name" in update_data:
         product = db.get_product(product_id)
         if product and product.get("image_filename"):
@@ -183,15 +259,13 @@ def update_product(product_id):
                         os.rename(old_path, new_path)
                         update_data["image_filename"] = new_filename
                     except Exception as e:
-                        logger.warning(f"Error renaming image: {e}")
+                        logger.warning("Error renaming image: %s", e)
 
-    # Update product
     success = db.update_product(product_id, update_data)
 
     if not success:
         raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
-    # Invalidate product caches
     cache.invalidate("products")
     cache.invalidate("products_with_stock")
 
@@ -235,7 +309,6 @@ def reset_database():
     if data["password"] != RESET_PASSWORD:
         raise AuthorizationError("Invalid password", code="INVALID_PASSWORD")
 
-    # Clear all bills
     bills_cleared = db.clear_all_bills()
     products_cleared = db.clear_all_products()
 
@@ -253,22 +326,21 @@ def reset_database():
     )
 
 
-# IMAGE MANAGEMENT ROUTES
-
-
-def get_safe_filename(product_name):
-    """Convert product name to safe filename (lowercase, hyphens)."""
-    s = str(product_name).lower().strip()
-    s = re.sub(r"[^a-z0-9\s-]", "", s)
-    s = re.sub(r"[\s-]+", "-", s)
-    return s
+# ─── Image Management Routes ──────────────────────────────────────────────────
 
 
 @products_bp.route("/<product_id>/image", methods=["POST"])
 @require_auth
 @safe_route
 def upload_product_image(product_id):
-    """Upload product image."""
+    """
+    Upload a product image.
+
+    If rembg is installed the background is automatically removed (u2netp model).
+    If rembg is absent the original image is saved as-is — the endpoint still
+    succeeds rather than returning 503, because saving without background
+    removal is a valid degraded-mode operation.
+    """
     if "image" not in request.files:
         raise ValidationError("No image file provided", code="MISSING_IMAGE")
 
@@ -277,25 +349,21 @@ def upload_product_image(product_id):
     if file.filename == "":
         raise ValidationError("No selected file", code="EMPTY_FILENAME")
 
-    # Get product to get the name
     product = db.get_product(product_id)
     if not product:
         raise NotFoundError("Product not found", code="PRODUCT_NOT_FOUND")
 
-    # Generate safe filename from product name
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
         raise ValidationError("Invalid image format", code="INVALID_IMAGE_FORMAT")
 
     safe_name = get_safe_filename(product["name"])
-    # Force PNG for background-removed images (supports transparency)
     filename = f"{safe_name}.png"
 
-    # Save file
     images_dir = os.path.join(config["default"].DATA_DIR, "images")
     os.makedirs(images_dir, exist_ok=True)
 
-    # Remove old image if exists
+    # Remove old image if a different one exists
     if product.get("image_filename"):
         old_path = os.path.join(images_dir, product["image_filename"])
         if os.path.exists(old_path) and product["image_filename"] != filename:
@@ -306,19 +374,29 @@ def upload_product_image(product_id):
 
     file_path = os.path.join(images_dir, filename)
 
-    # Process image with rembg (u2netp)
-    try:
-        img = Image.open(file).convert("RGB")
-        output = remove(img, session=bg_session)
-        output.save(file_path, format="PNG")
-    except Exception as e:
-        logger.warning(f"Background removal failed: {e}")
-        # Fallback: Save original file if processing fails
+    # ── Attempt background removal via lazy-loaded rembg ──────────────────
+    remove_fn, bg_session = get_rembg()
+
+    if remove_fn is not None:
+        try:
+            img = Image.open(file).convert("RGB")
+            output = remove_fn(img, session=bg_session)
+            output.save(file_path, format="PNG")
+            bg_removed = True
+        except Exception as e:
+            logger.warning("Background removal failed, saving original: %s", e)
+            file.seek(0)
+            img = Image.open(file)
+            img.save(file_path, format="PNG")
+            bg_removed = False
+    else:
+        # rembg not installed — save original without background removal
+        current_app.logger.warning("rembg not installed — saving image without background removal")
         file.seek(0)
         img = Image.open(file)
         img.save(file_path, format="PNG")
+        bg_removed = False
 
-    # Update DB
     success = db.update_product(product_id, {"image_filename": filename})
 
     if not success:
@@ -327,7 +405,55 @@ def upload_product_image(product_id):
     return jsonify(
         {
             "success": True,
-            "message": "Image uploaded successfully (Background removed)",
+            "message": "Image uploaded successfully"
+            + (" (background removed)" if bg_removed else ""),
+            "image_filename": filename,
+            "background_removed": bg_removed,
+        }
+    )
+
+
+@products_bp.route("/<product_id>/image/remove-background", methods=["POST"])
+@require_auth
+@safe_route
+def remove_background(product_id):
+    """
+    Explicitly request background removal for an already-uploaded image.
+
+    This endpoint returns HTTP 503 if rembg is not installed — unlike the
+    upload endpoint which degrades gracefully.
+    """
+    remove_fn, bg_session = get_rembg()
+
+    if remove_fn is None:
+        return _rembg_unavailable_response()
+
+    product = db.get_product(product_id)
+    if not product:
+        raise NotFoundError("Product not found", code="PRODUCT_NOT_FOUND")
+
+    filename = product.get("image_filename")
+    if not filename:
+        raise ValidationError("Product has no image uploaded", code="NO_IMAGE")
+
+    images_dir = os.path.join(config["default"].DATA_DIR, "images")
+    file_path = os.path.join(images_dir, filename)
+
+    if not os.path.exists(file_path):
+        raise NotFoundError("Image file not found on disk", code="IMAGE_FILE_MISSING")
+
+    try:
+        img = Image.open(file_path).convert("RGB")
+        output = remove_fn(img, session=bg_session)
+        output.save(file_path, format="PNG")
+    except Exception as e:
+        logger.error("Background removal failed for %s: %s", product_id, e)
+        raise Exception("Background removal processing failed")
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "Background removed successfully",
             "image_filename": filename,
         }
     )
@@ -351,9 +477,8 @@ def delete_product_image(product_id):
             try:
                 os.remove(file_path)
             except Exception as e:
-                logger.warning(f"Error removing file: {e}")
+                logger.warning("Error removing file: %s", e)
 
-        # Update DB
         db.update_product(product_id, {"image_filename": None})
 
     return jsonify({"success": True, "message": "Image deleted successfully"})
@@ -368,11 +493,9 @@ def delete_product(product_id):
     if not product:
         raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
 
-    # Check for permanent delete flag
     is_permanent = request.args.get("permanent", "false").lower() == "true"
 
     if is_permanent:
-        # Verify Password
         provided_password = request.headers.get("x-admin-password")
         RESET_PASSWORD = config["default"].RESET_PASSWORD
 
@@ -386,7 +509,6 @@ def delete_product(product_id):
         if not success:
             raise Exception("Failed to permanently delete product")
 
-        # Also try to remove image
         filename = product.get("image_filename")
         if filename:
             try:
@@ -399,7 +521,6 @@ def delete_product(product_id):
 
         return jsonify({"success": True, "message": "Product permanently deleted"}), 200
 
-    # Default: Deactivate (Soft Delete)
     success = db.delete_product(product_id)
 
     if not success:

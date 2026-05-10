@@ -5,6 +5,12 @@ pywin32==307
 python-dotenv==1.0.0
 schedule==1.2.2
 pandas>=2.0.0
+# ── Core image handling (always required)
+Pillow>=10.0.0
+
+# ── Optional: AI background removal (production only)
+# Remove these lines in CI/lightweight environments.
+# See requirements-ai.txt for isolated installation.
 rembg==2.0.62
 onnxruntime>=1.16.0
 Flask-SQLAlchemy==3.0.5
