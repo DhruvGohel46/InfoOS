@@ -328,3 +328,44 @@ class DailySalesSummary(db.Model):
             "top_products": (_json.loads(self.top_products_json) if self.top_products_json else []),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+# ==========================================
+# SECURITY / AUDIT LOGGING
+# ==========================================
+
+
+class AuditEvent(db.Model):
+    __tablename__ = "audit_events"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    created_at = db.Column(db.DateTime, default=func.now(), index=True)
+
+    actor_sub = db.Column(db.String(255), nullable=True)
+    action = db.Column(db.String(120), nullable=False, index=True)
+    success = db.Column(db.Boolean, default=True, index=True)
+    reason_code = db.Column(db.String(80), nullable=True)
+
+    ip = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.Text, nullable=True)
+    request_id = db.Column(db.String(64), nullable=True, index=True)
+    meta_json = db.Column(db.Text, nullable=True)
+
+    def to_dict(self):
+        try:
+            meta = json.loads(self.meta_json) if self.meta_json else None
+        except Exception:
+            meta = None
+
+        return {
+            "id": self.id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "actor_sub": self.actor_sub,
+            "action": self.action,
+            "success": bool(self.success),
+            "reason_code": self.reason_code,
+            "ip": self.ip,
+            "user_agent": self.user_agent,
+            "request_id": self.request_id,
+            "meta": meta,
+        }

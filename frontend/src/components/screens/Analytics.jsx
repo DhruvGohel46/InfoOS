@@ -19,6 +19,7 @@ import {
     ResponsiveContainer, PieChart, Pie, Cell, Sector
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString } from '../../utils/api';
 import { formatCurrency, handleAPIError, downloadFile } from '../../utils/api';
 import { usePOSData } from '../../context/POSDataContext';
@@ -109,11 +110,9 @@ const renderActiveShape = (props) => {
 };
 
 // ─── KPI Stat Bar ───
-const AnalyticsStats = ({ stats, navigate }) => {
+const AnalyticsStats = ({ stats }) => {
     const items = [
         { label: 'Gross Sales', value: formatCurrency(stats.total_sales || 0), color: 'var(--primary-500)' },
-        { label: 'Expenses', value: formatCurrency(stats.total_expenses || 0), color: 'var(--error-500)' },
-        { label: 'Net Profit', value: formatCurrency(stats.net_profit || (stats.total_sales || 0)), color: 'var(--success-500)' },
         { label: 'Total Bills', value: stats.total_bills || 0, color: '#F59E0B' },
     ];
 
@@ -129,8 +128,7 @@ const AnalyticsStats = ({ stats, navigate }) => {
                     {i > 0 && <div className="analytics-stat-divider" />}
                     <motion.div
                         className="analytics-stat-item"
-                        whileHover={{ scale: 1.05, cursor: item.label === 'Expenses' ? 'pointer' : 'default' }}
-                        onClick={() => item.label === 'Expenses' && navigate('/expenses')}
+                        whileHover={{ scale: 1.05 }}
                     >
                         <div className="analytics-stat-dot" style={{ backgroundColor: item.color }} />
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -192,21 +190,29 @@ function getYearDates(referenceDate) {
 const Analytics = () => {
     const navigate = useNavigate();
     const { isDark } = useTheme();
-    const { 
-        products: contextProducts, 
+    const { isAdmin } = useAuth();
+    const {
+        products: contextProducts,
         categories: contextCategories,
         refreshAll: refreshPOSData,
-        cachedAnalytics 
+        cachedAnalytics
     } = usePOSData();
 
     // ─── Tabs ───
-    const [activeTab, setActiveTab] = useState('sales_history');
+    const [activeTab, setActiveTab] = useState(isAdmin ? 'sales_history' : 'transactions');
     const tabs = [
         { id: 'sales_history', label: 'Sales History', icon: IoBarChartOutline },
         { id: 'expenses_history', label: 'Expenses History', icon: IoWalletOutline },
         { id: 'transactions', label: 'Transactions', icon: IoReceiptOutline },
         { id: 'reports_hub', label: 'Reports Hub', icon: IoDownloadOutline },
     ];
+    const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id === 'transactions');
+
+    useEffect(() => {
+        if (!isAdmin) {
+            setActiveTab('transactions');
+        }
+    }, [isAdmin]);
 
     // ─── Summary / Product Sales ───
     const [summary, setSummary] = useState(null);
@@ -226,6 +232,12 @@ const Analytics = () => {
 
     // ─── Sync from Context on Mount / Refresh ───
     useEffect(() => {
+        if (!isAdmin) {
+            setLoading(false);
+            setSummary(null);
+            setProductSales([]);
+            return;
+        }
         if (selectedDate === getLocalDateString() && cachedAnalytics?.data) {
             setSummary(cachedAnalytics.data);
             setLoading(false);
@@ -233,7 +245,7 @@ const Analytics = () => {
             loadSummary(selectedDate);
             loadProductSales(selectedDate);
         }
-    }, [selectedDate, cachedAnalytics]);
+    }, [selectedDate, cachedAnalytics, isAdmin]);
 
     // ─── Reports / Download ───
     const [downloading, setDownloading] = useState({});
@@ -275,29 +287,32 @@ const Analytics = () => {
     // ═══════════════ DATA LOADING ═══════════════
 
     useEffect(() => {
+        if (!isAdmin) return;
         loadSummary(selectedDate);
         loadProductSales(selectedDate);
-    }, [selectedDate]);
+    }, [selectedDate, isAdmin]);
 
     useEffect(() => {
         loadBills(selectedBillDate);
     }, [selectedBillDate]);
 
     useEffect(() => {
+        if (!isAdmin) return;
         if (activeTab === 'expenses_history') {
             loadRangeExpenses(expenseRange);
         }
-    }, [activeTab, expenseRange]);
+    }, [activeTab, expenseRange, isAdmin]);
 
     // Aggregate range data when viewRange or selectedDate changes
     useEffect(() => {
+        if (!isAdmin) return;
         if (viewRange === 'day') {
             setRangeProductSales(productSales);
             setRangeSummary(summary);
         } else {
             loadRangeData();
         }
-    }, [viewRange, debouncedDate, productSales, summary]);
+    }, [viewRange, debouncedDate, productSales, summary, isAdmin]);
 
     async function loadSummary(date) {
         try {
@@ -317,13 +332,9 @@ const Analytics = () => {
 
     async function loadProductSales(date) {
         try {
-            const url = date
-                ? `/api/summary/product-sales?date=${date}`
-                : '/api/summary/product-sales';
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.success) {
-                setProductSales(data.product_sales);
+            const response = await summaryAPI.getProductSales(date);
+            if (response.data?.success) {
+                setProductSales(response.data.product_sales || []);
             }
         } catch (err) {
             console.error('Error loading product sales:', err);
@@ -333,13 +344,13 @@ const Analytics = () => {
     async function loadRangeData() {
         try {
             setRangeLoading(true);
-            
+
             // PRODUCTION PT: Use the pre-aggregated summary API for instant loads
             // instead of calculating on-the-fly from millions of bill rows.
-            
+
             let start, end;
             const refDate = new Date(selectedDate);
-            
+
             if (viewRange === 'week') {
                 const day = refDate.getDay() || 7;
                 const s = new Date(refDate);
@@ -357,21 +368,19 @@ const Analytics = () => {
                 end = `${refDate.getFullYear()}-12-31`;
             }
 
-            const res = await api.get('/api/summary/aggregated', {
-                params: { start, end }
-            });
+            const res = await summaryAPI.getAggregatedSummary(start, end);
 
             if (res.data.success) {
                 const totals = res.data.totals;
                 const daily = res.data.daily;
-                
+
                 // Map daily data to what charts expect
                 setRangeProductSales(daily.map(d => ({
                     name: d.date.split('-').slice(1).join('/'), // MM/DD
                     total_amount: d.total_sales,
                     quantity: d.total_orders
                 })));
-                
+
                 setRangeSummary({
                     total_sales: totals.total_sales,
                     total_expenses: totals.total_expenses,
@@ -411,10 +420,10 @@ const Analytics = () => {
         try {
             setLoadingExpenses(true);
             const response = await api.get('/api/expenses', {
-                 params: { 
-                     range: expenseRange,
-                     date: selectedDate
-                 }
+                params: {
+                    range: expenseRange,
+                    date: selectedDate
+                }
             });
             setRangeExpenses(response.data.expenses || []);
         } catch (err) {
@@ -476,9 +485,10 @@ const Analytics = () => {
         try {
             setDownloading(prev => ({ ...prev, monthly: true }));
             setError('');
-            const response = await reportsAPI.exportMonthlyExcel(exportMonth, exportYear);
+            const [yearStr, monthStr] = String(exportMonth).split('-');
+            const response = await reportsAPI.exportMonthlyExcel(Number(monthStr), Number(yearStr));
             if (response && response.data) {
-                downloadFile(response.data, `Monthly_Sales_Report_${String(exportMonth).padStart(2, '0')}_${exportYear}.xlsx`);
+                downloadFile(response.data, `Monthly_Sales_Report_${monthStr}_${yearStr}.xlsx`);
             }
         } catch (err) {
             const apiError = handleAPIError(err);
@@ -515,20 +525,15 @@ const Analytics = () => {
         try {
             setClearingData(true);
             setError('');
-            const response = await fetch('/api/bill/clear', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: clearPassword }),
-            });
-            const result = await response.json();
-            if (response.ok) {
+            const response = await billingAPI.clearAllBills(clearPassword);
+            if (response.data?.success) {
                 setShowClearConfirm(false);
                 setClearPassword('');
                 await loadSummary(selectedDate);
                 await loadProductSales(selectedDate);
                 await loadBills(selectedBillDate);
             } else {
-                throw new Error(result.message || 'Failed to clear bills data');
+                throw new Error(response.data?.message || 'Failed to clear bills data');
             }
         } catch (err) {
             const apiError = handleAPIError(err);
@@ -697,7 +702,7 @@ const Analytics = () => {
                     <div className="analytics-header-left">
                         <h1 className="analytics-title">Analytics</h1>
                         <div className="analytics-tab-bar">
-                            {tabs.map((tab) => (
+                            {visibleTabs.map((tab) => (
                                 <motion.button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
@@ -713,30 +718,34 @@ const Analytics = () => {
 
                     {/* Right: Action buttons */}
                     <div className="analytics-actions">
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                            <Button
-                                onClick={() => setShowClearConfirm(true)}
-                                variant="error"
-                                size="lg"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                <IoTrashOutline size={18} />
-                                Clear Data
-                            </Button>
-                        </motion.div>
+                        {isAdmin && (
+                            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                                <Button
+                                    onClick={() => setShowClearConfirm(true)}
+                                    variant="error"
+                                    size="lg"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    <IoTrashOutline size={18} />
+                                    Clear Data
+                                </Button>
+                            </motion.div>
+                        )}
                         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                             <Button
                                 onClick={() => {
                                     refreshPOSData(); // Context refresh (boostrap + cache invalidation)
-                                    loadSummary(selectedDate);
-                                    loadProductSales(selectedDate);
+                                    if (isAdmin) {
+                                        loadSummary(selectedDate);
+                                        loadProductSales(selectedDate);
+                                    }
                                     loadBills(selectedBillDate);
                                 }}
                                 variant="secondary"
                                 size="lg"
-                                style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
                                     gap: '8px',
                                     background: 'var(--primary-500)',
                                     color: '#fff'
@@ -749,7 +758,7 @@ const Analytics = () => {
                     </div>
                 </div>
 
-                <AnalyticsStats stats={chartSummary} navigate={navigate} />
+                <AnalyticsStats stats={chartSummary} />
             </motion.div>
 
             {/* ════════════════ TAB CONTENT ════════════════ */}
@@ -1069,8 +1078,8 @@ const Analytics = () => {
 
                             {/* Expense Chart View ONLY */}
                             <div className="analytics-charts-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 300px' }}>
-                                 {/* Left: Expanded Breakdown Chart */}
-                                 <div className="analytics-chart-card" style={{ padding: '32px', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
+                                {/* Left: Expanded Breakdown Chart */}
+                                <div className="analytics-chart-card" style={{ padding: '32px', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
                                     <h3 className="chart-card-title" style={{ fontSize: '1.4rem' }}>Expense Distribution & Trends</h3>
                                     <div style={{ flex: 1, width: '100%', height: '400px' }}>
                                         {filteredRangeExpenses.length > 0 ? (
@@ -1128,10 +1137,10 @@ const Analytics = () => {
                                             </div>
                                         ))}
                                     </div>
-                                 </div>
+                                </div>
 
-                                 {/* Right: Summary Metrics */}
-                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Right: Summary Metrics */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                     <Card style={{ padding: '24px', background: isDark ? 'rgba(79, 70, 229, 0.08)' : 'rgba(79, 70, 229, 0.04)', border: '1px solid rgba(79, 70, 229, 0.1)' }}>
                                         <div style={{ fontSize: '1.2rem', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Total Outflow</div>
                                         <div style={{ fontSize: '2.8rem', fontWeight: 800, color: 'var(--error-500)' }}>
@@ -1164,7 +1173,7 @@ const Analytics = () => {
                                             })()
                                         ) : 'N/A'}
                                     </Card>
-                                 </div>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -1280,7 +1289,7 @@ const Analytics = () => {
 
             {/* ════════════════ CLEAR DATA MODAL ════════════════ */}
             <AnimatePresence>
-                {showClearConfirm && (
+                {isAdmin && showClearConfirm && (
                     <motion.div
                         className="pmOverlay"
                         initial={{ opacity: 0 }}
@@ -1350,7 +1359,7 @@ const Analytics = () => {
 
             {/* ════════════════ CANCEL BILL MODAL ════════════════ */}
             <AnimatePresence>
-                {showCancelConfirm && (
+                {isAdmin && showCancelConfirm && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}

@@ -12,7 +12,6 @@
 """
 
 from flask import Blueprint, jsonify
-from auth import require_auth
 from error_handler import safe_route
 import cache
 from services.db_service import DatabaseService

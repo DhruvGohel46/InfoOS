@@ -22,6 +22,7 @@ Packaging targets
 """
 
 import platform
+import re
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -213,85 +214,135 @@ class PrinterService:
     # ------------------------------------------------------------------
 
     def _generate_bill_text(self, bill_data: Dict, settings: Dict) -> str:
-        """Generate formatted bill text (paper-efficient layout)."""
+        """Generate formatted customer bill text."""
         max_chars = 48 if settings["is_80mm"] else 32
         lines = []
 
-        # Compact header
+        # Header
         lines.append(self._center_text(settings["shop_name"].upper(), max_chars))
-        if settings["shop_address"]:
-            lines.append(self._center_text(settings["shop_address"], max_chars))
+        if settings["shop_contact"]:
+            lines.append(self._center_text(f"Ph: {settings['shop_contact']}", max_chars))
 
-        # Merge bill info into a single line for efficiency
+        # Bill metadata
         date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%y")))
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
-        bill_no = str(bill_data["bill_no"])
+        bill_no = str(bill_data.get("bill_no", ""))
+        customer_name = str(bill_data.get("customer_name", "")).strip()
 
         lines.append("-" * max_chars)
-        lines.append(self._center_text(f"B#{bill_no} | {date_str} {time_str}", max_chars))
-        lines.append("-" * max_chars)
+        if settings["is_80mm"]:
+            lines.append(f"Bill No: {bill_no}  Date: {date_str}  Time: {time_str}")
+        else:
+            lines.append(f"Bill No: {bill_no}")
+            lines.append(f"Date: {date_str}  Time: {time_str}")
+        
+        if customer_name:
+            lines.append(f"Customer: {customer_name[: max_chars - 10]}")
 
         # Column headers
         if settings["is_80mm"]:
-            header = f"{'Item':<26} {'Qty':>4} {'Price':>8} {'Total':>8}"
+            # 23 + 1 + 4 + 1 + 8 + 1 + 10 = 48 chars
+            name_w, qty_w, price_w, total_w = 23, 4, 8, 10
+            header = f"{'Item':<{name_w}} {'Qty':>{qty_w}} {'Rate':>{price_w}} {'Amt':>{total_w}}"
+            lines.append(header)
+            lines.append("-" * max_chars)
+            
+            # Product rows (Table style for 80mm)
+            for product in bill_data.get("products", []):
+                name = str(product["name"])
+                qty = str(product["quantity"])
+                price = f"{float(product['price']):.2f}"
+                total = f"{float(product['price']) * float(product['quantity']):.2f}"
+                chunks = [name[i : i + name_w] for i in range(0, len(name), name_w)] or [""]
+                lines.append(f"{chunks[0]:<{name_w}} {qty:>{qty_w}} {price:>{price_w}} {total:>{total_w}}")
+                for extra_chunk in chunks[1:]:
+                    lines.append(f"{extra_chunk:<{name_w}}")
         else:
-            header = f"{'Item':<16} {'Qty':>3} {'Price':>6} {'Total':>6}"
-        lines.append(header)
-
-        # Product rows
-        for product in bill_data["products"]:
-            name = str(product["name"])
-            qty = str(product["quantity"])
-            price = f"{float(product['price']):.1f}"
-            total = f"{float(product['price']) * float(product['quantity']):.1f}"
-
-            if settings["is_80mm"]:
-                lines.append(f"{name[:26]:<26} {qty:>4} {price:>8} {total:>8}")
-            else:
-                lines.append(f"{name[:16]:<16} {qty:>3} {price:>6} {total:>6}")
+            # 2-line layout for 58mm (Name on top, details below)
+            # Remove the extra line divider here to save space
+            for product in bill_data.get("products", []):
+                name = str(product["name"]).upper()
+                qty = str(product["quantity"])
+                price = f"{float(product['price']):.2f}"
+                total = f"{float(product['price']) * float(product['quantity']):.2f}"
+                
+                lines.append(name)
+                # Details line: "  2 x 50.00         100.00"
+                details = f"  {qty} x {price}"
+                amt_str = f"{total}"
+                
+                # Ensure it fits exactly in max_chars (32) without wrapping
+                spacing = max_chars - len(details) - len(amt_str)
+                if spacing < 1:
+                    # Truncate details if name/qty/price is somehow too long
+                    details = details[:max_chars - len(amt_str) - 1]
+                    spacing = 1
+                lines.append(details + (" " * spacing) + amt_str)
 
         lines.append("-" * max_chars)
-        total_val = f"{float(bill_data['total']):.2f}"
-        lines.append(
-            f"{'TOTAL:':<15} {total_val:>16}"
-            if not settings["is_80mm"]
-            else f"{'TOTAL:':<30} {total_val:>18}"
-        )
+        total_val = f"{float(bill_data.get('total', 0)):,.2f}"
+        if settings["is_80mm"]:
+            # 30 + 18 = 48 chars
+            lines.append(f"{'Grand Total':<30}{total_val:>18}")
+        else:
+            # 18 + 14 = 32 chars
+            lines.append(f"{'Grand Total':<18}{total_val:>14}")
         lines.append("-" * max_chars)
         lines.append(self._center_text("Thank You!", max_chars))
 
         return "\n".join(lines)
 
     def _generate_kot_text(self, bill_data: Dict, settings: Dict) -> str:
-        """Generate Kitchen Order Ticket (KOT) — highly visible & efficient."""
+        """Generate Kitchen Order Ticket (KOT) with item + qty only."""
         max_chars = 48 if settings["is_80mm"] else 32
         lines = []
 
-        lines.append(self._center_text("*** KITCHEN ORDER ***", max_chars))
-        bill_no = str(bill_data["bill_no"])
+        lines.append(self._center_text("KITCHEN ORDER TICKET", max_chars))
+        bill_no = str(bill_data.get("bill_no", ""))
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
+        date_str = str(bill_data.get("date", datetime.now().strftime("%d-%m-%y")))
 
-        lines.append(self._center_text(f"ORDER #{bill_no} | {time_str}", max_chars))
-        lines.append("=" * max_chars)
-
-        # KOT shows item + qty only — no prices for kitchen staff
-        if settings["is_80mm"]:
-            header = f"{'ITEM NAME':<40} {'QTY':>7}"
-        else:
-            header = f"{'ITEM NAME':<25} {'QTY':>6}"
-        lines.append(header)
         lines.append("-" * max_chars)
+        if settings["is_80mm"]:
+            lines.append(f"Bill No: {bill_no}  Date: {date_str}  Time: {time_str}")
+        else:
+            lines.append(f"Bill No: {bill_no}")
+            lines.append(f"Date: {date_str}  Time: {time_str}")
+        lines.append("=" * max_chars)
 
-        for product in bill_data["products"]:
-            name = str(product["name"]).upper()
-            qty = f"x{product['quantity']}"
+        # KOT: strictly item + quantity only (no price / amount fields).
+        total_qty = sum(int(p.get("quantity", 0)) for p in bill_data.get("products", []))
 
-            if settings["is_80mm"]:
-                lines.append(f"{name[:40]:<40} {qty:>7}")
-            else:
-                lines.append(f"{name[:25]:<25} {qty:>6}")
+        if settings["is_80mm"]:
+            name_w, qty_w = 39, 8
+            header = f"{'ITEM NAME':<{name_w}} {'QTY':>{qty_w}}"
+            lines.append(header)
+            lines.append("-" * max_chars)
+            for product in bill_data.get("products", []):
+                name = str(product["name"]).upper()
+                qty_val = int(product.get("quantity", 0))
+                qty = f"x{qty_val}"
+                chunks = [name[i : i + name_w] for i in range(0, len(name), name_w)] or [""]
+                lines.append(f"{chunks[0]:<{name_w}} {qty:>{qty_w}}")
+                for extra_chunk in chunks[1:]:
+                    lines.append(f"{extra_chunk:<{name_w}}")
+        else:
+            # Clean list for 58mm KOT
+            for product in bill_data.get("products", []):
+                name = str(product["name"]).upper()
+                qty_val = int(product.get("quantity", 0))
+                qty = f"x{qty_val}"
+                
+                # Check if it fits in one line (need at least 1 space)
+                if len(name) + len(qty) + 1 <= max_chars:
+                    lines.append(f"{name:<{max_chars-len(qty)}}{qty}")
+                else:
+                    lines.append(name)
+                    lines.append(f"{'':<{max_chars-len(qty)}}{qty}")
 
         lines.append("=" * max_chars)
+        summary = f"Items: {len(bill_data.get('products', []))}  Qty: {total_qty}"
+        lines.append(self._center_text(summary, max_chars))
         return "\n".join(lines)
 
     def _center_text(self, text: str, width: int) -> str:
@@ -300,6 +351,15 @@ class PrinterService:
             return text[:width]
         padding = (width - len(text)) // 2
         return " " * padding + text
+
+    def _sanitize_for_thermal(self, text: str) -> str:
+        """
+        Keep output printer-safe and high-contrast for common ESC/POS firmware.
+        Removes fancy unicode and avoids glyph fallback issues on low-cost printers.
+        """
+        clean = text.replace("\r\n", "\n").replace("\r", "\n")
+        clean = re.sub(r"[^\x0A\x20-\x7E]", "", clean)
+        return clean
 
     # ------------------------------------------------------------------
     # Low-level printer I/O  (Windows + pywin32 required)
@@ -327,20 +387,40 @@ class PrinterService:
                 try:
                     win32print.StartPagePrinter(hPrinter)
 
-                    # ESC/POS initialisation + optional size command
+                    # ESC/POS initialization and stable text mode
                     init_cmd = b"\x1b@"
-                    # Normal size for bills, double-height for KOT readability
-                    size_cmd = b"\x1b!\x10" if job_name == "KOT" else b"\x1b!\x00"
+                    align_left_cmd = b"\x1ba\x00"
+                    normal_font_cmd = b"\x1b!\x00"
+                    bold_on_cmd = b"\x1bE\x01"
+                    # On many thermal printers, this increases print darkness/weight.
+                    double_strike_on_cmd = b"\x1bG\x01"
+                    # Compact text mode for paper efficiency and dense layout.
+                    size_cmd = b"\x1d!\x00"
+                    # Codepage selection for predictable Latin output
+                    codepage_cmd = b"\x1bt\x00"
 
-                    text_bytes = text.encode("utf-8")
+                    # Prevent clipping/garbling by forcing ASCII-safe payload
+                    safe_text = self._sanitize_for_thermal(text)
+                    text_bytes = safe_text.encode("ascii", errors="ignore")
 
-                    # Paper efficiency: minimal feed before cut (2 lines vs 4)
-                    feed_cmd = b"\x1bd\x02"  # Feed 2 lines
-                    cut_cmd = b"\x1dV\x00"  # Full cut
+                    # Minimal trailing feed before cut for paper efficiency.
+                    feed_lines = 2 if job_name == "KOT" else 1
+                    feed_cmd = b"\x1bd" + bytes([feed_lines])
+                    # Full cut with pre-feed
+                    cut_cmd = b"\x1d\x56\x41\x03"
 
                     win32print.WritePrinter(
                         hPrinter,
-                        init_cmd + size_cmd + text_bytes + feed_cmd + cut_cmd,
+                        init_cmd
+                        + align_left_cmd
+                        + normal_font_cmd
+                        + bold_on_cmd
+                        + double_strike_on_cmd
+                        + size_cmd
+                        + codepage_cmd
+                        + text_bytes
+                        + feed_cmd
+                        + cut_cmd,
                     )
                     win32print.EndPagePrinter(hPrinter)
                     return True

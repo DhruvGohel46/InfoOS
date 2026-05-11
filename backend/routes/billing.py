@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from auth import require_auth
+from auth import require_admin
 from services.db_service import DatabaseService
 from services.printer_service import PrinterService
 from config import config
@@ -9,6 +9,9 @@ import cache as local_cache
 from caching import cache
 import logging
 from limiter import limiter
+from models import db as orm_db, Bill
+from sqlalchemy import func
+from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +23,25 @@ printer_service = PrinterService()
 _bill_create_schema = BillCreateSchema()
 _bill_update_schema = BillUpdateSchema()
 
+def _build_printer_payload(bill: dict) -> dict:
+    """Normalize DB bill shape to printer service shape."""
+    created_at = str(bill.get("created_at", ""))
+    created_parts = created_at.split(" ", 1)
+    bill_date = created_parts[0] if created_parts else ""
+    bill_time = created_parts[1] if len(created_parts) > 1 else ""
+    products = bill.get("products") or bill.get("items") or []
+
+    return {
+        "bill_no": bill.get("bill_no"),
+        "date": bill_date,
+        "time": bill_time,
+        "products": products,
+        "total": bill.get("total") if bill.get("total") is not None else bill.get("total_amount", 0),
+    }
+
 
 @billing_bp.route("/create", methods=["POST"])
 @limiter.limit("60 per minute")
-@require_auth
 @safe_route
 def create_bill():
     """Create a new bill with validated products and optional printing."""
@@ -195,11 +213,14 @@ def get_bills_by_date(date_str):
 @safe_route
 def get_next_bill_number():
     """Get the next bill number for today."""
-    bills = db.get_todays_bills()
-    if bills:
-        next_bill_no = max(bill["bill_no"] for bill in bills) + 1
-    else:
-        next_bill_no = 1
+    # IMPORTANT: include CANCELLED bills too, so numbers are never reused.
+    today = date.today()
+    max_bill = (
+        orm_db.session.query(func.max(Bill.bill_no))
+        .filter(func.date(Bill.created_at) == today)
+        .scalar()
+    )
+    next_bill_no = (max_bill or 0) + 1
 
     return jsonify({"success": True, "next_bill_number": next_bill_no}), 200
 
@@ -245,7 +266,6 @@ def get_all_bills_management():
 
 
 @billing_bp.route("/<int:bill_no>/cancel", methods=["PUT"])
-@require_auth
 @safe_route
 def cancel_bill(bill_no):
     """Cancel a specific bill."""
@@ -270,7 +290,6 @@ def cancel_bill(bill_no):
 
 
 @billing_bp.route("/<int:bill_no>/update", methods=["PUT"])
-@require_auth
 @safe_route
 def update_bill(bill_no):
     """Update an existing bill."""
@@ -336,7 +355,6 @@ def update_bill(bill_no):
 
 
 @billing_bp.route("/print/<int:bill_no>", methods=["POST"])
-@require_auth
 @safe_route
 def print_bill(bill_no):
     """Print an existing bill."""
@@ -347,8 +365,9 @@ def print_bill(bill_no):
     if not bill:
         raise NotFoundError(f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND")
 
-    # Print the bill
-    success = printer_service.print_bill(bill)
+    # Normalize bill shape for printer service (`products`/`total` keys).
+    print_payload = _build_printer_payload(bill)
+    success = printer_service.print_bill(print_payload)
 
     if not success:
         raise Exception("Failed to print bill")
@@ -360,7 +379,6 @@ def print_bill(bill_no):
 
 
 @billing_bp.route("/print-kot/<int:bill_no>", methods=["POST"])
-@require_auth
 @safe_route
 def print_kot(bill_no):
     """Print an existing bill's KOT."""
@@ -371,8 +389,9 @@ def print_kot(bill_no):
     if not bill:
         raise NotFoundError(f"Bill with number {bill_no} not found", code="BILL_NOT_FOUND")
 
-    # Print the KOT
-    success = printer_service.print_kot(bill)
+    # Normalize bill shape for printer service (`products`/`total` keys).
+    print_payload = _build_printer_payload(bill)
+    success = printer_service.print_kot(print_payload)
 
     if not success:
         raise Exception("Failed to print KOT")
@@ -384,7 +403,7 @@ def print_kot(bill_no):
 
 
 @billing_bp.route("/clear", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def clear_all_bills():
     """Clear all bills from the database — requires password authentication."""

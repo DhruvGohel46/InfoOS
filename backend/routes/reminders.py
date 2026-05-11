@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from auth import require_auth
 from models import db, Reminder
 from datetime import datetime, timedelta
 from error_handler import safe_route, ValidationError, NotFoundError
@@ -31,7 +30,6 @@ def get_reminders():
 
 
 @reminders_bp.route("", methods=["POST"])
-@require_auth
 @safe_route
 def create_reminder():
     """Create a new reminder."""
@@ -59,7 +57,6 @@ def create_reminder():
 
 
 @reminders_bp.route("/<id>/snooze", methods=["POST"])
-@require_auth
 @safe_route
 def snooze_reminder(id):
     """Snooze a reminder by N minutes."""
@@ -80,7 +77,6 @@ def snooze_reminder(id):
 
 
 @reminders_bp.route("/<id>/dismiss", methods=["PUT", "POST"])
-@require_auth
 @safe_route
 def dismiss_reminder(id):
     """Dismiss or complete a reminder. Repeating reminders auto-advance."""
@@ -123,7 +119,6 @@ def dismiss_reminder(id):
 
 
 @reminders_bp.route("/<id>", methods=["DELETE"])
-@require_auth
 @safe_route
 def delete_reminder(id):
     """Delete a reminder permanently."""

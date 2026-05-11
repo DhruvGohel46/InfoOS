@@ -2,7 +2,7 @@ import json
 from datetime import datetime, date
 from typing import List, Dict, Optional, Any
 from sqlalchemy import func, or_
-from models import db, Product, Bill, Category, Settings, Inventory
+from models import db, Product, Bill, Category, Settings, Inventory, AuditEvent
 from config import config
 
 
@@ -11,6 +11,39 @@ class DatabaseService:
         # No specific initialization needed for SQLAlchemy service
         # as db session is handled by Flask-SQLAlchemy
         pass
+
+    # ---------------------------------------------------------
+    # AUDIT LOGGING
+    # ---------------------------------------------------------
+
+    def add_audit_event(
+        self,
+        action: str,
+        success: bool = True,
+        actor_sub: str | None = None,
+        reason_code: str | None = None,
+        meta: dict | None = None,
+        ip: str | None = None,
+        user_agent: str | None = None,
+        request_id: str | None = None,
+    ) -> bool:
+        try:
+            ev = AuditEvent(
+                action=action,
+                success=success,
+                actor_sub=actor_sub,
+                reason_code=reason_code,
+                ip=ip,
+                user_agent=user_agent,
+                request_id=request_id,
+                meta_json=(json.dumps(meta) if meta is not None else None),
+            )
+            db.session.add(ev)
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
 
     # ---------------------------------------------------------
     # PRODUCT MANAGEMENT

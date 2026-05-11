@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from auth import require_auth
+from auth import require_admin
 from services.db_service import DatabaseService
 from config import config
 from error_handler import safe_route, ValidationError, NotFoundError, AuthorizationError
@@ -112,7 +112,7 @@ def get_safe_filename(product_name):
 
 
 @products_bp.route("", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def create_product():
     """Create a new product."""
@@ -190,7 +190,7 @@ def get_all_products():
 
 
 @products_bp.route("/<product_id>", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_product(product_id):
     """Update an existing product."""
@@ -295,7 +295,7 @@ def get_product(product_id):
 
 
 @products_bp.route("/reset-database", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def reset_database():
     """Reset the entire database — requires password authentication."""
@@ -330,7 +330,7 @@ def reset_database():
 
 
 @products_bp.route("/<product_id>/image", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def upload_product_image(product_id):
     """
@@ -414,7 +414,7 @@ def upload_product_image(product_id):
 
 
 @products_bp.route("/<product_id>/image/remove-background", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def remove_background(product_id):
     """
@@ -460,7 +460,7 @@ def remove_background(product_id):
 
 
 @products_bp.route("/<product_id>/image", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_product_image(product_id):
     """Delete product image."""
@@ -485,7 +485,7 @@ def delete_product_image(product_id):
 
 
 @products_bp.route("/<product_id>", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_product(product_id):
     """Soft-delete (deactivate) a product."""

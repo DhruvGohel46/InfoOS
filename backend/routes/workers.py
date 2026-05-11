@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from auth import require_auth
+from auth import require_admin
 from models import db, Worker, Advance, SalaryPayment, Attendance
 from sqlalchemy import func, extract
 from services.worker_service import WorkerService
@@ -63,7 +63,7 @@ def get_workers():
 
 
 @workers_bp.route("/api/workers", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def create_worker():
     """Create a new worker."""
@@ -122,7 +122,7 @@ def get_worker(worker_id):
 
 
 @workers_bp.route("/api/workers/<worker_id>", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_worker(worker_id):
     """Update a worker's details."""
@@ -144,7 +144,7 @@ def update_worker(worker_id):
 
 
 @workers_bp.route("/api/workers/<worker_id>", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_worker(worker_id):
     """Soft-delete a worker."""
@@ -156,7 +156,7 @@ def delete_worker(worker_id):
 
 # ADVANCES
 @workers_bp.route("/api/workers/<worker_id>/advance", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def add_advance(worker_id):
     """Add an advance payment for a worker."""
@@ -233,7 +233,7 @@ def get_salary_history(worker_id):
 
 
 @workers_bp.route("/api/workers/<worker_id>/generate-salary", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def generate_salary(worker_id):
     """Generate salary record for a worker."""
@@ -265,7 +265,7 @@ def generate_salary(worker_id):
 
 
 @workers_bp.route("/api/salary/<payment_id>/pay", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def mark_salary_paid(payment_id):
     """Mark a salary payment as paid."""
@@ -367,7 +367,7 @@ def get_worker_attendance(worker_id):
 
 
 @workers_bp.route("/api/workers/<worker_id>/attendance", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def mark_attendance(worker_id):
     """Mark attendance for a worker."""
@@ -398,7 +398,7 @@ def mark_attendance(worker_id):
 
 
 @workers_bp.route("/api/workers/<worker_id>/attendance", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_attendance(worker_id):
     """Update attendance record (e.g., for check-out)."""
@@ -429,7 +429,7 @@ def update_attendance(worker_id):
 
 
 @workers_bp.route("/api/workers/attendance/bulk", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def bulk_attendance():
     """Mark all active workers as Present."""

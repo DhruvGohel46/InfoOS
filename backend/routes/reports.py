@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, send_file
-from auth import require_auth
 from sqlalchemy import extract
 from services.db_service import DatabaseService
 from services.excel_service import ExcelService

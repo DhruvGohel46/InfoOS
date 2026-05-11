@@ -55,7 +55,6 @@ export const printerService = {
       
       // Fallback for Web/Browser mode: Manual Sequence
       await this.printBill(billNo);
-      await new Promise(r => setTimeout(r, 2000)); // Buffer wait for web mode
       await this.printKOT(billNo);
       
       return { success: true };

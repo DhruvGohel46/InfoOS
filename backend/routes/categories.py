@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from auth import require_auth
+from auth import require_admin
 from services.db_service import DatabaseService
 from config import config
 from error_handler import safe_route, ValidationError, NotFoundError
@@ -36,7 +36,7 @@ def get_categories():
 
 
 @categories_bp.route("", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def create_category():
     """Create a new category."""
@@ -81,7 +81,7 @@ def create_category():
 
 
 @categories_bp.route("/<int:category_id>", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_category(category_id):
     """Update a category."""
@@ -113,7 +113,7 @@ def update_category(category_id):
 
 
 @categories_bp.route("/<int:category_id>", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_category(category_id):
     """Securely remove or deactivate a category."""

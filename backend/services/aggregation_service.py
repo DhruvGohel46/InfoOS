@@ -22,6 +22,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_EXCLUDED_BILL_STATUSES = {"CANCELLED", "VOIDED"}
+
 
 def update_daily_summary(target_date=None):
     """
@@ -46,7 +48,10 @@ def update_daily_summary(target_date=None):
                 func.count(Bill.id).label("total_orders"),
                 func.coalesce(func.sum(Bill.total_amount), 0).label("total_sales"),
             )
-            .filter(func.date(Bill.created_at) == target_date, Bill.status != "VOIDED")
+            .filter(
+                func.date(Bill.created_at) == target_date,
+                ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
+            )
             .first()
         )
 
@@ -99,7 +104,8 @@ def _compute_top_products(target_date) -> str:
     """
     try:
         bills = Bill.query.filter(
-            func.date(Bill.created_at) == target_date, Bill.status != "VOIDED"
+            func.date(Bill.created_at) == target_date,
+            ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
         ).all()
 
         product_sales = {}

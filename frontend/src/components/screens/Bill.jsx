@@ -354,10 +354,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setPrintStatus('Printing Bill...');
       await printerService.printBill(billNo);
       
-      setPrintStatus('Cutting & Preparing KOT...');
-      await new Promise(r => setTimeout(r, 1500)); // Buffer wait
-      
-      setPrintStatus('Printing KOT...');
+      setPrintStatus('Preparing KOT...');
       await printerService.printKOT(billNo);
       
       showSuccess('Bill & KOT printed successfully');

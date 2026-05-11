@@ -2,6 +2,8 @@ import axios from 'axios';
 
 // Base URL for API calls
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+const SESSION_KEY = 'pos_session_token';
+let _authToken = null;
 
 // Create axios instance with default config
 const api = axios.create({
@@ -15,6 +17,11 @@ const api = axios.create({
 // Request interceptor for logging
 api.interceptors.request.use(
   (config) => {
+    // Keep compatibility with auth module: prefer in-memory token, fallback to session.
+    const token = _authToken || sessionStorage.getItem(SESSION_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
@@ -23,6 +30,10 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+export const setAuthToken = (token) => {
+  _authToken = token;
+};
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
@@ -143,6 +154,12 @@ export const billingAPI = {
 
   // Management: Update a bill
   updateBill: (billNo, billData) => api.put(`/api/bill/${billNo}/update`, billData),
+
+  // Management: Clear all bills
+  clearAllBills: (password) =>
+    api.delete('/api/bill/clear', {
+      data: { password }
+    }),
 };
 
 // Summary APIs
@@ -161,6 +178,14 @@ export const summaryAPI = {
 
   // Get range-based summary (Week/Month/Year)
   getRangeSummary: (range, date) => api.get('/api/summary/range', { params: { range, date } }),
+
+  // Get product-wise sales (optionally for specific date)
+  getProductSales: (date = null) =>
+    api.get('/api/summary/product-sales', { params: date ? { date } : {} }),
+
+  // Get pre-aggregated summary by date range
+  getAggregatedSummary: (start, end) =>
+    api.get('/api/summary/aggregated', { params: { start, end } }),
 };
 
 // Reports APIs

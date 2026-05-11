@@ -1,6 +1,6 @@
 import uuid
 from flask import Blueprint, jsonify, request
-from auth import require_auth
+from auth import require_admin
 from models import db, Inventory, func, extract
 from datetime import date, timedelta, datetime
 from models import Expense, ExpenseItem
@@ -80,7 +80,7 @@ def get_expense(expense_id):
 
 
 @expenses_bp.route("", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def create_expense():
     """Create a new expense."""
@@ -166,7 +166,7 @@ def create_expense():
 
 
 @expenses_bp.route("/<expense_id>", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_expense(expense_id):
     """Update an existing expense."""
@@ -230,7 +230,7 @@ def update_expense(expense_id):
 
 
 @expenses_bp.route("/<expense_id>", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_expense(expense_id):
     """Delete an expense."""

@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, request
-from auth import require_auth
 from error_handler import safe_route, ValidationError
 from caching import cache
 import json
@@ -169,6 +168,15 @@ def get_aggregated_summary():
         raise ValidationError(
             "start date parameter is required (YYYY-MM-DD)", code="MISSING_START_DATE"
         )
+
+    # Self-heal: refresh summaries for requested range so cancelled/voided bills
+    # are consistently excluded even if historical rows were generated earlier.
+    try:
+        from services.aggregation_service import backfill_summaries
+
+        backfill_summaries(start, end)
+    except Exception as refresh_err:
+        logger.warning(f"Daily summary refresh warning ({start} to {end}): {refresh_err}")
 
     summaries = (
         DailySalesSummary.query.filter(

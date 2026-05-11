@@ -40,7 +40,6 @@ class PrinterManager {
       console.error(`[PrinterManager] Error printing ${job.type}:`, error.message);
       job.reject(error);
     } finally {
-      await new Promise(r => setTimeout(r, 1000));
       this.isPrinting = false;
       this.processQueue();
     }

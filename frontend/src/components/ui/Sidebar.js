@@ -7,7 +7,8 @@ import { useSettings } from '../../context/SettingsContext';
 const Sidebar = ({
     isCollapsed,
     toggleCollapse,
-    navItems = []
+    navItems = [],
+    onNavigate,
 }) => {
     const { currentTheme, isDark } = useTheme();
     const { settings } = useSettings();
@@ -149,7 +150,13 @@ const Sidebar = ({
                     return (
                         <motion.div
                             key={item.id}
-                            onClick={() => navigate(item.path)}
+                            onClick={() => {
+                                if (typeof onNavigate === 'function') {
+                                    onNavigate(item);
+                                } else {
+                                    navigate(item.path);
+                                }
+                            }}
                             title={isCollapsed ? item.label : ''}
                             initial={false}
                             whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}

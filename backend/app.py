@@ -186,6 +186,7 @@ def create_app(config_name="default"):
 
     # Health check endpoint
     @app.route("/health")
+    @limiter.exempt
     def health_check():
         return jsonify(
             {
@@ -253,6 +254,7 @@ if __name__ == "__main__":
         os.makedirs(app.config["BILLS_DIR"], exist_ok=True)
         os.makedirs(app.config["ARCHIVE_DIR"], exist_ok=True)
         os.makedirs(app.config["EXPORT_DIR"], exist_ok=True)
+        os.makedirs(os.path.join(app.config["DATA_DIR"], "Sound"), exist_ok=True)
     except OSError as e:
         print(f"Error creating directories: {e}")
         # Continue anyway, might be permission issue handled by user

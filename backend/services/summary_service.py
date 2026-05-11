@@ -248,11 +248,12 @@ class SummaryService:
     def get_top_selling_products(self, limit: int = 10) -> List[Dict]:
         """Get top selling products for today"""
         try:
-            bills = self.xml_db_service.get_today_bills()
+            bills = self.db_service.get_todays_bills()
             product_sales = {}
 
             for bill in bills:
-                for product in bill["products"]:
+                items = bill.get("items", [])
+                for product in items:
                     product_id = product["product_id"]
                     quantity = product["quantity"]
                     total = product["price"] * quantity

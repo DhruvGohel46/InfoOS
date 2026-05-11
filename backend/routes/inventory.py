@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from auth import require_auth
+from auth import require_admin
 from services.db_service import DatabaseService
 from error_handler import safe_route, ValidationError, NotFoundError, ConflictError
 from validators import (
@@ -49,7 +49,7 @@ def get_inventory_item(item_id):
 
 
 @inventory_bp.route("/create", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def create_inventory():
     """Create new inventory item."""
@@ -77,7 +77,7 @@ def create_inventory():
 
 
 @inventory_bp.route("/<int:item_id>", methods=["PUT"])
-@require_auth
+@require_admin
 @safe_route
 def update_inventory(item_id):
     """Update inventory item details."""
@@ -107,7 +107,7 @@ def update_inventory(item_id):
 
 
 @inventory_bp.route("/adjust", methods=["POST"])
-@require_auth
+@require_admin
 @safe_route
 def adjust_stock():
     """Adjust stock level (+/-)."""
@@ -140,7 +140,7 @@ def adjust_stock():
 
 
 @inventory_bp.route("/<int:item_id>", methods=["DELETE"])
-@require_auth
+@require_admin
 @safe_route
 def delete_inventory(item_id):
     """Delete inventory item."""

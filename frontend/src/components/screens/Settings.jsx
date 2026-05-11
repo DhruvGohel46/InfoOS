@@ -23,10 +23,16 @@ import {
     IoHardwareChipOutline,
     IoColorPaletteOutline,
     IoCalendarOutline,
-    IoShieldCheckmarkOutline
+    IoShieldCheckmarkOutline,
+    IoLockOpenOutline,
+    IoFingerPrintOutline,
+    IoInformationCircleOutline,
+    IoVolumeHighOutline,
+    IoCloudUploadOutline
 } from 'react-icons/io5';
+import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
-import { setupPin, getAuthStatus, clearToken } from '../../api/auth';
+import { setupPin, getAuthStatus, clearToken, resetPin } from '../../api/auth';
 
 
 const Settings = () => {
@@ -97,6 +103,24 @@ const Settings = () => {
             setPinSaving(false);
         }
     };
+    const handleResetPin = async () => {
+        if (!window.confirm('Are you sure you want to RESET the PIN? This will disable PIN requirement and clear the current PIN.')) {
+            return;
+        }
+        setPinSaving(true);
+        try {
+            await resetPin();
+            showSuccess('PIN reset successfully');
+            setPinForm({ currentPin: '', newPin: '', confirmPin: '' });
+            setPinStatus({ enabled: false, is_setup: false, loading: false });
+            // Also update formSettings to match
+            handleChange('require_pin_login', 'false');
+        } catch (err) {
+            showError(err?.response?.data?.error || 'Failed to reset PIN');
+        } finally {
+            setPinSaving(false);
+        }
+    };
     // ────────────────────────────────────────────────────────────────────────
 
     const [formSettings, setFormSettings] = useState({
@@ -128,7 +152,10 @@ const Settings = () => {
         require_pin_login: 'false',
 
         // Workers
-        salary_day: '1'
+        salary_day: '1',
+
+        // Reminder Sound
+        reminder_sound: 'reminder.mp3'
     });
 
     // Sync form with global settings when they load
@@ -146,6 +173,28 @@ const Settings = () => {
             ...prev,
             [key]: value
         }));
+    };
+
+    const [uploadingSound, setUploadingSound] = useState(false);
+    const handleSoundUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploadingSound(true);
+        try {
+            const res = await settingsAPI.uploadSound(file);
+            handleChange('reminder_sound', res.filename);
+            showSuccess('Sound uploaded! Click save to apply.');
+        } catch (err) {
+            showError(err?.response?.data?.error || 'Upload failed');
+        } finally {
+            setUploadingSound(false);
+        }
+    };
+
+    const previewSound = () => {
+        const audio = new Audio(`/api/sounds/${formSettings.reminder_sound}?v=${Date.now()}`);
+        audio.play().catch(e => showError('Cannot play sound: ' + e.message));
     };
 
     const handleSave = async () => {
@@ -503,6 +552,80 @@ const Settings = () => {
                                         </label>
                                     </div>
 
+                                    {/* Reminder Sound Customization */}
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Reminder Alert Sound</span>
+                                            <span className="stLabelDesc">Custom sound for overdue & triggered reminders</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '12px',
+                                                background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                padding: '12px 16px',
+                                                borderRadius: '12px',
+                                                border: '1px solid var(--border-secondary)'
+                                            }}>
+                                                <div style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    borderRadius: '10px',
+                                                    background: 'var(--primary-100)',
+                                                    color: 'var(--primary-600)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    <IoVolumeHighOutline size={24} />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{formSettings.reminder_sound || 'Default'}</div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Current active sound</div>
+                                                </div>
+                                                <Button 
+                                                    variant="secondary" 
+                                                    size="sm" 
+                                                    onClick={previewSound}
+                                                    style={{ height: '32px', padding: '0 12px' }}
+                                                >
+                                                    Preview
+                                                </Button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <label style={{ flex: 1 }}>
+                                                    <input 
+                                                        type="file" 
+                                                        accept="audio/*" 
+                                                        onChange={handleSoundUpload} 
+                                                        style={{ display: 'none' }} 
+                                                    />
+                                                    <div style={{
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        padding: '10px',
+                                                        borderRadius: '12px',
+                                                        border: '2px dashed var(--border-secondary)',
+                                                        fontSize: '14px',
+                                                        color: 'var(--text-secondary)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary-400)'}
+                                                    onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border-secondary)'}
+                                                    >
+                                                        <IoCloudUploadOutline size={20} />
+                                                        {uploadingSound ? 'Uploading...' : 'Upload Custom MP3'}
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Text Size Control */}
                                     <div className="stFormGroup">
                                         <div className="stLabel">
@@ -615,132 +738,205 @@ const Settings = () => {
                         )}
                         
                         {activeTab === 'security' && (
-                            <>
-                                <div className="stSectionTitle">
-                                    <IoShieldCheckmarkOutline size={22} color="var(--primary)" />
-                                    Access Control
-                                </div>
-
-                                <div className="stSectionContent">
-                                    {/* Toggle row */}
-                                    <div className="stFormGroup">
-                                        <div className="stLabel">
-                                            <span className="stLabelTitle">Require PIN Login</span>
-                                            <span className="stLabelDesc">Prompt for owner PIN on every application launch</span>
+                            <div className="stSecurityGrid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: '320px 1fr',
+                                gap: '32px',
+                                padding: '24px 0'
+                            }}>
+                                {/* Left side - Status & Summary */}
+                                <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{
+                                        background: pinStatus.is_setup 
+                                            ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
+                                            : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
+                                        border: `1px solid ${pinStatus.is_setup ? 'var(--success-200)' : 'var(--primary-200)'}`,
+                                        borderRadius: '24px',
+                                        padding: '24px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center',
+                                        gap: '16px',
+                                        boxShadow: 'var(--shadow-card)'
+                                    }}>
+                                        <div style={{
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '20px',
+                                            background: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'var(--text-inverse)',
+                                            boxShadow: pinStatus.is_setup ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
+                                            fontSize: '32px'
+                                        }}>
+                                            {pinStatus.is_setup ? <IoShieldCheckmarkOutline /> : <IoLockOpenOutline />}
                                         </div>
-                                        <label className="stToggle">
-                                            <input
-                                                type="checkbox"
-                                                checked={formSettings.require_pin_login === 'true'}
-                                                onChange={(e) => handleChange('require_pin_login', e.target.checked ? 'true' : 'false')}
-                                            />
-                                            <span className="stSlider"></span>
-                                        </label>
+                                        <div>
+                                            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                {pinStatus.is_setup ? 'System Secured' : 'Unsecured Access'}
+                                            </div>
+                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                {pinStatus.is_setup 
+                                                    ? 'Your management dashboard is protected by a 4-6 digit PIN.' 
+                                                    : 'Setup a PIN to restrict access to settings and analytics.'}
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Status badge */}
-                                    {!pinStatus.loading && (
-                                        <div style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                            marginTop: '8px', marginBottom: '16px',
-                                            padding: '4px 12px', borderRadius: '999px',
-                                            fontSize: '12px', fontWeight: 600,
-                                            background: pinStatus.is_setup
-                                                ? 'rgba(34,197,94,0.12)' : 'rgba(249,115,22,0.12)',
-                                            color: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)'
-                                        }}>
-                                            <span style={{
-                                                width: 7, height: 7, borderRadius: '50%',
-                                                background: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)',
-                                                display: 'inline-block'
-                                            }} />
-                                            {pinStatus.is_setup ? 'PIN is configured' : 'No PIN set yet'}
-                                        </div>
-                                    )}
-
                                     <div style={{
-                                        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: '14px',
+                                        background: 'var(--bg-secondary)',
+                                        borderRadius: '20px',
                                         padding: '20px',
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: '14px'
+                                        gap: '12px',
+                                        border: '1px solid var(--border-secondary)'
                                     }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                                            {pinStatus.is_setup ? 'Change PIN' : 'Set Owner PIN'}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                            <IoInformationCircleOutline size={18} />
+                                            What's protected?
+                                        </div>
+                                        <ul style={{ margin: 0, padding: '0 0 0 24px', fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <li>Inventory & Stock Management</li>
+                                            <li>Revenue & Sales Analytics</li>
+                                            <li>System Configurations</li>
+                                            <li>Worker Salary Records</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* Right side - Controls */}
+                                <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div style={{
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '24px',
+                                        padding: '32px',
+                                        boxShadow: 'var(--shadow-sm)'
+                                    }}>
+                                        <div className="stFormGroup" style={{ border: 'none', padding: '0 0 32px 0' }}>
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Require Owner PIN</span>
+                                                <span className="stLabelDesc">Request authentication on every launch</span>
+                                            </div>
+                                            <label className="stToggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formSettings.require_pin_login === 'true'}
+                                                    onChange={(e) => handleChange('require_pin_login', e.target.checked ? 'true' : 'false')}
+                                                />
+                                                <span className="stSlider"></span>
+                                            </label>
                                         </div>
 
-                                        {/* Current PIN — only shown if PIN already configured */}
-                                        {pinStatus.is_setup && (
-                                            <div className="stInputGroup">
-                                                <label className="stInputLabel">Current PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    className="stInput"
-                                                    placeholder="Enter current PIN"
-                                                    value={pinForm.currentPin}
-                                                    onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
-                                                />
+                                        <div style={{
+                                            borderTop: '1px solid var(--border-secondary)',
+                                            paddingTop: '32px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '20px'
+                                        }}>
+                                            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <IoFingerPrintOutline size={20} color="var(--primary-500)" />
+                                                {pinStatus.is_setup ? 'Manage PIN' : 'Configure Owner PIN'}
                                             </div>
-                                        )}
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                            <div className="stInputGroup">
-                                                <label className="stInputLabel">New PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    className="stInput"
-                                                    placeholder="4–6 digits"
-                                                    value={pinForm.newPin}
-                                                    onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
-                                                />
+                                            {pinStatus.is_setup && (
+                                                <div className="stInputGroup">
+                                                    <label className="stInputLabel">Current PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        className="stInput"
+                                                        placeholder="Enter existing PIN"
+                                                        value={pinForm.currentPin}
+                                                        onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
+                                                        style={{ maxWidth: '300px' }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '600px' }}>
+                                                <div className="stInputGroup">
+                                                    <label className="stInputLabel">New PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        className="stInput"
+                                                        placeholder="4–6 digits"
+                                                        value={pinForm.newPin}
+                                                        onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
+                                                    />
+                                                </div>
+                                                <div className="stInputGroup">
+                                                    <label className="stInputLabel">Confirm New PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        className="stInput"
+                                                        placeholder="Repeat PIN"
+                                                        value={pinForm.confirmPin}
+                                                        onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="stInputGroup">
-                                                <label className="stInputLabel">Confirm New PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    className="stInput"
-                                                    placeholder="Repeat PIN"
-                                                    value={pinForm.confirmPin}
-                                                    onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
-                                                />
+
+                                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={handleSavePinChange}
+                                                    loading={pinSaving}
+                                                    disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
+                                                    style={{ minWidth: 160, height: '46px', borderRadius: '12px' }}
+                                                >
+                                                    {pinSaving ? 'Processing…' : pinStatus.is_setup ? 'Update Security PIN' : 'Activate Owner PIN'}
+                                                </Button>
+
+                                                {pinStatus.is_setup && (
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={handleResetPin}
+                                                        disabled={pinSaving}
+                                                        style={{ 
+                                                            minWidth: 140, 
+                                                            height: '46px', 
+                                                            borderRadius: '12px',
+                                                            borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
+                                                            color: 'var(--error-500)',
+                                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
+                                                        }}
+                                                    >
+                                                        Reset PIN
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
-
-                                        <Button
-                                            variant="primary"
-                                            onClick={handleSavePinChange}
-                                            loading={pinSaving}
-                                            disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
-                                            style={{ alignSelf: 'flex-start', minWidth: 140 }}
-                                        >
-                                            {pinSaving ? 'Saving…' : pinStatus.is_setup ? 'Update PIN' : 'Set PIN'}
-                                        </Button>
                                     </div>
 
-                                    {/* Warning when toggle is OFF */}
                                     {formSettings.require_pin_login !== 'true' && (
                                         <div style={{
-                                            marginTop: '14px',
-                                            padding: '10px 14px',
-                                            background: 'rgba(239,68,68,0.08)',
-                                            border: '1px solid rgba(239,68,68,0.2)',
-                                            borderRadius: '10px',
-                                            fontSize: '12px',
-                                            color: 'var(--error-500)'
+                                            padding: '16px 20px',
+                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)',
+                                            border: '1px solid color-mix(in srgb, var(--error-500) 15%, transparent)',
+                                            borderRadius: '16px',
+                                            fontSize: '13px',
+                                            color: 'var(--error-500)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px'
                                         }}>
-                                            ⚠️ PIN login is currently <strong>disabled</strong>. Anyone can access this system without a password.
+                                            <IoInformationCircleOutline size={20} />
+                                            <span>Security Warning: PIN requirement is currently <strong>disabled</strong>. The system is vulnerable.</span>
                                         </div>
                                     )}
                                 </div>
-                            </>
+                            </div>
                         )}
 
                         <div className="stActions">

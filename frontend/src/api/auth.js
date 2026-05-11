@@ -94,6 +94,16 @@ export const setupPin = async (pin, currentPin = null) => {
 };
 
 /**
+ * POST /api/auth/reset
+ * Clears the PIN and disables PIN requirement.
+ * Returns { success, message }
+ */
+export const resetPin = async () => {
+  const { data } = await rawHttp.post('/api/auth/reset');
+  return data;
+};
+
+/**
  * GET /api/auth/verify
  * Ping to check if stored token is still accepted by server.
  * Returns { success } or throws 401.

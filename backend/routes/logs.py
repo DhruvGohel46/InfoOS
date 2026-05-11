@@ -8,7 +8,7 @@
 """
 
 from flask import Blueprint, request, jsonify
-from auth import require_auth
+from auth import require_admin
 from error_handler import safe_route
 import os
 import logging
@@ -24,7 +24,7 @@ def _get_log_path():
 
 
 @logs_bp.route("/api/logs/recent", methods=["GET"])
-@require_auth
+@require_admin
 @safe_route
 def get_recent_logs():
     """
