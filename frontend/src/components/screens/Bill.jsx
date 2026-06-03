@@ -61,14 +61,12 @@ import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
 import { useNetwork } from '../../context/NetworkContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { productsAPI, billingAPI, categoriesAPI } from '../../utils/api';
+import { productsAPI, billingAPI } from '../../utils/api';
 import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
-import { CATEGORY_COLORS } from '../../utils/constants';
 import { printerService } from '../../services/printerService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import Input from '../ui/Input';
 import SearchBar from '../ui/SearchBar';
 import '../../styles/Management.css';
 
@@ -85,10 +83,9 @@ const TrashIcon = ({ color }) => (
 const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const showImages = settings?.show_product_images !== 'false';
   const { showSuccess, showWarning } = useAlert();
   const { isOnline } = useNetwork();
-
+  
   // ── POS Data from global context (load-once pattern) ──
   const {
     products: bootstrapProducts,
@@ -108,8 +105,6 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [clearPassword, setClearPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState('');
 
@@ -151,20 +146,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
   }, [location.state]);
 
-  // Fallback: direct API call if bootstrap doesn't have data
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await productsAPI.getAllProducts({ include_stock: true });
-      setProducts(response.data.products || []);
-    } catch (err) {
-      const apiError = handleAPIError(err);
-      setError(apiError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const filteredProducts = products.filter(product => {
     let categoryMatch;
@@ -187,6 +169,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   // Intersection Observer for infinite scrolling
   useEffect(() => {
+    const currentTarget = observerTarget.current;
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting) {
@@ -196,16 +179,16 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       { threshold: 0.1 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    if (currentTarget) {
+      observer.observe(currentTarget);
     }
 
     return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
       }
     };
-  }, [observerTarget, filteredProducts.length]);
+  }, [filteredProducts.length]);
 
   const handleAddItem = (product, event) => {
     // Prevent event bubbling
@@ -469,15 +452,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     backgroundColor: currentTheme.colors.background, // Global background
   };
 
-  // rightSectionStyle is unused now as we inlined it to fix nesting, but keeping for safety if referenced elsewhere or cleanup later.
-  const rightSectionStyle = {
-    width: '400px',
-    backgroundColor: currentTheme.colors.surface,
-    borderLeft: `1px solid ${currentTheme.colors.border}`,
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-  };
+
 
   return (
     <div style={mainContainerStyle}>

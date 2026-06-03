@@ -8,7 +8,7 @@ import Input from '../ui/Input';
 import { IoCalendar, IoSave } from 'react-icons/io5';
 
 const SalaryManager = () => {
-    const { currentTheme, isDark } = useTheme();
+    const { currentTheme } = useTheme();
     const { showSuccess, showError } = useAlert();
     const { settings, updateSettings, loading } = useSettings();
     const [salaryDate, setSalaryDate] = useState('1');

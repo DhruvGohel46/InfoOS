@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
 import { expensesAPI } from '../../api/expenses';
 import { formatCurrency } from '../../utils/api';
-import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ExpenseFormModal from '../expenses/ExpenseFormModal';
 import ExpenseDetailsModal from '../expenses/ExpenseDetailsModal';
-import { FiPlus, FiShoppingBag, FiTruck, FiTool, FiZap, FiMoreHorizontal, FiEdit2, FiTrash2, FiSearch, FiFilter, FiUser, FiHome, FiCreditCard, FiDollarSign } from 'react-icons/fi';
+import { FiPlus, FiShoppingBag, FiTruck, FiTool, FiZap, FiEdit2, FiTrash2, FiSearch, FiUser, FiHome, FiCreditCard, FiDollarSign } from 'react-icons/fi';
 import '../../styles/Expenses.css';
 
 export default function Expenses() {
-  const { currentTheme } = useTheme();
   const { addToast } = useAlert();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +21,7 @@ export default function Expenses() {
 
   useEffect(() => {
     fetchExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCategory]);
 
   const fetchExpenses = async () => {

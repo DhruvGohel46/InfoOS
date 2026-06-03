@@ -46,7 +46,7 @@ const LiquidGlassCard = ({
   onClick,
   ...props
 }) => {
-  const { isDark } = useTheme();
+  useTheme();
 
   const cardVariants = {
     default: {

@@ -23,7 +23,7 @@ export default function ApiErrorListener() {
 
   useEffect(() => {
     const handleApiError = (event) => {
-      const { message, status, isNetworkError } = event.detail || {};
+      const { message, isNetworkError } = event.detail || {};
 
       if (isNetworkError) {
         showWarning(

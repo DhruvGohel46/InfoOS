@@ -51,7 +51,6 @@ const ICONS = {
 
 const ToastItem = forwardRef(({ toast, onClose }, ref) => {
     const { type, title, description, duration, action, timestamp } = toast;
-    const [progress, setProgress] = useState(100);
     const [isPaused, setIsPaused] = useState(false);
     const startTimeRef = useRef(Date.now());
     const remainingRef = useRef(duration);
@@ -65,9 +64,6 @@ const ToastItem = forwardRef(({ toast, onClose }, ref) => {
 
         const elapsed = Date.now() - startTimeRef.current;
         const remaining = remainingRef.current - elapsed;
-        const pct = Math.max(0, (remaining / duration) * 100);
-
-        setProgress(pct);
 
         if (remaining <= 0) {
             onClose();

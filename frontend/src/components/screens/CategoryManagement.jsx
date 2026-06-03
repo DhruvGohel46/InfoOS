@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { categoriesAPI, handleAPIError } from '../../utils/api';
 import '../../styles/Management.css';
-import Card from '../ui/Card';
 import Button from '../ui/Button';
 
 const IconPlus = (props) => (
@@ -25,12 +24,7 @@ const IconTrash = (props) => (
     </svg>
 );
 
-const IconPower = (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M12 2v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <path d="M6.38 6.38a9 9 0 1 0 11.24 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
+
 
 const CategoryManagement = () => {
     const { staggerContainer, staggerItem } = useAnimation();
@@ -121,7 +115,7 @@ const CategoryManagement = () => {
     const handleConfirmDelete = async () => {
         if (!pendingDelete) return;
         try {
-            const response = await categoriesAPI.deleteCategory(pendingDelete.id);
+            await categoriesAPI.deleteCategory(pendingDelete.id);
             setPendingDelete(null);
             setDeleteStatus(null);
             loadCategories();

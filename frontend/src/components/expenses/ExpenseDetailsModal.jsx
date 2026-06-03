@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import { formatCurrency } from '../../utils/api';
-import { FiX, FiCalendar, FiClock, FiCreditCard, FiAlignLeft, FiEdit2, FiTrash2, FiUser, FiTag, FiDollarSign } from 'react-icons/fi';
+import { FiX, FiCalendar, FiCreditCard, FiAlignLeft, FiEdit2, FiTrash2, FiUser, FiTag, FiDollarSign } from 'react-icons/fi';
 
 export default function ExpenseDetailsModal({ expense, onClose, onEdit, onDelete }) {
   if (!expense) return null;

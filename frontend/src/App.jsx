@@ -43,14 +43,13 @@
  */
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ThemeProvider } from './context/ThemeContext';
 import { AlertProvider, useAlert } from './context/AlertContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { useTheme } from './context/ThemeContext';
 import './styles/typography.css'; // Import global typography system
 
-import { useAnimation } from './hooks/useAnimation';
 import { formatCurrency } from './utils/api';
 import './styles/fonts.css';
 import './styles/global.css';
@@ -62,8 +61,6 @@ import ProductManagement from './components/screens/Management';
 import Inventory from './components/screens/Inventory';
 import Expenses from './components/screens/Expenses';
 import Settings from './components/screens/Settings';
-import { settingsAPI } from './api/settings';
-import { setCurrencySymbol } from './utils/api';
 import NotificationSystem from './components/system/NotificationSystem';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminUnlockModal from './components/system/AdminUnlockModal';
@@ -94,9 +91,7 @@ import { POSDataProvider } from './context/POSDataContext';
 
 // Import UI components
 import Button from './components/ui/Button';
-import Card from './components/ui/Card';
 import Sidebar from './components/ui/Sidebar';
-import { darkTheme } from './styles/theme';
 
 // System components (production hardening)
 import ErrorBoundary from './components/system/ErrorBoundary';
@@ -118,7 +113,6 @@ import UpdateNotification from './components/system/UpdateNotification';
 function AppContent() {
   const { currentTheme, toggleTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const { pageVariants, pageTransition } = useAnimation();
   const { activeAlerts, dismissReminder } = useReminders();
   const { isOnline } = useNetwork();
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
@@ -198,8 +192,6 @@ function AppContent() {
     if (pathname.startsWith('/settings')) return 'settings';
     return 'pos';
   };
-
-  const currentScreen = getActiveTab(location.pathname);
 
   const adminNavItems = [
     {
@@ -316,11 +308,7 @@ function AppContent() {
     day: '2-digit',
   });
 
-  const headerEnter = {
-    initial: { opacity: 0, y: -6 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.24, ease: [0, 0, 0.2, 1] },
-  };
+
 
   const handleBillCreated = (bill) => {
     addToast({
@@ -681,7 +669,6 @@ function AppContent() {
                   width: '40px',
                   height: '40px',
                   padding: 0,
-                  border: 'none',
                   backgroundImage: 'var(--glass-card)',
                   color: 'var(--text-primary)',
                   display: 'flex',

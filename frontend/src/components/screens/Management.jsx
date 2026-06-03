@@ -118,6 +118,7 @@ const ProductManagement = () => {
   useEffect(() => {
     loadProducts();
     loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProducts = async () => {
@@ -1020,7 +1021,6 @@ const ProductManagement = () => {
 
 const Management = () => {
   const [activeTab, setActiveTab] = useState('products');
-  const { currentTheme } = useSettings();
 
   return (
     <PageContainer>

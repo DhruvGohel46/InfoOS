@@ -11,7 +11,7 @@
  * Dependencies: recharts, framer-motion, react-icons
  * =============================================================================
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -39,17 +39,14 @@ import {
     IoTrashOutline,
     IoCreateOutline,
     IoCloseCircleOutline,
-    IoBriefcaseOutline,
     IoWalletOutline,
-    IoTrendingDownOutline,
     IoBusinessOutline,
     IoConstructOutline,
     IoPeopleOutline,
     IoCartOutline,
     IoFlashOutline,
     IoHomeOutline,
-    IoBusOutline,
-    IoSearchOutline
+    IoBusOutline
 } from 'react-icons/io5';
 import { FiDollarSign } from 'react-icons/fi';
 import '../../styles/Analytics.css';
@@ -110,46 +107,7 @@ const renderActiveShape = (props) => {
 };
 
 // ─── Helpers ───
-function getWeekDates(refDate) {
-    const d = new Date(refDate + 'T00:00:00');
-    const day = d.getDay() || 7;
-    d.setDate(d.getDate() - (day - 1));
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-        const dd = new Date(d);
-        dd.setDate(d.getDate() + i);
-        dates.push(dd.toISOString().split('T')[0]);
-    }
-    return dates;
-}
 
-function getMonthDates(refDate) {
-    const d = new Date(refDate + 'T00:00:00');
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const dates = [];
-    for (let i = 1; i <= daysInMonth; i++) {
-        const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        if (ds > todayStr) break;
-        dates.push(ds);
-    }
-    return dates;
-}
-
-function getYearDates(referenceDate) {
-    const year = new Date(referenceDate).getFullYear();
-    const today = new Date();
-    const dates = [];
-    for (let m = 0; m < 12; m++) {
-        const d = new Date(year, m, 1);
-        if (d > today) break;
-        dates.push(getLocalDateString(d));
-    }
-    return dates;
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -159,8 +117,6 @@ const Analytics = () => {
     const { isDark } = useTheme();
     const { isAdmin } = useAuth();
     const {
-        products: contextProducts,
-        categories: contextCategories,
         refreshAll: refreshPOSData,
         cachedAnalytics,
         preloadAnalytics
@@ -222,7 +178,6 @@ const Analytics = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
-    const [exportYear] = useState(new Date().getFullYear());
     const [exportWeekDate, setExportWeekDate] = useState(getLocalDateString());
 
     // ─── Bills / Transactions ───
@@ -244,8 +199,8 @@ const Analytics = () => {
     // ─── Expenses Tab ───
     const [expenseRange, setExpenseRange] = useState('week'); // 'week' | 'month' | 'year'
     const [rangeExpenses, setRangeExpenses] = useState([]);
-    const [loadingExpenses, setLoadingExpenses] = useState(false);
-    const [expenseSearchQuery, setExpenseSearchQuery] = useState('');
+const [loadingExpenses, setLoadingExpenses] = useState(false);
+    const [expenseSearchQuery] = useState('');
 
     // ─── Pie chart active sector ───
     const [activePieIndex, setActivePieIndex] = useState(-1);
@@ -269,6 +224,7 @@ const Analytics = () => {
         if (activeTab === 'expenses_history') {
             loadRangeExpenses(expenseRange);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, expenseRange, isAdmin, selectedDate]);
 
     // Aggregate range data when viewRange or selectedDate changes
@@ -280,6 +236,7 @@ const Analytics = () => {
         } else {
             loadRangeData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [viewRange, debouncedDate, productSales, summary, isAdmin]);
 
     async function loadSummary(date) {
@@ -579,18 +536,7 @@ const Analytics = () => {
         }
     };
 
-    const getExpenseColor = (category) => {
-        switch (category) {
-            case 'Salary':
-            case 'Wages':
-            case 'Advance': return { bg: 'rgba(59, 130, 246, 0.12)', text: '#3B82F6' };
-            case 'Rent': return { bg: 'rgba(139, 92, 246, 0.12)', text: '#8B5CF6' };
-            case 'Utilities':
-            case 'Electric Bill': return { bg: 'rgba(245, 158, 11, 0.12)', text: '#F59E0B' };
-            case 'Supplies': return { bg: 'rgba(16, 185, 129, 0.12)', text: '#10B981' };
-            default: return { bg: 'rgba(239, 68, 68, 0.12)', text: '#EF4444' };
-        }
-    };
+
 
     const filteredRangeExpenses = useMemo(() => {
         if (!expenseSearchQuery) return rangeExpenses;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash, IoCalendar } from 'react-icons/io5';
+import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash } from 'react-icons/io5';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import GlobalSelect from '../ui/GlobalSelect';

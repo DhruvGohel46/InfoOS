@@ -17,7 +17,6 @@ import {
     IoPrintOutline,
     IoAppsOutline,
     IoPeopleOutline,
-    IoChevronForward,
     IoBusinessOutline,
     IoReceiptOutline,
     IoHardwareChipOutline,
@@ -32,7 +31,7 @@ import {
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
-import { setupPin, getAuthStatus, clearToken, resetPin } from '../../api/auth';
+import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 
 
 const Settings = () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
-import { useAnimation } from '../../hooks/useAnimation';
+
 
 const Button = React.forwardRef(({
   children,
@@ -18,7 +18,7 @@ const Button = React.forwardRef(({
   ...props
 }, ref) => {
   const { currentTheme, isDark } = useTheme();
-  const { buttonTap } = useAnimation();
+
 
   const baseStyles = {
     display: 'inline-flex',

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
-import { useAnimation } from '../../hooks/useAnimation';
+
 
 const Card = React.forwardRef(({
   children,
@@ -16,8 +16,7 @@ const Card = React.forwardRef(({
   ...props
 }, ref) => {
   const { currentTheme, isDark } = useTheme();
-  // We use custom animation for cards now, but keep hook for other things
-  const { cardVariants } = useAnimation();
+
 
   const paddingStyles = {
     none: '0',

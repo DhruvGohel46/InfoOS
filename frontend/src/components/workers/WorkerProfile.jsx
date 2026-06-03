@@ -8,7 +8,7 @@ import Card from '../ui/Card';
 import Input from '../ui/Input';
 import { formatCurrency } from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime, IoAddCircle } from 'react-icons/io5';
+import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime } from 'react-icons/io5';
 import '../../styles/Workers.css';
 
 const WorkerProfile = () => {

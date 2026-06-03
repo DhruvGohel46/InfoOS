@@ -37,7 +37,7 @@ api.interceptors.request.use(
 // RETRY INTERCEPTOR (For GET requests)
 // ---------------------------------------------------------------------------
 api.interceptors.response.use(undefined, (err) => {
-  const { config, message } = err;
+  const { config } = err;
   if (!config || config.method !== 'get') return Promise.reject(err);
   
   // Only retry network errors or 5xx

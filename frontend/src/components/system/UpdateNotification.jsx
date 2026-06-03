@@ -9,15 +9,18 @@ const UpdateNotification = () => {
   useEffect(() => {
     if (!window.electronAPI) return;
 
+    /* eslint-disable-next-line no-unused-vars */
     const unbindAvailable = window.electronAPI.onUpdateAvailable(() => {
       setUpdateStatus('available');
     });
 
+    /* eslint-disable-next-line no-unused-vars */
     const unbindProgress = window.electronAPI.onUpdateProgress((event, info) => {
       setUpdateStatus('downloading');
       setProgress(Math.round(info.percent || 0));
     });
 
+    /* eslint-disable-next-line no-unused-vars */
     const unbindDownloaded = window.electronAPI.onUpdateDownloaded(() => {
       setUpdateStatus('downloaded');
     });

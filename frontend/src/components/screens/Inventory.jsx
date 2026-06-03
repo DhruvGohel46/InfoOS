@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { inventoryAPI, productsAPI } from '../../api/api';
 import { useAlert } from '../../context/AlertContext';
-import { useTheme } from '../../context/ThemeContext';
 import Button from '../ui/Button';
 import GlobalSelect from '../ui/GlobalSelect';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiPackage, FiAlertTriangle, FiTrendingUp, FiX } from 'react-icons/fi';

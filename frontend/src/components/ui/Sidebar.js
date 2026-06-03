@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '../../context/ThemeContext';
+
 import { useSettings } from '../../context/SettingsContext';
 
 const Sidebar = ({
@@ -10,7 +10,7 @@ const Sidebar = ({
     navItems = [],
     onNavigate,
 }) => {
-    const { currentTheme, isDark } = useTheme();
+
     const { settings } = useSettings();
     const location = useLocation();
     const navigate = useNavigate();

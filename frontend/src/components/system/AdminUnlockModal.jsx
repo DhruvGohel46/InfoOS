@@ -167,7 +167,7 @@ export default function AdminUnlockModal() {
       setPin('');
       setIsLoading(false);
     }
-  }, [canSubmit, pin, showError, showSuccess, triggerShake, unlockAdminWithPin]);
+  }, [canSubmit, pin, pinLength, showError, showSuccess, triggerShake, unlockAdminWithPin]);
 
   submitRef.current = handleSubmit;
 
