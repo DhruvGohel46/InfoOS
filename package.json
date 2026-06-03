@@ -1,6 +1,6 @@
 {
   "name": "infobill",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "main": "electron/main.js",
   "scripts": {
     "start": "set HOST=127.0.0.1 && set BROWSER=none && npm start --prefix frontend",
