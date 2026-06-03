@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoEye, IoPencil, IoTrash, IoEllipsisVertical, IoCall, IoBriefcase, IoCash } from 'react-icons/io5';
+import { IoEye, IoPencil, IoTrash, IoEllipsisVertical, IoCall, IoBriefcase } from 'react-icons/io5';
 import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency } from '../../utils/api';
 
