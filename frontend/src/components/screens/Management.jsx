@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
+import { FiSearch, FiPackage, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
 import { productsAPI, categoriesAPI, handleAPIError, formatCurrency } from '../../utils/api';
 import { useAlert as useToast } from '../../context/AlertContext';
 import CategoryManagement from './CategoryManagement';
