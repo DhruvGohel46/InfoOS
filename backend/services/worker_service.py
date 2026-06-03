@@ -12,11 +12,7 @@ class WorkerService:
             phone=data.get("phone"),
             email=data.get("email"),
             role=data.get("role"),
-            salary=(
-                float(data.get("salary"))
-                if data.get("salary") not in (None, "")
-                else 0.0
-            ),
+            salary=(float(data.get("salary")) if data.get("salary") not in (None, "") else 0.0),
             join_date=(
                 datetime.strptime(data.get("join_date"), "%Y-%m-%d").date()
                 if data.get("join_date")

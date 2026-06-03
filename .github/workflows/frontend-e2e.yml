@@ -31,18 +31,20 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Build frontend for E2E
+        run: npm run build --prefix frontend
+
       # Install Playwright browsers (Chromium only for speed)
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
       # Run E2E tests
-      # The webServer block in playwright.config.js will auto-start the React dev server
+      # The webServer block in playwright.config.js will auto-start a production build server
       - name: Run Playwright tests
         run: npx playwright test
         env:
           CI: "true"
-          # Point frontend at a mock/test backend if needed
-          REACT_APP_API_URL: "http://localhost:5050"
+          REACT_APP_API_URL: "http://127.0.0.1:5050"
 
       # Upload HTML report and screenshots on failure for debugging
       - name: Upload Playwright report

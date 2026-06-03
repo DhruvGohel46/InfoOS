@@ -271,6 +271,7 @@ def export_expenses():
 
     query = Expense.query
     from sqlalchemy import func
+
     if range_type == "today":
         query = query.filter(func.date(Expense.date) == today)
         title = f"Daily Expenses - {today}"
@@ -286,6 +287,7 @@ def export_expenses():
         filename = f"Expenses_Weekly_{today}.xlsx"
     elif range_type == "month":
         import calendar
+
         start_month = today.replace(day=1)
         _, last_day = calendar.monthrange(today.year, today.month)
         end_month = today.replace(day=last_day)

@@ -53,6 +53,7 @@ def get_expenses():
             )
         elif range_type == "month":
             import calendar
+
             start_month = ref_date.replace(day=1)
             _, last_day = calendar.monthrange(ref_date.year, ref_date.month)
             end_month = ref_date.replace(day=last_day)

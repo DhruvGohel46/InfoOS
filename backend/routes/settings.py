@@ -43,6 +43,8 @@ def update_settings():
 
     cache.invalidate("settings")
     return jsonify({"success": True, "message": "Settings updated successfully"})
+
+
 @settings_bp.route("/api/settings/upload-sound", methods=["POST"])
 @safe_route
 def upload_sound():
@@ -53,7 +55,7 @@ def upload_sound():
 
     if "file" not in request.files:
         raise ValidationError("No file part", code="MISSING_FILE")
-    
+
     file = request.files["file"]
     if file.filename == "":
         raise ValidationError("No selected file", code="NO_FILE")
@@ -63,20 +65,20 @@ def upload_sound():
         allowed_extensions = {"mp3", "wav", "ogg"}
         ext = file.filename.rsplit(".", 1)[1].lower() if "." in file.filename else ""
         if ext not in allowed_extensions:
-            raise ValidationError(f"Invalid file type. Allowed: {', '.join(allowed_extensions)}", code="INVALID_TYPE")
+            raise ValidationError(
+                f"Invalid file type. Allowed: {', '.join(allowed_extensions)}", code="INVALID_TYPE"
+            )
 
         # Save as custom_reminder.[ext] to simplify settings
         filename = f"custom_reminder.{ext}"
         sounds_dir = os.path.join(current_app.config["DATA_DIR"], "Sound")
         os.makedirs(sounds_dir, exist_ok=True)
-        
+
         file_path = os.path.join(sounds_dir, filename)
         file.save(file_path)
-        
-        return jsonify({
-            "success": True, 
-            "message": "Sound uploaded successfully",
-            "filename": filename
-        })
+
+        return jsonify(
+            {"success": True, "message": "Sound uploaded successfully", "filename": filename}
+        )
 
     raise ValidationError("File upload failed", code="UPLOAD_FAILED")

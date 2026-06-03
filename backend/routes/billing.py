@@ -23,6 +23,7 @@ printer_service = PrinterService()
 _bill_create_schema = BillCreateSchema()
 _bill_update_schema = BillUpdateSchema()
 
+
 def _build_printer_payload(bill: dict) -> dict:
     """Normalize DB bill shape to printer service shape."""
     created_at = str(bill.get("created_at", ""))
@@ -36,7 +37,9 @@ def _build_printer_payload(bill: dict) -> dict:
         "date": bill_date,
         "time": bill_time,
         "products": products,
-        "total": bill.get("total") if bill.get("total") is not None else bill.get("total_amount", 0),
+        "total": (
+            bill.get("total") if bill.get("total") is not None else bill.get("total_amount", 0)
+        ),
     }
 
 

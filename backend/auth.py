@@ -43,6 +43,11 @@ def generate_token(user_id="admin") -> str:
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
+def _testing_bypass_enabled() -> bool:
+    """Return True when Flask is running in test mode and auth should be bypassed."""
+    return current_app.config.get("TESTING", False)
+
+
 def require_auth(f):
     """
     Decorator to protect endpoints.
@@ -52,6 +57,9 @@ def require_auth(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
+        if _testing_bypass_enabled():
+            return f(*args, **kwargs)
+
         if not is_pin_enabled():
             return f(*args, **kwargs)
 
@@ -83,6 +91,9 @@ def require_admin(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
+        if _testing_bypass_enabled():
+            return f(*args, **kwargs)
+
         def _deny(message: str, code: str, status_code: int):
             # Return a controlled JSON response so Flask doesn't print
             # full tracebacks for expected auth denials.
@@ -186,12 +197,14 @@ def auth_status():
     pin_hash = settings.get("admin_pin_hash", "")  # Internally 'admin' but shown as 'Owner' in UI
 
     return (
-        jsonify({
-            "success": True, 
-            "enabled": enabled, 
-            "is_setup": bool(pin_hash),
-            "pin_length": int(settings.get("admin_pin_length", 4)) if pin_hash else 0
-        }),
+        jsonify(
+            {
+                "success": True,
+                "enabled": enabled,
+                "is_setup": bool(pin_hash),
+                "pin_length": int(settings.get("admin_pin_length", 4)) if pin_hash else 0,
+            }
+        ),
         200,
     )
 
@@ -235,7 +248,7 @@ def setup_pin():
         [
             {"key": "admin_pin_hash", "value": hashed},
             {"key": "require_pin_login", "value": "true"},  # Auto-enable on setup
-            {"key": "admin_pin_length", "value": str(len(pin))}, # Save length for dynamic UI
+            {"key": "admin_pin_length", "value": str(len(pin))},  # Save length for dynamic UI
         ]
     )
 

@@ -27,6 +27,7 @@
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "wait-on": "^7.2.0",
+    "serve": "^14.2.0",
     "yaml": "2.8.4"
   },
   "build": {

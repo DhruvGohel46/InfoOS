@@ -235,7 +235,7 @@ class PrinterService:
         else:
             lines.append(f"Bill No: {bill_no}")
             lines.append(f"Date: {date_str}  Time: {time_str}")
-        
+
         if customer_name:
             lines.append(f"Customer: {customer_name[: max_chars - 10]}")
 
@@ -246,7 +246,7 @@ class PrinterService:
             header = f"{'Item':<{name_w}} {'Qty':>{qty_w}} {'Rate':>{price_w}} {'Amt':>{total_w}}"
             lines.append(header)
             lines.append("-" * max_chars)
-            
+
             # Product rows (Table style for 80mm)
             for product in bill_data.get("products", []):
                 name = str(product["name"])
@@ -254,7 +254,9 @@ class PrinterService:
                 price = f"{float(product['price']):.2f}"
                 total = f"{float(product['price']) * float(product['quantity']):.2f}"
                 chunks = [name[i : i + name_w] for i in range(0, len(name), name_w)] or [""]
-                lines.append(f"{chunks[0]:<{name_w}} {qty:>{qty_w}} {price:>{price_w}} {total:>{total_w}}")
+                lines.append(
+                    f"{chunks[0]:<{name_w}} {qty:>{qty_w}} {price:>{price_w}} {total:>{total_w}}"
+                )
                 for extra_chunk in chunks[1:]:
                     lines.append(f"{extra_chunk:<{name_w}}")
         else:
@@ -265,17 +267,17 @@ class PrinterService:
                 qty = str(product["quantity"])
                 price = f"{float(product['price']):.2f}"
                 total = f"{float(product['price']) * float(product['quantity']):.2f}"
-                
+
                 lines.append(name)
                 # Details line: "  2 x 50.00         100.00"
                 details = f"  {qty} x {price}"
                 amt_str = f"{total}"
-                
+
                 # Ensure it fits exactly in max_chars (32) without wrapping
                 spacing = max_chars - len(details) - len(amt_str)
                 if spacing < 1:
                     # Truncate details if name/qty/price is somehow too long
-                    details = details[:max_chars - len(amt_str) - 1]
+                    details = details[: max_chars - len(amt_str) - 1]
                     spacing = 1
                 lines.append(details + (" " * spacing) + amt_str)
 
@@ -332,7 +334,7 @@ class PrinterService:
                 name = str(product["name"]).upper()
                 qty_val = int(product.get("quantity", 0))
                 qty = f"x{qty_val}"
-                
+
                 # Check if it fits in one line (need at least 1 space)
                 if len(name) + len(qty) + 1 <= max_chars:
                     lines.append(f"{name:<{max_chars-len(qty)}}{qty}")

@@ -29,7 +29,7 @@ module.exports = defineConfig({
   ],
 
   use: {
-    // Base URL — React dev server
+    // Base URL — production build served locally on CI
     baseURL: "http://127.0.0.1:3050",
 
     // Capture screenshot on failure for debugging
@@ -49,13 +49,13 @@ module.exports = defineConfig({
     },
   ],
 
-  // Start the React dev server automatically before tests
+  // Start a production build server automatically before tests
   webServer: {
     command: process.platform === "win32"
-      ? 'cmd /c "set PORT=3050 && set BROWSER=none && npm start --prefix frontend"'
-      : 'PORT=3050 BROWSER=none npm start --prefix frontend',
+      ? 'cmd /c "cd frontend && npm run build && npx --yes serve -s build -l 3050"'
+      : 'cd frontend && npm run build && npx --yes serve -s build -l 3050',
     url: "http://127.0.0.1:3050",
     reuseExistingServer: !process.env.CI,
-    timeout: 300_000, // 5 min to start the dev server
+    timeout: 300_000, // 5 min to build and start production serve
   },
 });
