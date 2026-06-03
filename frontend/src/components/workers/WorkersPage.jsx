@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { IoAdd, IoSearch, IoTimeOutline } from 'react-icons/io5';
-import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
 import { workerService } from '../../services/workerService';
 import Button from '../../components/ui/Button';
@@ -14,7 +13,6 @@ import AttendanceModal from './AttendanceModal';
 import '../../styles/Workers.css';
 
 const WorkersPage = () => {
-    const { isDark } = useTheme();
     const { showConfirm, showError } = useAlert();
     const navigate = useNavigate();
 
