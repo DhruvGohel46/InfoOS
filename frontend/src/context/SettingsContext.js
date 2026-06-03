@@ -77,12 +77,12 @@ export const SettingsProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const applyGlobalConfig = (config) => {
+    const applyGlobalConfig = useCallback((config) => {
         if (config.currency_symbol) setCurrencySymbol(config.currency_symbol);
         if (config.dark_mode === 'true') setTheme('dark');
         else if (config.dark_mode === 'false') setTheme('light');
         applyDisplayPrefs(config);
-    };
+    }, [setTheme]);
 
     const loadSettings = useCallback(async () => {
         try {
@@ -97,7 +97,7 @@ export const SettingsProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [setTheme]);
+    }, [applyGlobalConfig]);
 
     const updateSettings = async (newSettings) => {
         try {
