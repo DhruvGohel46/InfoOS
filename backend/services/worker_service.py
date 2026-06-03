@@ -12,7 +12,11 @@ class WorkerService:
             phone=data.get("phone"),
             email=data.get("email"),
             role=data.get("role"),
-            salary=float(data.get("salary", 0)),
+            salary=(
+                float(data.get("salary"))
+                if data.get("salary") not in (None, "")
+                else 0.0
+            ),
             join_date=(
                 datetime.strptime(data.get("join_date"), "%Y-%m-%d").date()
                 if data.get("join_date")
@@ -40,7 +44,8 @@ class WorkerService:
         if "role" in data:
             worker.role = data["role"]
         if "salary" in data:
-            worker.salary = float(data["salary"])
+            val = data.get("salary")
+            worker.salary = float(val) if val not in (None, "") else 0.0
         if "status" in data:
             worker.status = data["status"]
         if "photo" in data:
@@ -50,7 +55,11 @@ class WorkerService:
         return worker
 
     @staticmethod
-    def get_all_workers():
+    def get_all_workers(status="active"):
+        if status == "all":
+            return Worker.query.order_by(Worker.name).all()
+        elif status:
+            return Worker.query.filter_by(status=status).order_by(Worker.name).all()
         return Worker.query.filter_by(status="active").order_by(Worker.name).all()
 
     @staticmethod

@@ -117,13 +117,13 @@ class WorkerCreateSchema(Schema):
     """Schema for POST /api/workers."""
 
     name = fields.String(required=True, validate=validate.Length(min=1))
-    phone = fields.String(load_default=None)
-    email = fields.String(load_default=None)
-    role = fields.String(load_default=None)
-    salary = fields.Float(load_default=0.0, validate=validate.Range(min=0))
-    join_date = fields.String(load_default=None)
-    status = fields.String(load_default="active")
-    photo = fields.String(load_default=None)
+    phone = fields.String(allow_none=True, load_default=None)
+    email = fields.String(allow_none=True, load_default=None)
+    role = fields.String(allow_none=True, load_default=None)
+    salary = fields.Float(allow_none=True, load_default=0.0, validate=validate.Range(min=0))
+    join_date = fields.String(allow_none=True, load_default=None)
+    status = fields.String(allow_none=True, load_default="active")
+    photo = fields.String(allow_none=True, load_default=None)
 
     class Meta:
         unknown = EXCLUDE
@@ -133,13 +133,13 @@ class WorkerUpdateSchema(Schema):
     """Schema for PUT /api/workers/<id>."""
 
     name = fields.String(validate=validate.Length(min=1))
-    phone = fields.String()
-    email = fields.String()
-    role = fields.String()
-    salary = fields.Float(validate=validate.Range(min=0))
-    join_date = fields.String()
-    status = fields.String()
-    photo = fields.String()
+    phone = fields.String(allow_none=True)
+    email = fields.String(allow_none=True)
+    role = fields.String(allow_none=True)
+    salary = fields.Float(allow_none=True, validate=validate.Range(min=0))
+    join_date = fields.String(allow_none=True)
+    status = fields.String(allow_none=True)
+    photo = fields.String(allow_none=True)
 
     class Meta:
         unknown = EXCLUDE

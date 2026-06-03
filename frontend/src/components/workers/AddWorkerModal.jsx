@@ -100,6 +100,18 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
         payload.photo = await fileToBase64(photoFile);
       }
 
+      // Convert salary to float or set to 0 if empty
+      if (payload.salary === '') {
+        payload.salary = 0.0;
+      } else {
+        payload.salary = parseFloat(payload.salary);
+      }
+
+      // Handle null/empty photo to prevent Marshmallow validation issues
+      if (payload.photo === null) {
+        delete payload.photo;
+      }
+
       if (initialData && initialData.worker_id) {
         await workerService.updateWorker(initialData.worker_id, payload);
       } else {

@@ -9,8 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency } from '../../utils/api';
 
 /* ─── Action Menu ─── */
-const ActionMenu = ({ worker, onView, onEdit, onDelete }) => {
-    const [open, setOpen] = useState(false);
+const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
     const { isDark } = useTheme();
 
     return (
@@ -94,6 +93,7 @@ const MenuItem = ({ icon: Icon, label, onClick, color }) => {
 
 /* ─── Worker Row ─── */
 const WorkerRow = ({ worker, onView, onEdit, onDelete, index }) => {
+    const [menuOpen, setMenuOpen] = useState(false);
     const { isDark } = useTheme();
 
     const statusColor = worker.status === 'active' ? '#10B981' : '#71717A';
@@ -124,6 +124,9 @@ const WorkerRow = ({ worker, onView, onEdit, onDelete, index }) => {
                 marginBottom: 'calc(8px * var(--display-zoom))',
                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                position: 'relative',
+                zIndex: menuOpen ? 50 : 1,
+                overflow: 'visible',
             }}
         >
             {/* Avatar */}
@@ -246,6 +249,8 @@ const WorkerRow = ({ worker, onView, onEdit, onDelete, index }) => {
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    open={menuOpen}
+                    setOpen={setMenuOpen}
                 />
             </div>
         </motion.div>

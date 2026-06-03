@@ -4,7 +4,7 @@ import { workerAPI } from '../api/workers';
 // without touching the existing `api/workers` implementation.
 export const workerService = {
   getStats: () => workerAPI.getStats(),
-  getWorkers: () => workerAPI.getWorkers(),
+  getWorkers: (status) => workerAPI.getWorkers(status),
   createWorker: (data) => workerAPI.createWorker(data),
   getWorker: (id) => workerAPI.getWorker(id),
   updateWorker: (id, data) => workerAPI.updateWorker(id, data),

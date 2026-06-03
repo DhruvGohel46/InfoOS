@@ -46,14 +46,27 @@ def get_expenses():
             query = query.filter(func.date(Expense.date) == ref_date)
         elif range_type == "week":
             start_week = ref_date - timedelta(days=ref_date.weekday())
-            query = query.filter(Expense.date >= start_week)
-        elif range_type == "month":
+            end_week = start_week + timedelta(days=6)
             query = query.filter(
-                extract("month", Expense.date) == ref_date.month,
-                extract("year", Expense.date) == ref_date.year,
+                func.date(Expense.date) >= start_week,
+                func.date(Expense.date) <= end_week,
+            )
+        elif range_type == "month":
+            import calendar
+            start_month = ref_date.replace(day=1)
+            _, last_day = calendar.monthrange(ref_date.year, ref_date.month)
+            end_month = ref_date.replace(day=last_day)
+            query = query.filter(
+                func.date(Expense.date) >= start_month,
+                func.date(Expense.date) <= end_month,
             )
         elif range_type == "year":
-            query = query.filter(extract("year", Expense.date) == ref_date.year)
+            start_year = ref_date.replace(month=1, day=1)
+            end_year = ref_date.replace(month=12, day=31)
+            query = query.filter(
+                func.date(Expense.date) >= start_year,
+                func.date(Expense.date) <= end_year,
+            )
 
     if category:
         query = query.filter_by(category=category)

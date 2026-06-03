@@ -111,16 +111,15 @@ def create_app(config_name="default"):
     setup_logging(app)
     register_logger_middleware(app)
 
-    # Enable CORS for all routes
+    # Enable CORS globally — applying resource-specific rules caused preflight
+    # OPTIONS requests to fail when Flask error handlers fired before the route
+    # handler, stripping CORS headers from the response.
     CORS(
         app,
-        resources={
-            r"/api/*": {
-                "origins": "*",
-                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization"],
-            }
-        },
+        origins="*",
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allow_headers=["Content-Type", "Authorization"],
+        supports_credentials=False,
     )
 
     # Register blueprints

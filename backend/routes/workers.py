@@ -32,7 +32,8 @@ _salary_schema = SalaryGenerateSchema()
 @safe_route
 def get_workers():
     """Get all workers with today's attendance and current cycle advances."""
-    workers = WorkerService.get_all_workers()
+    status = request.args.get("status", "active")
+    workers = WorkerService.get_all_workers(status=status)
     result = []
 
     # Get today's attendance map
@@ -289,7 +290,7 @@ def check_salary_status():
 @safe_route
 def get_worker_stats():
     """Get aggregate worker statistics."""
-    workers = WorkerService.get_all_workers()
+    workers = WorkerService.get_all_workers(status="all")
     total_workers = len(workers)
     active_workers = len([w for w in workers if w.status == "active"])
 

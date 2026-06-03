@@ -109,39 +109,6 @@ const renderActiveShape = (props) => {
     );
 };
 
-// ─── KPI Stat Bar ───
-const AnalyticsStats = ({ stats }) => {
-    const items = [
-        { label: 'Gross Sales', value: formatCurrency(stats.total_sales || 0), color: 'var(--primary-500)' },
-        { label: 'Total Bills', value: stats.total_bills || 0, color: '#F59E0B' },
-    ];
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.15 }}
-            className="analytics-stats-bar"
-        >
-            {items.map((item, i) => (
-                <React.Fragment key={item.label}>
-                    {i > 0 && <div className="analytics-stat-divider" />}
-                    <motion.div
-                        className="analytics-stat-item"
-                        whileHover={{ scale: 1.05 }}
-                    >
-                        <div className="analytics-stat-dot" style={{ backgroundColor: item.color }} />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span className="analytics-stat-label">{item.label}</span>
-                            <span className="analytics-stat-value">{item.value}</span>
-                        </div>
-                    </motion.div>
-                </React.Fragment>
-            ))}
-        </motion.div>
-    );
-};
-
 // ─── Helpers ───
 function getWeekDates(refDate) {
     const d = new Date(refDate + 'T00:00:00');
@@ -195,7 +162,8 @@ const Analytics = () => {
         products: contextProducts,
         categories: contextCategories,
         refreshAll: refreshPOSData,
-        cachedAnalytics
+        cachedAnalytics,
+        preloadAnalytics
     } = usePOSData();
 
     // ─── Tabs ───
@@ -301,7 +269,7 @@ const Analytics = () => {
         if (activeTab === 'expenses_history') {
             loadRangeExpenses(expenseRange);
         }
-    }, [activeTab, expenseRange, isAdmin]);
+    }, [activeTab, expenseRange, isAdmin, selectedDate]);
 
     // Aggregate range data when viewRange or selectedDate changes
     useEffect(() => {
@@ -738,6 +706,8 @@ const Analytics = () => {
                                     if (isAdmin) {
                                         loadSummary(selectedDate);
                                         loadProductSales(selectedDate);
+                                        loadRangeData();
+                                        preloadAnalytics();
                                     }
                                     loadBills(selectedBillDate);
                                 }}
@@ -758,7 +728,7 @@ const Analytics = () => {
                     </div>
                 </div>
 
-                <AnalyticsStats stats={chartSummary} />
+
             </motion.div>
 
             {/* ════════════════ TAB CONTENT ════════════════ */}
@@ -773,30 +743,73 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Range Toggle + Date Picker */}
-                            <div className="analytics-range-bar">
-                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                    <div className="analytics-range-toggle">
-                                        {['day', 'week', 'month', 'year'].map((r) => (
-                                            <button
-                                                key={r}
-                                                className={`range-btn ${viewRange === r ? 'range-btn--active' : ''}`}
-                                                onClick={() => setViewRange(r)}
-                                            >
-                                                {r === 'day' ? 'Today' : r.charAt(0).toUpperCase() + r.slice(1)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="analytics-range-date">
-                                        <IoCalendarOutline size={18} color="var(--text-secondary)" />
-                                        <GlobalDatePicker
-                                            value={selectedDate}
-                                            onChange={(val) => setSelectedDate(val)}
-                                            placeholder="Select Date"
-                                            className="report-select-override"
-                                        />
+                            {/* Gross Sales Stat & Range Filters in One Line (Swapped order: filters on left, stat card on right) */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '20px',
+                                marginBottom: 'var(--spacing-5)',
+                                flexWrap: 'wrap'
+                            }}>
+                                <div className="analytics-range-bar" style={{ margin: 0 }}>
+                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                        <div className="analytics-range-toggle">
+                                            {['day', 'week', 'month', 'year'].map((r) => (
+                                                <button
+                                                    key={r}
+                                                    className={`range-btn ${viewRange === r ? 'range-btn--active' : ''}`}
+                                                    onClick={() => setViewRange(r)}
+                                                >
+                                                    {r === 'day' ? 'Today' : r.charAt(0).toUpperCase() + r.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="analytics-range-date">
+                                            <IoCalendarOutline size={18} color="var(--text-secondary)" />
+                                            <GlobalDatePicker
+                                                value={selectedDate}
+                                                onChange={(val) => setSelectedDate(val)}
+                                                placeholder="Select Date"
+                                                className="report-select-override"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 20px',
+                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-2xl)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                        boxSizing: 'border-box',
+                                        flex: '0 1 auto',
+                                        minWidth: '220px'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 36, height: 36, borderRadius: 10,
+                                        background: 'color-mix(in srgb, var(--primary-500) 15%, transparent)',
+                                        border: '1px solid color-mix(in srgb, var(--primary-500) 20%, transparent)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'var(--primary-500)', fontSize: '1.1rem',
+                                    }}>
+                                        <FiDollarSign />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Gross Sales</span>
+                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                            {formatCurrency(chartSummary.total_sales || 0)}
+                                        </span>
+                                    </div>
+                                </motion.div>
                             </div>
 
                             {/* Charts Grid */}
@@ -896,44 +909,77 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Header */}
-                            <div className="transactions-header">
-                                <div className="transactions-title-row">
-                                    <div className="transactions-accent" />
-                                    <h2 className="transactions-title">
-                                        Transactions
-                                    </h2>
-                                    <span className="transactions-badge">
-                                        {selectedBillDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedBillDate}
-                                        {' · '}{bills.length} bills
-                                    </span>
-                                </div>
-                                <div className="transactions-controls">
-                                    <button
-                                        onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
-                                        className={`transactions-today-btn ${selectedBillDate === new Date().toISOString().split('T')[0] ? 'active' : ''}`}
-                                    >
-                                        <IoTodayOutline size={15} />
-                                        Today
-                                    </button>
-                                    <input
-                                        type="date"
-                                        value={selectedBillDate}
-                                        onChange={(e) => setSelectedBillDate(e.target.value)}
-                                        className="transactions-date-input"
-                                    />
-                                    <button
-                                        onClick={() => loadBills(selectedBillDate)}
-                                        className="transactions-refresh-btn"
-                                        disabled={loadingBills}
-                                    >
-                                        <IoRefreshOutline
-                                            size={15}
-                                            style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
+                            {/* Total Bills Stat & Controls in One Line (Swapped order: filters on left, stat card on right) */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '20px',
+                                marginBottom: 'var(--spacing-5)',
+                                flexWrap: 'wrap'
+                            }}>
+                                <div className="transactions-header" style={{ margin: 0, flex: '1 1 auto', justifyContent: 'flex-start', width: 'auto', borderBottom: 'none', background: 'none' }}>
+                                    <div className="transactions-controls">
+                                        <button
+                                            onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
+                                            className={`transactions-today-btn ${selectedBillDate === new Date().toISOString().split('T')[0] ? 'active' : ''}`}
+                                        >
+                                            <IoTodayOutline size={15} />
+                                            Today
+                                        </button>
+                                        <input
+                                            type="date"
+                                            value={selectedBillDate}
+                                            onChange={(e) => setSelectedBillDate(e.target.value)}
+                                            className="transactions-date-input"
                                         />
-                                        Refresh
-                                    </button>
+                                        <button
+                                            onClick={() => loadBills(selectedBillDate)}
+                                            className="transactions-refresh-btn"
+                                            disabled={loadingBills}
+                                        >
+                                            <IoRefreshOutline
+                                                size={15}
+                                                style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
+                                            />
+                                            Refresh
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 20px',
+                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-2xl)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                        boxSizing: 'border-box',
+                                        flex: '0 1 auto',
+                                        minWidth: '200px'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 36, height: 36, borderRadius: 10,
+                                        background: 'rgba(245,158,11,0.12)',
+                                        border: '1px solid rgba(245,158,11,0.2)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: '#F59E0B', fontSize: '1.1rem',
+                                    }}>
+                                        <IoReceiptOutline size={18} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Total Bills</span>
+                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                            {bills.length}
+                                        </span>
+                                    </div>
+                                </motion.div>
                             </div>
 
                             {/* Table */}

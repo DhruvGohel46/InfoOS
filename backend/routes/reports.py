@@ -270,24 +270,38 @@ def export_expenses():
     today = date.today()
 
     query = Expense.query
+    from sqlalchemy import func
     if range_type == "today":
         query = query.filter(func.date(Expense.date) == today)
         title = f"Daily Expenses - {today}"
         filename = f"Expenses_{today}.xlsx"
     elif range_type == "week":
         start_week = today - timedelta(days=today.weekday())
-        query = query.filter(Expense.date >= start_week)
-        title = f"Weekly Expenses - {start_week} to {today}"
+        end_week = start_week + timedelta(days=6)
+        query = query.filter(
+            func.date(Expense.date) >= start_week,
+            func.date(Expense.date) <= end_week,
+        )
+        title = f"Weekly Expenses - {start_week} to {end_week}"
         filename = f"Expenses_Weekly_{today}.xlsx"
     elif range_type == "month":
+        import calendar
+        start_month = today.replace(day=1)
+        _, last_day = calendar.monthrange(today.year, today.month)
+        end_month = today.replace(day=last_day)
         query = query.filter(
-            extract("month", Expense.date) == today.month,
-            extract("year", Expense.date) == today.year,
+            func.date(Expense.date) >= start_month,
+            func.date(Expense.date) <= end_month,
         )
         title = f"Monthly Expenses - {today.strftime('%B %Y')}"
         filename = f"Expenses_Monthly_{today.month}_{today.year}.xlsx"
     elif range_type == "year":
-        query = query.filter(extract("year", Expense.date) == today.year)
+        start_year = today.replace(month=1, day=1)
+        end_year = today.replace(month=12, day=31)
+        query = query.filter(
+            func.date(Expense.date) >= start_year,
+            func.date(Expense.date) <= end_year,
+        )
         title = f"Yearly Expenses - {today.year}"
         filename = f"Expenses_Yearly_{today.year}.xlsx"
     else:

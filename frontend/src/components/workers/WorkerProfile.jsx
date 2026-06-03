@@ -9,7 +9,6 @@ import Input from '../ui/Input';
 import { formatCurrency } from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime, IoAddCircle } from 'react-icons/io5';
-import PageContainer from '../layout/PageContainer';
 import '../../styles/Workers.css';
 
 const WorkerProfile = () => {
@@ -211,14 +210,30 @@ const WorkerProfile = () => {
     );
 
     return (
-        <PageContainer>
-            {/* Top Navigation Row */}
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: 'calc(24px * var(--display-zoom))',
-                padding: '0 4px' 
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-panel workers-panel"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                margin: 'var(--spacing-4)',
+                borderRadius: 'var(--radius-3xl)',
+                overflow: 'hidden',
+                background: 'var(--glass-panel)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: 'var(--shadow-xl)',
+            }}
+        >
+            {/* ── Top Nav ── */}
+            <div style={{
+                padding: 'var(--spacing-6) var(--spacing-8)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid var(--glass-border)',
+                flexShrink: 0,
             }}>
                 <Button
                     onClick={() => navigate('/workers')}
@@ -248,6 +263,9 @@ const WorkerProfile = () => {
                     Delete Worker
                 </Button>
             </div>
+
+            {/* ── Scrollable Body ── */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-6) var(--spacing-8) var(--spacing-8)' }}>
 
             {/* Profile Header Card */}
             <div className="wpHeader">
@@ -620,7 +638,9 @@ const WorkerProfile = () => {
                     )}
                 </motion.div>
             </AnimatePresence>
-        </PageContainer>
+
+            </div>{/* end scrollable body */}
+        </motion.div>
     );
 };
 
