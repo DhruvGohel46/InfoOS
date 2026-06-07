@@ -59,13 +59,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
+import { useNetwork } from '../../context/NetworkContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { productsAPI, billingAPI, categoriesAPI } from '../../utils/api';
+import { productsAPI, billingAPI } from '../../utils/api';
+import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
-import { CATEGORY_COLORS } from '../../utils/constants';
+import { printerService } from '../../services/printerService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import Input from '../ui/Input';
 import SearchBar from '../ui/SearchBar';
 import '../../styles/Management.css';
 
@@ -82,9 +83,9 @@ const TrashIcon = ({ color }) => (
 const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const showImages = settings?.show_product_images !== 'false';
-  const { showSuccess } = useAlert();
-
+  const { showSuccess, showWarning } = useAlert();
+  const { isOnline } = useNetwork();
+  
   // ── POS Data from global context (load-once pattern) ──
   const {
     products: bootstrapProducts,
@@ -98,12 +99,14 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [selectedCategory, setSelectedCategory] = useState('favorites');
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300); // Debounced search
+  const [visibleCount, setVisibleCount] = useState(50); // For lazy rendering
   const [orderItems, setOrderItems] = useState([]);
+  const observerTarget = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [clearPassword, setClearPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState('');
 
   // Edit Mode State
   const location = useLocation();
@@ -143,20 +146,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
   }, [location.state]);
 
-  // Fallback: direct API call if bootstrap doesn't have data
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await productsAPI.getAllProducts({ include_stock: true });
-      setProducts(response.data.products || []);
-    } catch (err) {
-      const apiError = handleAPIError(err);
-      setError(apiError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const filteredProducts = products.filter(product => {
     let categoryMatch;
@@ -169,6 +159,36 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     const searchMatch = product.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     return categoryMatch && searchMatch;
   });
+
+  const displayedProducts = filteredProducts.slice(0, visibleCount);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [debouncedSearch, selectedCategory]);
+
+  // Intersection Observer for infinite scrolling
+  useEffect(() => {
+    const currentTarget = observerTarget.current;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => Math.min(prev + 50, filteredProducts.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [filteredProducts.length]);
 
   const handleAddItem = (product, event) => {
     // Prevent event bubbling
@@ -242,6 +262,20 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
         showSuccess('Bill updated successfully');
         navigate('/analytics');
       } else {
+        // Handle Offline State
+        if (!isOnline) {
+          syncService.addToQueue(billData);
+          setOrderItems([]);
+          showWarning('You are offline. Bill saved locally and will sync automatically.');
+          if (onBillCreated) {
+            onBillCreated({
+              bill_no: 'OFFLINE',
+              total: calculateTotal()
+            });
+          }
+          return;
+        }
+
         const response = await billingAPI.createBill(billData);
         setOrderItems([]);
         if (onBillCreated) {
@@ -255,12 +289,67 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       }
 
     } catch (err) {
+      const isNetworkError = !err.response;
+      if (isNetworkError && !editingBill) {
+        // Fallback catch if network drops mid-request
+        const billData = {
+          products: orderItems.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity
+          })),
+          print: false,
+          customer_name: ''
+        };
+        syncService.addToQueue(billData);
+        setOrderItems([]);
+        showWarning('Network dropped. Bill saved locally and will sync automatically.');
+        return;
+      }
+
       const apiError = handleAPIError(err);
       setError(apiError.message);
     }
   };
 
-  const handleSaveAndPrintOrder = async () => {
+  const handlePrintOnly = async (billNo, type = 'bill') => {
+    try {
+      setIsPrinting(true);
+      setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
+      
+      if (type === 'bill') {
+        await printerService.printBill(billNo);
+      } else {
+        await printerService.printKOT(billNo);
+      }
+      
+      showSuccess(`${type.toUpperCase()} printed successfully`);
+    } catch (err) {
+      showWarning('Printer error. Please check connections.');
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
+    }
+  };
+
+  const handleBillAndKOT = async (billNo) => {
+    try {
+      setIsPrinting(true);
+      setPrintStatus('Printing Bill...');
+      await printerService.printBill(billNo);
+      
+      setPrintStatus('Preparing KOT...');
+      await printerService.printKOT(billNo);
+      
+      showSuccess('Bill & KOT printed successfully');
+    } catch (err) {
+      showWarning('Sequence interrupted. Check printer.');
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
+    }
+  };
+
+  const handleSaveAndPrintOrder = async (mode = 'both') => {
     if (orderItems.length === 0) {
       setError('Please add items to the order');
       return;
@@ -268,43 +357,56 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     try {
       setError('');
+      setIsPrinting(true);
+      setPrintStatus('Saving Bill...');
 
       const billData = {
         products: orderItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity
         })),
-        print: true,
+        print: false, // We handle printing manually for better control
         customer_name: editingBill ? editingBill.customer_name : ''
       };
 
+      let billNo;
       if (editingBill) {
         await billingAPI.updateBill(editingBill.bill_no, billData);
-        // Print logic for update if needed - assumed API handles it if 'print: true' or separate call
-        // But backend update_bill doesn't seem to have print logic integrated yet in previous step.
-        // Wait, update_bill method in backend didn't handle printing. 
-        // So for "Update & Print", we might need to call print separately.
-
-        await billingAPI.printBill(editingBill.bill_no); // Call print explicitly
-
-        showSuccess('Bill updated and printed');
-        navigate('/analytics');
+        billNo = editingBill.bill_no;
       } else {
-        const response = await billingAPI.createBill(billData);
-        setOrderItems([]);
-        if (onBillCreated) {
-          onBillCreated({
-            bill_no: response.data.bill.bill_no,
-            total: calculateTotal()
-          });
+        if (!isOnline) {
+          syncService.addToQueue(billData);
+          setOrderItems([]);
+          showWarning('Offline mode. Bill saved locally.');
+          return;
         }
-        // Refresh stock levels via global context
-        refreshProducts();
+
+        const response = await billingAPI.createBill(billData);
+        billNo = response.data.bill.bill_no;
       }
+
+      // Execute Printing Workflow
+      if (mode === 'both') {
+        await handleBillAndKOT(billNo);
+      } else if (mode === 'bill') {
+        await handlePrintOnly(billNo, 'bill');
+      } else if (mode === 'kot') {
+        await handlePrintOnly(billNo, 'kot');
+      }
+
+      setOrderItems([]);
+      if (onBillCreated && !editingBill) {
+        onBillCreated({ bill_no: billNo, total: calculateTotal() });
+      }
+      refreshProducts();
+      if (editingBill) navigate('/analytics');
 
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
+    } finally {
+      setIsPrinting(false);
+      setPrintStatus('');
     }
   };
 
@@ -350,15 +452,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     backgroundColor: currentTheme.colors.background, // Global background
   };
 
-  // rightSectionStyle is unused now as we inlined it to fix nesting, but keeping for safety if referenced elsewhere or cleanup later.
-  const rightSectionStyle = {
-    width: '400px',
-    backgroundColor: currentTheme.colors.surface,
-    borderLeft: `1px solid ${currentTheme.colors.border}`,
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-  };
+
 
   return (
     <div style={mainContainerStyle}>
@@ -529,7 +623,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 padding: '4px'
               }}
             >
-              {filteredProducts.map((product) => (
+              {displayedProducts.map((product) => (
                 <div
                     key={product.product_id}
                 >
@@ -642,6 +736,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     </div>
                 </div>
               ))}
+              
+              {/* Invisible sentinel for intersection observer */}
+              {visibleCount < filteredProducts.length && (
+                <div ref={observerTarget} style={{ height: '20px', width: '100%' }}></div>
+              )}
             </div>
           )}
         </div>
@@ -850,15 +949,41 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           </div>
 
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 'calc(12px * var(--display-zoom))',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'calc(10px * var(--display-zoom))',
           }}>
-            <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth>
-              {editingBill ? 'Update' : 'Save Bill'}
-            </Button>
-            <Button variant="primary" onClick={handleSaveAndPrintOrder} size="lg" fullWidth>
-              {editingBill ? 'Update & Print' : 'Save & Print'}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'calc(10px * var(--display-zoom))' }}>
+               <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth disabled={isPrinting}>
+                {editingBill ? 'Update Only' : 'Save Only'}
+              </Button>
+              <Button variant="primary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
+                {isPrinting && printStatus.includes('Bill') ? 'Printing...' : 'Print Bill'}
+              </Button>
+            </div>
+            
+            <Button 
+              variant="primary" 
+              onClick={() => handleSaveAndPrintOrder('both')} 
+              size="lg" 
+              fullWidth 
+              disabled={isPrinting}
+              style={{
+                background: 'linear-gradient(135deg, var(--primary-500) 0%, #f97316 100%)',
+                boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
+                height: 'calc(54px * var(--display-zoom))',
+                fontSize: 'calc(16px * var(--text-scale))',
+                fontWeight: 800
+              }}
+            >
+              {isPrinting ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="animate-spin" style={{ width: '18px', height: '18px', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                  {printStatus || 'Processing...'}
+                </div>
+              ) : (
+                'BILL & KOT'
+              )}
             </Button>
           </div>
         </div>

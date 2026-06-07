@@ -7,8 +7,8 @@ export const workerAPI = {
         return response.data;
     },
 
-    getWorkers: async () => {
-        const response = await api.get('/api/workers');
+    getWorkers: async (status = 'active') => {
+        const response = await api.get(`/api/workers?status=${status}`);
         return response.data;
     },
 

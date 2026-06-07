@@ -15,7 +15,9 @@ hidden_imports = [
     'openpyxl',
     'schedule',
     'win32print', 
-    'win32api'
+    'win32api',
+    'win32ui',
+    'pywintypes'
 ]
 
 # Provide path to onnxruntime binary if needed, but collect_all usually handles it

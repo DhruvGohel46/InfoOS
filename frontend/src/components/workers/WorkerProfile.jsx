@@ -8,8 +8,7 @@ import Card from '../ui/Card';
 import Input from '../ui/Input';
 import { formatCurrency } from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime, IoAddCircle } from 'react-icons/io5';
-import PageContainer from '../layout/PageContainer';
+import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime } from 'react-icons/io5';
 import '../../styles/Workers.css';
 
 const WorkerProfile = () => {
@@ -74,18 +73,17 @@ const WorkerProfile = () => {
         }
     };
 
-    const handleGenerateSalary = async () => {
+    const handleGenerateSpecificSalary = async (month, year) => {
         const confirmed = await showConfirm({
-            title: 'Mark Salary as Paid?',
-            description: 'Generate and mark the salary for the current month as paid? This will deduct any advances and consider attendance.',
-            confirmLabel: 'Mark Paid',
+            title: 'Generate Salary?',
+            description: `Generate the salary for ${month}/${year}? This will deduct advances inside that period.`,
+            confirmLabel: 'Generate',
             cancelLabel: 'Cancel',
             variant: 'primary',
         });
         if (!confirmed) return;
         try {
-            const date = new Date();
-            await workerAPI.generateSalary(id, date.getMonth() + 1, date.getFullYear());
+            await workerAPI.generateSalary(id, month, year);
             loadData();
             showSuccess('Salary generated successfully');
         } catch (error) {
@@ -115,6 +113,58 @@ const WorkerProfile = () => {
         if (!attendance || !attendance.length) return 100;
         const present = attendance.filter(a => a.status === 'Present').length;
         return Math.round((present / attendance.length) * 100);
+    };
+
+    const getMissingCycles = () => {
+        const missing = [];
+        if (!worker || !worker.current_cycle) return missing;
+        
+        const currentEnd = new Date(worker.current_cycle.end);
+        const currentMonth = currentEnd.getMonth() + 1;
+        const currentYear = currentEnd.getFullYear();
+        
+        let latestYear = 0;
+        let latestMonth = 0;
+        
+        if (salaryHistory && salaryHistory.length > 0) {
+            latestYear = salaryHistory[0].year;
+            latestMonth = salaryHistory[0].month;
+        } else {
+            const joinDate = new Date(worker.join_date || worker.joinDate);
+            latestYear = joinDate.getFullYear();
+            latestMonth = joinDate.getMonth(); // start from join month
+            if (latestMonth === 0) {
+                latestMonth = 12;
+                latestYear -= 1;
+            }
+        }
+        
+        let y = latestYear;
+        let m = latestMonth + 1;
+        if (m > 12) { m = 1; y += 1; }
+        
+        while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+            if (!salaryHistory.some(p => p.month === m && p.year === y)) {
+                missing.push({ month: m, year: y, isCurrent: (y === currentYear && m === currentMonth) });
+            }
+            m++;
+            if (m > 12) { m = 1; y++; }
+        }
+        
+        if (!missing.some(p => p.month === currentMonth && p.year === currentYear) && 
+            !salaryHistory.some(p => p.month === currentMonth && p.year === currentYear)) {
+              missing.push({ month: currentMonth, year: currentYear, isCurrent: true });
+        }
+        
+        // Keep to 12 max to prevent massive lists if history is very old
+        if (missing.length > 12) {
+            missing.splice(0, missing.length - 12);
+        }
+        
+        return missing.sort((a,b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+        });
     };
 
     if (loading) return (
@@ -160,14 +210,30 @@ const WorkerProfile = () => {
     );
 
     return (
-        <PageContainer>
-            {/* Top Navigation Row */}
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: 'calc(24px * var(--display-zoom))',
-                padding: '0 4px' 
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-panel workers-panel"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                margin: 'var(--spacing-4)',
+                borderRadius: 'var(--radius-3xl)',
+                overflow: 'hidden',
+                background: 'var(--glass-panel)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: 'var(--shadow-xl)',
+            }}
+        >
+            {/* ── Top Nav ── */}
+            <div style={{
+                padding: 'var(--spacing-6) var(--spacing-8)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid var(--glass-border)',
+                flexShrink: 0,
             }}>
                 <Button
                     onClick={() => navigate('/workers')}
@@ -197,6 +263,9 @@ const WorkerProfile = () => {
                     Delete Worker
                 </Button>
             </div>
+
+            {/* ── Scrollable Body ── */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-6) var(--spacing-8) var(--spacing-8)' }}>
 
             {/* Profile Header Card */}
             <div className="wpHeader">
@@ -440,17 +509,18 @@ const WorkerProfile = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {!salaryHistory.some(p => p.month === new Date().getMonth() + 1 && p.year === new Date().getFullYear()) && (
-                                        <tr style={{ background: isDark ? 'rgba(249, 115, 22, 0.05)' : '#FFF7ED' }}>
+                                    {getMissingCycles().map(cycle => (
+                                        <tr key={`missing-${cycle.year}-${cycle.month}`} style={{ background: isDark ? 'rgba(249, 115, 22, 0.05)' : '#FFF7ED' }}>
                                             <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                {new Date(worker.current_cycle?.end).toLocaleString('default', { month: 'long', year: 'numeric' })} (Current)
+                                                {new Date(cycle.year, cycle.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                                {cycle.isCurrent ? ' (Current)' : ' (Missing)'}
                                             </td>
                                             <td style={{ color: 'var(--text-secondary)' }}>{formatCurrency(worker.salary)}</td>
                                             <td style={{ color: '#EF4444' }}>
-                                                - {formatCurrency(worker.current_cycle?.advance || 0)}
+                                                {cycle.isCurrent ? `- ${formatCurrency(worker.current_cycle?.advance || 0)}` : 'On generation'}
                                             </td>
                                             <td style={{ color: '#10B981', fontWeight: 700, fontSize: '1.05rem' }}>
-                                                {formatCurrency(worker.current_cycle?.net_payable || worker.salary)}
+                                                {cycle.isCurrent ? formatCurrency(worker.current_cycle?.net_payable || worker.salary) : 'TBD'}
                                             </td>
                                             <td>
                                                 <span style={{
@@ -459,20 +529,20 @@ const WorkerProfile = () => {
                                                     color: '#F59E0B',
                                                     display: 'inline-flex', alignItems: 'center', gap: '4px'
                                                 }}>
-                                                    <IoTime /> Pending
+                                                    <IoTime /> Un-generated
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <Button
                                                     size="sm"
-                                                    onClick={handleGenerateSalary}
+                                                    onClick={() => handleGenerateSpecificSalary(cycle.month, cycle.year)}
                                                     style={{ background: '#10B981', border: 'none', color: 'white' }}
                                                 >
-                                                    Mark Paid
+                                                    Generate
                                                 </Button>
                                             </td>
                                         </tr>
-                                    )}
+                                    ))}
 
                                     {salaryHistory.map((pay, i) => (
                                         <tr key={i}>
@@ -568,7 +638,9 @@ const WorkerProfile = () => {
                     )}
                 </motion.div>
             </AnimatePresence>
-        </PageContainer>
+
+            </div>{/* end scrollable body */}
+        </motion.div>
     );
 };
 

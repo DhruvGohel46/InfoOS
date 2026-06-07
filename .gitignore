@@ -55,14 +55,20 @@ frontend/build/
 # Logs
 *.log
 logs/
+**/data/logs/
+backend/dashboard_refresh.log
 # Database
 *.db
 *.sqlite3
 
-# Data directories
-backend/data/bills/
-backend/data/archive/
-backend/data/images/
-backend/data/products.db
+# Data directories (only exclude runtime data, not source code)
+backend/data/
+backend/build/
+backend/dist/
 
 data\products.db
+
+# Compiled Python
+**/__pycache__/
+*.pyc
+*.pyo

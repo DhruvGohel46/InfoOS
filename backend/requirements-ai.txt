@@ -1,0 +1,12 @@
+# AI image processing dependencies — install ONLY in production environments
+# that require background removal.
+#
+# Usage:
+#   pip install -r requirements.txt        # core deps
+#   pip install -r requirements-ai.txt     # add AI image processing on top
+#
+# CI pipelines (backend-ci.yml) use requirements-ci.txt which excludes this file.
+
+rembg==2.0.62
+onnxruntime>=1.16.0
+Pillow>=10.0.0

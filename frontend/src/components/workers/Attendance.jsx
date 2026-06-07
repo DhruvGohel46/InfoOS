@@ -4,7 +4,7 @@ import { useAlert } from '../../context/AlertContext';
 import { workerAPI } from '../../api/workers';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { motion } from 'framer-motion';
+
 
 const Attendance = () => {
     const { currentTheme, isDark } = useTheme();

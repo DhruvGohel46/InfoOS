@@ -1,0 +1,229 @@
+/* ============================================================
+   LOGIN SCREEN — Premium Glassmorphism PIN Interface
+   ============================================================ */
+
+/* ── Container ─────────────────────────────────────────────── */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100vw;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-primary);
+  /* Subtle radial vignette */
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(249, 115, 22, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 100%, rgba(249, 115, 22, 0.04) 0%, transparent 60%);
+}
+
+/* ── Card ───────────────────────────────────────────────────── */
+.login-card {
+  width: 340px;
+  padding: 36px 32px 28px;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: var(--glass-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 1px 2px rgba(255, 255, 255, 0.06) inset;
+}
+
+/* ── Brand ──────────────────────────────────────────────────── */
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 4px 12px rgba(249, 115, 22, 0.35));
+}
+
+.login-brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.login-header {
+  text-align: center;
+}
+
+.login-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  letter-spacing: -0.4px;
+}
+
+.login-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── PIN Dots ───────────────────────────────────────────────── */
+.pin-display {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.pin-dot.filled {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
+  transform: scale(1.15);
+}
+
+/* ── Numpad ─────────────────────────────────────────────────── */
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.numpad-btn {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: none;
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.1s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.numpad-btn:hover:not(:disabled) {
+  background: rgba(249, 115, 22, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.numpad-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.numpad-btn.action-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-size: 17px;
+  color: var(--text-secondary);
+}
+
+.numpad-btn.action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.numpad-btn.submit-btn {
+  background: var(--primary-500);
+  border-color: var(--primary-600);
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.4);
+}
+
+.numpad-btn.submit-btn:hover:not(:disabled) {
+  background: var(--primary-600);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.5);
+}
+
+.numpad-btn.submit-btn:disabled {
+  background: var(--glass-card);
+  border-color: var(--glass-border);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.numpad-btn:disabled:not(.submit-btn) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Back button ────────────────────────────────────────────── */
+.login-back-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  margin-top: -8px;
+}
+
+.login-back-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Spinner ────────────────────────────────────────────────── */
+.spin-loader {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spin-loader.large {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  border-color: rgba(249, 115, 22, 0.2);
+  border-top-color: var(--primary-500);
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Loading state ──────────────────────────────────────────── */
+.login-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  gap: 8px;
+}

@@ -1,0 +1,80 @@
+name: Backend CI
+
+# Triggers: every push and pull request to main
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Job 1: Black formatting check
+  # Fails if any .py file is not properly formatted
+  # ──────────────────────────────────────────────
+  lint:
+    name: Black Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Black
+        run: pip install black>=24.0.0
+
+      - name: Run Black format check
+        working-directory: backend
+        run: black --check .
+        # Reads line-length and excludes from pyproject.toml automatically
+        # Fail = file needs reformatting → block the PR
+
+  # ──────────────────────────────────────────────
+  # Job 2: Pytest unit tests
+  # Uses SQLite in-memory DB — no PostgreSQL needed
+  # ──────────────────────────────────────────────
+  test:
+    name: Pytest Unit Tests
+    runs-on: ubuntu-latest
+    # Run tests even if lint fails, so we see both results
+    needs: []
+
+    env:
+      # Signals models.py to use None schemas (SQLite compatible)
+      TESTING: "True"
+      # Flask will pick this up via config.py SQLALCHEMY_DATABASE_URI
+      DATABASE_URL: "sqlite:///test.db"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-ci.txt
+
+      - name: Run Pytest
+        working-directory: backend
+        run: |
+          python -m pytest tests/ --tb=short -v
+        # Exit code 0 = all tests passed → green check
+        # Exit code 1 = any failure → red X, blocks merge
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: backend/.pytest_cache/
+          retention-days: 7

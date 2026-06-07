@@ -22,32 +22,38 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_EXCLUDED_BILL_STATUSES = {"CANCELLED", "VOIDED"}
+
 
 def update_daily_summary(target_date=None):
     """
     Upsert the daily_sales_summary row for `target_date`.
-    
+
     If target_date is None, defaults to today.
-    
+
     This is designed to be called frequently (after every bill/expense)
     so it must be fast.  It does a single aggregation query per table.
     """
     if target_date is None:
         target_date = date.today()
     elif isinstance(target_date, str):
-        target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+        target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
     elif isinstance(target_date, datetime):
         target_date = target_date.date()
 
     try:
         # --- Sales aggregation ---
-        sales_result = db.session.query(
-            func.count(Bill.id).label('total_orders'),
-            func.coalesce(func.sum(Bill.total_amount), 0).label('total_sales'),
-        ).filter(
-            func.date(Bill.created_at) == target_date,
-            Bill.status != 'VOIDED'
-        ).first()
+        sales_result = (
+            db.session.query(
+                func.count(Bill.id).label("total_orders"),
+                func.coalesce(func.sum(Bill.total_amount), 0).label("total_sales"),
+            )
+            .filter(
+                func.date(Bill.created_at) == target_date,
+                ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
+            )
+            .first()
+        )
 
         total_orders = sales_result.total_orders or 0
         total_sales = float(sales_result.total_sales or 0)
@@ -57,11 +63,11 @@ def update_daily_summary(target_date=None):
         top_products_json = _compute_top_products(target_date)
 
         # --- Expense aggregation ---
-        expense_result = db.session.query(
-            func.coalesce(func.sum(Expense.amount), 0).label('total_expenses')
-        ).filter(
-            func.date(Expense.date) == target_date
-        ).first()
+        expense_result = (
+            db.session.query(func.coalesce(func.sum(Expense.amount), 0).label("total_expenses"))
+            .filter(func.date(Expense.date) == target_date)
+            .first()
+        )
 
         total_expenses = float(expense_result.total_expenses or 0)
         net_profit = total_sales - total_expenses
@@ -80,9 +86,11 @@ def update_daily_summary(target_date=None):
         summary.top_products_json = top_products_json
 
         db.session.commit()
-        logger.debug(f"Daily summary updated for {target_date}: "
-                     f"sales={total_sales}, orders={total_orders}, "
-                     f"expenses={total_expenses}, profit={net_profit}")
+        logger.debug(
+            f"Daily summary updated for {target_date}: "
+            f"sales={total_sales}, orders={total_orders}, "
+            f"expenses={total_expenses}, profit={net_profit}"
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -97,42 +105,40 @@ def _compute_top_products(target_date) -> str:
     try:
         bills = Bill.query.filter(
             func.date(Bill.created_at) == target_date,
-            Bill.status != 'VOIDED'
+            ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
         ).all()
 
         product_sales = {}
         for bill in bills:
             items = json.loads(bill.items) if isinstance(bill.items, str) else bill.items
             for item in items:
-                pid = item.get('product_id', 'unknown')
-                name = item.get('name', 'Unknown')
-                qty = item.get('quantity', 0)
-                price = item.get('price', 0)
+                pid = item.get("product_id", "unknown")
+                name = item.get("name", "Unknown")
+                qty = item.get("quantity", 0)
+                price = item.get("price", 0)
                 revenue = qty * price
 
                 if pid in product_sales:
-                    product_sales[pid]['quantity'] += qty
-                    product_sales[pid]['revenue'] += revenue
+                    product_sales[pid]["quantity"] += qty
+                    product_sales[pid]["revenue"] += revenue
                 else:
                     product_sales[pid] = {
-                        'product_id': pid,
-                        'name': name,
-                        'quantity': qty,
-                        'revenue': revenue,
+                        "product_id": pid,
+                        "name": name,
+                        "quantity": qty,
+                        "revenue": revenue,
                     }
 
         # Sort by revenue, take top 10
-        sorted_products = sorted(
-            product_sales.values(),
-            key=lambda x: x['revenue'],
-            reverse=True
-        )[:10]
+        sorted_products = sorted(product_sales.values(), key=lambda x: x["revenue"], reverse=True)[
+            :10
+        ]
 
         return json.dumps(sorted_products)
 
     except Exception as e:
         logger.error(f"Error computing top products: {e}")
-        return '[]'
+        return "[]"
 
 
 def backfill_summaries(start_date, end_date=None):
@@ -145,9 +151,9 @@ def backfill_summaries(start_date, end_date=None):
     if end_date is None:
         end_date = date.today()
     if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
     if isinstance(end_date, str):
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
 
     current = start_date
     count = 0

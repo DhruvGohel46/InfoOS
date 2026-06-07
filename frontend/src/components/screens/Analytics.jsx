@@ -11,14 +11,15 @@
  * Dependencies: recharts, framer-motion, react-icons
  * =============================================================================
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
     ResponsiveContainer, PieChart, Pie, Cell, Sector
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString } from '../../utils/api';
 import { formatCurrency, handleAPIError, downloadFile } from '../../utils/api';
 import { usePOSData } from '../../context/POSDataContext';
@@ -38,17 +39,14 @@ import {
     IoTrashOutline,
     IoCreateOutline,
     IoCloseCircleOutline,
-    IoBriefcaseOutline,
     IoWalletOutline,
-    IoTrendingDownOutline,
     IoBusinessOutline,
     IoConstructOutline,
     IoPeopleOutline,
     IoCartOutline,
     IoFlashOutline,
     IoHomeOutline,
-    IoBusOutline,
-    IoSearchOutline
+    IoBusOutline
 } from 'react-icons/io5';
 import { FiDollarSign } from 'react-icons/fi';
 import '../../styles/Analytics.css';
@@ -91,122 +89,54 @@ const renderActiveShape = (props) => {
                 outerRadius={outerRadius + 8}
                 startAngle={startAngle} endAngle={endAngle}
                 fill={fill}
-                style={{ filter: `drop-shadow(0 4px 12px ${fill}55)`, transition: 'all 0.3s ease' }}
             />
-            <text x={cx} y={cy - 12} textAnchor="middle" fill="var(--text-primary)"
-                style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+            <text x={cx} y={cy - 16} textAnchor="middle" fill="var(--text-primary)"
+                style={{ fontSize: '1.2rem', fontWeight: 700 }}>
                 {payload.name}
             </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-secondary)"
-                style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                {formatCurrency(payload.total_amount)}
+            <text x={cx} y={cy + 8} textAnchor="middle" fill="var(--text-secondary)"
+                style={{ fontSize: '1rem', fontWeight: 600 }}>
+                {formatCurrency(payload.total_amount || payload.value || 0)}
             </text>
             <text x={cx} y={cy + 28} textAnchor="middle" fill="var(--text-secondary)"
-                style={{ fontSize: '0.7rem' }}>
+                style={{ fontSize: '0.9rem' }}>
                 {(percent * 100).toFixed(1)}%
             </text>
         </g>
     );
 };
 
-// ─── KPI Stat Bar ───
-const AnalyticsStats = ({ stats, navigate }) => {
-    const items = [
-        { label: 'Gross Sales', value: formatCurrency(stats.total_sales || 0), color: 'var(--primary-500)' },
-        { label: 'Expenses', value: formatCurrency(stats.total_expenses || 0), color: 'var(--error-500)' },
-        { label: 'Net Profit', value: formatCurrency(stats.net_profit || (stats.total_sales || 0)), color: 'var(--success-500)' },
-        { label: 'Total Bills', value: stats.total_bills || 0, color: '#F59E0B' },
-    ];
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.15 }}
-            className="analytics-stats-bar"
-        >
-            {items.map((item, i) => (
-                <React.Fragment key={item.label}>
-                    {i > 0 && <div className="analytics-stat-divider" />}
-                    <motion.div
-                        className="analytics-stat-item"
-                        whileHover={{ scale: 1.05, cursor: item.label === 'Expenses' ? 'pointer' : 'default' }}
-                        onClick={() => item.label === 'Expenses' && navigate('/expenses')}
-                    >
-                        <div className="analytics-stat-dot" style={{ backgroundColor: item.color }} />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span className="analytics-stat-label">{item.label}</span>
-                            <span className="analytics-stat-value">{item.value}</span>
-                        </div>
-                    </motion.div>
-                </React.Fragment>
-            ))}
-        </motion.div>
-    );
-};
-
 // ─── Helpers ───
-function getWeekDates(refDate) {
-    const d = new Date(refDate + 'T00:00:00');
-    const day = d.getDay() || 7;
-    d.setDate(d.getDate() - (day - 1));
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-        const dd = new Date(d);
-        dd.setDate(d.getDate() + i);
-        dates.push(dd.toISOString().split('T')[0]);
-    }
-    return dates;
-}
 
-function getMonthDates(refDate) {
-    const d = new Date(refDate + 'T00:00:00');
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const dates = [];
-    for (let i = 1; i <= daysInMonth; i++) {
-        const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        if (ds > todayStr) break;
-        dates.push(ds);
-    }
-    return dates;
-}
-
-function getYearDates(referenceDate) {
-    const year = new Date(referenceDate).getFullYear();
-    const today = new Date();
-    const dates = [];
-    for (let m = 0; m < 12; m++) {
-        const d = new Date(year, m, 1);
-        if (d > today) break;
-        dates.push(getLocalDateString(d));
-    }
-    return dates;
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════
 const Analytics = () => {
     const navigate = useNavigate();
-    const { 
-        products: contextProducts, 
-        categories: contextCategories,
+    const { isDark } = useTheme();
+    const { isAdmin } = useAuth();
+    const {
         refreshAll: refreshPOSData,
-        cachedAnalytics 
+        cachedAnalytics,
+        preloadAnalytics
     } = usePOSData();
 
     // ─── Tabs ───
-    const [activeTab, setActiveTab] = useState('sales_history');
+    const [activeTab, setActiveTab] = useState(isAdmin ? 'sales_history' : 'transactions');
     const tabs = [
         { id: 'sales_history', label: 'Sales History', icon: IoBarChartOutline },
         { id: 'expenses_history', label: 'Expenses History', icon: IoWalletOutline },
         { id: 'transactions', label: 'Transactions', icon: IoReceiptOutline },
         { id: 'reports_hub', label: 'Reports Hub', icon: IoDownloadOutline },
     ];
+    const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id === 'transactions');
+
+    useEffect(() => {
+        if (!isAdmin) {
+            setActiveTab('transactions');
+        }
+    }, [isAdmin]);
 
     // ─── Summary / Product Sales ───
     const [summary, setSummary] = useState(null);
@@ -226,6 +156,12 @@ const Analytics = () => {
 
     // ─── Sync from Context on Mount / Refresh ───
     useEffect(() => {
+        if (!isAdmin) {
+            setLoading(false);
+            setSummary(null);
+            setProductSales([]);
+            return;
+        }
         if (selectedDate === getLocalDateString() && cachedAnalytics?.data) {
             setSummary(cachedAnalytics.data);
             setLoading(false);
@@ -233,7 +169,7 @@ const Analytics = () => {
             loadSummary(selectedDate);
             loadProductSales(selectedDate);
         }
-    }, [selectedDate, cachedAnalytics]);
+    }, [selectedDate, cachedAnalytics, isAdmin]);
 
     // ─── Reports / Download ───
     const [downloading, setDownloading] = useState({});
@@ -242,7 +178,6 @@ const Analytics = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
-    const [exportYear] = useState(new Date().getFullYear());
     const [exportWeekDate, setExportWeekDate] = useState(getLocalDateString());
 
     // ─── Bills / Transactions ───
@@ -264,8 +199,8 @@ const Analytics = () => {
     // ─── Expenses Tab ───
     const [expenseRange, setExpenseRange] = useState('week'); // 'week' | 'month' | 'year'
     const [rangeExpenses, setRangeExpenses] = useState([]);
-    const [loadingExpenses, setLoadingExpenses] = useState(false);
-    const [expenseSearchQuery, setExpenseSearchQuery] = useState('');
+const [loadingExpenses, setLoadingExpenses] = useState(false);
+    const [expenseSearchQuery] = useState('');
 
     // ─── Pie chart active sector ───
     const [activePieIndex, setActivePieIndex] = useState(-1);
@@ -275,29 +210,34 @@ const Analytics = () => {
     // ═══════════════ DATA LOADING ═══════════════
 
     useEffect(() => {
+        if (!isAdmin) return;
         loadSummary(selectedDate);
         loadProductSales(selectedDate);
-    }, [selectedDate]);
+    }, [selectedDate, isAdmin]);
 
     useEffect(() => {
         loadBills(selectedBillDate);
     }, [selectedBillDate]);
 
     useEffect(() => {
+        if (!isAdmin) return;
         if (activeTab === 'expenses_history') {
             loadRangeExpenses(expenseRange);
         }
-    }, [activeTab, expenseRange]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, expenseRange, isAdmin, selectedDate]);
 
     // Aggregate range data when viewRange or selectedDate changes
     useEffect(() => {
+        if (!isAdmin) return;
         if (viewRange === 'day') {
             setRangeProductSales(productSales);
             setRangeSummary(summary);
         } else {
             loadRangeData();
         }
-    }, [viewRange, debouncedDate, productSales, summary]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewRange, debouncedDate, productSales, summary, isAdmin]);
 
     async function loadSummary(date) {
         try {
@@ -317,13 +257,9 @@ const Analytics = () => {
 
     async function loadProductSales(date) {
         try {
-            const url = date
-                ? `/api/summary/product-sales?date=${date}`
-                : '/api/summary/product-sales';
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.success) {
-                setProductSales(data.product_sales);
+            const response = await summaryAPI.getProductSales(date);
+            if (response.data?.success) {
+                setProductSales(response.data.product_sales || []);
             }
         } catch (err) {
             console.error('Error loading product sales:', err);
@@ -333,13 +269,13 @@ const Analytics = () => {
     async function loadRangeData() {
         try {
             setRangeLoading(true);
-            
+
             // PRODUCTION PT: Use the pre-aggregated summary API for instant loads
             // instead of calculating on-the-fly from millions of bill rows.
-            
+
             let start, end;
             const refDate = new Date(selectedDate);
-            
+
             if (viewRange === 'week') {
                 const day = refDate.getDay() || 7;
                 const s = new Date(refDate);
@@ -357,21 +293,19 @@ const Analytics = () => {
                 end = `${refDate.getFullYear()}-12-31`;
             }
 
-            const res = await api.get('/api/summary/aggregated', {
-                params: { start, end }
-            });
+            const res = await summaryAPI.getAggregatedSummary(start, end);
 
             if (res.data.success) {
                 const totals = res.data.totals;
                 const daily = res.data.daily;
-                
+
                 // Map daily data to what charts expect
                 setRangeProductSales(daily.map(d => ({
                     name: d.date.split('-').slice(1).join('/'), // MM/DD
                     total_amount: d.total_sales,
                     quantity: d.total_orders
                 })));
-                
+
                 setRangeSummary({
                     total_sales: totals.total_sales,
                     total_expenses: totals.total_expenses,
@@ -411,10 +345,10 @@ const Analytics = () => {
         try {
             setLoadingExpenses(true);
             const response = await api.get('/api/expenses', {
-                 params: { 
-                     range: expenseRange,
-                     date: selectedDate
-                 }
+                params: {
+                    range: expenseRange,
+                    date: selectedDate
+                }
             });
             setRangeExpenses(response.data.expenses || []);
         } catch (err) {
@@ -476,9 +410,10 @@ const Analytics = () => {
         try {
             setDownloading(prev => ({ ...prev, monthly: true }));
             setError('');
-            const response = await reportsAPI.exportMonthlyExcel(exportMonth, exportYear);
+            const [yearStr, monthStr] = String(exportMonth).split('-');
+            const response = await reportsAPI.exportMonthlyExcel(Number(monthStr), Number(yearStr));
             if (response && response.data) {
-                downloadFile(response.data, `Monthly_Sales_Report_${String(exportMonth).padStart(2, '0')}_${exportYear}.xlsx`);
+                downloadFile(response.data, `Monthly_Sales_Report_${monthStr}_${yearStr}.xlsx`);
             }
         } catch (err) {
             const apiError = handleAPIError(err);
@@ -515,20 +450,15 @@ const Analytics = () => {
         try {
             setClearingData(true);
             setError('');
-            const response = await fetch('/api/bill/clear', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: clearPassword }),
-            });
-            const result = await response.json();
-            if (response.ok) {
+            const response = await billingAPI.clearAllBills(clearPassword);
+            if (response.data?.success) {
                 setShowClearConfirm(false);
                 setClearPassword('');
                 await loadSummary(selectedDate);
                 await loadProductSales(selectedDate);
                 await loadBills(selectedBillDate);
             } else {
-                throw new Error(result.message || 'Failed to clear bills data');
+                throw new Error(response.data?.message || 'Failed to clear bills data');
             }
         } catch (err) {
             const apiError = handleAPIError(err);
@@ -606,18 +536,7 @@ const Analytics = () => {
         }
     };
 
-    const getExpenseColor = (category) => {
-        switch (category) {
-            case 'Salary':
-            case 'Wages':
-            case 'Advance': return { bg: 'rgba(59, 130, 246, 0.12)', text: '#3B82F6' };
-            case 'Rent': return { bg: 'rgba(139, 92, 246, 0.12)', text: '#8B5CF6' };
-            case 'Utilities':
-            case 'Electric Bill': return { bg: 'rgba(245, 158, 11, 0.12)', text: '#F59E0B' };
-            case 'Supplies': return { bg: 'rgba(16, 185, 129, 0.12)', text: '#10B981' };
-            default: return { bg: 'rgba(239, 68, 68, 0.12)', text: '#EF4444' };
-        }
-    };
+
 
     const filteredRangeExpenses = useMemo(() => {
         if (!expenseSearchQuery) return rangeExpenses;
@@ -697,7 +616,7 @@ const Analytics = () => {
                     <div className="analytics-header-left">
                         <h1 className="analytics-title">Analytics</h1>
                         <div className="analytics-tab-bar">
-                            {tabs.map((tab) => (
+                            {visibleTabs.map((tab) => (
                                 <motion.button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
@@ -713,30 +632,36 @@ const Analytics = () => {
 
                     {/* Right: Action buttons */}
                     <div className="analytics-actions">
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                            <Button
-                                onClick={() => setShowClearConfirm(true)}
-                                variant="error"
-                                size="lg"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                <IoTrashOutline size={18} />
-                                Clear Data
-                            </Button>
-                        </motion.div>
+                        {isAdmin && (
+                            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                                <Button
+                                    onClick={() => setShowClearConfirm(true)}
+                                    variant="error"
+                                    size="lg"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    <IoTrashOutline size={18} />
+                                    Clear Data
+                                </Button>
+                            </motion.div>
+                        )}
                         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                             <Button
                                 onClick={() => {
                                     refreshPOSData(); // Context refresh (boostrap + cache invalidation)
-                                    loadSummary(selectedDate);
-                                    loadProductSales(selectedDate);
+                                    if (isAdmin) {
+                                        loadSummary(selectedDate);
+                                        loadProductSales(selectedDate);
+                                        loadRangeData();
+                                        preloadAnalytics();
+                                    }
                                     loadBills(selectedBillDate);
                                 }}
                                 variant="secondary"
                                 size="lg"
-                                style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
                                     gap: '8px',
                                     background: 'var(--primary-500)',
                                     color: '#fff'
@@ -749,7 +674,7 @@ const Analytics = () => {
                     </div>
                 </div>
 
-                <AnalyticsStats stats={chartSummary} navigate={navigate} />
+
             </motion.div>
 
             {/* ════════════════ TAB CONTENT ════════════════ */}
@@ -764,30 +689,73 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Range Toggle + Date Picker */}
-                            <div className="analytics-range-bar">
-                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                    <div className="analytics-range-toggle">
-                                        {['day', 'week', 'month', 'year'].map((r) => (
-                                            <button
-                                                key={r}
-                                                className={`range-btn ${viewRange === r ? 'range-btn--active' : ''}`}
-                                                onClick={() => setViewRange(r)}
-                                            >
-                                                {r === 'day' ? 'Today' : r.charAt(0).toUpperCase() + r.slice(1)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="analytics-range-date">
-                                        <IoCalendarOutline size={18} color="var(--text-secondary)" />
-                                        <GlobalDatePicker
-                                            value={selectedDate}
-                                            onChange={(val) => setSelectedDate(val)}
-                                            placeholder="Select Date"
-                                            className="report-select-override"
-                                        />
+                            {/* Gross Sales Stat & Range Filters in One Line (Swapped order: filters on left, stat card on right) */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '20px',
+                                marginBottom: 'var(--spacing-5)',
+                                flexWrap: 'wrap'
+                            }}>
+                                <div className="analytics-range-bar" style={{ margin: 0 }}>
+                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                        <div className="analytics-range-toggle">
+                                            {['day', 'week', 'month', 'year'].map((r) => (
+                                                <button
+                                                    key={r}
+                                                    className={`range-btn ${viewRange === r ? 'range-btn--active' : ''}`}
+                                                    onClick={() => setViewRange(r)}
+                                                >
+                                                    {r === 'day' ? 'Today' : r.charAt(0).toUpperCase() + r.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="analytics-range-date">
+                                            <IoCalendarOutline size={18} color="var(--text-secondary)" />
+                                            <GlobalDatePicker
+                                                value={selectedDate}
+                                                onChange={(val) => setSelectedDate(val)}
+                                                placeholder="Select Date"
+                                                className="report-select-override"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 20px',
+                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-2xl)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                        boxSizing: 'border-box',
+                                        flex: '0 1 auto',
+                                        minWidth: '220px'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 36, height: 36, borderRadius: 10,
+                                        background: 'color-mix(in srgb, var(--primary-500) 15%, transparent)',
+                                        border: '1px solid color-mix(in srgb, var(--primary-500) 20%, transparent)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'var(--primary-500)', fontSize: '1.1rem',
+                                    }}>
+                                        <FiDollarSign />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Gross Sales</span>
+                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                            {formatCurrency(chartSummary.total_sales || 0)}
+                                        </span>
+                                    </div>
+                                </motion.div>
                             </div>
 
                             {/* Charts Grid */}
@@ -847,16 +815,22 @@ const Analytics = () => {
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
                                                     <Pie
+                                                        activeIndex={activePieIndex}
+                                                        activeShape={renderActiveShape}
+                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                        onMouseLeave={() => setActivePieIndex(-1)}
                                                         data={Object.entries(rangeSummary.category_totals || {}).map(([name, val]) => ({ name, total_amount: val }))}
                                                         dataKey="total_amount"
                                                         nameKey="name"
                                                         cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3}
+                                                        isAnimationActive={false}
                                                     >
                                                         {Object.entries(rangeSummary.category_totals || {}).map((_, i) => (
                                                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -881,44 +855,77 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Header */}
-                            <div className="transactions-header">
-                                <div className="transactions-title-row">
-                                    <div className="transactions-accent" />
-                                    <h2 className="transactions-title">
-                                        Transactions
-                                    </h2>
-                                    <span className="transactions-badge">
-                                        {selectedBillDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedBillDate}
-                                        {' · '}{bills.length} bills
-                                    </span>
-                                </div>
-                                <div className="transactions-controls">
-                                    <button
-                                        onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
-                                        className={`transactions-today-btn ${selectedBillDate === new Date().toISOString().split('T')[0] ? 'active' : ''}`}
-                                    >
-                                        <IoTodayOutline size={15} />
-                                        Today
-                                    </button>
-                                    <input
-                                        type="date"
-                                        value={selectedBillDate}
-                                        onChange={(e) => setSelectedBillDate(e.target.value)}
-                                        className="transactions-date-input"
-                                    />
-                                    <button
-                                        onClick={() => loadBills(selectedBillDate)}
-                                        className="transactions-refresh-btn"
-                                        disabled={loadingBills}
-                                    >
-                                        <IoRefreshOutline
-                                            size={15}
-                                            style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
+                            {/* Total Bills Stat & Controls in One Line (Swapped order: filters on left, stat card on right) */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '20px',
+                                marginBottom: 'var(--spacing-5)',
+                                flexWrap: 'wrap'
+                            }}>
+                                <div className="transactions-header" style={{ margin: 0, flex: '1 1 auto', justifyContent: 'flex-start', width: 'auto', borderBottom: 'none', background: 'none' }}>
+                                    <div className="transactions-controls">
+                                        <button
+                                            onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
+                                            className={`transactions-today-btn ${selectedBillDate === new Date().toISOString().split('T')[0] ? 'active' : ''}`}
+                                        >
+                                            <IoTodayOutline size={15} />
+                                            Today
+                                        </button>
+                                        <input
+                                            type="date"
+                                            value={selectedBillDate}
+                                            onChange={(e) => setSelectedBillDate(e.target.value)}
+                                            className="transactions-date-input"
                                         />
-                                        Refresh
-                                    </button>
+                                        <button
+                                            onClick={() => loadBills(selectedBillDate)}
+                                            className="transactions-refresh-btn"
+                                            disabled={loadingBills}
+                                        >
+                                            <IoRefreshOutline
+                                                size={15}
+                                                style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
+                                            />
+                                            Refresh
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 20px',
+                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-2xl)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                        boxSizing: 'border-box',
+                                        flex: '0 1 auto',
+                                        minWidth: '200px'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 36, height: 36, borderRadius: 10,
+                                        background: 'rgba(245,158,11,0.12)',
+                                        border: '1px solid rgba(245,158,11,0.2)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: '#F59E0B', fontSize: '1.1rem',
+                                    }}>
+                                        <IoReceiptOutline size={18} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Total Bills</span>
+                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                            {bills.length}
+                                        </span>
+                                    </div>
+                                </motion.div>
                             </div>
 
                             {/* Table */}
@@ -1063,14 +1070,18 @@ const Analytics = () => {
 
                             {/* Expense Chart View ONLY */}
                             <div className="analytics-charts-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 300px' }}>
-                                 {/* Left: Expanded Breakdown Chart */}
-                                 <div className="analytics-chart-card" style={{ padding: '32px', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
+                                {/* Left: Expanded Breakdown Chart */}
+                                <div className="analytics-chart-card" style={{ padding: '32px', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
                                     <h3 className="chart-card-title" style={{ fontSize: '1.4rem' }}>Expense Distribution & Trends</h3>
                                     <div style={{ flex: 1, width: '100%', height: '400px' }}>
                                         {filteredRangeExpenses.length > 0 ? (
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
                                                     <Pie
+                                                        activeIndex={activePieIndex}
+                                                        activeShape={renderActiveShape}
+                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                        onMouseLeave={() => setActivePieIndex(-1)}
                                                         data={Object.entries(
                                                             filteredRangeExpenses.reduce((acc, curr) => {
                                                                 acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
@@ -1081,6 +1092,7 @@ const Analytics = () => {
                                                         nameKey="name"
                                                         cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={2}
                                                         stroke="none"
+                                                        isAnimationActive={false}
                                                     >
                                                         {Object.entries(
                                                             filteredRangeExpenses.reduce((acc, curr) => {
@@ -1092,6 +1104,7 @@ const Analytics = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         ) : (
@@ -1111,25 +1124,25 @@ const Analytics = () => {
                                             }, {})
                                         ).slice(0, 4).map(([name, value], i) => (
                                             <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: 12, height: 12, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{name}: <b>{formatCurrency(value)}</b></span>
+                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                                <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>{name}: <b>{formatCurrency(value)}</b></span>
                                             </div>
                                         ))}
                                     </div>
-                                 </div>
+                                </div>
 
-                                 {/* Right: Summary Metrics */}
-                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Right: Summary Metrics */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                     <Card style={{ padding: '24px', background: isDark ? 'rgba(79, 70, 229, 0.08)' : 'rgba(79, 70, 229, 0.04)', border: '1px solid rgba(79, 70, 229, 0.1)' }}>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Total Outflow</div>
-                                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--error-500)' }}>
+                                        <div style={{ fontSize: '1.2rem', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Total Outflow</div>
+                                        <div style={{ fontSize: '2.8rem', fontWeight: 800, color: 'var(--error-500)' }}>
                                             {formatCurrency(filteredRangeExpenses.reduce((acc, curr) => acc + curr.amount, 0))}
                                         </div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Across {filteredRangeExpenses.length} categories</div>
+                                        <div style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginTop: '4px' }}>Across {filteredRangeExpenses.length} categories</div>
                                     </Card>
 
                                     <Card style={{ padding: '24px' }}>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '12px' }}>Highest Spending</div>
+                                        <div style={{ fontSize: '1.2rem', color: 'var(--text-tertiary)', marginBottom: '12px' }}>Highest Spending</div>
                                         {filteredRangeExpenses.length > 0 ? (
                                             (() => {
                                                 const highest = Object.entries(
@@ -1139,20 +1152,20 @@ const Analytics = () => {
                                                     }, {})
                                                 ).sort((a, b) => b[1] - a[1])[0];
                                                 return (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                        <div style={{ width: 48, height: 48, borderRadius: '14px', background: 'rgba(239, 68, 68, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                        <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(239, 68, 68, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', fontSize: '1.2rem' }}>
                                                             {getExpenseIcon(highest[0])}
                                                         </div>
                                                         <div>
-                                                            <div style={{ fontWeight: 700 }}>{highest[0]}</div>
-                                                            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{formatCurrency(highest[1])}</div>
+                                                            <div style={{ fontWeight: 700, fontSize: '1.6rem' }}>{highest[0]}</div>
+                                                            <div style={{ fontSize: '1.3rem', opacity: 0.8, marginTop: '4px' }}>{formatCurrency(highest[1])}</div>
                                                         </div>
                                                     </div>
                                                 );
                                             })()
                                         ) : 'N/A'}
                                     </Card>
-                                 </div>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -1268,7 +1281,7 @@ const Analytics = () => {
 
             {/* ════════════════ CLEAR DATA MODAL ════════════════ */}
             <AnimatePresence>
-                {showClearConfirm && (
+                {isAdmin && showClearConfirm && (
                     <motion.div
                         className="pmOverlay"
                         initial={{ opacity: 0 }}
@@ -1338,7 +1351,7 @@ const Analytics = () => {
 
             {/* ════════════════ CANCEL BILL MODAL ════════════════ */}
             <AnimatePresence>
-                {showCancelConfirm && (
+                {isAdmin && showCancelConfirm && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}

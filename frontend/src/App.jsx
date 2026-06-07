@@ -43,13 +43,13 @@
  */
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ThemeProvider } from './context/ThemeContext';
 import { AlertProvider, useAlert } from './context/AlertContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { useTheme } from './context/ThemeContext';
 import './styles/typography.css'; // Import global typography system
 
-import { useAnimation } from './hooks/useAnimation';
 import { formatCurrency } from './utils/api';
 import './styles/fonts.css';
 import './styles/global.css';
@@ -61,9 +61,10 @@ import ProductManagement from './components/screens/Management';
 import Inventory from './components/screens/Inventory';
 import Expenses from './components/screens/Expenses';
 import Settings from './components/screens/Settings';
-import { settingsAPI } from './api/settings';
-import { setCurrencySymbol } from './utils/api';
 import NotificationSystem from './components/system/NotificationSystem';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import AdminUnlockModal from './components/system/AdminUnlockModal';
+import AdminRoute from './components/system/AdminRoute';
 
 // Worker Pages
 // Worker Pages
@@ -78,16 +79,24 @@ import { workerAPI } from './api/workers';
 import { ReminderProvider, useReminders } from './context/ReminderContext';
 import ReminderAlert from './components/ui/ReminderAlert';
 import Reminders from './components/screens/Reminders';
-import { IoAlarmOutline, IoSyncOutline } from 'react-icons/io5';
+import { IoAlarmOutline, IoSyncOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline } from 'react-icons/io5';
+
+// Offline Sync
+import { NetworkProvider, useNetwork } from './context/NetworkContext';
+import OfflineBadge from './components/ui/OfflineBadge';
+import { syncService } from './api/sync';
 
 // POS Data Bootstrap (load-once pattern)
 import { POSDataProvider } from './context/POSDataContext';
 
 // Import UI components
 import Button from './components/ui/Button';
-import Card from './components/ui/Card';
 import Sidebar from './components/ui/Sidebar';
-import { darkTheme } from './styles/theme';
+
+// System components (production hardening)
+import ErrorBoundary from './components/system/ErrorBoundary';
+import ApiErrorListener from './components/system/ApiErrorListener';
+import UpdateNotification from './components/system/UpdateNotification';
 
 // ─── Restore zoom/scale CSS vars immediately on every page load ───────────────
 // These vars are set by Settings.jsx but only applied while that component is
@@ -104,8 +113,9 @@ import { darkTheme } from './styles/theme';
 function AppContent() {
   const { currentTheme, toggleTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const { pageVariants, pageTransition } = useAnimation();
   const { activeAlerts, dismissReminder } = useReminders();
+  const { isOnline } = useNetwork();
+  const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
 
   const { addToast, showSuccess: alertSuccess } = useAlert();
@@ -139,19 +149,22 @@ function AppContent() {
           }
         }
       } catch (e) {
-        console.error("Status check failed", e);
+        console.error('Initial checks failed', e);
       }
     };
-
-    // Delay slightly to ensure settings are loaded (though text might pop in)
-    // or rely on settings dependency
-    if (settings?.salary_day) {
-      checkStatus();
-    } else {
-      // Initial check without settings, or just wait for settings to load
-      setTimeout(checkStatus, 3000);
-    }
+    setTimeout(checkStatus, 3000);
   }, [settings?.salary_day]);
+
+  // Handle Offline Sync
+  useEffect(() => {
+    if (isOnline) {
+      syncService.syncOfflineBills().then(count => {
+        if (count > 0) {
+          alertSuccess(`Successfully synced ${count} offline bill(s)`);
+        }
+      });
+    }
+  }, [isOnline, alertSuccess]);
 
   const [salaryNotification, setSalaryNotification] = useState(false);
 
@@ -180,9 +193,7 @@ function AppContent() {
     return 'pos';
   };
 
-  const currentScreen = getActiveTab(location.pathname);
-
-  const navItems = [
+  const adminNavItems = [
     {
       id: 'pos',
       label: 'Bill',
@@ -283,17 +294,21 @@ function AppContent() {
     },
   ];
 
+  const workerNavItems = adminNavItems.filter((item) =>
+    ['pos', 'summary', 'settings', 'reminders'].includes(item.id)
+  );
+
+  const workerAllowedPaths = new Set(['/', '/analytics', '/settings', '/reminders']);
+
+  const navItems = isAdmin ? adminNavItems : workerNavItems;
+
   const todayLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: '2-digit',
   });
 
-  const headerEnter = {
-    initial: { opacity: 0, y: -6 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.24, ease: [0, 0, 0.2, 1] },
-  };
+
 
   const handleBillCreated = (bill) => {
     addToast({
@@ -313,11 +328,22 @@ function AppContent() {
       fontFamily: currentTheme.typography.fontFamily.primary,
       overflow: 'hidden',
     }}>
+      {/* Global API Error → Toast bridge */}
+      <ApiErrorListener />
+
       {/* Search Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         navItems={navItems}
+        onNavigate={(item) => {
+          if (!isAdmin && !workerAllowedPaths.has(item.path)) {
+            openUnlock(item.path);
+            navigate('/');
+            return;
+          }
+          navigate(item.path);
+        }}
       />
 
       {/* Main Content Area */}
@@ -407,25 +433,128 @@ function AppContent() {
             <div
               className="rounded-pill"
               style={{
-                padding: 'var(--spacing-2) var(--spacing-3)',
-                backgroundImage: 'var(--glass-card)',
+                height: '42px',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 16px',
+                background: 'var(--bg-secondary)',
                 border: '1px solid var(--glass-border)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 'var(--font-medium)',
+                fontSize: '13px',
+                fontWeight: 600,
                 color: 'var(--text-secondary)',
                 cursor: 'default',
-                transition: 'background var(--transition-normal) var(--ease-out)',
+                transition: 'all 0.2s ease',
                 backdropFilter: 'var(--glass-blur)',
                 WebkitBackdropFilter: 'var(--glass-blur)',
+                boxShadow: 'var(--shadow-sm)',
+                whiteSpace: 'nowrap',
+                gap: '8px'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundImage = 'var(--glass-header)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundImage = 'var(--glass-card)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--glass-header)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
             >
-              {todayLabel}
+              <IoCalendarOutline size={16} style={{ opacity: 0.7 }} />
+              <span>{todayLabel}</span>
             </div>
 
               {/* Notification & Theme */}
             <div style={{ display: 'flex', gap: '8px', position: 'relative' }}>
+              {/* Redesigned Owner/Worker pill toggle */}
+              <div
+                title={isAdmin ? 'Admin mode active' : 'Worker mode active'}
+                style={{
+                  position: 'relative',
+                  width: '240px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--glass-border)',
+                  backdropFilter: 'var(--glass-blur)',
+                  WebkitBackdropFilter: 'var(--glass-blur)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px',
+                  boxShadow: 'var(--shadow-card)',
+                }}
+              >
+                {/* Sliding Indicator */}
+                <motion.div
+                  initial={false}
+                  animate={{
+                    x: isAdmin ? 0 : '112px',
+                    background: 'var(--primary-500)'
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  style={{
+                    position: 'absolute',
+                    top: '4px',
+                    left: '4px',
+                    width: '116px',
+                    height: '34px',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(249, 115, 22, 0.2)',
+                    zIndex: 1,
+                  }}
+                />
+
+                <button
+                  onClick={() => {
+                    if (!isAdmin) openUnlock(pendingPath || null);
+                  }}
+                  style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    flex: 1,
+                    height: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: isAdmin ? 'var(--text-inverse)' : 'var(--text-tertiary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'color 0.2s ease',
+                  }}
+                >
+                  <IoShieldCheckmarkOutline size={16} />
+                  Owner
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (isAdmin) {
+                      lockToWorker();
+                      navigate('/');
+                    }
+                  }}
+                  style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    flex: 1,
+                    height: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: !isAdmin ? 'var(--text-inverse)' : 'var(--text-tertiary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'color 0.2s ease',
+                  }}
+                >
+                  <IoPersonOutline size={16} />
+                  Worker
+                </button>
+              </div>
+
               <button
                 onClick={() => setShowNotificationPanel(!showNotificationPanel)}
                 className="rounded-lg"
@@ -540,7 +669,6 @@ function AppContent() {
                   width: '40px',
                   height: '40px',
                   padding: 0,
-                  border: 'none',
                   backgroundImage: 'var(--glass-card)',
                   color: 'var(--text-primary)',
                   display: 'flex',
@@ -585,17 +713,17 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<WorkingPOSInterface key={posKey} onBillCreated={handleBillCreated} />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/management" element={<ProductManagement />} />
+            <Route path="/inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
+            <Route path="/management" element={<AdminRoute><ProductManagement /></AdminRoute>} />
 
             {/* Worker Routes */}
-            <Route path="/workers" element={<WorkersDashboard />} />
-            <Route path="/workers/list" element={<WorkerList />} /> {/* Optional alias if needed, but dashboard is main entry */}
-            <Route path="/workers/:id" element={<WorkerProfile />} />
-            <Route path="/workers/attendance" element={<Attendance />} />
-            <Route path="/workers/salary" element={<SalaryManager />} />
+            <Route path="/workers" element={<AdminRoute><WorkersDashboard /></AdminRoute>} />
+            <Route path="/workers/list" element={<AdminRoute><WorkerList /></AdminRoute>} /> {/* Optional alias if needed, but dashboard is main entry */}
+            <Route path="/workers/:id" element={<AdminRoute><WorkerProfile /></AdminRoute>} />
+            <Route path="/workers/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
+            <Route path="/workers/salary" element={<AdminRoute><SalaryManager /></AdminRoute>} />
 
-            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/expenses" element={<AdminRoute><Expenses /></AdminRoute>} />
             <Route path="/reminders" element={<Reminders />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<WorkingPOSInterface key={posKey} onBillCreated={handleBillCreated} />} />
@@ -607,6 +735,9 @@ function AppContent() {
 
       {/* Global Notification System */}
       <NotificationSystem ref={notificationRef} />
+
+      {/* Global Admin Unlock Modal */}
+      <AdminUnlockModal />
 
       {/* Startup Attendance Prompt */}
       <>
@@ -833,6 +964,12 @@ function AppContent() {
 
         {/* Global Reminders */}
         <ReminderAlert />
+        
+        {/* Offline Badge */}
+        <OfflineBadge />
+
+        {/* Auto-Updater Notification */}
+        <UpdateNotification />
       </>
     </div>
   );
@@ -840,18 +977,25 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AlertProvider>
-        <SettingsProvider>
-          <POSDataProvider>
-            <ReminderProvider>
-              <HashRouter>
-                <AppContent />
-              </HashRouter>
-            </ReminderProvider>
-          </POSDataProvider>
-        </SettingsProvider>
-      </AlertProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AlertProvider>
+          <SettingsProvider>
+            <NetworkProvider>
+              <POSDataProvider>
+                <ReminderProvider>
+                  <HashRouter>
+                    <AuthProvider>
+                      <AppContent />
+                    </AuthProvider>
+                  </HashRouter>
+                </ReminderProvider>
+              </POSDataProvider>
+            </NetworkProvider>
+          </SettingsProvider>
+        </AlertProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
+

@@ -18,7 +18,7 @@ const AnimatedButton = React.forwardRef(({
   ...props
 }, ref) => {
   const { currentTheme } = useTheme();
-  const { buttonTap, bounceVariants } = useAnimation();
+  const { buttonTap } = useAnimation();
 
   const baseStyles = {
     display: 'inline-flex',

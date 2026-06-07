@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash, IoCalendar } from 'react-icons/io5';
+import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash } from 'react-icons/io5';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import GlobalSelect from '../ui/GlobalSelect';
@@ -98,6 +98,18 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
       if (payload.role === 'Other' && customRole) payload.role = customRole;
       if (photoFile) {
         payload.photo = await fileToBase64(photoFile);
+      }
+
+      // Convert salary to float or set to 0 if empty
+      if (payload.salary === '') {
+        payload.salary = 0.0;
+      } else {
+        payload.salary = parseFloat(payload.salary);
+      }
+
+      // Handle null/empty photo to prevent Marshmallow validation issues
+      if (payload.photo === null) {
+        delete payload.photo;
       }
 
       if (initialData && initialData.worker_id) {

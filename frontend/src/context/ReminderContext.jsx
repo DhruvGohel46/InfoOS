@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAlert } from "./AlertContext";
 import { reminderAPI } from "../api/reminderAPI";
+import { useSettings } from "./SettingsContext";
 
 const ReminderContext = createContext();
 
@@ -9,14 +10,16 @@ export const ReminderProvider = ({ children }) => {
     const [activeAlerts, setActiveAlerts] = useState([]);
     const audioRef = useRef(null);
     const { addToast } = useAlert();
+    const { settings } = useSettings();
 
     // Sound management
     useEffect(() => {
+        const soundFile = settings?.reminder_sound || "reminder.mp3";
         // use timestamp to prevent caching the audio file
-        audioRef.current = new Audio("/api/sounds/reminder.mp3?v=" + new Date().getTime());
+        audioRef.current = new Audio("/api/sounds/" + soundFile + "?v=" + new Date().getTime());
         audioRef.current.loop = true;
-        audioRef.current.playbackRate = 2.0;
-    }, []);
+        audioRef.current.playbackRate = 1.0;
+    }, [settings?.reminder_sound]);
 
     const playAlertSound = useCallback(() => {
         if (audioRef.current && activeAlerts.length > 0) {
@@ -95,10 +98,10 @@ export const ReminderProvider = ({ children }) => {
         }
     };
 
-    // Poll every 15s to stay in sync
+    // Poll every 60s to stay in sync
     useEffect(() => {
         fetchReminders();
-        const interval = setInterval(fetchReminders, 15000);
+        const interval = setInterval(fetchReminders, 60000);
         return () => clearInterval(interval);
     }, [fetchReminders]);
 

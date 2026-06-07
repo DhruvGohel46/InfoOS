@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoAddCircle, IoAlarmOutline, IoTrashOutline, IoCalendarOutline, IoSyncOutline } from 'react-icons/io5';
+import { IoAlarmOutline, IoTrashOutline, IoCalendarOutline, IoSyncOutline } from 'react-icons/io5';
 import { useReminders } from '../../context/ReminderContext';
 import { useAlert } from '../../context/AlertContext';
 import PageContainer from '../layout/PageContainer';
-import LiquidGlassCard from '../ui/LiquidGlassCard';
 import GlobalDatePicker from '../ui/GlobalDatePicker';
 import GlobalTimePicker from '../ui/GlobalTimePicker';
 import Dropdown from '../ui/Dropdown';
 import Button from '../ui/Button';
-import Input from '../ui/Input';
 import '../../styles/Reminder.css';
 
 const Reminders = () => {
@@ -95,8 +93,7 @@ const Reminders = () => {
         return true;
     });
 
-    // Timeline Grouping (Simplified for now)
-    const timelineReminders = [...reminders].sort((a, b) => new Date(a.reminder_time) - new Date(b.reminder_time));
+
 
     return (
         <PageContainer>

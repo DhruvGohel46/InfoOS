@@ -1,0 +1,52 @@
+# =============================================================================
+# requirements-ci.txt  —  CI / Linux (GitHub Actions ubuntu-latest)
+# =============================================================================
+# Intentionally stripped of packages that:
+#   (a) are Windows-only               → pywin32 (win32print/win32ui/pywintypes)
+#   (b) require heavy ML runtimes      → rembg, onnxruntime
+#   (c) are unused in the test suite   → fastapi, uvicorn
+#
+# PrinterService uses lazy, platform-guarded imports so the Flask app and
+# all pytest tests run without pywin32 present.  No code changes needed here.
+# =============================================================================
+
+# ── Core Flask stack ──────────────────────────────────────────────────────────
+Flask==2.3.3
+Flask-CORS==4.0.0
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate>=4.0.5
+Flask-Limiter>=3.5.0
+Flask-Caching>=2.0.2
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0.0
+
+# ── Auth & security ───────────────────────────────────────────────────────────
+bcrypt>=4.0.0
+PyJWT>=2.8.0
+
+# ── Async / realtime ──────────────────────────────────────────────────────────
+APScheduler==3.10.4
+python-socketio>=5.9.0
+python-engineio>=4.7.0
+
+# ── Data & export ─────────────────────────────────────────────────────────────
+pandas>=2.0.0
+openpyxl==3.1.2
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.0
+schedule==1.2.2
+cachetools>=5.3.0
+marshmallow>=3.20.0
+waitress>=3.0.0
+
+# ── Core image handling (rembg excluded in CI — see requirements-ai.txt) ──────
+Pillow>=10.0.0
+
+# NOTE: pywin32 is intentionally absent.
+# PrinterService degrades gracefully on Linux via load_win32_modules() → None.
+
+# ── Dev / testing ─────────────────────────────────────────────────────────────
+pytest>=8.0.0
+black>=24.0.0

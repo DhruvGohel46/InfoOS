@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 // removed framer-motion
 import { inventoryAPI } from '../../utils/api';
 import { useSettings } from '../../context/SettingsContext';
@@ -135,6 +135,7 @@ const NotificationSystem = forwardRef((props, ref) => {
         }, 30000); // Check every 30 seconds
 
         return () => clearInterval(timeCheckInterval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings]);
 
     return (

@@ -1,69 +1,84 @@
 from flask import Blueprint, jsonify, request
-from flask import Blueprint, jsonify, request
 from services.db_service import DatabaseService
+from error_handler import safe_route, ValidationError
 import cache
+import logging
 
-settings_bp = Blueprint('settings', __name__)
+logger = logging.getLogger(__name__)
+
+settings_bp = Blueprint("settings", __name__)
 db_service = DatabaseService()
 
-@settings_bp.route('/api/settings', methods=['GET'])
+
+@settings_bp.route("/api/settings", methods=["GET"])
+@safe_route
 def get_settings():
-    """Get all settings (cached)"""
-    try:
-        settings = cache.get('settings', 'all')
-        if settings is None:
-            settings = db_service.get_all_settings()
-            cache.set('settings', 'all', settings)
-        return jsonify(settings)
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error fetching settings: {str(e)}'
-        }), 500
+    """Get all settings (cached)."""
+    settings = cache.get("settings", "all")
+    if settings is None:
+        settings = db_service.get_all_settings()
+        cache.set("settings", "all", settings)
+    return jsonify(settings)
 
-@settings_bp.route('/api/settings', methods=['PUT'])
+
+@settings_bp.route("/api/settings", methods=["PUT"])
+@safe_route
 def update_settings():
-    """Update settings (bulk or single)"""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({
-                'success': False,
-                'message': 'No data provided'
-            }), 400
-        
-        # Check if it's a list or a dict
-        if isinstance(data, list):
-            # Expect list of {key, value, group_name}
-            success = db_service.update_settings_bulk(data)
-        elif isinstance(data, dict):
-            # Convert dict {key: value} to list format for bulk update, 
-            # OR handle single update if structure matches {key, value, group}
-            # Simplest approach: Treat input as {key: value} map for bulk update
-            settings_list = []
-            for k, v in data.items():
-                settings_list.append({'key': k, 'value': v})
-            success = db_service.update_settings_bulk(settings_list)
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid data format'
-            }), 400
+    """Update settings (bulk or single)."""
+    data = request.json
+    if not data:
+        raise ValidationError("No data provided", code="MISSING_DATA")
 
-        if success:
-            cache.invalidate('settings')
-            return jsonify({
-                'success': True,
-                'message': 'Settings updated successfully'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to update settings'
-            }), 500
+    # Check if it's a list or a dict
+    if isinstance(data, list):
+        success = db_service.update_settings_bulk(data)
+    elif isinstance(data, dict):
+        settings_list = [{"key": k, "value": v} for k, v in data.items()]
+        success = db_service.update_settings_bulk(settings_list)
+    else:
+        raise ValidationError("Invalid data format", code="INVALID_FORMAT")
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error updating settings: {str(e)}'
-        }), 500
+    if not success:
+        raise Exception("Failed to update settings")
+
+    cache.invalidate("settings")
+    return jsonify({"success": True, "message": "Settings updated successfully"})
+
+
+@settings_bp.route("/api/settings/upload-sound", methods=["POST"])
+@safe_route
+def upload_sound():
+    """Upload a custom reminder sound."""
+    import os
+    from flask import current_app, send_from_directory
+    from werkzeug.utils import secure_filename
+
+    if "file" not in request.files:
+        raise ValidationError("No file part", code="MISSING_FILE")
+
+    file = request.files["file"]
+    if file.filename == "":
+        raise ValidationError("No selected file", code="NO_FILE")
+
+    if file:
+        # Validate extension
+        allowed_extensions = {"mp3", "wav", "ogg"}
+        ext = file.filename.rsplit(".", 1)[1].lower() if "." in file.filename else ""
+        if ext not in allowed_extensions:
+            raise ValidationError(
+                f"Invalid file type. Allowed: {', '.join(allowed_extensions)}", code="INVALID_TYPE"
+            )
+
+        # Save as custom_reminder.[ext] to simplify settings
+        filename = f"custom_reminder.{ext}"
+        sounds_dir = os.path.join(current_app.config["DATA_DIR"], "Sound")
+        os.makedirs(sounds_dir, exist_ok=True)
+
+        file_path = os.path.join(sounds_dir, filename)
+        file.save(file_path)
+
+        return jsonify(
+            {"success": True, "message": "Sound uploaded successfully", "filename": filename}
+        )
+
+    raise ValidationError("File upload failed", code="UPLOAD_FAILED")

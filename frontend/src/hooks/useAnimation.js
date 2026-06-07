@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ANIMATION_DURATIONS, EASINGS } from '../utils/constants';
 
 // Custom hook for consistent animations

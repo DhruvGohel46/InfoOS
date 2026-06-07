@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
-import { workerAPI } from '../../api/workers';
+
 import { usePOSData } from '../../context/POSDataContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import Button from '../../components/ui/Button';
