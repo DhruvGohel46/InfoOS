@@ -474,8 +474,7 @@ const WorkerProfile = () => {
                                         label="Reason"
                                         value={advanceReason}
                                         onChange={e => setAdvanceReason(e.target.value)}
-                                        placeholder="e.g. Medical Emergency"
-                                        required
+                                        placeholder="e.g. Medical Emergency (Optional)"
                                     />
                                     <Button
                                         variant="primary"

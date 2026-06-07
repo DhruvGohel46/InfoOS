@@ -40,6 +40,9 @@ def _build_printer_payload(bill: dict) -> dict:
         "total": (
             bill.get("total") if bill.get("total") is not None else bill.get("total_amount", 0)
         ),
+        "customer_name": bill.get("customer_name", ""),
+        "payment_method": bill.get("payment_method", "CASH"),
+        "today_token": bill.get("today_token", 0),
     }
 
 
@@ -112,6 +115,9 @@ def create_bill():
         "time": created_bill["created_at"].split(" ")[1],
         "products": validated_products,
         "total": total,
+        "customer_name": created_bill.get("customer_name", ""),
+        "payment_method": created_bill.get("payment_method", "CASH"),
+        "today_token": created_bill.get("today_token", 0),
     }
 
     # Print bill only if requested (non-blocking — don't fail if printer doesn't work)

@@ -559,6 +559,8 @@ class DatabaseService:
             "bill_no": bill.bill_no,
             "customer_name": bill.customer_name,
             "total_amount": bill.total_amount,
+            "today_token": bill.today_token,
+            "payment_method": bill.payment_method,
             "items": json.loads(bill.items),  # Deserialize JSON
             "status": bill.status,
             "created_at": str(bill.created_at),

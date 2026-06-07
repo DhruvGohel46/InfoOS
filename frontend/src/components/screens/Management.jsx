@@ -258,6 +258,17 @@ const ProductManagement = () => {
   }
 
 
+  const handleDisable = async (product) => {
+    try {
+      await productsAPI.updateProduct(product.product_id, { active: false });
+      showSuccess('Product disabled');
+      loadProducts();
+    } catch (err) {
+      const apiError = handleAPIError(err);
+      setError(apiError.message);
+    }
+  };
+
   const handlePermanentDelete = (product) => {
     setItemToDelete(product);
     setDeletePassword('');
@@ -764,9 +775,9 @@ const ProductManagement = () => {
                           <IconEdit /> {showImages ? 'Edit' : ''}
                         </button>
                         {product.active ? (
-                          <button className="pmActionBtn pmActionDanger" onClick={() => onRequestDeactivate(product)} title="Deactivate" style={{ justifyContent: 'center' }}>
-                            <IconPower /> {showImages ? 'Disable' : ''}
-                          </button>
+                          <button className="pmActionBtn pmActionDanger" onClick={() => handleDisable(product)} title="Deactivate" style={{ justifyContent: 'center' }}>
+                          <IconPower /> {showImages ? 'Disable' : ''}
+                        </button>
                         ) : (
                           <>
                             <button className="pmActionBtn pmActionReactivate" onClick={() => handleReactivate(product)} title="Reactivate" style={{ color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center' }}>

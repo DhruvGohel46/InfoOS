@@ -85,3 +85,187 @@
     align-items: stretch;
   }
 }
+
+/* ==========================================
+   WORKER PROFILE STYLES
+   ========================================== */
+
+.wpHeader {
+  display: flex;
+  gap: var(--spacing-6);
+  background: color-mix(in srgb, var(--glass-card) 50%, transparent);
+  border: 1px solid var(--glass-border);
+  padding: var(--spacing-6);
+  border-radius: var(--radius-2xl);
+  margin-bottom: var(--spacing-6);
+  align-items: center;
+}
+
+.wpAvatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--primary-500);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.2);
+  border: 2px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.wpAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wpInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+
+.wpName {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.wpRoleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.wpRoleRow svg {
+  color: var(--primary-500);
+}
+
+.wpRole {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wpStatusBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.wpStatusActive {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+
+.wpStatusInactive {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.wpMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-2);
+}
+
+.wpMetaItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.wpMetaItem svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* Tab navigation styling */
+.wpTabButton {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 12px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.wpTabButton:hover {
+  color: var(--text-primary);
+}
+
+.wpTabActive {
+  color: var(--primary-500);
+}
+
+/* Premium Table styles */
+.wpTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wpTable th {
+  padding: 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.wpTable td {
+  padding: 16px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--glass-border);
+  font-size: var(--text-sm);
+}
+
+.wpTable tr:last-child td {
+  border-bottom: none;
+}
+
+/* Responsive profile card */
+@media (max-width: 768px) {
+  .wpHeader {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--spacing-5);
+  }
+
+  .wpRoleRow {
+    justify-content: center;
+  }
+
+  .wpMetaGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-2);
+  }
+
+  .wpMetaItem {
+    justify-content: center;
+  }
+}
