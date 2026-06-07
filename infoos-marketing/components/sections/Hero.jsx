@@ -31,6 +31,7 @@ export default function Hero() {
         </div>
 
         <div className={styles.imageSide}>
+          <div className={styles.mockupGlow} />
           <div className={styles.mockupContainer}>
             <Image 
               src="/images/billing.png" 

@@ -31,30 +31,30 @@
 
 .secondary {
   background: rgba(255,255,255,0.08);
-  color: #0F172A;
-  border: 1px solid rgba(0,0,0,0.1);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
 }
 .secondary:hover {
   background: rgba(255,255,255,0.12);
-  border-color: rgba(0,0,0,0.15);
+  border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-1px);
 }
 
 .outline {
   background: transparent;
-  color: #E6701E;
-  border: 1px solid #E6701E;
+  color: #f97316;
+  border: 1px solid #f97316;
 }
 .outline:hover {
-  background: rgba(230, 112, 30, 0.08);
+  background: rgba(249, 115, 22, 0.08);
 }
 
 .ghost {
   background: transparent;
-  color: #475569;
+  color: rgba(255, 255, 255, 0.7);
 }
 .ghost:hover {
-  color: #0F172A;
-  background: rgba(0,0,0,0.04);
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
 }

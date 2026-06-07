@@ -69,21 +69,31 @@ export default function Showcase() {
               transition={{ duration: 0.3 }}
               className={styles.displayContent}
             >
-              <div className={styles.imageWrap}>
-                <Image
-                  src={mod.image}
-                  alt={mod.name}
-                  width={800}
-                  height={500}
-                  className={styles.image}
-                />
+              <div className={styles.windowFrame}>
+                <div className={styles.windowHeader}>
+                  <div className={styles.windowDots}>
+                    <span className={`${styles.windowDot} ${styles.dotRed}`} />
+                    <span className={`${styles.windowDot} ${styles.dotYellow}`} />
+                    <span className={`${styles.windowDot} ${styles.dotGreen}`} />
+                  </div>
+                  <div className={styles.windowTitle}>InfoOS — {mod.name}</div>
+                </div>
+                <div className={styles.imageWrap}>
+                  <Image
+                    src={mod.image}
+                    alt={mod.name}
+                    width={800}
+                    height={500}
+                    className={styles.image}
+                  />
+                </div>
               </div>
 
               <div className={styles.featureList}>
                 <h3>{mod.name}</h3>
                 <ul>
                   {mod.features.map((f, i) => (
-                    <li key={i}><span className={styles.dot} />{f}</li>
+                    <li key={i}><span className={styles.listDot} />{f}</li>
                   ))}
                 </ul>
               </div>

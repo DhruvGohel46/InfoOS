@@ -48,6 +48,16 @@ export default function Footer() {
         <div className={styles.bottom}>
           <p>© 2026 InfoOS POS. Built by engineers for real businesses.</p>
         </div>
+
+        <div className={styles.designCredits}>
+          <p>
+            Designed with inspiration from the engineering aesthetics of{' '}
+            <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className={styles.creditLink}>Stripe</a> (fluid UI & transitions),{' '}
+            <a href="https://linear.app" target="_blank" rel="noopener noreferrer" className={styles.creditLink}>Linear</a> (dark control-center layouts),{' '}
+            <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className={styles.creditLink}>Vercel</a> (crisp typography), and{' '}
+            <a href="https://apple.com" target="_blank" rel="noopener noreferrer" className={styles.creditLink}>Apple</a> (liquid glassmorphism).
+          </p>
+        </div>
       </div>
     </footer>
   );

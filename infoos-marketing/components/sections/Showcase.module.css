@@ -17,59 +17,59 @@
   font-size: clamp(32px, 4vw, 48px);
   margin-bottom: 16px;
   color: #FFFFFF;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-family: Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-family: var(--font-display);
 }
 
 .subtitle {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 18px;
-  font-family: Georgia, serif;
-  font-style: italic;
+  font-family: var(--font-primary);
+  line-height: 1.5;
 }
 
 .tabs {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 48px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  padding: 8px;
+  background: rgba(22, 26, 32, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 6px;
   border-radius: 9999px;
   width: fit-content;
   margin-left: auto;
   margin-right: auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .tab {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 10px 24px;
   border-radius: 9999px;
   font-size: 14px;
   font-weight: 600;
-  color: #64748B;
+  color: rgba(255, 255, 255, 0.6);
   border: none;
   background: transparent;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
-  font-family: Georgia, serif;
-  font-style: italic;
+  font-family: var(--font-display);
 }
 
 .tab:hover {
-  color: #0F172A;
-  background: rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .tabActive {
   background: rgba(255, 255, 255, 0.95);
   color: #0F172A;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .display {
@@ -78,22 +78,62 @@
 
 .displayContent {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 48px;
   align-items: center;
-  padding: 40px;
+  padding: 24px 0;
+}
+
+.windowFrame {
+  background: rgba(22, 26, 32, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.windowHeader {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 12px 18px;
+}
+
+.windowDots {
+  display: flex;
+  gap: 6px;
+}
+
+.windowDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dotRed { background-color: #ef4444; }
+.dotYellow { background-color: #eab308; }
+.dotGreen { background-color: #22c55e; }
+
+.windowTitle {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-family: var(--font-primary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .imageWrap {
-  background: rgba(255, 255, 255, 0.05); /* Lighter glass */
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .image {
@@ -106,8 +146,9 @@
   font-size: 28px;
   margin-bottom: 24px;
   color: #FFFFFF;
-  font-weight: 600;
-  font-family: Georgia, serif;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 .featureList ul {
@@ -124,15 +165,16 @@
   gap: 12px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 16px;
-  font-family: Georgia, serif;
-  font-style: italic;
+  font-family: var(--font-primary);
+  line-height: 1.5;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
+.listDot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #E6701E 0%, #FF8A3D 100%);
+  background: #f97316;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
   flex-shrink: 0;
 }
 
@@ -152,7 +194,6 @@
 
   .displayContent {
     grid-template-columns: 1fr;
-    padding: 24px 16px;
     gap: 32px;
   }
 
