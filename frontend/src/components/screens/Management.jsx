@@ -269,10 +269,15 @@ const ProductManagement = () => {
     }
   };
 
-  const handlePermanentDelete = (product) => {
-    setItemToDelete(product);
-    setDeletePassword('');
-    setShowPasswordModal(true);
+  const handleDeleteDirect = async (product) => {
+    try {
+      await productsAPI.deleteProductPermanently(product.product_id);
+      showSuccess('Product permanently deleted');
+      loadProducts();
+    } catch (err) {
+      const apiError = handleAPIError(err);
+      setError(apiError.message);
+    }
   };
 
   const confirmPermanentDelete = async (e) => {
@@ -783,7 +788,7 @@ const ProductManagement = () => {
                             <button className="pmActionBtn pmActionReactivate" onClick={() => handleReactivate(product)} title="Reactivate" style={{ color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center' }}>
                               <IconPower /> {showImages ? 'Enable' : ''}
                             </button>
-                            <button className="pmActionBtn" onClick={() => handlePermanentDelete(product)} title="Delete Permanently" style={{
+                            <button className="pmActionBtn" onClick={() => handleDeleteDirect(product)} title="Delete Permanently" style={{
                               color: '#EF4444',
                               borderColor: 'rgba(239, 68, 68, 0.3)',
                               background: 'rgba(239, 68, 68, 0.1)',
