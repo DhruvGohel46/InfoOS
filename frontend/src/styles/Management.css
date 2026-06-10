@@ -424,8 +424,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: calc(10px * var(--display-zoom));
+  gap: calc(8px * var(--display-zoom));
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .pmPrice {
@@ -434,6 +435,7 @@
   color: var(--primary);
   letter-spacing: var(--tracking-tight);
   text-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
 }
 
 .pmMetaRow {
@@ -643,6 +645,7 @@
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
   padding: calc(14px * var(--display-zoom));
   transition: all 0.2s ease;
+  overflow: visible;
 }
 
 .pmFormWrap:hover {
@@ -669,6 +672,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: calc(10px * var(--display-zoom));
+  overflow: visible;
 }
 
 .pmFormActions {

@@ -387,18 +387,24 @@ class PrinterService:
             rate_str = f"{price:.2f}"
             amt_str = f"{line_amt:.2f}"
 
-            # Auto wrap long item names
+            # Auto wrap long item names (strictly limit to column width)
             chunks = textwrap.wrap(name, item_w)
             if not chunks:
                 chunks = [""]
+            # Truncate each chunk to exactly item_w to prevent overflow
+            chunks = [c[:item_w] for c in chunks]
 
             first_line = (
                 f"{chunks[0]:<{item_w}}{qty_str:>{qty_w}}{rate_str:>{rate_w}}{amt_str:>{amt_w}}"
             )
+            builder.bold_on()
             builder.line(first_line)
+            builder.bold_off()
 
             for chunk in chunks[1:]:
+                builder.bold_on()
                 builder.line(f"{chunk:<{item_w}}")
+                builder.bold_off()
 
         builder.divider()
 
@@ -477,7 +483,7 @@ class PrinterService:
 
     def _build_kot_receipt(self, bill_data: Dict, settings: Dict) -> ReceiptBuilder:
         """Build Kitchen Order Ticket (KOT) receipt to look exactly like traditional kitchen slips."""
-        max_chars = 32  # Forced 58mm for KOT
+        max_chars = 48 if settings["is_80mm"] else 32
         builder = ReceiptBuilder(max_chars)
 
         # Date & Time at top, center aligned
@@ -512,9 +518,13 @@ class PrinterService:
         builder.align_left()
         builder.divider()
 
-        # Item list columns
-        item_w = 24
-        qty_w = 8
+        # Item list columns - scale to printer width
+        if settings["is_80mm"]:
+            item_w = 38
+            qty_w = 10
+        else:
+            item_w = 24
+            qty_w = 8
         header = f"{'Item':<{item_w}}{'Qty':>{qty_w}}"
         builder.line(header)
         builder.divider()
@@ -532,10 +542,11 @@ class PrinterService:
             else:
                 qty_str = "1"
 
-            # Wrap name
+            # Wrap name and truncate to prevent overflow
             chunks = textwrap.wrap(name, item_w)
             if not chunks:
                 chunks = [""]
+            chunks = [c[:item_w] for c in chunks]
 
             # Print first line of item name in bold for high kitchen visibility
             builder.bold_on()
@@ -558,9 +569,7 @@ class PrinterService:
         builder.divider()
 
         # Special Notes (if present)
-        notes = (
-            bill_data.get("notes") or bill_data.get("special_notes") or bill_data.get("remarks")
-        )
+        notes = bill_data.get("notes") or bill_data.get("special_notes") or bill_data.get("remarks")
         if notes:
             builder.line("Special Notes")
             builder.bold_on()
@@ -650,4 +659,3 @@ def _log_unavailable(caller: str) -> None:
         current_app.logger.warning(msg)
     except RuntimeError:
         print(msg)
-

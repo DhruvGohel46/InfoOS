@@ -14,7 +14,7 @@ import AddWorkerModal from './AddWorkerModal';
 const WorkerList = () => {
     const { currentTheme, isDark } = useTheme();
     const navigate = useNavigate();
-    const { workers: contextWorkers, refreshWorkers, loading: contextLoading } = usePOSData();
+    const { workers: contextWorkers, refreshWorkers } = usePOSData();
     
     const [showModal, setShowModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');

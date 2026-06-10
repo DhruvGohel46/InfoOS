@@ -144,15 +144,16 @@ const Settings = () => {
 
         // App
         show_product_images: 'true',
+        show_all_as_favorite: 'false',
         dark_mode: 'false',
         sound_enabled: 'true',
         
         // Security
         require_pin_login: 'false',
-
+ 
         // Workers
         salary_day: '1',
-
+ 
         // Reminder Sound
         reminder_sound: 'reminder.mp3'
     });
@@ -516,6 +517,21 @@ const Settings = () => {
                                                 type="checkbox"
                                                 checked={formSettings.show_product_images !== 'false'}
                                                 onChange={(e) => handleChange('show_product_images', e.target.checked ? 'true' : 'false')}
+                                            />
+                                            <span className="stSlider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Show All Items in POS Favorites</span>
+                                            <span className="stLabelDesc">Displays all active products inside the favorites category on the Billing screen</span>
+                                        </div>
+                                        <label className="stToggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={formSettings.show_all_as_favorite === 'true'}
+                                                onChange={(e) => handleChange('show_all_as_favorite', e.target.checked ? 'true' : 'false')}
                                             />
                                             <span className="stSlider"></span>
                                         </label>

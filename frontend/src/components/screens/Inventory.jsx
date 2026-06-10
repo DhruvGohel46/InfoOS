@@ -96,15 +96,15 @@ const Inventory = () => {
         loadProducts();
     }, []);
 
-    const loadInventory = async () => {
+    const loadInventory = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const res = await inventoryAPI.getAllInventory();
             setItems(res.data.inventory || []);
         } catch (err) {
             console.error(err);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -170,12 +170,25 @@ const Inventory = () => {
         e.stopPropagation(); // prevent row click
         if (item.is_locked) return;
 
+        // Optimistically update stock in UI state to prevent flickering
+        setItems(prevItems => prevItems.map(i => {
+            if (i.id === item.id) {
+                const newStock = i.stock + amount;
+                let newStatus = "In Stock";
+                if (newStock <= 0) newStatus = "Out of Stock";
+                else if (newStock <= i.alert_threshold) newStatus = "Low Stock";
+                return { ...i, stock: newStock, status: newStatus };
+            }
+            return i;
+        }));
+
         try {
             await inventoryAPI.adjustStock(item.id, amount);
             showSuccess('Stock updated');
-            loadInventory();
+            loadInventory(true); // silent background load
         } catch (err) {
             showError('Failed to update stock');
+            loadInventory();
         }
     };
 
@@ -192,7 +205,7 @@ const Inventory = () => {
         try {
             await inventoryAPI.deleteInventory(id);
             showSuccess('Item deleted');
-            loadInventory();
+            loadInventory(true); // silent background load
         } catch (err) {
             showError('Failed to delete');
         }
@@ -208,6 +221,16 @@ const Inventory = () => {
             }
 
             if (selectedItem) {
+                // Optimistically update existing item
+                setItems(prevItems => prevItems.map(i => {
+                    if (i.id === selectedItem.id) {
+                        let newStatus = "In Stock";
+                        if (payload.stock <= 0) newStatus = "Out of Stock";
+                        else if (payload.stock <= payload.alert_threshold) newStatus = "Low Stock";
+                        return { ...i, ...payload, status: newStatus };
+                    }
+                    return i;
+                }));
                 await inventoryAPI.updateInventory(selectedItem.id, payload);
                 showSuccess('Inventory updated');
             } else {
@@ -215,9 +238,10 @@ const Inventory = () => {
                 showSuccess('Inventory created');
             }
             setShowAddModal(false);
-            loadInventory();
+            loadInventory(true); // silent background load
         } catch (err) {
             showError('Failed to save');
+            loadInventory();
         }
     };
 

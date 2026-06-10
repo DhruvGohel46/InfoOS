@@ -351,6 +351,7 @@ const ProductManagement = () => {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const onRequestDeactivate = (product) => setPendingDeactivate(product);
   const onCloseDeactivate = () => setPendingDeactivate(null);
 
@@ -391,7 +392,7 @@ const ProductManagement = () => {
         flexDirection: 'column',
         height: '100%',
         borderRadius: 'var(--radius-3xl)',
-        overflow: 'hidden',
+        overflow: 'visible',
         background: 'var(--glass-panel)',
         border: '1px solid var(--glass-border)',
         boxShadow: 'var(--shadow-xl)',
@@ -439,7 +440,7 @@ const ProductManagement = () => {
         alignItems: 'center',
         flexWrap: 'wrap',
         position: 'relative',
-        zIndex: 20,
+        zIndex: 100,
       }}>
         {/* Search */}
         <div className="inventory-search">
@@ -542,12 +543,12 @@ const ProductManagement = () => {
       </div>
 
       {/* Scrollable Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--spacing-8) var(--spacing-8) var(--spacing-8)' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--spacing-8) var(--spacing-8) var(--spacing-8)', position: 'relative', zIndex: 10 }}>
 
         {/* Add/Edit Form */}
         <AnimatePresence>
           {showAddForm && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="pmFormWrap" style={{ marginBottom: 'var(--spacing-6)' }}>
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="pmFormWrap" style={{ marginBottom: 'var(--spacing-6)', overflow: 'visible' }}>
               <div className="pmFormHeader">
                 <div className="pmFormTitle">{editingProduct ? 'Edit Product' : 'Add New Product'}</div>
               </div>
@@ -569,7 +570,7 @@ const ProductManagement = () => {
                       onChange={(val) => handleInputChange('category_id', val)}
                       placeholder="Select Category"
                       className="pmDropdown"
-                      direction="top"
+                      direction="bottom"
                     />
                   </div>
                 </div>

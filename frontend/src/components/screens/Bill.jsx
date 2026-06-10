@@ -82,7 +82,8 @@ const TrashIcon = ({ color }) => (
 
 const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
-  const { settings } = useSettings();
+  // eslint-disable-next-line no-unused-vars
+  const { settings: _settings } = useSettings();
   const { showSuccess, showWarning } = useAlert();
   const { isOnline } = useNetwork();
   

@@ -912,6 +912,39 @@ class DatabaseService:
     def update_settings_bulk(self, settings_list: List[Dict[str, Any]]) -> bool:
         """Update multiple settings"""
         try:
+            # Check for favorites toggle logic transition
+            show_all_toggle = next((item for item in settings_list if item.get("key") == "show_all_as_favorite"), None)
+            if show_all_toggle:
+                new_val = str(show_all_toggle.get("value", "false")).lower()
+                curr_setting = Settings.query.get("show_all_as_favorite")
+                curr_val = str(curr_setting.value).lower() if curr_setting else "false"
+
+                if new_val != curr_val:
+                    if new_val == "true":
+                        # Transition false -> true: backup favorites, make all items favorite
+                        fav_products = Product.query.filter_by(favorite=True).all()
+                        fav_ids = ",".join([p.product_id for p in fav_products])
+                        
+                        prev_setting = Settings.query.get("previous_favorites")
+                        if prev_setting:
+                            prev_setting.value = fav_ids
+                            prev_setting.updated_at = datetime.now()
+                        else:
+                            new_prev = Settings(key="previous_favorites", value=fav_ids, group_name="app")
+                            db.session.add(new_prev)
+                        
+                        active_products = Product.query.filter_by(active=True).all()
+                        for p in active_products:
+                            p.favorite = True
+                    else:
+                        # Transition true -> false: restore favorites from backup
+                        prev_setting = Settings.query.get("previous_favorites")
+                        prev_fav_ids = prev_setting.value.split(",") if (prev_setting and prev_setting.value) else []
+                        
+                        all_products = Product.query.all()
+                        for p in all_products:
+                            p.favorite = (p.product_id in prev_fav_ids)
+
             for item in settings_list:
                 key = item.get("key")
                 value = item.get("value")

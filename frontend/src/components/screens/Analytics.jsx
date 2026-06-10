@@ -199,7 +199,8 @@ const Analytics = () => {
     // ─── Expenses Tab ───
     const [expenseRange, setExpenseRange] = useState('week'); // 'week' | 'month' | 'year'
     const [rangeExpenses, setRangeExpenses] = useState([]);
-const [loadingExpenses, setLoadingExpenses] = useState(false);
+    // eslint-disable-next-line no-unused-vars
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
     const [expenseSearchQuery] = useState('');
 
     // ─── Pie chart active sector ───

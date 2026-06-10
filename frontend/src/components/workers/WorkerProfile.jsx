@@ -31,11 +31,7 @@ const WorkerProfile = () => {
     const [advanceReason, setAdvanceReason] = useState('');
     const [submittingAdvance, setSubmittingAdvance] = useState(false);
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
-
-    const loadData = async () => {
+    const loadData = React.useCallback(async () => {
         setLoading(true);
         try {
             const [w, a, s, att, exp] = await Promise.all([
@@ -56,7 +52,11 @@ const WorkerProfile = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        loadData();
+    }, [id, loadData]);
 
     const handleAddAdvance = async (e) => {
         e.preventDefault();
@@ -143,8 +143,13 @@ const WorkerProfile = () => {
         let m = latestMonth + 1;
         if (m > 12) { m = 1; y += 1; }
         
+        // Helper function outside the loop to check if salary exists to avoid no-loop-func
+        const hasSalaryFor = (monthVal, yearVal) => {
+            return salaryHistory.some(p => p.month === monthVal && p.year === yearVal);
+        };
+        
         while (y < currentYear || (y === currentYear && m <= currentMonth)) {
-            if (!salaryHistory.some(p => p.month === m && p.year === y)) {
+            if (!hasSalaryFor(m, y)) {
                 missing.push({ month: m, year: y, isCurrent: (y === currentYear && m === currentMonth) });
             }
             m++;
@@ -152,7 +157,7 @@ const WorkerProfile = () => {
         }
         
         if (!missing.some(p => p.month === currentMonth && p.year === currentYear) && 
-            !salaryHistory.some(p => p.month === currentMonth && p.year === currentYear)) {
+            !hasSalaryFor(currentMonth, currentYear)) {
               missing.push({ month: currentMonth, year: currentYear, isCurrent: true });
         }
         
@@ -179,7 +184,8 @@ const WorkerProfile = () => {
         </div>
     );
 
-    const score = calculateScore();
+    // eslint-disable-next-line no-unused-vars
+    const _score = calculateScore();
 
     // Tab Components
     const TabButton = ({ id, label, icon: Icon }) => (

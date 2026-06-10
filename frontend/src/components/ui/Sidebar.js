@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-
 import { useSettings } from '../../context/SettingsContext';
+import MotionIcon from './MotionIcon';
 
 const Sidebar = ({
     isCollapsed,
@@ -213,12 +213,10 @@ const Sidebar = ({
                                     marginRight: isCollapsed ? 0 : 'var(--spacing-3)',
                                     color: 'currentColor'
                                 }}
-                                animate={isActive ? {
-                                    scale: [1, 1.05, 1],
-                                    transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-                                } : { scale: 1 }}
                             >
-                                {item.icon}
+                                <MotionIcon size={iconSize} animateType={isActive ? 'bounce' : 'scale'}>
+                                    {item.icon}
+                                </MotionIcon>
                             </motion.span>
 
                             {/* Label */}
