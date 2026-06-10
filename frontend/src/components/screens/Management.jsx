@@ -438,6 +438,8 @@ const ProductManagement = () => {
         gap: 'var(--spacing-4)',
         alignItems: 'center',
         flexWrap: 'wrap',
+        position: 'relative',
+        zIndex: 20,
       }}>
         {/* Search */}
         <div className="inventory-search">
@@ -559,7 +561,7 @@ const ProductManagement = () => {
                     <div className="pmLabel">Price</div>
                     <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
                   </div>
-                  <div className="pmField">
+                  <div className="pmField" style={{ position: 'relative', zIndex: 10 }}>
                     <div className="pmLabel">Category</div>
                     <GlobalSelect
                       options={categories.map(cat => ({ label: cat.name, value: cat.id }))}

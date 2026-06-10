@@ -19,6 +19,7 @@ export const ReminderProvider = ({ children }) => {
         audioRef.current = new Audio("/api/sounds/" + soundFile + "?v=" + new Date().getTime());
         audioRef.current.loop = true;
         audioRef.current.playbackRate = 1.0;
+        
     }, [settings?.reminder_sound]);
 
     const playAlertSound = useCallback(() => {
