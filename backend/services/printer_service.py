@@ -110,6 +110,7 @@ class ReceiptBuilder:
         self.line(char * self.max_chars)
         self.bold_off()
         return self
+
     def feed(self, lines: int = 1):
         self.commands.append(("feed", lines))
         return self
@@ -310,10 +311,10 @@ class PrinterService:
         pad = max_chars - len(date_label) - len(order_type)
         if pad < 1:
             pad = 1
-        
+
         # Time
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
-        
+
         # Cashier & Bill No on same line
         cashier = (
             bill_data.get("cashier")
@@ -332,13 +333,13 @@ class PrinterService:
         pad2 = max_chars - len(cashier_part) - len(bill_no_part)
         if pad2 < 1:
             pad2 = 1
-            
+
         builder.bold_on()
         builder.line(f"{date_label}{' ' * pad}{order_type}")
         builder.line(f"Time: {time_str}")
         builder.line(f"{cashier_part}{' ' * pad2}{bill_no_part}")
         builder.bold_off()
-        
+
         # Token No. — bold (image shows it bold and prominent)
         token_no = str(
             bill_data.get("token_no")
@@ -457,7 +458,7 @@ class PrinterService:
         max_chars = 48 if settings["is_80mm"] else 32
         builder = ReceiptBuilder(max_chars)
         builder.feed(0)
-        
+
         # Date & Time at top, center aligned
         builder.align_center()
         builder.bold_on()
@@ -549,7 +550,6 @@ class PrinterService:
         builder.line(f"TOTAL ITEMS: {len(products)}")
         builder.bold_off()
         builder.divider()
-
 
         builder.feed(0)
         builder.cut()
