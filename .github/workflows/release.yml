@@ -6,6 +6,11 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 31.0.4)'
+        required: true
+        default: '31.0.4'
 
 # ─── FIX: Grant write permission to GITHUB_TOKEN ────────────────────────────
 # Without this, GITHUB_TOKEN is read-only and electron-builder gets 403
@@ -24,15 +29,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Sync package.json version to git tag ────────────────────────────
-      # Extracts "1.2.3" from tag "v1.2.3" and patches package.json so
-      # electron-builder creates the release under the correct version/tag.
-      - name: Sync version from git tag
+      # ── 2. Sync package.json version to git tag or input ───────────────────
+      # Extracts "1.2.3" from tag "v1.2.3" or uses the manual input, and patches 
+      # package.json so electron-builder creates the release correctly.
+      - name: Sync version from git tag or manual input
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"          # e.g. v30.2.10
-          VERSION="${TAG#v}"                # e.g. 30.2.10
-          echo "Syncing package.json version to $VERSION (from tag $TAG)"
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"          # e.g. v30.2.10
+            VERSION="${TAG#v}"                # e.g. 30.2.10
+          fi
+          echo "Syncing package.json version to $VERSION"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       # ── 3. Set up Node.js ─────────────────────────────────────────────────
