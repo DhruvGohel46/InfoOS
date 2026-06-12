@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 # ─── FIX: Grant write permission to GITHUB_TOKEN ────────────────────────────
 # Without this, GITHUB_TOKEN is read-only and electron-builder gets 403
