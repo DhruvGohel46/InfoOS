@@ -404,6 +404,7 @@ const WorkerProfile = () => {
                                         <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: currentTheme.colors.text.tertiary }}>Date</th>
                                         <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: currentTheme.colors.text.tertiary }}>Status</th>
                                         <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: currentTheme.colors.text.tertiary }}>Check In</th>
+                                        <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: currentTheme.colors.text.tertiary }}>Check Out</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -420,11 +421,12 @@ const WorkerProfile = () => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '16px', color: currentTheme.colors.text.secondary }}>{a.check_in || '-'}</td>
+                                            <td style={{ padding: '16px', color: currentTheme.colors.text.secondary }}>{a.check_out || '-'}</td>
                                         </tr>
                                     ))}
                                     {attendance.length === 0 && (
                                         <tr>
-                                            <td colSpan="3" style={{ padding: '40px', textAlign: 'center', color: currentTheme.colors.text.secondary }}>
+                                            <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: currentTheme.colors.text.secondary }}>
                                                 No attendance records found
                                             </td>
                                         </tr>
