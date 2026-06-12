@@ -54,6 +54,7 @@ onnxruntime>=1.16.0
 # Install on Windows POS terminals / PyInstaller builds only.
 pywin32==307
 
-# ── Dev / testing ─────────────────────────────────────────────────────────────
+# ── Dev / testing / build ─────────────────────────────────────────────────────
 pytest>=8.0.0
 black>=24.0.0
+pyinstaller>=6.0.0

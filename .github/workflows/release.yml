@@ -56,6 +56,9 @@ jobs:
         working-directory: frontend
 
       # ── 7. Compile Python backend with PyInstaller ────────────────────────
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
       - name: Compile Python backend (PyInstaller)
         run: npm run build:backend
 
