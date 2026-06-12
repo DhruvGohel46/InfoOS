@@ -44,6 +44,7 @@ Pillow>=10.0.0
 # Install separately via:  pip install -r requirements-ai.txt
 rembg==2.0.62
 onnxruntime>=1.16.0
+onnx>=1.15.0
 
 # ── Windows-only: thermal printer support ─────────────────────────────────────
 # pywin32 provides win32print / win32ui / pywintypes used by PrinterService.
