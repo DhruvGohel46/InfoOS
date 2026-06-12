@@ -1,6 +1,8 @@
 {
   "name": "infoos",
   "version": "1.0.0",
+  "description": "Product Sales Management Application",
+  "author": "Dhruv Gohel",
   "main": "electron/main.js",
   "repository": {
     "type": "git",
