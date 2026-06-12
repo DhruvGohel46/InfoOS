@@ -37,6 +37,7 @@ def verify_admin_pin(pin: str) -> bool:
     stored_hash = settings.get("admin_pin_hash", "")
     if not stored_hash:
         from config import config
+
         RESET_PASSWORD = config["default"].RESET_PASSWORD
         return pin == RESET_PASSWORD
     return verify_pin(pin, stored_hash)
@@ -266,6 +267,7 @@ def setup_pin():
 
     db.update_settings_bulk(settings_to_update)
     import cache
+
     cache.invalidate("settings")
 
     return (

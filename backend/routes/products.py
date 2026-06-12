@@ -100,6 +100,7 @@ _product_update_schema = ProductUpdateSchema()
 def update_catalog_version():
     """Update catalog version and invalidate settings cache."""
     import time
+
     db.update_settings_bulk([{"key": "catalog_version", "value": str(int(time.time()))}])
     cache.invalidate("settings")
 
