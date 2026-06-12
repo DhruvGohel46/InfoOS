@@ -1,1 +1,0 @@
-now i want to build a reminder screen where User Can Make reminder and the system may remind them every day on same time or at once as per the user choice and for design ay the Ai agent to take a look of other pages and then make this new sreen design 

@@ -152,7 +152,7 @@ const Reminders = () => {
                                 ]}
                                 value={repeat}
                                 onChange={(val) => setRepeat(val)}
-                                placeholder="Repeat"
+                                placeholder="daily"
                                 className="barRepeatDropdown"
                                 zIndex={100}
                             />

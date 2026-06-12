@@ -106,9 +106,10 @@ class ReceiptBuilder:
         return self
 
     def divider(self, char: str = "-"):
-        self.commands.append(("text", (char * self.max_chars) + "\n"))
+        self.bold_on()
+        self.line(char * self.max_chars)
+        self.bold_off()
         return self
-
     def feed(self, lines: int = 1):
         self.commands.append(("feed", lines))
         return self
@@ -156,8 +157,7 @@ class ReceiptBuilder:
             elif cmd_type == "feed":
                 stream.extend(b"\x1bd" + bytes([val]))
             elif cmd_type == "cut":
-                # Standard full cut
-                stream.extend(b"\x1d\x56\x41\x03")
+                stream.extend(b"\x1d\x56\x41\x01")
 
         return bytes(stream)
 
@@ -465,7 +465,6 @@ class PrinterService:
         time_str = str(bill_data.get("time", datetime.now().strftime("%H:%M")))
         builder.line(f"{date_str} {time_str}")
         builder.bold_off()
-        builder.line()
 
         # KOT Number - large and bold
         kot_no = str(
@@ -478,21 +477,19 @@ class PrinterService:
         builder.bold_on()
         builder.line(f"KOT - {kot_no}")
         builder.bold_off()
-        builder.line()
 
-        # Order Type - large and bold
+        # Order Type
         order_type = str(
             bill_data.get("order_type") or bill_data.get("orderType") or "PICK UP"
         ).upper()
         builder.bold_on()
         builder.line(order_type)
         builder.bold_off()
-        builder.line()
 
         builder.align_left()
         builder.divider()
 
-        # Item list columns - scale to printer width
+        # Item list columns
         if settings["is_80mm"]:
             item_w = 38
             qty_w = 10
@@ -553,11 +550,6 @@ class PrinterService:
         builder.bold_off()
         builder.divider()
 
-        # Print Time at bottom
-        builder.bold_on()
-        builder.line("Print Time:")
-        builder.line(time_str)
-        builder.bold_off()
 
         builder.feed(0)
         builder.cut()

@@ -318,12 +318,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
       
       if (type === 'bill') {
-        await printerService.printBill(billNo);
-      } else {
         await printerService.printKOT(billNo);
+      } else {
+        await printerService.printBill(billNo);
       }
       
-      showSuccess(`${type.toUpperCase()} printed successfully`);
+      showSuccess(`${type.toUpperCase()} printed KOT successfully`);
     } catch (err) {
       showWarning('Printer error. Please check connections.');
     } finally {
@@ -764,7 +764,6 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           flex: 1,
           padding: currentTheme.spacing[4],
           overflowY: 'auto',
-          // No border bottom here, we want it clean
         }}>
           {/* Header for Right Section */}
           <div style={{
@@ -959,7 +958,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 {editingBill ? 'Update Only' : 'Save Only'}
               </Button>
               <Button variant="primary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
-                {isPrinting && printStatus.includes('Bill') ? 'Printing...' : 'Print Bill'}
+                {isPrinting && printStatus.includes('Bill') ? 'Printing...' : 'Print KOT'}
               </Button>
             </div>
             

@@ -12,7 +12,7 @@ start "POS Backend" cmd /k "python app.py"
 echo.
 echo Starting Frontend...
 cd ../frontend
-start "POS Frontend" cmd /k "npm start"
+start "POS Frontend" cmd /k "npm run serve-build"
 
 echo.
 echo Both servers are starting...
@@ -23,5 +23,5 @@ echo Dashboard Refresher: Auto-started with backend
 echo Auto Refresh: Daily at 12:01 AM
 echo Archive: Previous day data stored automatically
 echo.
-echo Press any key to exit this window...
-pause >nul
+exit /b 0
+ 
