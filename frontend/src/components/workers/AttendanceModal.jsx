@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
 import { workerAPI } from '../../api/workers';
+import { getLocalDateString } from '../../utils/api';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const ClockInIcon = () => (
@@ -88,9 +89,9 @@ const AttendanceModal = ({
         try {
             const now = new Date();
             const response = await workerAPI.markAttendance(workerId, {
-                date: now.toISOString().split('T')[0],
+                date: getLocalDateString(now),
                 check_in: now.toTimeString().split(' ')[0].substring(0, 5),
-                status: 'present'
+                status: 'Present'
             });
 
             if (response.success) {
@@ -130,7 +131,7 @@ const AttendanceModal = ({
         try {
             const now = new Date();
             const response = await workerAPI.updateAttendance(workerId, {
-                date: now.toISOString().split('T')[0],
+                date: getLocalDateString(now),
                 check_out: now.toTimeString().split(' ')[0].substring(0, 5)
             });
 
@@ -168,8 +169,8 @@ const AttendanceModal = ({
         
         try {
             const response = await workerAPI.markAttendance(workerId, {
-                date: new Date().toISOString().split('T')[0],
-                status: 'absent'
+                date: getLocalDateString(new Date()),
+                status: 'Absent'
             });
 
             if (response.success) {
@@ -209,9 +210,9 @@ const AttendanceModal = ({
             const now = new Date();
             const attendancePromises = workers.map(worker => 
                 workerAPI.markAttendance(worker.worker_id, {
-                    date: now.toISOString().split('T')[0],
+                    date: getLocalDateString(now),
                     check_in: now.toTimeString().split(' ')[0].substring(0, 5),
-                    status: 'present'
+                    status: 'Present'
                 })
             );
 

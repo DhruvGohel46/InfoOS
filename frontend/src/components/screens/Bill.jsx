@@ -92,7 +92,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     products: bootstrapProducts,
     categories: bootstrapCategories,
     bootstrapLoading,
-    refreshProducts
+    refreshProducts,
+    checkCatalogVersion
   } = usePOSData();
 
   const [products, setProducts] = useState([]);
@@ -116,6 +117,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   // Ref to prevent multiple rapid clicks
   const lastClickTime = useRef(0);
+
+  // Check catalog version on mount/load
+  useEffect(() => {
+    if (checkCatalogVersion) {
+      checkCatalogVersion();
+    }
+  }, [checkCatalogVersion]);
 
   // ── Sync from bootstrap context ──
   useEffect(() => {

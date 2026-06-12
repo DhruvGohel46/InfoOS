@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { systemAPI } from '../utils/api';
 
 const NetworkContext = createContext();
 
@@ -17,8 +18,7 @@ export const NetworkProvider = ({ children }) => {
     
     const pingBackend = async () => {
         try {
-            // Use same-origin proxied path in dev to avoid CORS issues.
-            await fetch('/health');
+            await systemAPI.healthCheck();
             if (!isOnline) setIsOnline(true);
         } catch (e) {
             // Only set offline if we get a network error

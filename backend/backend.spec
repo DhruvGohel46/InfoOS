@@ -8,8 +8,6 @@ block_cipher = None
 hidden_imports = [
     'engineio.async_drivers.threading',
     'flask_cors',
-    'rembg',
-    'onnxruntime',
     'PIL',
     'pandas',
     'openpyxl',
@@ -20,15 +18,25 @@ hidden_imports = [
     'pywintypes'
 ]
 
-# Provide path to onnxruntime binary if needed, but collect_all usually handles it
-# datas, binaries, hiddenimports_onnx = collect_all('onnxruntime')
-# hidden_imports += hiddenimports_onnx
+binaries = []
+datas = []
+
+# Collect all files for heavy ML libraries
+datas_onnx, binaries_onnx, hiddenimports_onnx = collect_all('onnxruntime')
+hidden_imports += hiddenimports_onnx
+datas += datas_onnx
+binaries += binaries_onnx
+
+datas_rembg, binaries_rembg, hiddenimports_rembg = collect_all('rembg')
+hidden_imports += hiddenimports_rembg
+datas += datas_rembg
+binaries += binaries_rembg
 
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
+    binaries=binaries,
+    datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

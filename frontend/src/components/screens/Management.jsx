@@ -933,13 +933,16 @@ const ProductManagement = () => {
                     fontWeight: 'var(--font-semibold)',
                     color: 'var(--text-primary)'
                   }}>
-                    Enter Admin Password
+                    Enter Owner PIN
                   </label>
                   <input
                     type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
                     value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder="Type password..."
+                    onChange={(e) => setDeletePassword(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter PIN..."
                     autoFocus
                     style={{
                       width: '100%',

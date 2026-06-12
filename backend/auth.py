@@ -31,6 +31,17 @@ def verify_pin(pin: str, hashed: str) -> bool:
     return bcrypt.checkpw(pin.encode("utf-8"), hashed.encode("utf-8"))
 
 
+def verify_admin_pin(pin: str) -> bool:
+    """Verify a PIN against the stored hash in settings, fallback to RESET_PASSWORD if not set."""
+    settings = db.get_all_settings()
+    stored_hash = settings.get("admin_pin_hash", "")
+    if not stored_hash:
+        from config import config
+        RESET_PASSWORD = config["default"].RESET_PASSWORD
+        return pin == RESET_PASSWORD
+    return verify_pin(pin, stored_hash)
+
+
 def generate_token(user_id="admin") -> str:
     """Generate a JWT token valid for 8 hours (typical shift)."""
     payload = {
@@ -228,6 +239,7 @@ def setup_pin():
     """First-time setup or change of the Owner PIN."""
     data = request.json
     pin = str(data.get("pin", ""))
+    shop_name = data.get("shop_name")
 
     if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
         raise ValidationError("PIN must be 4 to 6 numeric digits", code="INVALID_PIN_FORMAT")
@@ -244,13 +256,17 @@ def setup_pin():
     # Hash and save
     hashed = hash_pin(pin)
 
-    db.update_settings_bulk(
-        [
-            {"key": "admin_pin_hash", "value": hashed},
-            {"key": "require_pin_login", "value": "true"},  # Auto-enable on setup
-            {"key": "admin_pin_length", "value": str(len(pin))},  # Save length for dynamic UI
-        ]
-    )
+    settings_to_update = [
+        {"key": "admin_pin_hash", "value": hashed},
+        {"key": "require_pin_login", "value": "true"},  # Auto-enable on setup
+        {"key": "admin_pin_length", "value": str(len(pin))},  # Save length for dynamic UI
+    ]
+    if shop_name:
+        settings_to_update.append({"key": "shop_name", "value": str(shop_name)})
+
+    db.update_settings_bulk(settings_to_update)
+    import cache
+    cache.invalidate("settings")
 
     return (
         jsonify(

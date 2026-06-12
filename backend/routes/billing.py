@@ -418,15 +418,17 @@ def clear_all_bills():
     """Clear all bills from the database — requires password authentication."""
     data = request.get_json()
 
-    if not data or "password" not in data:
-        raise ValidationError("Password is required", code="MISSING_PASSWORD")
+    if not data or ("password" not in data and "pin" not in data):
+        raise ValidationError("PIN is required", code="MISSING_PASSWORD")
 
-    RESET_PASSWORD = config["default"].RESET_PASSWORD
+    pin_or_password = str(data.get("password") or data.get("pin") or "")
 
-    if data["password"] != RESET_PASSWORD:
+    from auth import verify_admin_pin
+
+    if not verify_admin_pin(pin_or_password):
         from error_handler import AuthorizationError
 
-        raise AuthorizationError("Invalid password", code="INVALID_PASSWORD")
+        raise AuthorizationError("Invalid Owner PIN", code="INVALID_PASSWORD")
 
     db_local = DatabaseService()
     success = db_local.clear_all_bills()

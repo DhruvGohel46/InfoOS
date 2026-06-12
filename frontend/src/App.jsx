@@ -747,6 +747,9 @@ function AppContent() {
       {/* Global Admin Unlock Modal */}
       <AdminUnlockModal />
 
+      {/* Global Update Notification */}
+      <UpdateNotification />
+
       {/* Startup Attendance Prompt */}
       <>
         {showAttendancePrompt && (

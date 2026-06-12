@@ -1308,10 +1308,13 @@ const Analytics = () => {
                                 <div style={{ marginTop: '16px', position: 'relative' }}>
                                     <input
                                         type={showClearPassword ? 'text' : 'password'}
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={6}
                                         className="pmInput"
-                                        placeholder="Enter password to confirm"
+                                        placeholder="Enter Owner PIN to confirm"
                                         value={clearPassword}
-                                        onChange={(e) => setClearPassword(e.target.value)}
+                                        onChange={(e) => setClearPassword(e.target.value.replace(/\D/g, ''))}
                                         onKeyPress={(e) => e.key === 'Enter' && handleClearBills()}
                                         autoFocus
                                         style={{ width: '100%', textAlign: 'center', paddingRight: '40px' }}

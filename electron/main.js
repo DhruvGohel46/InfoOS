@@ -300,7 +300,22 @@ ipcMain.handle('get-platform', () => process.platform);
 // Update Installation
 ipcMain.on('install-update', () => {
   log('Installing update...');
-  autoUpdater.quitAndInstall();
+  
+  // Explicitly kill the backend process before calling quitAndInstall
+  if (backendProcess) {
+    log('Manually killing backend before update installation...');
+    try {
+      backendProcess.kill('SIGKILL');
+    } catch (e) {
+      log('Error killing backend: ' + e);
+    }
+    backendProcess = null;
+  }
+  
+  // Add a slight delay to ensure Windows releases file locks before NSIS overwrites the executable
+  setTimeout(() => {
+    autoUpdater.quitAndInstall(false, true);
+  }, 1500);
 });
 
 // Logging IPC — renderer → main → app.log (same file as Python backend)

@@ -20,14 +20,22 @@ export function AuthProvider({ children }) {
   const [mode, setMode] = useState(initialIsAdmin ? MODE.ADMIN : MODE.WORKER);
   const [isUnlockOpen, setIsUnlockOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState(null);
+  const [pendingCallback, setPendingCallback] = useState(null);
 
-  const openUnlock = useCallback((path = null) => {
-    setPendingPath(path);
+  const openUnlock = useCallback((action = null) => {
+    if (typeof action === 'function') {
+      setPendingCallback(() => action);
+      setPendingPath(null);
+    } else {
+      setPendingPath(action);
+      setPendingCallback(null);
+    }
     setIsUnlockOpen(true);
   }, []);
 
   const closeUnlock = useCallback(() => {
     setIsUnlockOpen(false);
+    setPendingCallback(null);
   }, []);
 
   const unlockAdminWithPin = useCallback(async (pin) => {
@@ -36,18 +44,25 @@ export function AuthProvider({ children }) {
       persistToken(res.token);
       setMode(MODE.ADMIN);
       setIsUnlockOpen(false);
+      
+      if (pendingCallback) {
+        pendingCallback();
+        setPendingCallback(null);
+      }
+      
       const target = pendingPath;
       setPendingPath(null);
       if (target) navigate(target);
       return { success: true };
     }
     return { success: false };
-  }, [navigate, pendingPath]);
+  }, [navigate, pendingPath, pendingCallback]);
 
   const lockToWorker = useCallback(() => {
     clearToken();
     setMode(MODE.WORKER);
     setPendingPath(null);
+    setPendingCallback(null);
     setIsUnlockOpen(false);
   }, []);
 

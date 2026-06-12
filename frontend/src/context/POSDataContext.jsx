@@ -43,6 +43,9 @@ export const POSDataProvider = ({ children }) => {
     const [bootstrapError, setBootstrapError] = useState(null);
     const [lastBootstrapTime, setLastBootstrapTime] = useState(null);
 
+    // Catalog version tracking
+    const catalogVersionRef = useRef("0");
+
     // Analytics pre-cache (loaded in idle time)
     const [cachedAnalytics, setCachedAnalytics] = useState(null);
     const analyticsTimerRef = useRef(null);
@@ -63,6 +66,7 @@ export const POSDataProvider = ({ children }) => {
                 setWorkers(data.workers || []);
                 setNextBillNumber(data.next_bill_number || 1);
                 setLastBootstrapTime(Date.now());
+                catalogVersionRef.current = data.settings?.catalog_version || "0";
             } else {
                 throw new Error(data.message || 'Bootstrap failed');
             }
@@ -93,8 +97,36 @@ export const POSDataProvider = ({ children }) => {
             if (data.products) {
                 setProducts(data.products);
             }
+            // Sync current catalog version to avoid duplicate updates
+            const { default: api } = await import('../utils/api');
+            const versionRes = await api.get('/api/products/catalog-version');
+            if (versionRes.data?.success) {
+                catalogVersionRef.current = versionRes.data.catalog_version || "0";
+            }
         } catch (err) {
             console.error('Product refresh failed:', err);
+        }
+    }, []);
+
+    const checkCatalogVersion = useCallback(async () => {
+        try {
+            const { default: api } = await import('../utils/api');
+            const response = await api.get('/api/products/catalog-version');
+            if (response.data?.success) {
+                const newVersion = response.data.catalog_version || "0";
+                if (newVersion !== catalogVersionRef.current) {
+                    console.log(`[POSDataContext] Catalog version changed from ${catalogVersionRef.current} to ${newVersion}. Reloading...`);
+                    catalogVersionRef.current = newVersion;
+                    
+                    // Fetch lightweight products list
+                    const data = await posAPI.refreshProducts();
+                    if (data.products) {
+                        setProducts(data.products);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to check catalog version:', err);
         }
     }, []);
 
@@ -110,9 +142,10 @@ export const POSDataProvider = ({ children }) => {
         }
     }, []);
 
-    const refreshAll = useCallback(() => {
-        return bootstrap();
-    }, [bootstrap]);
+    const refreshAll = useCallback(async () => {
+        await bootstrap();
+        await checkCatalogVersion();
+    }, [bootstrap, checkCatalogVersion]);
 
     // ------------------------------------------------------------------
     // Idle-time preloading (request analytics data in background)
@@ -161,6 +194,14 @@ export const POSDataProvider = ({ children }) => {
         };
     }, [preloadAnalytics]);
 
+    // Periodically check for catalog updates every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            checkCatalogVersion();
+        }, 30000); // 30 seconds
+        return () => clearInterval(interval);
+    }, [checkCatalogVersion]);
+
     // ------------------------------------------------------------------
     // Context API
     // ------------------------------------------------------------------
@@ -180,6 +221,7 @@ export const POSDataProvider = ({ children }) => {
         refreshProducts,    // After bill creation (stock changed)
         refreshWorkers,     // After worker mutations
         refreshAll,         // Full re-bootstrap
+        checkCatalogVersion, // Manual/mount catalog verification
         setProducts,        // Direct state update (for optimistic UI)
         setCategories,      // Direct state update
         setWorkers,         // Direct state update

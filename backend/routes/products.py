@@ -97,6 +97,22 @@ _product_create_schema = ProductCreateSchema()
 _product_update_schema = ProductUpdateSchema()
 
 
+def update_catalog_version():
+    """Update catalog version and invalidate settings cache."""
+    import time
+    db.update_settings_bulk([{"key": "catalog_version", "value": str(int(time.time()))}])
+    cache.invalidate("settings")
+
+
+@products_bp.route("/catalog-version", methods=["GET"])
+@safe_route
+def get_catalog_version():
+    """Get the current catalog version/timestamp."""
+    settings = db.get_all_settings()
+    version = settings.get("catalog_version", "0")
+    return jsonify({"success": True, "catalog_version": version})
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -155,6 +171,7 @@ def create_product():
 
     cache.invalidate("products")
     cache.invalidate("products_with_stock")
+    update_catalog_version()
 
     return (
         jsonify(
@@ -268,6 +285,7 @@ def update_product(product_id):
 
     cache.invalidate("products")
     cache.invalidate("products_with_stock")
+    update_catalog_version()
 
     return (
         jsonify(
@@ -298,22 +316,26 @@ def get_product(product_id):
 @require_admin
 @safe_route
 def reset_database():
-    """Reset the entire database — requires password authentication."""
+    """Reset the entire database — requires Owner PIN authentication."""
     data = request.get_json()
 
-    if not data or "password" not in data:
-        raise ValidationError("Password is required", code="MISSING_PASSWORD")
+    if not data or ("password" not in data and "pin" not in data):
+        raise ValidationError("PIN is required", code="MISSING_PASSWORD")
 
-    RESET_PASSWORD = config["default"].RESET_PASSWORD
+    pin_or_password = str(data.get("password") or data.get("pin") or "")
 
-    if data["password"] != RESET_PASSWORD:
-        raise AuthorizationError("Invalid password", code="INVALID_PASSWORD")
+    from auth import verify_admin_pin
+
+    if not verify_admin_pin(pin_or_password):
+        raise AuthorizationError("Invalid Owner PIN", code="INVALID_PASSWORD")
 
     bills_cleared = db.clear_all_bills()
     products_cleared = db.clear_all_products()
 
     if not (bills_cleared and products_cleared):
         raise Exception("Failed to reset database")
+
+    update_catalog_version()
 
     return (
         jsonify(
@@ -402,6 +424,8 @@ def upload_product_image(product_id):
     if not success:
         raise Exception("Failed to update database with image filename")
 
+    update_catalog_version()
+
     return jsonify(
         {
             "success": True,
@@ -450,6 +474,8 @@ def remove_background(product_id):
         logger.error("Background removal failed for %s: %s", product_id, e)
         raise Exception("Background removal processing failed")
 
+    update_catalog_version()
+
     return jsonify(
         {
             "success": True,
@@ -481,6 +507,8 @@ def delete_product_image(product_id):
 
         db.update_product(product_id, {"image_filename": None})
 
+    update_catalog_version()
+
     return jsonify({"success": True, "message": "Image deleted successfully"})
 
 
@@ -497,11 +525,12 @@ def delete_product(product_id):
 
     if is_permanent:
         provided_password = request.headers.get("x-admin-password")
-        RESET_PASSWORD = config["default"].RESET_PASSWORD
 
-        if not provided_password or provided_password != RESET_PASSWORD:
+        from auth import verify_admin_pin
+
+        if not provided_password or not verify_admin_pin(provided_password):
             raise AuthorizationError(
-                "Invalid admin password. Permanent deletion requires authorization.",
+                "Invalid Owner PIN. Permanent deletion requires authorization.",
                 code="INVALID_PASSWORD",
             )
 
@@ -519,12 +548,16 @@ def delete_product(product_id):
             except Exception:
                 pass
 
+        update_catalog_version()
+
         return jsonify({"success": True, "message": "Product permanently deleted"}), 200
 
     success = db.delete_product(product_id)
 
     if not success:
         raise Exception("Failed to deactivate product")
+
+    update_catalog_version()
 
     return (
         jsonify({"success": True, "message": "Product deactivated successfully"}),

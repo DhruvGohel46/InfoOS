@@ -7,6 +7,7 @@ import GlobalSelect from '../ui/GlobalSelect';
 import GlobalDatePicker from '../ui/GlobalDatePicker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
+import { useAuth } from '../../context/AuthContext';
 import { workerService } from '../../services/workerService';
 import { getLocalDateString } from '../../utils/api';
 
@@ -19,6 +20,7 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
 });
 
 const defaultRoles = [
+  { label: 'Owner', value: 'Owner' },
   { label: 'Manager', value: 'Manager' },
   { label: 'Cashier', value: 'Cashier' },
   { label: 'Waiter', value: 'Waiter' },
@@ -35,6 +37,7 @@ const statusOptions = [
 const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const { currentTheme, isDark } = useTheme();
   const { showError } = useAlert();
+  const { openUnlock } = useAuth();
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -91,40 +94,53 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = { ...form };
-      if (payload.role === 'Other' && customRole) payload.role = customRole;
-      if (photoFile) {
-        payload.photo = await fileToBase64(photoFile);
-      }
+    if (e) e.preventDefault();
 
-      // Convert salary to float or set to 0 if empty
-      if (payload.salary === '') {
-        payload.salary = 0.0;
-      } else {
-        payload.salary = parseFloat(payload.salary);
-      }
+    const targetRole = form.role === 'Other' && customRole ? customRole : form.role;
 
-      // Handle null/empty photo to prevent Marshmallow validation issues
-      if (payload.photo === null) {
-        delete payload.photo;
-      }
+    const saveWorkerDetails = async () => {
+      setSaving(true);
+      try {
+        const payload = { ...form };
+        if (payload.role === 'Other' && customRole) payload.role = customRole;
+        if (photoFile) {
+          payload.photo = await fileToBase64(photoFile);
+        }
 
-      if (initialData && initialData.worker_id) {
-        await workerService.updateWorker(initialData.worker_id, payload);
-      } else {
-        await workerService.createWorker(payload);
-      }
+        // Convert salary to float or set to 0 if empty
+        if (payload.salary === '') {
+          payload.salary = 0.0;
+        } else {
+          payload.salary = parseFloat(payload.salary);
+        }
 
-      if (onSaved) onSaved();
-      onClose();
-    } catch (err) {
-      console.error('Failed to save worker', err);
-      showError('Failed to save worker: ' + (err.message || err));
-    } finally {
-      setSaving(false);
+        // Handle null/empty photo to prevent Marshmallow validation issues
+        if (payload.photo === null) {
+          delete payload.photo;
+        }
+
+        if (initialData && initialData.worker_id) {
+          await workerService.updateWorker(initialData.worker_id, payload);
+        } else {
+          await workerService.createWorker(payload);
+        }
+
+        if (onSaved) onSaved();
+        onClose();
+      } catch (err) {
+        console.error('Failed to save worker', err);
+        showError('Failed to save worker: ' + (err.message || err));
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (targetRole === 'Owner') {
+      openUnlock(() => {
+        saveWorkerDetails();
+      });
+    } else {
+      saveWorkerDetails();
     }
   };
 

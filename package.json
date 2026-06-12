@@ -1,7 +1,11 @@
 {
-  "name": "infobill",
+  "name": "infoos",
   "version": "1.0.0",
   "main": "electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DhruvGohel46/Rebill.git"
+  },
   "scripts": {
     "start": "set HOST=127.0.0.1 && set BROWSER=none && npm start --prefix frontend",
     "build": "cd frontend && npm run build",
@@ -31,8 +35,9 @@
     "yaml": "2.8.4"
   },
   "build": {
-    "appId": "com.burgerbhau.infobill",
-    "productName": "InfoBill",
+    "appId": "com.burgerbhau.infoos",
+    "productName": "InfoOS",
+    "artifactName": "${productName} Setup.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -65,7 +70,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "InfoBill"
+      "shortcutName": "InfoOS"
     },
     "publish": [
       {
