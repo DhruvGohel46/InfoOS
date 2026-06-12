@@ -55,6 +55,7 @@ async def snooze(id: str, snooze_data: SnoozeRequest):
 
 
 @router.put("/reminders/{id}/dismiss", response_model=dict)
+@router.put("/reminders/{id}/complete", response_model=dict)
 async def dismiss(id: str):
     result = dismiss_reminder(id)
     if not result:

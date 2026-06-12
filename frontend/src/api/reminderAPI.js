@@ -132,7 +132,7 @@ export const reminderAPI = {
      * @returns {Promise<Object>} Updated reminder object
      */
     async completeReminder(reminderId) {
-        const response = await apiRequest('POST', `/api/reminders/${reminderId}/complete`);
+        const response = await apiRequest('POST', `/api/reminders/${reminderId}/dismiss`);
         
         if (response.success) {
             return response.data;

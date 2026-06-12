@@ -77,6 +77,7 @@ def snooze_reminder(id):
 
 
 @reminders_bp.route("/<id>/dismiss", methods=["PUT", "POST"])
+@reminders_bp.route("/<id>/complete", methods=["PUT", "POST"])
 @safe_route
 def dismiss_reminder(id):
     """Dismiss or complete a reminder. Repeating reminders auto-advance."""

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 import threading
 import time
 
+
 class InventoryCache:
     def __init__(self, db_service):
         self.db = db_service
@@ -44,29 +45,31 @@ class InventoryCache:
                     cached = self.pending_updates[item_id]
                     item["stock"] = cached["stock"]
                     item["status"] = cached["status"]
-            
+
             # Re-verify and filter out active ones that are no longer low-stock in cache
             filtered = []
             for item in items:
                 if item["stock"] <= item["alert_threshold"]:
                     filtered.append(item)
-                    
+
             # Check if any cached item has become low-stock but wasn't in DB low-stock list
             all_cached_low = []
             for item_id, cached in self.pending_updates.items():
                 if cached["stock"] <= cached["alert_threshold"]:
                     # Find if already in filtered
                     if not any(f["id"] == item_id for f in filtered):
-                        filtered.append({
-                            "id": item_id,
-                            "name": cached["name"],
-                            "type": cached["type"],
-                            "stock": cached["stock"],
-                            "alert_threshold": cached["alert_threshold"],
-                            "unit": cached["unit"],
-                            "status": cached["status"],
-                            "product_id": cached.get("product_id"),
-                        })
+                        filtered.append(
+                            {
+                                "id": item_id,
+                                "name": cached["name"],
+                                "type": cached["type"],
+                                "stock": cached["stock"],
+                                "alert_threshold": cached["alert_threshold"],
+                                "unit": cached["unit"],
+                                "status": cached["status"],
+                                "product_id": cached.get("product_id"),
+                            }
+                        )
         return filtered
 
     def get_inventory_item(self, item_id):
@@ -82,7 +85,7 @@ class InventoryCache:
                 if not existing:
                     return False
                 self.pending_updates[item_id] = existing
-            
+
             cached = self.pending_updates[item_id]
             if "name" in data:
                 cached["name"] = data["name"]
@@ -121,10 +124,10 @@ class InventoryCache:
                 if not existing:
                     return False
                 self.pending_updates[item_id] = existing
-            
+
             cached = self.pending_updates[item_id]
             cached["stock"] = cached.get("stock", 0.0) + float(adjustment)
-            
+
             cur_max = cached.get("max_stock_history", 10.0)
             if cached["stock"] > cur_max:
                 cached["max_stock_history"] = cached["stock"]
@@ -163,6 +166,7 @@ class InventoryCache:
         # Use app context to write safely to DB inside threading.Timer thread
         try:
             from app import app
+
             with app.app_context():
                 for item_id, data in updates:
                     try:
@@ -172,8 +176,10 @@ class InventoryCache:
         except Exception as e:
             logger.error(f"Error importing app context for cache flushing: {e}")
 
+
 # Inject/wrap dependencies
 from datetime import datetime
+
 inventory_bp = Blueprint("inventory", __name__, url_prefix="/api/inventory")
 db = DatabaseService()
 cache = InventoryCache(db)
