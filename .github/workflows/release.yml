@@ -6,6 +6,12 @@ on:
     tags:
       - "v*.*.*"
 
+# ─── FIX: Grant write permission to GITHUB_TOKEN ────────────────────────────
+# Without this, GITHUB_TOKEN is read-only and electron-builder gets 403
+# when creating the GitHub Release and uploading assets.
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build Windows Installer & Publish to GitHub Releases
@@ -17,20 +23,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Node.js ─────────────────────────────────────────────────
+      # ── 2. Sync package.json version to git tag ────────────────────────────
+      # Extracts "1.2.3" from tag "v1.2.3" and patches package.json so
+      # electron-builder creates the release under the correct version/tag.
+      - name: Sync version from git tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. v30.2.10
+          VERSION="${TAG#v}"                # e.g. 30.2.10
+          echo "Syncing package.json version to $VERSION (from tag $TAG)"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      # ── 3. Set up Node.js ─────────────────────────────────────────────────
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
 
-      # ── 3. Set up Python (for PyInstaller backend compilation) ────────────
+      # ── 4. Set up Python (for PyInstaller backend compilation) ────────────
       - name: Set up Python 3.13.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.13.11"
 
-      # ── 4. Install all dependencies ───────────────────────────────────────
+      # ── 5. Install all dependencies ───────────────────────────────────────
       - name: Install root Node dependencies
         run: npm ci
 
@@ -42,7 +59,7 @@ jobs:
         run: pip install -r requirements.txt
         working-directory: backend
 
-      # ── 5. Run backend tests before building ──────────────────────────────
+      # ── 6. Run backend tests before building ──────────────────────────────
       - name: Run backend tests (gate)
         run: python -m pytest --tb=short
         working-directory: backend
@@ -50,27 +67,27 @@ jobs:
           TESTING: "True"
           DATABASE_URL: "sqlite:///test.db"
 
-      # ── 6. Build React frontend ───────────────────────────────────────────
+      # ── 7. Build React frontend ───────────────────────────────────────────
       - name: Build React frontend
         run: npm run build
         working-directory: frontend
 
-      # ── 7. Compile Python backend with PyInstaller ────────────────────────
+      # ── 8. Compile Python backend with PyInstaller ────────────────────────
       - name: Install PyInstaller
         run: pip install pyinstaller
 
       - name: Compile Python backend (PyInstaller)
         run: npm run build:backend
 
-      # ── 8. Build & publish Electron installer ─────────────────────────────
-      # GH_TOKEN is auto-provided by GitHub Actions — no manual secret needed for public repos.
-      # CSC_LINK / CSC_KEY_PASSWORD are optional — add these secrets if you have a code-signing cert.
+      # ── 9. Build & publish Electron installer ─────────────────────────────
+      # GH_TOKEN must have contents:write — granted by the permissions block above.
+      # CSC_LINK / CSC_KEY_PASSWORD are optional — add these secrets for code-signing.
       - name: Build & publish Windows installer
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 9. Upload build artifacts for inspection ──────────────────────────
+      # ── 10. Upload build artifacts for inspection ──────────────────────────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:

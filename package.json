@@ -71,7 +71,8 @@
       {
         "provider": "github",
         "owner": "DhruvGohel46",
-        "repo": "Rebill"
+        "repo": "Rebill",
+        "releaseType": "release"
       }
     ]
   }
