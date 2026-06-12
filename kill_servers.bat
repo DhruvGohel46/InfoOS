@@ -19,5 +19,4 @@ echo ========================================
 echo  InfoOS Servers Stopped Successfully!
 echo ========================================
 echo.
-timeout /t 3 >nul
 exit /b 0
