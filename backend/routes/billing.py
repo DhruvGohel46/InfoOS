@@ -123,7 +123,9 @@ def create_bill():
     # Print bill only if requested (non-blocking — don't fail if printer doesn't work)
     if validated.get("print", False):
         try:
-            printer_service.print_bill(bill_response)
+            result = printer_service.print_bill(bill_response)
+            if not result.get("success"):
+                logger.warning(f"Printer error (non-critical): {result.get('error')}")
         except Exception as e:
             logger.warning(f"Printer error (non-critical): {e}")
 
@@ -376,10 +378,11 @@ def print_bill(bill_no):
 
     # Normalize bill shape for printer service (`products`/`total` keys).
     print_payload = _build_printer_payload(bill)
-    success = printer_service.print_bill(print_payload)
+    result = printer_service.print_bill(print_payload)
 
-    if not success:
-        raise Exception("Failed to print bill")
+    if not result.get("success"):
+        error_msg = result.get("error", "Failed to print bill")
+        raise Exception(error_msg)
 
     return (
         jsonify({"success": True, "message": f"Bill {bill_no} printed successfully"}),
@@ -400,10 +403,11 @@ def print_kot(bill_no):
 
     # Normalize bill shape for printer service (`products`/`total` keys).
     print_payload = _build_printer_payload(bill)
-    success = printer_service.print_kot(print_payload)
+    result = printer_service.print_kot(print_payload)
 
-    if not success:
-        raise Exception("Failed to print KOT")
+    if not result.get("success"):
+        error_msg = result.get("error", "Failed to print KOT")
+        raise Exception(error_msg)
 
     return (
         jsonify({"success": True, "message": f"KOT for Bill {bill_no} printed successfully"}),
