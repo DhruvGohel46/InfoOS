@@ -73,9 +73,10 @@ def load_win32_modules() -> Optional[Dict]:
 class ReceiptBuilder:
     """Helper class to build styled monospace thermal receipts."""
 
-    def __init__(self, max_chars: int):
+    def __init__(self, max_chars: int, double_width: bool = False):
         self.max_chars = max_chars
         self.commands: List[tuple] = []
+        self.double_width = double_width
 
     def text(self, val: str):
         self.commands.append(("text", val))
@@ -137,9 +138,14 @@ class ReceiptBuilder:
         stream.extend(b"\x1b@")
         # Codepage 62 (UTF-8) on many thermal printers
         stream.extend(b"\x1bt\x3e")
-        # Text size: 0.80 of previous (2x height) → 1x normal size
-        # GS ! 0x00 = 1x width × 1x height (standard)
-        stream.extend(b"\x1d!\x00")
+        # Text size: GS ! 0x00 = 1x width × 1x height (standard)
+        # GS ! 0x01 = 2x width × 1x height (double width)
+        # GS ! 0x10 = 1x width × 2x height (double height)
+        # GS ! 0x11 = 2x width × 2x height (double width and height)
+        if self.double_width:
+            stream.extend(b"\x1d!\x01")  # Double width
+        else:
+            stream.extend(b"\x1d!\x00")  # Standard width
 
         for cmd_type, val in self.commands:
             if cmd_type == "text":
@@ -456,7 +462,7 @@ class PrinterService:
     def _build_kot_receipt(self, bill_data: Dict, settings: Dict) -> ReceiptBuilder:
         """Build Kitchen Order Ticket (KOT) receipt to look exactly like traditional kitchen slips."""
         max_chars = 48 if settings["is_80mm"] else 32
-        builder = ReceiptBuilder(max_chars)
+        builder = ReceiptBuilder(max_chars, double_width=True)
         builder.feed(0)
 
         # Date & Time at top, center aligned
