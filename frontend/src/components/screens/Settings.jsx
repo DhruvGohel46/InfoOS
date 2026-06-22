@@ -32,6 +32,9 @@ import {
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
+import { cloudAuthAPI, cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
+import { summaryAPI } from '../../api/api';
+import { expensesAPI } from '../../api/expenses';
 
 
 const Settings = () => {
@@ -70,6 +73,152 @@ const Settings = () => {
     const [pinStatus, setPinStatus] = useState({ enabled: false, is_setup: false, loading: true });
     const [pinForm, setPinForm] = useState({ currentPin: '', newPin: '', confirmPin: '' });
     const [pinSaving, setPinSaving] = useState(false);
+
+    // ── Cloud Sync & SaaS states ──────────────────────────────────────────
+    const [cloudEmail, setCloudEmail] = useState('');
+    const [cloudPassword, setCloudPassword] = useState('');
+    const [cloudLoading, setCloudLoading] = useState(false);
+    const [syncingBackup, setSyncingBackup] = useState(false);
+    const [cloudStatus, setCloudStatus] = useState({
+        loggedIn: false,
+        email: '',
+        subscriptionStatus: 'inactive',
+        expiry: null,
+        role: 'standalone',
+        loading: true
+    });
+
+    const loadCloudProfile = async () => {
+        const token = localStorage.getItem('cloud_auth_token');
+        const email = localStorage.getItem('cloud_user_email') || '';
+        if (!token) {
+            setCloudStatus(prev => ({ ...prev, loggedIn: false, loading: false }));
+            return;
+        }
+
+        setCloudStatus(prev => ({ ...prev, loading: true }));
+        try {
+            setCloudAuthToken(token);
+            const sub = await cloudSyncAPI.getSubscriptionStatus();
+            const prof = await cloudSyncAPI.getFranchiseProfile();
+            setCloudStatus({
+                loggedIn: true,
+                email,
+                subscriptionStatus: sub.subscriptionStatus || 'inactive',
+                expiry: sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null,
+                role: prof.role || 'standalone',
+                loading: false
+            });
+        } catch (err) {
+            console.error('Failed to load cloud profile:', err);
+            setCloudStatus(prev => ({
+                ...prev,
+                loggedIn: true,
+                email,
+                loading: false
+            }));
+        }
+    };
+
+    useEffect(() => {
+        loadCloudProfile();
+    }, []);
+
+    const handleCloudLogin = async (e) => {
+        e.preventDefault();
+        if (!cloudEmail || !cloudPassword) {
+            showError('Email and password are required');
+            return;
+        }
+        setCloudLoading(true);
+        try {
+            const res = await cloudAuthAPI.login(cloudEmail, cloudPassword);
+            if (res.success && res.data?.access_token) {
+                setCloudAuthToken(res.data.access_token);
+                localStorage.setItem('cloud_user_email', cloudEmail);
+                showSuccess('Connected to cloud SaaS successfully!');
+                setCloudEmail('');
+                setCloudPassword('');
+                await loadCloudProfile();
+            } else {
+                showError(res.error || 'Invalid credentials');
+            }
+        } catch (err) {
+            showError('Login failed: ' + err.message);
+        } finally {
+            setCloudLoading(false);
+        }
+    };
+
+    const handleCloudLogout = () => {
+        setCloudAuthToken(null);
+        localStorage.removeItem('cloud_user_email');
+        setCloudStatus({
+            loggedIn: false,
+            email: '',
+            subscriptionStatus: 'inactive',
+            expiry: null,
+            role: 'standalone',
+            loading: false
+        });
+        showSuccess('Disconnected from cloud SaaS.');
+    };
+
+    const handleManualSync = async () => {
+        if (!cloudStatus.loggedIn) {
+            showError('Please connect your cloud account first');
+            return;
+        }
+        if (cloudStatus.subscriptionStatus !== 'active') {
+            showError('SaaS Subscription required: Please purchase a plan on the website.');
+            return;
+        }
+
+        setSyncingBackup(true);
+        try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const summaryRes = await summaryAPI.getRangeSummary('week', todayStr);
+            if (!summaryRes.data?.success) {
+                throw new Error(summaryRes.data?.error || 'Failed to fetch weekly summaries');
+            }
+
+            const summary = summaryRes.data.summary;
+            const weekStartStr = summary.start_date;
+
+            const expensesRes = await expensesAPI.getExpenses(200);
+            const allExpenses = expensesRes.expenses || [];
+
+            const startOfWeekTime = new Date(summary.start_date).getTime();
+            const endOfWeekTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
+
+            const thisWeekExpenses = allExpenses.filter(e => {
+                const eTime = new Date(e.date).getTime();
+                return eTime >= startOfWeekTime && eTime <= endOfWeekTime;
+            });
+
+            const payload = {
+                weekStartDate: weekStartStr,
+                totalSales: summary.total_sales,
+                totalExpenses: summary.total_expenses,
+                salesDetails: (summary.products || []).map(p => ({
+                    name: p.name,
+                    amount: p.total_amount
+                })),
+                expenseDetails: thisWeekExpenses.map(e => ({
+                    name: e.title,
+                    amount: e.amount
+                }))
+            };
+
+            await cloudSyncAPI.syncBackup(payload);
+            showSuccess(`Success! Aggregated backup for week of ${weekStartStr} synced to cloud.`);
+        } catch (err) {
+            console.error('Manual sync failed:', err);
+            showError(err.response?.data?.error || err.message || 'Sync failed');
+        } finally {
+            setSyncingBackup(false);
+        }
+    };
 
     useEffect(() => {
         getAuthStatus()
@@ -223,7 +372,8 @@ const Settings = () => {
         { id: 'printer', label: 'Printer Settings', icon: IoPrintOutline },
         { id: 'app', label: 'App Preferences', icon: IoAppsOutline },
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
-        { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline }
+        { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
+        { id: 'cloud', label: 'Cloud Sync & License', icon: IoCloudUploadOutline }
     ];
 
     if (loading) {
@@ -948,6 +1098,199 @@ const Settings = () => {
                                         }}>
                                             <IoInformationCircleOutline size={20} />
                                             <span>Security Warning: PIN requirement is currently <strong>disabled</strong>. The system is vulnerable.</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'cloud' && (
+                            <div className="stSecurityGrid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: '320px 1fr',
+                                gap: '32px',
+                                padding: '24px 0'
+                            }}>
+                                {/* Left side - Status & Summary */}
+                                <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{
+                                        background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active'
+                                            ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
+                                            : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
+                                        border: `1px solid ${cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-200)' : 'var(--border-secondary)'}`,
+                                        borderRadius: '24px',
+                                        padding: '24px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        textAlign: 'center',
+                                        gap: '16px',
+                                        boxShadow: 'var(--shadow-card)'
+                                    }}>
+                                        <div style={{
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '20px',
+                                            background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--primary-500)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            boxShadow: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
+                                            fontSize: '32px'
+                                        }}>
+                                            <IoCloudUploadOutline />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                {cloudStatus.loggedIn ? 'Cloud Connected' : 'Offline Engine'}
+                                            </div>
+                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                {cloudStatus.loggedIn 
+                                                    ? `Authenticated as ${cloudStatus.email}` 
+                                                    : 'Sync backups & fetch product catalog feeds from the cloud.'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {cloudStatus.loggedIn && (
+                                        <div style={{
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '20px',
+                                            padding: '20px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            border: '1px solid var(--border-secondary)'
+                                        }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <IoInformationCircleOutline size={18} />
+                                                Cloud Settings Details
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                License Status: <strong style={{ color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--error-500)' }}>{cloudStatus.subscriptionStatus.toUpperCase()}</strong>
+                                            </div>
+                                            {cloudStatus.expiry && (
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                    Valid Until: <strong>{cloudStatus.expiry}</strong>
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                Network Role: <strong>{cloudStatus.role.toUpperCase()}</strong>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right side - Controls */}
+                                <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    {!cloudStatus.loggedIn ? (
+                                        <form onSubmit={handleCloudLogin} style={{
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--glass-border)',
+                                            borderRadius: '24px',
+                                            padding: '32px',
+                                            boxShadow: 'var(--shadow-sm)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '20px'
+                                        }}>
+                                            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Log In to SaaS Cloud Portal
+                                            </div>
+                                            
+                                            <div className="stInputGroup">
+                                                <label className="stInputLabel">Email Address</label>
+                                                <input
+                                                    type="email"
+                                                    className="stInput"
+                                                    placeholder="your@restaurant.com"
+                                                    value={cloudEmail}
+                                                    onChange={e => setCloudEmail(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="stInputGroup">
+                                                <label className="stInputLabel">Password</label>
+                                                <input
+                                                    type="password"
+                                                    className="stInput"
+                                                    placeholder="••••••••"
+                                                    value={cloudPassword}
+                                                    onChange={e => setCloudPassword(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                                                <Button
+                                                    type="submit"
+                                                    variant="primary"
+                                                    loading={cloudLoading}
+                                                    disabled={cloudLoading}
+                                                    style={{ height: '46px', borderRadius: '12px' }}
+                                                >
+                                                    Connect Cloud Account
+                                                </Button>
+                                                
+                                                <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                    Don't have an account?{' '}
+                                                    <a 
+                                                        href="https://infoos-web.vercel.app/auth?tab=signup" 
+                                                        style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                    >
+                                                        Create Account on Web
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <div style={{
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--glass-border)',
+                                            borderRadius: '24px',
+                                            padding: '32px',
+                                            boxShadow: 'var(--shadow-sm)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '24px'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                    License & Synchronization Controls
+                                                </div>
+                                                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                    Upload aggregates of this week's sales and expense totals.
+                                                </p>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '16px' }}>
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={handleManualSync}
+                                                    loading={syncingBackup}
+                                                    disabled={syncingBackup}
+                                                    style={{ minWidth: '180px', height: '46px', borderRadius: '12px' }}
+                                                >
+                                                    {syncingBackup ? 'Syncing...' : 'Sync Weekly Backup'}
+                                                </Button>
+
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={handleCloudLogout}
+                                                    style={{ 
+                                                        minWidth: '120px', 
+                                                        height: '46px', 
+                                                        borderRadius: '12px',
+                                                        borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
+                                                        color: 'var(--error-500)',
+                                                        background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
+                                                    }}
+                                                >
+                                                    Disconnect
+                                                </Button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
