@@ -1,15 +1,13 @@
 """
 =============================================================================
- ROUTE CACHING LAYER — caching.py
+ ROUTE CACHING LAYER — caching.py (DISABLED)
 =============================================================================
- Uses Flask-Caching to cache heavy API responses (like /api/summary/*).
- Automatically invalidated when mutations occur (e.g., new bill created).
+ Uses Flask-Caching NullCache backend to bypass route caching.
+ All summary, report, and POS API responses are computed fresh from database.
 =============================================================================
 """
 
 from flask_caching import Cache
 
-# Use SimpleCache (in-memory) for a single-server deployment.
-# For multi-process/Gunicorn, you'd want Redis, but since this is an Electron
-# wrapped local server, SimpleCache is perfect and zero-dependency.
-cache = Cache(config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 300})
+# Set CACHE_TYPE to "NullCache" to disable all Flask route caching.
+cache = Cache(config={"CACHE_TYPE": "NullCache"})
