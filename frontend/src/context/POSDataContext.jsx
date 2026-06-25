@@ -194,11 +194,11 @@ export const POSDataProvider = ({ children }) => {
         };
     }, [preloadAnalytics]);
 
-    // Periodically check for catalog updates every 30 seconds
+    // Periodically check for catalog updates every 1 minute
     useEffect(() => {
         const interval = setInterval(() => {
             checkCatalogVersion();
-        }, 30000); // 30 seconds
+        }, 60000); // 1 minute
         return () => clearInterval(interval);
     }, [checkCatalogVersion]);
 

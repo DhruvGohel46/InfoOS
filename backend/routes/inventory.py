@@ -149,32 +149,26 @@ class InventoryCache:
                 del self.pending_updates[item_id]
 
     def _schedule_flush(self):
-        # Debounce/delay: starts 5-minute timer from the first update of a batch
-        if self.timer is None:
-            self.timer = threading.Timer(300.0, self.flush)
-            self.timer.start()
+        # Flush immediately to avoid billing lag
+        self.flush()
 
     def flush(self):
         with self.lock:
+            if self.timer:
+                self.timer.cancel()
+                self.timer = None
             updates = list(self.pending_updates.items())
             self.pending_updates.clear()
-            self.timer = None
 
         if not updates:
             return
 
-        # Use app context to write safely to DB inside threading.Timer thread
-        try:
-            from app import app
+        for item_id, data in updates:
+            try:
+                self.db.update_inventory(item_id, data)
+            except Exception as ex:
+                logger.error(f"Error flushing inventory cache item {item_id}: {ex}")
 
-            with app.app_context():
-                for item_id, data in updates:
-                    try:
-                        self.db.update_inventory(item_id, data)
-                    except Exception as ex:
-                        logger.error(f"Error flushing inventory cache item {item_id}: {ex}")
-        except Exception as e:
-            logger.error(f"Error importing app context for cache flushing: {e}")
 
 
 # Inject/wrap dependencies
