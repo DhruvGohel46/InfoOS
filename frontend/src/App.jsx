@@ -97,6 +97,7 @@ import Sidebar from './components/ui/Sidebar';
 import ErrorBoundary from './components/system/ErrorBoundary';
 import ApiErrorListener from './components/system/ApiErrorListener';
 import UpdateNotification from './components/system/UpdateNotification';
+import LicensingGate from './components/system/LicensingGate';
 
 // ─── Restore zoom/scale CSS vars immediately on every page load ───────────────
 // These vars are set by Settings.jsx but only applied while that component is
@@ -997,7 +998,9 @@ export default function App() {
                 <ReminderProvider>
                   <HashRouter>
                     <AuthProvider>
-                      <AppContent />
+                      <LicensingGate>
+                        <AppContent />
+                      </LicensingGate>
                     </AuthProvider>
                   </HashRouter>
                 </ReminderProvider>

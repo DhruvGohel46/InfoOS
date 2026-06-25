@@ -49,6 +49,11 @@ body {
   user-select: none; /* Prevent accidental text selection across the app */
 }
 
+#root {
+  min-height: 100vh;
+  display: block;
+}
+
 [data-theme="light"] body {
   background-color: var(--bg-primary);
 }

@@ -90,3 +90,53 @@ export const cloudSyncAPI = {
     return data;
   },
 };
+
+// 5. Direct Supabase PostgREST Licensing queries
+export const cloudLicenseAPI = {
+  getSubscription: async (userId, token) => {
+    try {
+      const response = await axios.get(`${SUPABASE_URL}/rest/v1/subscriptions`, {
+        params: {
+          user_id: `eq.${userId}`,
+          select: '*'
+        },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data?.[0] || null;
+    } catch (error) {
+      console.error('getSubscription REST error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || error.message || 'Subscription query failed');
+    }
+  },
+
+  registerDevice: async (userId, token, fingerprint, deviceName) => {
+    try {
+      const response = await axios.patch(`${SUPABASE_URL}/rest/v1/subscriptions`, 
+        {
+          device_fingerprint: fingerprint,
+          device_name: deviceName,
+          updated_at: new Date().toISOString()
+        },
+        {
+          params: {
+            user_id: `eq.${userId}`
+          },
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Prefer': 'return=representation' // Request Supabase to return the updated record
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('registerDevice REST error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || error.message || 'Device registration failed');
+    }
+  }
+};

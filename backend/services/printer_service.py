@@ -36,7 +36,7 @@ from .db_service import DatabaseService
 class PrinterService:
     """
     Production-grade thermal printer service for Windows POS terminals.
-    
+
     Features:
     - Thread-safe print queue with Lock
     - Direct Windows Print Spooler API integration
@@ -67,12 +67,14 @@ class PrinterService:
                 self._initialized = True
             except Exception as exc:
                 print(f"[PrinterService] Error initializing printer: {exc}")
-                self._initialized = True  # Mark as initialized even if failed to avoid repeated errors
+                self._initialized = (
+                    True  # Mark as initialized even if failed to avoid repeated errors
+                )
 
     def _get_settings(self) -> Dict[str, Any]:
         """
         Fetch current printer settings from the database.
-        
+
         Returns:
             Dictionary with printer settings (no hardcoded values)
         """
@@ -102,10 +104,10 @@ class PrinterService:
     def print_bill(self, bill_data: Dict) -> Dict[str, Any]:
         """
         Print a customer bill to the thermal printer.
-        
+
         Args:
             bill_data: Order data dictionary
-            
+
         Returns:
             Dictionary with:
             - success: Boolean indicating success
@@ -117,10 +119,10 @@ class PrinterService:
     def print_kot(self, bill_data: Dict) -> Dict[str, Any]:
         """
         Print a Kitchen Order Ticket (KOT) to the thermal printer.
-        
+
         Args:
             bill_data: Order data dictionary
-            
+
         Returns:
             Dictionary with:
             - success: Boolean indicating success
@@ -132,17 +134,17 @@ class PrinterService:
     def print_bill_and_kot(self, bill_data: Dict) -> Dict[str, Any]:
         """
         Print Bill and KOT sequentially with auto-cut between them.
-        
+
         Workflow:
         1. Print Bill
         2. Wait for completion
         3. Auto-cut
         4. Print KOT
         5. Auto-cut
-        
+
         Args:
             bill_data: Order data dictionary
-            
+
         Returns:
             Dictionary with:
             - success: Boolean indicating success
@@ -153,7 +155,7 @@ class PrinterService:
             bill_result = self._print_bill_impl(bill_data)
             if not bill_result["success"]:
                 return bill_result
-            
+
             # Print KOT second
             kot_result = self._print_kot_impl(bill_data)
             return kot_result
@@ -161,7 +163,7 @@ class PrinterService:
     def print_test_page(self) -> Dict[str, Any]:
         """
         Print a test page to verify printer functionality.
-        
+
         Returns:
             Dictionary with:
             - success: Boolean indicating success
@@ -185,7 +187,7 @@ class PrinterService:
             # Validate printer
             if not self.printer_name:
                 return {"success": False, "error": "No printer configured"}
-            
+
             is_valid, error = self.printer_manager.validate_printer(self.printer_name)
             if not is_valid:
                 return {"success": False, "error": error}
@@ -195,7 +197,7 @@ class PrinterService:
 
             # Send to printer
             success = self._send_raw(self.printer_name, esc_pos_bytes, "Bill")
-            
+
             if success:
                 return {"success": True, "error": None}
             else:
@@ -216,7 +218,7 @@ class PrinterService:
             # Validate printer
             if not self.printer_name:
                 return {"success": False, "error": "No printer configured"}
-            
+
             is_valid, error = self.printer_manager.validate_printer(self.printer_name)
             if not is_valid:
                 return {"success": False, "error": error}
@@ -226,7 +228,7 @@ class PrinterService:
 
             # Send to printer
             success = self._send_raw(self.printer_name, esc_pos_bytes, "KOT")
-            
+
             if success:
                 return {"success": True, "error": None}
             else:
@@ -245,7 +247,7 @@ class PrinterService:
             # Validate printer
             if not self.printer_name:
                 return {"success": False, "error": "No printer configured"}
-            
+
             is_valid, error = self.printer_manager.validate_printer(self.printer_name)
             if not is_valid:
                 return {"success": False, "error": error}
@@ -255,7 +257,7 @@ class PrinterService:
 
             # Send to printer
             success = self._send_raw(self.printer_name, esc_pos_bytes, "TestPage")
-            
+
             if success:
                 return {"success": True, "error": None}
             else:
@@ -272,12 +274,12 @@ class PrinterService:
     def _send_raw(self, printer_name: str, data: bytes, job_name: str = "PrintJob") -> bool:
         """
         Send raw bytes to Windows printer via Print Spooler API.
-        
+
         Args:
             printer_name: Name of the printer
             data: Raw bytes to send
             job_name: Name of the print job
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -315,10 +317,10 @@ class PrinterService:
     def get_available_printers(self, force_refresh: bool = False) -> list:
         """
         Get list of available printers.
-        
+
         Args:
             force_refresh: Force refresh of printer list
-            
+
         Returns:
             List of printer dictionaries
         """
@@ -327,7 +329,7 @@ class PrinterService:
     def get_printer_status(self) -> Dict[str, Any]:
         """
         Get current printer status.
-        
+
         Returns:
             Dictionary with printer status information
         """
@@ -338,7 +340,7 @@ class PrinterService:
                 "status": "No printer configured",
                 "error": None,
             }
-        
+
         status = self.printer_manager.get_printer_status(self.printer_name)
         status["printer_name"] = self.printer_name
         return status
@@ -346,10 +348,10 @@ class PrinterService:
     def set_printer(self, printer_name: str) -> Dict[str, Any]:
         """
         Set the printer to use for printing.
-        
+
         Args:
             printer_name: Name of the printer to use
-            
+
         Returns:
             Dictionary with success status
         """
@@ -365,6 +367,7 @@ class PrinterService:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _log_unavailable(caller: str) -> None:
     """Emit a structured warning when Windows printer modules are unavailable."""
     msg = (
@@ -373,6 +376,7 @@ def _log_unavailable(caller: str) -> None:
     )
     try:
         from flask import current_app  # noqa: PLC0415
+
         current_app.logger.warning(msg)
     except RuntimeError:
         print(msg)

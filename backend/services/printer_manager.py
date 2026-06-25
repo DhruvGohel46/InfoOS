@@ -52,7 +52,7 @@ def load_win32_modules() -> Optional[Dict]:
 class PrinterManager:
     """
     Manages printer discovery, selection, and validation for thermal printers.
-    
+
     This class provides a clean interface for:
     - Discovering available printers
     - Selecting default or specific printers
@@ -82,6 +82,7 @@ class PrinterManager:
         # Check cache
         if not force_refresh and self._cached_printers is not None:
             import time
+
             if time.time() - self._cache_timestamp < self._cache_ttl:
                 return self._cached_printers
 
@@ -108,16 +109,18 @@ class PrinterManager:
 
             for printer_info in printer_list:
                 printer_name = printer_info[2]
-                
+
                 # Check if thermal printer (common thermal printer keywords)
                 is_thermal = self._is_thermal_printer(printer_name)
                 is_default = (printer_name == default_printer) if default_printer else False
 
-                printers.append({
-                    "name": printer_name,
-                    "is_default": is_default,
-                    "is_thermal": is_thermal,
-                })
+                printers.append(
+                    {
+                        "name": printer_name,
+                        "is_default": is_default,
+                        "is_thermal": is_thermal,
+                    }
+                )
 
         except Exception as exc:
             print(f"[PrinterManager] Error enumerating printers: {exc}")
@@ -126,6 +129,7 @@ class PrinterManager:
         # Update cache
         self._cached_printers = printers
         import time
+
         self._cache_timestamp = time.time()
 
         return printers
@@ -159,21 +163,21 @@ class PrinterManager:
             Thermal printer name, or None if not found.
         """
         printers = self.get_available_printers(force_refresh=force_refresh)
-        
+
         # Prioritize thermal printers
         for printer in printers:
             if printer["is_thermal"]:
                 return printer["name"]
-        
+
         # Fallback to default printer
         for printer in printers:
             if printer["is_default"]:
                 return printer["name"]
-        
+
         # Fallback to first available printer
         if printers:
             return printers[0]["name"]
-        
+
         return None
 
     def validate_printer(self, printer_name: str) -> Tuple[bool, Optional[str]]:
@@ -202,7 +206,7 @@ class PrinterManager:
 
         except Exception as exc:
             error_msg = str(exc)
-            
+
             # Parse common error conditions
             if "not found" in error_msg.lower() or "cannot find" in error_msg.lower():
                 return False, f"Printer '{printer_name}' not found"
@@ -237,7 +241,7 @@ class PrinterManager:
             "gprinter",
             "xprinter",
         ]
-        
+
         printer_name_lower = printer_name.lower()
         return any(keyword in printer_name_lower for keyword in thermal_keywords)
 
@@ -255,7 +259,7 @@ class PrinterManager:
             - error: Error message if any
         """
         is_valid, error = self.validate_printer(printer_name)
-        
+
         return {
             "available": is_valid,
             "status": "Ready" if is_valid else "Unavailable",

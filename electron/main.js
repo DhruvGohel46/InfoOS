@@ -1,8 +1,10 @@
 const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const http = require('http');
 const { autoUpdater } = require('electron-updater');
+const os = require('os');
+const crypto = require('crypto');
 
 // Configuration
 // Configuration
@@ -296,6 +298,80 @@ app.on('web-contents-created', (event, contents) => {
 // IPC handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-platform', () => process.platform);
+
+// Licensing Device Fingerprinting & OS-Level Encryption
+ipcMain.handle('license:getFingerprint', () => {
+  let rawId = '';
+  try {
+    if (process.platform === 'win32') {
+      const output = spawnSync('REG', ['QUERY', 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid']).stdout.toString();
+      const match = output.match(/MachineGuid\s+REG_SZ\s+(\S+)/i);
+      if (match && match[1]) {
+        rawId += match[1];
+      }
+      
+      // Attempt to add baseboard serial number
+      try {
+        const motherboard = spawnSync('wmic', ['baseboard', 'get', 'serialnumber']).stdout.toString().replace('SerialNumber', '').trim();
+        if (motherboard && motherboard !== 'To be filled by O.E.M.') {
+          rawId += '-' + motherboard;
+        }
+      } catch (err) {
+        // Ignore motherboard uuid fallback error
+      }
+    } else if (process.platform === 'darwin') {
+      const output = spawnSync('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice']).stdout.toString();
+      const match = output.match(/"IOPlatformUUID"\s+=\s+"([^"]+)"/i);
+      if (match && match[1]) {
+        rawId += match[1];
+      }
+    } else {
+      if (fs.existsSync('/etc/machine-id')) {
+        rawId += fs.readFileSync('/etc/machine-id', 'utf8').trim();
+      } else if (fs.existsSync('/var/lib/dbus/machine-id')) {
+        rawId += fs.readFileSync('/var/lib/dbus/machine-id', 'utf8').trim();
+      }
+    }
+  } catch (err) {
+    console.error('[main] Failed to query native hardware identifiers:', err.message);
+  }
+
+  if (!rawId) {
+    rawId = os.hostname() || 'fallback-device-id';
+  }
+
+  const fingerprint = crypto.createHash('sha256').update(rawId).digest('hex');
+  const deviceName = os.hostname() || 'Desktop-Device';
+  return { fingerprint, deviceName };
+});
+
+ipcMain.handle('secure:encrypt', (event, plainText) => {
+  try {
+    const { safeStorage } = require('electron');
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const encryptedBuffer = safeStorage.encryptString(plainText);
+      return encryptedBuffer.toString('base64');
+    }
+  } catch (err) {
+    console.error('[main] secure:encrypt error:', err.message);
+  }
+  // Fallback to base64 encoding if encryption is not available
+  return Buffer.from(plainText, 'utf8').toString('base64');
+});
+
+ipcMain.handle('secure:decrypt', (event, base64Text) => {
+  try {
+    const { safeStorage } = require('electron');
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const buffer = Buffer.from(base64Text, 'base64');
+      return safeStorage.decryptString(buffer);
+    }
+  } catch (err) {
+    console.error('[main] secure:decrypt error:', err.message);
+  }
+  // Fallback to base64 decoding if encryption is not available
+  return Buffer.from(base64Text, 'base64').toString('utf8');
+});
 
 // Update Installation
 ipcMain.on('install-update', () => {

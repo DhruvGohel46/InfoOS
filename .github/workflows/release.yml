@@ -77,19 +77,31 @@ jobs:
           TESTING: "True"
           DATABASE_URL: "sqlite:///test.db"
 
-      # ── 7. Build React frontend ───────────────────────────────────────────
+      # ── 7. Generate .env file from Secrets ────────────────────────────────
+      - name: Create .env for frontend
+        shell: bash
+        run: |
+          echo "REACT_APP_CLOUD_API_URL=${CLOUD_API_URL}" > frontend/.env
+          echo "REACT_APP_SUPABASE_URL=${SUPABASE_URL}" >> frontend/.env
+          echo "REACT_APP_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}" >> frontend/.env
+        env:
+          CLOUD_API_URL: ${{ secrets.REACT_APP_CLOUD_API_URL }}
+          SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
+
+      # ── 8. Build React frontend ───────────────────────────────────────────
       - name: Build React frontend
         run: npm run build
         working-directory: frontend
 
-      # ── 8. Compile Python backend with PyInstaller ────────────────────────
+      # ── 9. Compile Python backend with PyInstaller ────────────────────────
       - name: Install PyInstaller
         run: pip install pyinstaller
 
       - name: Compile Python backend (PyInstaller)
         run: npm run build:backend
 
-      # ── 9. Build & publish Electron installer ─────────────────────────────
+      # ── 10. Build & publish Electron installer ─────────────────────────────
       # GH_TOKEN must have contents:write — granted by the permissions block above.
       # CSC_LINK / CSC_KEY_PASSWORD are optional — add these secrets for code-signing.
       - name: Build & publish Windows installer
@@ -97,7 +109,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 10. Upload build artifacts for inspection ──────────────────────────
+      # ── 11. Upload build artifacts for inspection ──────────────────────────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:

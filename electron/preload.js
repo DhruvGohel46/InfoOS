@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // System info
   getSystemInfo: () => ipcRenderer.invoke('system:getInfo'),
 
+  // Licensing & Activation
+  getDeviceFingerprint: () => ipcRenderer.invoke('license:getFingerprint'),
+  secureEncrypt: (plainText) => ipcRenderer.invoke('secure:encrypt', plainText),
+  secureDecrypt: (cipherText) => ipcRenderer.invoke('secure:decrypt', cipherText),
+
   // Auto-Updater
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onUpdateProgress: (callback) => ipcRenderer.on('download-progress', callback),
