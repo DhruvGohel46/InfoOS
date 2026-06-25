@@ -43,11 +43,11 @@ def verify_admin_pin(pin: str) -> bool:
     return verify_pin(pin, stored_hash)
 
 
-def generate_token(user_id="admin") -> str:
+def generate_token(user_id="admin", role="admin") -> str:
     """Generate a JWT token valid for 8 hours (typical shift)."""
     payload = {
         "sub": user_id,
-        "role": "admin",
+        "role": role,
         "iat": datetime.datetime.utcnow(),
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8),
     }
@@ -98,12 +98,16 @@ def require_auth(f):
 def require_admin(f):
     """
     Decorator to protect admin-only endpoints.
-    Always enforces a valid Bearer JWT and requires role=='admin'.
+    Always enforces a valid Bearer JWT and requires role=='admin' or role=='owner'.
+    Bypasses authentication if PIN login is disabled.
     """
 
     @wraps(f)
     def decorated(*args, **kwargs):
         if _testing_bypass_enabled():
+            return f(*args, **kwargs)
+
+        if not is_pin_enabled():
             return f(*args, **kwargs)
 
         def _deny(message: str, code: str, status_code: int):
@@ -167,7 +171,7 @@ def require_admin(f):
                 pass
             return _deny("Invalid token", "AUTH_INVALID", 401)
 
-        if payload.get("role") != "admin":
+        if payload.get("role") not in ["admin", "owner"]:
             try:
                 db.add_audit_event(
                     action="admin.required",
