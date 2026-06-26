@@ -123,6 +123,29 @@ export const categoriesAPI = {
   checkUsage: (id) => api.get(`/api/categories/${id}/usage`),
 };
 
+// Group Management APIs
+export const groupsAPI = {
+  getAllGroups: (includeInactive = false) =>
+    api.get(`/api/groups?include_inactive=${includeInactive}`),
+
+  createGroup: (data) => api.post('/api/groups', data),
+
+  updateGroup: (id, data) => api.put(`/api/groups/${id}`, data),
+
+  deleteGroup: (id, action = '', moveTo = '') => {
+    let url = `/api/groups/${id}`;
+    const params = [];
+    if (action) params.push(`action=${action}`);
+    if (moveTo) params.push(`move_to=${moveTo}`);
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
+    return api.delete(url);
+  },
+
+  getGroupCategories: (id) => api.get(`/api/groups/${id}/categories`),
+};
+
 // Billing APIs
 export const billingAPI = {
   // Create new bill with products

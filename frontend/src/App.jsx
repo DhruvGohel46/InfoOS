@@ -58,6 +58,7 @@ import './styles/global.css';
 import WorkingPOSInterface from './components/screens/Bill';
 import Analytics from './components/screens/Analytics';
 import ProductManagement from './components/screens/Management';
+import GroupManagement from './components/screens/GroupManagement';
 import Inventory from './components/screens/Inventory';
 import Expenses from './components/screens/Expenses';
 import Settings from './components/screens/Settings';
@@ -233,8 +234,8 @@ function AppContent() {
   const _getActiveTab = (pathname) => {
     if (pathname === '/') return 'pos';
     if (pathname.startsWith('/analytics')) return 'summary';
-    if (pathname.startsWith('/analytics')) return 'summary';
     if (pathname.startsWith('/management')) return 'management';
+    if (pathname.startsWith('/groups')) return 'groups';
     if (pathname.startsWith('/workers')) return 'workers';
     if (pathname.startsWith('/inventory')) return 'inventory';
     if (pathname.startsWith('/expenses')) return 'expenses';
@@ -322,6 +323,19 @@ function AppContent() {
           <motion.path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
           <motion.path d="M3.27 6.96L12 12.01l8.73-5.05" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
           <motion.path d="M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
+        </motion.svg>
+      )
+    },
+    {
+      id: 'groups',
+      label: 'Groups',
+      path: '/groups',
+      icon: (
+        <motion.svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <motion.rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
+          <motion.rect x="14" y="3" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
+          <motion.rect x="14" y="12" width="7" height="9" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
+          <motion.rect x="3" y="16" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" variants={iconVariants} initial="hidden" animate="visible" transition={iconTransition} />
         </motion.svg>
       )
     },
@@ -770,6 +784,7 @@ function AppContent() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
             <Route path="/management" element={<AdminRoute><ProductManagement /></AdminRoute>} />
+            <Route path="/groups" element={<AdminRoute><GroupManagement /></AdminRoute>} />
 
             {/* Worker Routes */}
             <Route path="/workers" element={<AdminRoute><WorkersDashboard /></AdminRoute>} />

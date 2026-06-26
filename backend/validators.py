@@ -292,6 +292,7 @@ class CategoryCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
     active = fields.Boolean(load_default=True)
+    group_id = fields.Integer(allow_none=True, load_default=None)
 
     class Meta:
         unknown = EXCLUDE
@@ -303,6 +304,42 @@ class CategoryUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
     active = fields.Boolean()
+    group_id = fields.Integer(allow_none=True)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+# ---------------------------------------------------------------------------
+# ITEM GROUPS
+# ---------------------------------------------------------------------------
+
+
+class ItemGroupCreateSchema(Schema):
+    """Schema for POST /api/groups."""
+
+    name = fields.String(required=True, validate=validate.Length(min=1, max=50))
+    description = fields.String(load_default="")
+    display_order = fields.Integer(load_default=0)
+    color = fields.String(load_default="")
+    icon = fields.String(load_default="")
+    is_active = fields.Boolean(load_default=True)
+    organization_id = fields.String(load_default="default")
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class ItemGroupUpdateSchema(Schema):
+    """Schema for PUT /api/groups/<id>."""
+
+    name = fields.String(validate=validate.Length(min=1, max=50))
+    description = fields.String()
+    display_order = fields.Integer()
+    color = fields.String()
+    icon = fields.String()
+    is_active = fields.Boolean()
+    organization_id = fields.String()
 
     class Meta:
         unknown = EXCLUDE

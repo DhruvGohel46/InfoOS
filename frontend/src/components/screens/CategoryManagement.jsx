@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
-import { categoriesAPI, handleAPIError } from '../../utils/api';
+import { categoriesAPI, groupsAPI, handleAPIError } from '../../utils/api';
 import '../../styles/Management.css';
 import Button from '../ui/Button';
 
@@ -30,6 +30,7 @@ const CategoryManagement = () => {
     const { staggerContainer, staggerItem } = useAnimation();
 
     const [categories, setCategories] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
@@ -40,11 +41,13 @@ const CategoryManagement = () => {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        active: true
+        active: true,
+        group_id: ''
     });
 
     useEffect(() => {
         loadCategories();
+        loadGroups();
     }, []);
 
     const loadCategories = async () => {
@@ -61,11 +64,21 @@ const CategoryManagement = () => {
         }
     };
 
+    const loadGroups = async () => {
+        try {
+            const response = await groupsAPI.getAllGroups(false);
+            setGroups(response.data.groups || []);
+        } catch (err) {
+            console.error('Failed to load groups for categories select:', err);
+        }
+    };
+
     const resetForm = () => {
         setFormData({
             name: '',
             description: '',
-            active: true
+            active: true,
+            group_id: ''
         });
         setEditingCategory(null);
         setShowAddForm(false);
@@ -79,10 +92,14 @@ const CategoryManagement = () => {
         e.preventDefault();
         try {
             setError('');
+            const payload = {
+                ...formData,
+                group_id: formData.group_id ? parseInt(formData.group_id) : null
+            };
             if (editingCategory) {
-                await categoriesAPI.updateCategory(editingCategory.id, formData);
+                await categoriesAPI.updateCategory(editingCategory.id, payload);
             } else {
-                await categoriesAPI.createCategory(formData);
+                await categoriesAPI.createCategory(payload);
             }
             resetForm();
             loadCategories();
@@ -97,7 +114,8 @@ const CategoryManagement = () => {
         setFormData({
             name: category.name,
             description: category.description || '',
-            active: category.active
+            active: category.active,
+            group_id: category.group_id ? category.group_id.toString() : ''
         });
         setShowAddForm(true);
     };
@@ -155,7 +173,7 @@ const CategoryManagement = () => {
                             <div className="pmFormTitle">{editingCategory ? 'Edit Category' : 'Add New Category'}</div>
                         </div>
                         <form onSubmit={handleSubmit}>
-                            <div className="pmFormGrid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'calc(10px * var(--display-zoom))' }}>
+                            <div className="pmFormGrid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 'calc(10px * var(--display-zoom))' }}>
                                 <div className="pmField">
                                     <div className="pmLabel">Category Name</div>
                                     <input
@@ -172,6 +190,21 @@ const CategoryManagement = () => {
                                         value={formData.description}
                                         onChange={(e) => handleInputChange('description', e.target.value)}
                                     />
+                                </div>
+                                <div className="pmField">
+                                    <div className="pmLabel">Item Group</div>
+                                    <select
+                                        className="pmInput"
+                                        value={formData.group_id}
+                                        onChange={(e) => handleInputChange('group_id', e.target.value)}
+                                    >
+                                        <option value="">▼ Select Group (Optional)</option>
+                                        {groups.map(g => (
+                                            <option key={g.id} value={g.id}>
+                                                {g.icon || '📁'} {g.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="pmFormActions">
@@ -217,7 +250,18 @@ const CategoryManagement = () => {
                                 >
                                     <div style={{ position: 'relative', zIndex: 2, flex: 1 }}>
                                         <div className="pmCardTop" style={{ marginBottom: 'calc(12px * var(--display-zoom))' }}>
-                                            <div className="pmName" style={{ fontSize: 'calc(18px * var(--text-scale))', fontWeight: 700 }}>{cat.name}</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <div className="pmName" style={{ fontSize: 'calc(18px * var(--text-scale))', fontWeight: 700 }}>{cat.name}</div>
+                                                {cat.group_name && (
+                                                    <span style={{ 
+                                                        fontSize: 'calc(12px * var(--text-scale))', 
+                                                        color: 'var(--primary-500)', 
+                                                        fontWeight: 600 
+                                                    }}>
+                                                        📁 {cat.group_name}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div 
                                                 className="rounded-pill" 
                                                 style={{ 

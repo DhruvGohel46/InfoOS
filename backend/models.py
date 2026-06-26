@@ -18,14 +18,32 @@ class Settings(db.Model):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
 
+class ItemGroup(db.Model):
+    __tablename__ = "item_groups"
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.String(50), default="default")
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text)
+    display_order = db.Column(db.Integer, default=0)
+    color = db.Column(db.String(50))
+    icon = db.Column(db.String(50))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+
 class Category(db.Model):
     __tablename__ = "categories"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
     description = db.Column(db.Text)
     active = db.Column(db.Boolean, default=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("item_groups.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    group = db.relationship("ItemGroup", backref="categories")
 
 
 class Product(db.Model):

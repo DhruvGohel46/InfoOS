@@ -82,6 +82,7 @@ def create_app(config_name="default"):
     from routes.summary import summary_bp
     from routes.reports import reports_bp
     from routes.categories import categories_bp
+    from routes.groups import groups_bp
     from routes.settings import settings_bp
     from routes.inventory import inventory_bp
     from routes.workers import workers_bp
@@ -128,6 +129,7 @@ def create_app(config_name="default"):
     app.register_blueprint(summary_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(categories_bp)
+    app.register_blueprint(groups_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(inventory_bp)
     app.register_blueprint(workers_bp)
@@ -238,6 +240,57 @@ def db_health_check(app, db):
         _log.error("Database health check FAILED: %s", e)
 
 
+def run_programmatic_sqlite_migrations(app, db):
+    """Execute dynamic alter statements for SQLite database columns that db.create_all() won't add."""
+    from sqlalchemy import text
+
+    try:
+        with app.app_context():
+            with db.engine.begin() as conn:
+                # 1. Create item_groups table if not exists
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS item_groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        organization_id TEXT DEFAULT 'default',
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        display_order INTEGER DEFAULT 0,
+                        color TEXT,
+                        icon TEXT,
+                        is_active BOOLEAN DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        deleted_at TIMESTAMP DEFAULT NULL
+                    )
+                """))
+
+                # 2. Add group_id to categories
+                res = conn.execute(text("PRAGMA table_info(categories)"))
+                cat_cols = [row[1] for row in res.fetchall()]
+                if "group_id" not in cat_cols:
+                    _log.info("Migrating SQLite: Adding group_id column to categories table")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE categories ADD COLUMN group_id INTEGER REFERENCES item_groups(id)"
+                        )
+                    )
+
+                # 3. Add order_type and table_no to bills
+                res = conn.execute(text("PRAGMA table_info(bills)"))
+                bills_cols = [row[1] for row in res.fetchall()]
+                if "order_type" not in bills_cols:
+                    _log.info("Migrating SQLite: Adding order_type column to bills table")
+                    conn.execute(
+                        text("ALTER TABLE bills ADD COLUMN order_type TEXT DEFAULT 'dine-in'")
+                    )
+                if "table_no" not in bills_cols:
+                    _log.info("Migrating SQLite: Adding table_no column to bills table")
+                    conn.execute(text("ALTER TABLE bills ADD COLUMN table_no TEXT"))
+            _log.info("Programmatic SQLite migrations completed successfully")
+    except Exception as e:
+        _log.error("Error during programmatic SQLite migrations: %s", e)
+
+
 if __name__ == "__main__":
     import argparse
     import sys
@@ -265,6 +318,9 @@ if __name__ == "__main__":
         with app.app_context():
             db.create_all()
             _log.info("Database tables created/verified")
+
+            # Run programmatic column migrations on SQLite
+            run_programmatic_sqlite_migrations(app, db)
 
             # Execute database migrations programmatically
             migrations_dir = os.path.join(app.config["BASE_DIR"], "migrations")

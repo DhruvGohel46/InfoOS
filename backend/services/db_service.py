@@ -2,7 +2,7 @@ import json
 from datetime import datetime, date
 from typing import List, Dict, Optional, Any
 from sqlalchemy import func, or_
-from models import db, Product, Bill, Category, Settings, Inventory, AuditEvent
+from models import db, Product, Bill, Category, Settings, Inventory, AuditEvent, ItemGroup
 from config import config
 
 
@@ -597,6 +597,8 @@ class DatabaseService:
                 "updated_at": str(c.updated_at),
                 "product_count": count,
                 "is_used": count > 0,  # Simple check
+                "group_id": c.group_id,
+                "group_name": c.group.name if c.group else None,
             }
             result.append(c_dict)
         return result
@@ -609,6 +611,8 @@ class DatabaseService:
                 "name": c.name,
                 "description": c.description,
                 "active": c.active,
+                "group_id": c.group_id,
+                "group_name": c.group.name if c.group else None,
             }
         return None
 
@@ -620,6 +624,8 @@ class DatabaseService:
                 "name": c.name,
                 "description": c.description,
                 "active": c.active,
+                "group_id": c.group_id,
+                "group_name": c.group.name if c.group else None,
             }
         return None
 
@@ -629,6 +635,7 @@ class DatabaseService:
                 name=data["name"],
                 description=data.get("description", ""),
                 active=bool(data.get("active", True)),
+                group_id=data.get("group_id"),
             )
             db.session.add(new_cat)
             db.session.commit()
@@ -649,8 +656,159 @@ class DatabaseService:
                 c.description = data["description"]
             if "active" in data:
                 c.active = bool(data["active"])
+            if "group_id" in data:
+                c.group_id = data["group_id"]
 
             c.updated_at = datetime.now()
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
+
+    # ---------------------------------------------------------
+    # ITEM GROUP MANAGEMENT
+    # ---------------------------------------------------------
+
+    def get_all_groups(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
+        query = ItemGroup.query.filter(ItemGroup.deleted_at == None)
+        if not include_inactive:
+            query = query.filter(ItemGroup.is_active == True)
+
+        groups = query.order_by(ItemGroup.display_order, ItemGroup.name).all()
+        result = []
+        for g in groups:
+            # Count categories linked to this group
+            categories_count = Category.query.filter(Category.group_id == g.id).count()
+            result.append(
+                {
+                    "id": g.id,
+                    "organization_id": g.organization_id,
+                    "name": g.name,
+                    "description": g.description,
+                    "display_order": g.display_order,
+                    "color": g.color,
+                    "icon": g.icon,
+                    "is_active": g.is_active,
+                    "created_at": str(g.created_at),
+                    "updated_at": str(g.updated_at),
+                    "categories_count": categories_count,
+                }
+            )
+        return result
+
+    def get_group(self, group_id: int) -> Optional[Dict[str, Any]]:
+        g = ItemGroup.query.filter(ItemGroup.id == group_id, ItemGroup.deleted_at == None).first()
+        if g:
+            categories_count = Category.query.filter(Category.group_id == g.id).count()
+            return {
+                "id": g.id,
+                "organization_id": g.organization_id,
+                "name": g.name,
+                "description": g.description,
+                "display_order": g.display_order,
+                "color": g.color,
+                "icon": g.icon,
+                "is_active": g.is_active,
+                "created_at": str(g.created_at),
+                "updated_at": str(g.updated_at),
+                "categories_count": categories_count,
+            }
+        return None
+
+    def get_group_by_name(
+        self, name: str, organization_id: str = "default"
+    ) -> Optional[Dict[str, Any]]:
+        g = ItemGroup.query.filter(
+            func.lower(ItemGroup.name) == func.lower(name),
+            ItemGroup.organization_id == organization_id,
+            ItemGroup.deleted_at == None,
+        ).first()
+        if g:
+            return {
+                "id": g.id,
+                "name": g.name,
+                "organization_id": g.organization_id,
+            }
+        return None
+
+    def create_group(self, data: Dict[str, Any]) -> Optional[int]:
+        try:
+            new_group = ItemGroup(
+                organization_id=data.get("organization_id", "default"),
+                name=data["name"],
+                description=data.get("description", ""),
+                display_order=data.get("display_order", 0),
+                color=data.get("color", ""),
+                icon=data.get("icon", ""),
+                is_active=bool(data.get("is_active", True)),
+            )
+            db.session.add(new_group)
+            db.session.commit()
+            return new_group.id
+        except Exception:
+            db.session.rollback()
+            return None
+
+    def update_group(self, group_id: int, data: Dict[str, Any]) -> bool:
+        try:
+            g = ItemGroup.query.filter(
+                ItemGroup.id == group_id, ItemGroup.deleted_at == None
+            ).first()
+            if not g:
+                return False
+
+            if "name" in data:
+                g.name = data["name"]
+            if "description" in data:
+                g.description = data["description"]
+            if "display_order" in data:
+                g.display_order = data["display_order"]
+            if "color" in data:
+                g.color = data["color"]
+            if "icon" in data:
+                g.icon = data["icon"]
+            if "is_active" in data:
+                g.is_active = bool(data["is_active"])
+
+            g.updated_at = datetime.now()
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
+
+    def delete_group(self, group_id: int) -> bool:
+        try:
+            g = ItemGroup.query.filter(
+                ItemGroup.id == group_id, ItemGroup.deleted_at == None
+            ).first()
+            if g:
+                g.deleted_at = datetime.now()
+                g.is_active = False
+                db.session.commit()
+                return True
+            return False
+        except Exception:
+            db.session.rollback()
+            return False
+
+    def move_categories(self, source_group_id: int, target_group_id: int) -> bool:
+        try:
+            categories = Category.query.filter(Category.group_id == source_group_id).all()
+            for c in categories:
+                c.group_id = target_group_id
+            db.session.commit()
+            return True
+        except Exception:
+            db.session.rollback()
+            return False
+
+    def remove_group_assignment(self, group_id: int) -> bool:
+        try:
+            categories = Category.query.filter(Category.group_id == group_id).all()
+            for c in categories:
+                c.group_id = None
             db.session.commit()
             return True
         except Exception:

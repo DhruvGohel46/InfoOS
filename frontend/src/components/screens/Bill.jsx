@@ -61,7 +61,7 @@ import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
 import { useNetwork } from '../../context/NetworkContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { productsAPI, billingAPI } from '../../utils/api';
+import { productsAPI, billingAPI, groupsAPI } from '../../utils/api';
 import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
 import { printerService } from '../../services/printerService';
@@ -97,6 +97,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([{ id: 'favorites', name: '★ Favorites' }]);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState(() => localStorage.getItem('lastSelectedGroupId') || 'all');
   const [orderType, setOrderType] = useState('dine-in');
   const [tableNumber, setTableNumber] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('favorites');
@@ -154,14 +156,44 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
   }, [bootstrapProducts]);
 
+  // Load groups on mount
   useEffect(() => {
-    if (bootstrapCategories.length > 0) {
-      setCategories([
-        { id: 'favorites', name: '★ Favorites' },
-        ...bootstrapCategories.map(c => ({ id: c.id, name: c.name }))
-      ]);
+    const loadGroups = async () => {
+      try {
+        const response = await groupsAPI.getAllGroups(false); // active only
+        setGroups(response.data.groups || []);
+      } catch (err) {
+        console.error('Failed to load groups in POS:', err);
+      }
+    };
+    loadGroups();
+  }, []);
+
+  // Save selected group to localStorage
+  useEffect(() => {
+    localStorage.setItem('lastSelectedGroupId', selectedGroupId);
+  }, [selectedGroupId]);
+
+  // Filter categories based on selected group
+  useEffect(() => {
+    let filtered = [...bootstrapCategories];
+    if (selectedGroupId !== 'all') {
+      filtered = bootstrapCategories.filter(c => c.group_id === parseInt(selectedGroupId));
     }
-  }, [bootstrapCategories]);
+    
+    const nextCategories = [
+      { id: 'favorites', name: '★ Favorites' },
+      ...filtered.map(c => ({ id: c.id, name: c.name }))
+    ];
+    setCategories(nextCategories);
+
+    // If the currently selected category is not in the new categories list,
+    // default back to 'favorites'
+    const exists = nextCategories.some(c => c.id === selectedCategory);
+    if (!exists) {
+      setSelectedCategory('favorites');
+    }
+  }, [bootstrapCategories, selectedGroupId]);
 
   useEffect(() => {
     setLoading(bootstrapLoading);
@@ -503,14 +535,51 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     <div style={mainContainerStyle}>
       <div className="glass-sidebar" style={leftSidebarStyle}>
         <div style={{
-          padding: 'var(--spacing-5)',
+          padding: 'var(--spacing-4) var(--spacing-5)',
           borderBottom: '1px solid var(--glass-border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--spacing-3)'
         }}>
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="Search items..."
           />
+
+          {/* Item Groups Dropdown Selector */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={selectedGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              className="pmInput"
+              style={{
+                width: '100%',
+                height: 'calc(38px * var(--display-zoom))',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--glass-border)',
+                color: 'var(--text-primary)',
+                fontWeight: 600,
+                fontSize: 'var(--text-sm)',
+                padding: '0 var(--spacing-3)',
+                cursor: 'pointer',
+                outline: 'none',
+                WebkitAppearance: 'none',
+                backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23a3a3a3%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 12px center',
+                backgroundSize: '16px'
+              }}
+            >
+              <option value="all">▼ All Groups</option>
+              {groups.map(group => (
+                <option key={group.id} value={group.id}>
+                  {group.icon || '📁'} {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={{
@@ -852,13 +921,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: 'calc(8px * var(--ui-scale))',
-            marginBottom: 'calc(12px * var(--ui-scale))'
+            gap: 'calc(8px * var(--display-zoom, 1))',
+            marginBottom: 'calc(12px * var(--display-zoom, 1))'
           }}>
             <button
               onClick={() => setOrderType('dine-in')}
               style={{
-                padding: 'calc(8px * var(--ui-scale))',
+                padding: 'calc(8px * var(--display-zoom, 1))',
                 borderRadius: '8px',
                 border: orderType === 'dine-in' ? '2px solid var(--primary-500)' : '1px solid var(--glass-border)',
                 backgroundColor: orderType === 'dine-in' ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
@@ -878,7 +947,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             <button
               onClick={() => setOrderType('takeaway')}
               style={{
-                padding: 'calc(8px * var(--ui-scale))',
+                padding: 'calc(8px * var(--display-zoom, 1))',
                 borderRadius: '8px',
                 border: orderType === 'takeaway' ? '2px solid var(--primary-500)' : '1px solid var(--glass-border)',
                 backgroundColor: orderType === 'takeaway' ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
@@ -903,8 +972,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              marginBottom: 'calc(12px * var(--ui-scale))',
-              padding: 'calc(8px * var(--ui-scale))',
+              marginBottom: 'calc(12px * var(--display-zoom, 1))',
+              padding: 'calc(8px * var(--display-zoom, 1))',
               borderRadius: '8px',
               backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f3f4f6',
               border: '1px solid var(--glass-border)'

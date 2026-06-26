@@ -28,6 +28,23 @@ class SQLiteDatabaseService:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
 
+            # Create item_groups table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS item_groups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    organization_id TEXT DEFAULT 'default',
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    display_order INTEGER DEFAULT 0,
+                    color TEXT,
+                    icon TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    deleted_at TIMESTAMP DEFAULT NULL
+                )
+            """)
+
             # Create categories table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS categories (
@@ -39,6 +56,19 @@ class SQLiteDatabaseService:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            # Check for group_id column in categories (migration)
+            cursor.execute("PRAGMA table_info(categories)")
+            cat_columns = [info[1] for info in cursor.fetchall()]
+
+            if "group_id" not in cat_columns:
+                print("Migrating categories: Adding group_id column")
+                try:
+                    cursor.execute(
+                        "ALTER TABLE categories ADD COLUMN group_id INTEGER REFERENCES item_groups(id)"
+                    )
+                except Exception as e:
+                    print(f"Migration error (group_id): {e}")
 
             # Create products table
             cursor.execute("""
