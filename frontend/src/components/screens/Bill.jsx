@@ -82,8 +82,7 @@ const TrashIcon = ({ color }) => (
 
 const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
-  // eslint-disable-next-line no-unused-vars
-  const { settings: _settings } = useSettings();
+  const { settings } = useSettings();
   const { showSuccess, showWarning } = useAlert();
   const { isOnline } = useNetwork();
   
@@ -98,6 +97,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([{ id: 'favorites', name: '★ Favorites' }]);
+  const [orderType, setOrderType] = useState('dine-in');
+  const [tableNumber, setTableNumber] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('favorites');
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300); // Debounced search
@@ -166,12 +167,21 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     setLoading(bootstrapLoading);
   }, [bootstrapLoading]);
 
+  // Set default order type from settings
+  useEffect(() => {
+    if (!editingBill && settings && settings.default_order_type) {
+      setOrderType(settings.default_order_type);
+    }
+  }, [settings, editingBill]);
+
   useEffect(() => {
     // Check for edit mode
     if (location.state?.bill) {
       const bill = location.state.bill;
       setEditingBill(bill);
       setOrderItems(bill.items || []);
+      setOrderType(bill.order_type || 'dine-in');
+      setTableNumber(bill.table_no || '');
     }
   }, [location.state]);
 
@@ -283,7 +293,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           quantity: item.quantity
         })),
         print: false,
-        customer_name: editingBill ? editingBill.customer_name : ''
+        customer_name: editingBill ? editingBill.customer_name : '',
+        order_type: orderType,
+        table_no: orderType === 'dine-in' ? tableNumber : ''
       };
 
       if (editingBill) {
@@ -327,7 +339,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             quantity: item.quantity
           })),
           print: false,
-          customer_name: ''
+          customer_name: '',
+          order_type: orderType,
+          table_no: orderType === 'dine-in' ? tableNumber : ''
         };
         syncService.addToQueue(billData);
         setOrderItems([]);
@@ -346,12 +360,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
       
       if (type === 'bill') {
-        await printerService.printKOT(billNo);
-      } else {
         await printerService.printBill(billNo);
+      } else {
+        await printerService.printKOT(billNo);
       }
       
-      showSuccess(`${type.toUpperCase()} printed KOT successfully`);
+      showSuccess(`${type.toUpperCase()} printed successfully`);
     } catch (err) {
       showWarning('Printer error. Please check connections.');
     } finally {
@@ -395,7 +409,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           quantity: item.quantity
         })),
         print: false, // We handle printing manually for better control
-        customer_name: editingBill ? editingBill.customer_name : ''
+        customer_name: editingBill ? editingBill.customer_name : '',
+        order_type: orderType,
+        table_no: orderType === 'dine-in' ? tableNumber : ''
       };
 
       let billNo;
@@ -832,6 +848,88 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             </Button>
           </div>
 
+          {/* Order Type Toggle Selector */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 'calc(8px * var(--ui-scale))',
+            marginBottom: 'calc(12px * var(--ui-scale))'
+          }}>
+            <button
+              onClick={() => setOrderType('dine-in')}
+              style={{
+                padding: 'calc(8px * var(--ui-scale))',
+                borderRadius: '8px',
+                border: orderType === 'dine-in' ? '2px solid var(--primary-500)' : '1px solid var(--glass-border)',
+                backgroundColor: orderType === 'dine-in' ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                color: orderType === 'dine-in' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              🍽️ Dine In
+            </button>
+            <button
+              onClick={() => setOrderType('takeaway')}
+              style={{
+                padding: 'calc(8px * var(--ui-scale))',
+                borderRadius: '8px',
+                border: orderType === 'takeaway' ? '2px solid var(--primary-500)' : '1px solid var(--glass-border)',
+                backgroundColor: orderType === 'takeaway' ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
+                color: orderType === 'takeaway' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              🛍️ Takeaway
+            </button>
+          </div>
+
+          {/* Table Number Input for Dine In */}
+          {orderType === 'dine-in' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: 'calc(12px * var(--ui-scale))',
+              padding: 'calc(8px * var(--ui-scale))',
+              borderRadius: '8px',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f3f4f6',
+              border: '1px solid var(--glass-border)'
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Table Number:</span>
+              <input
+                type="text"
+                value={tableNumber}
+                onChange={(e) => setTableNumber(e.target.value)}
+                placeholder="Optional (e.g. 5)"
+                style={{
+                  flex: 1,
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--glass-border)',
+                  backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'white',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+            </div>
+          )}
+
           {orderItems.length === 0 ? (
             <div style={{
               display: 'flex',
@@ -985,34 +1083,42 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth disabled={isPrinting}>
                 {editingBill ? 'Update Only' : 'Save Only'}
               </Button>
-              <Button variant="primary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
-                {isPrinting && printStatus.includes('Bill') ? 'Printing...' : 'Print KOT'}
+              <Button variant="secondary" onClick={() => handleSaveAndPrintOrder('kot')} size="lg" fullWidth disabled={isPrinting}>
+                {isPrinting && printStatus.toLowerCase().includes('kot') ? 'KOT...' : 'Print KOT'}
               </Button>
             </div>
             
-            <Button 
-              variant="primary" 
-              onClick={() => handleSaveAndPrintOrder('both')} 
-              size="lg" 
-              fullWidth 
-              disabled={isPrinting}
-              style={{
-                background: 'linear-gradient(135deg, var(--primary-500) 0%, #f97316 100%)',
-                boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
-                height: 'calc(54px * var(--display-zoom))',
-                fontSize: 'calc(16px * var(--text-scale))',
-                fontWeight: 800
-              }}
-            >
-              {isPrinting ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div className="animate-spin" style={{ width: '18px', height: '18px', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
-                  {printStatus || 'Processing...'}
-                </div>
-              ) : (
-                'BILL & KOT'
-              )}
-            </Button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'calc(10px * var(--display-zoom))' }}>
+              <Button variant="secondary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
+                {isPrinting && printStatus.toLowerCase().includes('bill') && !printStatus.toLowerCase().includes('kot') ? 'Bill...' : 'Print Bill'}
+              </Button>
+              <Button 
+                variant="primary" 
+                onClick={() => handleSaveAndPrintOrder('both')} 
+                size="lg" 
+                fullWidth 
+                disabled={isPrinting}
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary-500) 0%, #f97316 100%)',
+                  boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
+                  height: 'calc(44px * var(--display-zoom))',
+                  fontSize: 'calc(14px * var(--text-scale))',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {isPrinting && (printStatus.toLowerCase().includes('bill') || printStatus.toLowerCase().includes('kot')) ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="animate-spin" style={{ width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                    Printing...
+                  </div>
+                ) : (
+                  'BILL & KOT'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

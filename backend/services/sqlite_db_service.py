@@ -76,6 +76,8 @@ class SQLiteDatabaseService:
                     total_amount REAL NOT NULL,
                     items TEXT NOT NULL, -- JSON string of items
                     status TEXT DEFAULT 'CONFIRMED', -- CONFIRMED, CANCELLED
+                    order_type TEXT DEFAULT 'dine-in',
+                    table_no TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -109,6 +111,20 @@ class SQLiteDatabaseService:
                     )
                 except Exception as e:
                     print(f"Migration error (updated_at): {e}")
+
+            if "order_type" not in columns:
+                print("Migrating database: Adding order_type column to bills table")
+                try:
+                    cursor.execute("ALTER TABLE bills ADD COLUMN order_type TEXT DEFAULT 'dine-in'")
+                except Exception as e:
+                    print(f"Migration error (order_type): {e}")
+
+            if "table_no" not in columns:
+                print("Migrating database: Adding table_no column to bills table")
+                try:
+                    cursor.execute("ALTER TABLE bills ADD COLUMN table_no TEXT")
+                except Exception as e:
+                    print(f"Migration error (table_no): {e}")
 
             # Migrate products to use category_id
             cursor.execute("PRAGMA table_info(products)")
@@ -350,14 +366,16 @@ class SQLiteDatabaseService:
             # Insert the bill
             cursor.execute(
                 """
-                INSERT INTO bills (bill_no, customer_name, total_amount, items)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO bills (bill_no, customer_name, total_amount, items, order_type, table_no)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
                     next_bill_no,
                     bill_data.get("customer_name", ""),
                     float(bill_data["total_amount"]),
                     json.dumps(enriched_items),
+                    bill_data.get("order_type", "dine-in"),
+                    bill_data.get("table_no", ""),
                 ),
             )
             conn.commit()

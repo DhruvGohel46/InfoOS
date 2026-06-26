@@ -468,11 +468,20 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
     formatter.line(f"{cashier_part}{' ' * pad2}{bill_no_part}")
     formatter.bold_off()
 
-    # Token No.
+    # Token No. & Table No.
     token_no = str(
         order.get("token_no") or order.get("tokenNumber") or order.get("today_token") or "1"
     )
-    formatter.bold_on().line(f"Token No.: {token_no}").bold_off()
+    token_line = f"Token No.: {token_no}"
+    table_no = order.get("table_no") or order.get("tableNumber") or order.get("table")
+    if table_no and order_type.lower() in ["dine-in", "dine in"]:
+        table_part = f"Table No: {table_no}"
+        pad3 = max_chars - len(token_line) - len(table_part)
+        if pad3 < 1:
+            pad3 = 1
+        formatter.bold_on().line(f"{token_line}{' ' * pad3}{table_part}").bold_off()
+    else:
+        formatter.bold_on().line(token_line).bold_off()
     formatter.divider()
 
     # Column widths

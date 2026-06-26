@@ -75,6 +75,8 @@ class Bill(db.Model):
     payment_method = db.Column(db.String(50), default="CASH")
     items = db.Column(db.Text, nullable=False)  # Stored as JSON string to maintain compatibility
     status = db.Column(db.String(50), default="CONFIRMED")
+    order_type = db.Column(db.String(50), default="dine-in")
+    table_no = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 

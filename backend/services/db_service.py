@@ -299,6 +299,8 @@ class DatabaseService:
                 payment_method=bill_data.get("payment_method", "CASH"),
                 items=json.dumps(enriched_items),
                 status="CONFIRMED",
+                order_type=bill_data.get("order_type", "dine-in"),
+                table_no=bill_data.get("table_no", ""),
                 created_at=datetime.now(),
             )
 
@@ -533,6 +535,8 @@ class DatabaseService:
             bill.customer_name = bill_data.get("customer_name", "")
             bill.total_amount = float(bill_data["total_amount"])
             bill.items = json.dumps(enriched_items)
+            bill.order_type = bill_data.get("order_type", bill.order_type)
+            bill.table_no = bill_data.get("table_no", bill.table_no)
             bill.updated_at = datetime.now()
 
             db.session.commit()
@@ -563,6 +567,8 @@ class DatabaseService:
             "payment_method": bill.payment_method,
             "items": json.loads(bill.items),  # Deserialize JSON
             "status": bill.status,
+            "order_type": bill.order_type,
+            "table_no": bill.table_no,
             "created_at": str(bill.created_at),
             "updated_at": str(bill.updated_at),
         }

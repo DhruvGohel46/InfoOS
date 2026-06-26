@@ -487,6 +487,7 @@ const Settings = () => {
         bill_reset_daily: 'true',
         default_tax_rate: '0',
         tax_enabled: 'false',
+        default_order_type: 'dine-in',
 
         // Printer
         printer_enabled: 'false',
@@ -789,6 +790,24 @@ const Settings = () => {
                                             />
                                         </div>
                                     )}
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Default Order Type</span>
+                                            <span className="stLabelDesc">Default selection for new bills</span>
+                                        </div>
+                                        <Dropdown
+                                            options={[
+                                                { label: 'Dine In 🍽️', value: 'dine-in' },
+                                                { label: 'Takeaway 🛍️', value: 'takeaway' }
+                                            ]}
+                                            value={formSettings.default_order_type || 'dine-in'}
+                                            onChange={(val) => handleChange('default_order_type', val)}
+                                            placeholder="Select Default"
+                                            className="stDropdown"
+                                            zIndex={50}
+                                        />
+                                    </div>
                                 </div>
                             </>
                         )}

@@ -43,6 +43,8 @@ def _build_printer_payload(bill: dict) -> dict:
         "customer_name": bill.get("customer_name", ""),
         "payment_method": bill.get("payment_method", "CASH"),
         "today_token": bill.get("today_token", 0),
+        "order_type": bill.get("order_type", "dine-in"),
+        "table_no": bill.get("table_no", ""),
     }
 
 
@@ -98,6 +100,9 @@ def create_bill():
         "customer_name": validated.get("customer_name", ""),
         "total_amount": total,
         "items": validated_products,
+        "payment_method": validated.get("payment_method", "CASH"),
+        "order_type": validated.get("order_type", "dine-in"),
+        "table_no": validated.get("table_no", ""),
     }
 
     bill_no = db.create_bill(bill_data)
@@ -118,6 +123,8 @@ def create_bill():
         "customer_name": created_bill.get("customer_name", ""),
         "payment_method": created_bill.get("payment_method", "CASH"),
         "today_token": created_bill.get("today_token", 0),
+        "order_type": created_bill.get("order_type", "dine-in"),
+        "table_no": created_bill.get("table_no", ""),
     }
 
     # Print bill only if requested (non-blocking — don't fail if printer doesn't work)
@@ -350,6 +357,8 @@ def update_bill(bill_no):
         "customer_name": validated.get("customer_name", ""),
         "total_amount": total if products else validated.get("total_amount", 0),
         "items": validated_products,
+        "order_type": validated.get("order_type", "dine-in"),
+        "table_no": validated.get("table_no", ""),
     }
 
     success = db.update_bill(bill_no, bill_update_data)
