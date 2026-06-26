@@ -25,10 +25,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
   secureDecrypt: (cipherText) => ipcRenderer.invoke('secure:decrypt', cipherText),
 
   // Auto-Updater
-  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
-  onUpdateProgress: (callback) => ipcRenderer.on('download-progress', callback),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  onUpdateAvailable: (callback) => {
+    const subscription = (event, info) => callback(event, info);
+    ipcRenderer.on('update-available', subscription);
+    return () => ipcRenderer.removeListener('update-available', subscription);
+  },
+  onUpdateProgress: (callback) => {
+    const subscription = (event, info) => callback(event, info);
+    ipcRenderer.on('download-progress', subscription);
+    return () => ipcRenderer.removeListener('download-progress', subscription);
+  },
+  onUpdateDownloaded: (callback) => {
+    const subscription = (event, info) => callback(event, info);
+    ipcRenderer.on('update-downloaded', subscription);
+    return () => ipcRenderer.removeListener('update-downloaded', subscription);
+  },
   installUpdate: () => ipcRenderer.send('install-update'),
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:get-status'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  onInstallRequest: (callback) => {
+    const subscription = (event) => callback();
+    ipcRenderer.on('updater:request-install', subscription);
+    return () => ipcRenderer.removeListener('updater:request-install', subscription);
+  },
+  sendInstallResponse: (safe, reason) => ipcRenderer.send('updater:install-response', { safe, reason }),
+  onUpdateStatusChanged: (callback) => {
+    const subscription = (event, state) => callback(state);
+    ipcRenderer.on('updater:status-changed', subscription);
+    return () => ipcRenderer.removeListener('updater:status-changed', subscription);
+  },
+  onUpdatePostponed: (callback) => {
+    const subscription = (event, data) => callback(data);
+    ipcRenderer.on('updater:postponed', subscription);
+    return () => ipcRenderer.removeListener('updater:postponed', subscription);
+  },
 
   // Printing APIs
   printBill: (billNo) => ipcRenderer.invoke('print:bill', billNo),

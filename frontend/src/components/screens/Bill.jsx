@@ -125,6 +125,26 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
   }, [checkCatalogVersion]);
 
+  // Track active cart and printing tasks for update manager safety guards
+  useEffect(() => {
+    if (!window.posActiveTasks) window.posActiveTasks = new Set();
+    if (orderItems.length > 0) {
+      window.posActiveTasks.add('cart');
+    } else {
+      window.posActiveTasks.delete('cart');
+    }
+  }, [orderItems]);
+
+  useEffect(() => {
+    if (!window.posActiveTasks) window.posActiveTasks = new Set();
+    if (isPrinting) {
+      window.posActiveTasks.add('printing');
+    } else {
+      window.posActiveTasks.delete('printing');
+    }
+  }, [isPrinting]);
+
+
   // ── Sync from bootstrap context ──
   useEffect(() => {
     if (bootstrapProducts.length > 0) {

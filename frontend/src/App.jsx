@@ -119,7 +119,7 @@ function AppContent() {
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
 
-  const { addToast, showSuccess: alertSuccess } = useAlert();
+  const { addToast, showWarning, showSuccess: alertSuccess } = useAlert();
 
   const navigate = useNavigate();
   // eslint-disable-next-line no-unused-vars
@@ -180,6 +180,52 @@ function AppContent() {
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Handle auto-updater installation safety confirmations and postpones
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    const unsubscribeInstallRequest = window.electronAPI.onInstallRequest(() => {
+      const activeTasks = window.posActiveTasks ? Array.from(window.posActiveTasks) : [];
+      
+      const checkAndRespond = async () => {
+        // Also check if printing is currently running at the OS level
+        const printingOs = window.electronAPI.isPrinting ? await window.electronAPI.isPrinting() : false;
+        
+        const tasks = [...activeTasks];
+        if (printingOs && !tasks.includes('printing')) {
+          tasks.push('printing');
+        }
+
+        if (tasks.length > 0) {
+          const taskLabels = tasks.map(t => {
+            if (t === 'cart') return 'Open Bill (Cart)';
+            if (t === 'printing') return 'Printing Receipt/KOT';
+            if (t === 'sync') return 'Cloud Synchronization';
+            return t;
+          });
+          const reason = `Critical operations are active: ${taskLabels.join(', ')}`;
+          window.electronAPI.sendInstallResponse(false, reason);
+          showWarning(`Update Delayed: ${reason}. Please finish your active tasks first.`);
+        } else {
+          // Safe to install
+          window.electronAPI.sendInstallResponse(true, 'Safe');
+        }
+      };
+
+      checkAndRespond();
+    });
+
+    const unsubscribePostponed = window.electronAPI.onUpdatePostponed((data) => {
+      showWarning(`Update Postponed: ${data.reason}.`);
+    });
+
+    return () => {
+      unsubscribeInstallRequest();
+      unsubscribePostponed();
+    };
+  }, [showWarning]);
+
 
   // Settings are now loaded globally by SettingsProvider
 

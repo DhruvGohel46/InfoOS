@@ -1,10 +1,11 @@
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const http = require('http');
 const { autoUpdater } = require('electron-updater');
 const os = require('os');
 const crypto = require('crypto');
+const updateManager = require('./services/updateManager');
 
 // Configuration
 // Configuration
@@ -87,8 +88,21 @@ function startBackend() {
 // Check if backend is ready
 function waitForBackend(callback) {
   log('Waiting for backend...');
+  let attempts = 0;
+  const maxAttempts = 20; // 20 seconds maximum timeout
 
   const checkHealth = () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      log('Backend connection timeout: failed to start after 20 attempts.');
+      dialog.showErrorBox(
+        'Backend Connection Error',
+        'InfoOS Local POS Backend failed to respond.\n\nThe system could not connect to the database or start the server process. Please check the logs in your user directory.'
+      );
+      app.quit();
+      return;
+    }
+
     http.get(HEALTH_ENDPOINT, (res) => {
       if (res.statusCode === 200) {
         log('Backend is ready!');
@@ -165,32 +179,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Setup auto-updater listeners attached to this window
-  autoUpdater.on('update-available', (info) => {
-    log('Update available.');
-    if (mainWindow) mainWindow.webContents.send('update-available', info);
-  });
 
-  autoUpdater.on('update-not-available', (info) => {
-    log('Update not available.');
-  });
-
-  autoUpdater.on('error', (err) => {
-    log('Error in auto-updater. ' + err);
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = "Download speed: " + progressObj.bytesPerSecond;
-    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
-    log(log_message);
-    if (mainWindow) mainWindow.webContents.send('download-progress', progressObj);
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    log('Update downloaded');
-    if (mainWindow) mainWindow.webContents.send('update-downloaded', info);
-  });
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -252,11 +241,19 @@ app.whenReady().then(() => {
     // Setup printer handlers
     printerManager.setupHandlers();
 
-    // Check for updates
-    if (!isDev) {
-        log('Checking for updates...');
-        autoUpdater.checkForUpdatesAndNotify();
-    }
+    // Initialize Auto-Updater module
+    updateManager.init(mainWindow);
+    updateManager.registerKillBackendCallback(() => {
+      if (backendProcess) {
+        log('Killing backend process before update installation...');
+        try {
+          backendProcess.kill('SIGKILL');
+        } catch (e) {
+          log('Error killing backend: ' + e);
+        }
+        backendProcess = null;
+      }
+    });
   });
 });
 
@@ -373,26 +370,7 @@ ipcMain.handle('secure:decrypt', (event, base64Text) => {
   return Buffer.from(base64Text, 'base64').toString('utf8');
 });
 
-// Update Installation
-ipcMain.on('install-update', () => {
-  log('Installing update...');
-  
-  // Explicitly kill the backend process before calling quitAndInstall
-  if (backendProcess) {
-    log('Manually killing backend before update installation...');
-    try {
-      backendProcess.kill('SIGKILL');
-    } catch (e) {
-      log('Error killing backend: ' + e);
-    }
-    backendProcess = null;
-  }
-  
-  // Add a slight delay to ensure Windows releases file locks before NSIS overwrites the executable
-  setTimeout(() => {
-    autoUpdater.quitAndInstall(false, true);
-  }, 1500);
-});
+
 
 // Logging IPC — renderer → main → app.log (same file as Python backend)
 ipcMain.handle('write-log', (event, payload) => {

@@ -19,7 +19,7 @@ hidden_imports = [
 ]
 
 binaries = []
-datas = []
+datas = [('migrations', 'migrations')]
 
 # Collect all files for heavy ML libraries
 datas_onnx, binaries_onnx, hiddenimports_onnx = collect_all('onnxruntime')

@@ -195,6 +195,30 @@ def create_app(config_name="default"):
             }
         )
 
+    # System version and migration info endpoint
+    @app.route("/api/system/info")
+    @limiter.exempt
+    def system_info():
+        db_version = "unknown"
+        try:
+            from sqlalchemy import text
+
+            with db.engine.connect() as conn:
+                result = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                if result:
+                    db_version = result[0]
+        except Exception:
+            db_version = "initial"
+
+        return jsonify(
+            {
+                "success": True,
+                "backend_version": "1.0.0",
+                "database_schema_version": db_version,
+                "status": "healthy",
+            }
+        )
+
     # Register centralized error handlers (400, 404, 405, 409, 500)
     register_error_handlers(app)
 
@@ -241,6 +265,18 @@ if __name__ == "__main__":
         with app.app_context():
             db.create_all()
             _log.info("Database tables created/verified")
+
+            # Execute database migrations programmatically
+            migrations_dir = os.path.join(app.config["BASE_DIR"], "migrations")
+            if os.path.exists(migrations_dir):
+                try:
+                    from flask_migrate import upgrade
+
+                    _log.info("Running database migrations from: %s", migrations_dir)
+                    upgrade(directory=migrations_dir)
+                    _log.info("Database migrations completed successfully")
+                except Exception as migrate_err:
+                    _log.error("Failed to run database migrations: %s", migrate_err)
     except Exception as e:
         _log.error("Error creating database tables: %s", e)
 

@@ -33,7 +33,7 @@ import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 import { cloudAuthAPI, cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
-import { summaryAPI } from '../../api/api';
+import api, { summaryAPI } from '../../api/api';
 import { expensesAPI } from '../../api/expenses';
 
 
@@ -88,6 +88,131 @@ const Settings = () => {
         role: 'standalone',
         loading: true
     });
+
+    useEffect(() => {
+        if (!window.posActiveTasks) window.posActiveTasks = new Set();
+        if (syncingBackup || syncingMonthlyBackup) {
+            window.posActiveTasks.add('sync');
+        } else {
+            window.posActiveTasks.delete('sync');
+        }
+    }, [syncingBackup, syncingMonthlyBackup]);
+
+    // ── About & Updater State ──────────────────────────────────────────────
+    const [systemInfo, setSystemInfo] = useState({
+        appVersion: '30.2.10',
+        backendVersion: '1.0.0',
+        dbSchemaVersion: 'loading...',
+        latestVersion: 'unknown',
+        lastChecked: null,
+        updateStatus: 'idle'
+    });
+    const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+
+    // Fetch local versions and updater status
+    const loadSystemInfo = async () => {
+        let appVer = '30.2.10';
+        let bVer = '1.0.0';
+        let dbVer = 'initial';
+
+        // 1. Get Electron version
+        if (window.electronAPI && window.electronAPI.getAppVersion) {
+            appVer = await window.electronAPI.getAppVersion();
+        }
+
+        // 2. Get backend and schema details
+        try {
+            const res = await api.get('/api/system/info');
+            if (res.data?.success) {
+                bVer = res.data.backend_version;
+                dbVer = res.data.database_schema_version;
+            }
+        } catch (err) {
+            console.error('Failed to fetch system info from backend:', err);
+        }
+
+        // 3. Get updater status
+        let upState = { status: 'idle', lastChecked: null, latestVersion: 'unknown' };
+        if (window.electronAPI && window.electronAPI.getUpdaterStatus) {
+            try {
+                upState = await window.electronAPI.getUpdaterStatus();
+            } catch (upErr) {
+                console.error('Failed to query updater status:', upErr);
+            }
+        }
+
+        setSystemInfo({
+            appVersion: appVer,
+            backendVersion: bVer,
+            dbSchemaVersion: dbVer,
+            latestVersion: upState.latestVersion || 'unknown',
+            lastChecked: upState.lastChecked,
+            updateStatus: upState.status || 'idle'
+        });
+    };
+
+    // Listen for updater changes
+    useEffect(() => {
+        if (activeTab === 'about') {
+            loadSystemInfo();
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (!window.electronAPI) return;
+
+        const unsubscribeStatus = window.electronAPI.onUpdateStatusChanged((statusPayload) => {
+            setSystemInfo(prev => ({
+                ...prev,
+                latestVersion: statusPayload.latestVersion || prev.latestVersion,
+                lastChecked: statusPayload.lastChecked || prev.lastChecked,
+                updateStatus: statusPayload.status || prev.updateStatus
+            }));
+            setCheckingForUpdates(statusPayload.status === 'checking');
+        });
+
+        return () => {
+            if (unsubscribeStatus) unsubscribeStatus();
+        };
+    }, []);
+
+    const handleManualCheckForUpdates = async () => {
+        if (!window.electronAPI || !window.electronAPI.checkForUpdates) {
+            showError('Update checking is disabled in development mode.');
+            return;
+        }
+        setCheckingForUpdates(true);
+        try {
+            await window.electronAPI.checkForUpdates();
+            // Safety timeout:
+            setTimeout(() => setCheckingForUpdates(false), 5000);
+        } catch (err) {
+            showError('Manual update check failed');
+            setCheckingForUpdates(false);
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'checking': return 'var(--primary-500, #3b82f6)';
+            case 'available': return 'var(--warning-500, #f59e0b)';
+            case 'downloading': return 'var(--primary-500, #3b82f6)';
+            case 'downloaded': return 'var(--success-500, #10b981)';
+            case 'error': return 'var(--error-500, #ef4444)';
+            default: return 'var(--text-secondary)';
+        }
+    };
+
+    const formatStatusText = (status) => {
+        switch (status) {
+            case 'checking': return 'Checking for updates...';
+            case 'available': return 'Update available (downloading...)';
+            case 'downloading': return 'Downloading update...';
+            case 'downloaded': return 'Update ready (restart to apply)';
+            case 'error': return 'Error checking for updates';
+            default: return 'Up to date';
+        }
+    };
 
     const loadCloudProfile = async () => {
         const token = localStorage.getItem('cloud_auth_token');
@@ -450,7 +575,8 @@ const Settings = () => {
         { id: 'app', label: 'App Preferences', icon: IoAppsOutline },
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
-        { id: 'cloud', label: 'Cloud Sync & License', icon: IoCloudUploadOutline }
+        { id: 'cloud', label: 'Cloud Sync & License', icon: IoCloudUploadOutline },
+        { id: 'about', label: 'About InfoOS', icon: IoInformationCircleOutline }
     ];
 
     if (loading) {
@@ -1384,16 +1510,182 @@ const Settings = () => {
                             </div>
                         )}
 
-                        <div className="stActions">
-                            <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
-                            <Button
-                                variant="primary"
-                                onClick={handleSave}
-                                loading={saving}
-                            >
-                                {saving ? 'Saving...' : 'Save Settings'}
-                            </Button>
-                        </div>
+                        {activeTab === 'about' && (
+                            <div className="stAboutSection" style={{
+                                padding: '24px 0',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '32px'
+                            }}>
+                                {/* Top Banner info */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '24px',
+                                    padding: '32px',
+                                    background: 'linear-gradient(135deg, rgba(255, 184, 105, 0.08) 0%, rgba(255, 140, 66, 0.08) 100%)',
+                                    border: '1px solid rgba(255, 151, 54, 0.15)',
+                                    borderRadius: '24px'
+                                }}>
+                                    <div style={{
+                                        width: '64px',
+                                        height: '64px',
+                                        borderRadius: '20px',
+                                        backgroundColor: '#FF8C42',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#FFFFFF',
+                                        fontSize: '32px',
+                                        fontWeight: 800,
+                                        boxShadow: '0 8px 24px rgba(255, 140, 66, 0.25)'
+                                    }}>
+                                        iO
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>InfoOS Desktop</h3>
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                            Production-grade Point of Sale (POS) & retail optimization client.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Versions info grid */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                    gap: '20px'
+                                }}>
+                                    {/* App Version */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Version</span>
+                                        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.appVersion}</span>
+                                    </div>
+
+                                    {/* Backend version */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend version</span>
+                                        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</span>
+                                    </div>
+
+                                    {/* Database schema revision */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database Schema Version</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</span>
+                                    </div>
+
+                                    {/* Update Status */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, color: getStatusColor(systemInfo.updateStatus) }}>
+                                            {formatStatusText(systemInfo.updateStatus)}
+                                        </span>
+                                    </div>
+
+                                    {/* Last Check */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                            {systemInfo.lastChecked ? new Date(systemInfo.lastChecked).toLocaleString() : 'Never'}
+                                        </span>
+                                    </div>
+
+                                    {/* Latest version */}
+                                    <div style={{
+                                        padding: '20px',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest Available Version</span>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            {systemInfo.latestVersion && systemInfo.latestVersion !== 'unknown' ? `v${systemInfo.latestVersion}` : 'No updates found'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Controls */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '16px',
+                                    padding: '24px',
+                                    background: 'rgba(255, 255, 255, 0.01)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '20px',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Check for new updates</span>
+                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)' }}>Query the official InfoOS release repository for software updates.</p>
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={handleManualCheckForUpdates}
+                                        loading={checkingForUpdates}
+                                        style={{ minWidth: '150px', borderRadius: '12px' }}
+                                    >
+                                        Check Now
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab !== 'about' && (
+                            <div className="stActions">
+                                <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleSave}
+                                    loading={saving}
+                                >
+                                    {saving ? 'Saving...' : 'Save Settings'}
+                                </Button>
+                            </div>
+                        )}
                     </motion.div>
                 </Card>
             </div>
