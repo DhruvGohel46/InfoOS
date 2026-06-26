@@ -79,6 +79,7 @@ const Settings = () => {
     const [cloudPassword, setCloudPassword] = useState('');
     const [cloudLoading, setCloudLoading] = useState(false);
     const [syncingBackup, setSyncingBackup] = useState(false);
+    const [syncingMonthlyBackup, setSyncingMonthlyBackup] = useState(false);
     const [cloudStatus, setCloudStatus] = useState({
         loggedIn: false,
         email: '',
@@ -217,6 +218,82 @@ const Settings = () => {
             showError(err.response?.data?.error || err.message || 'Sync failed');
         } finally {
             setSyncingBackup(false);
+        }
+    };
+
+    const handleMonthlySync = async () => {
+        if (!cloudStatus.loggedIn) {
+            showError('Offline: Please authenticate with your master franchise first.');
+            return;
+        }
+        if (cloudStatus.subscriptionStatus !== 'active') {
+            showError('SaaS Subscription required: Please purchase a plan on the website.');
+            return;
+        }
+
+        setSyncingMonthlyBackup(true);
+        try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const summaryRes = await summaryAPI.getRangeSummary('month', todayStr);
+            if (!summaryRes.data?.success) {
+                throw new Error(summaryRes.data?.error || 'Failed to fetch monthly summaries');
+            }
+
+            const summary = summaryRes.data.summary;
+            const monthStartStr = summary.start_date;
+
+            const expensesRes = await expensesAPI.getExpenses(200);
+            const allExpenses = expensesRes.expenses || [];
+
+            const startOfMonthTime = new Date(summary.start_date).getTime();
+            const endOfMonthTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
+
+            const thisMonthExpenses = allExpenses.filter(e => {
+                const eTime = new Date(e.date).getTime();
+                return eTime >= startOfMonthTime && eTime <= endOfMonthTime;
+            });
+
+            const payload = {
+                userId: cloudStatus.userId || sessionStorage.getItem('pos_user_id'), // Fallback if userId not directly on cloudStatus
+                monthStartDate: monthStartStr,
+                totalSales: summary.total_sales,
+                totalExpenses: summary.total_expenses,
+                salesDetails: (summary.products || []).map(p => ({
+                    name: p.name,
+                    amount: p.total_amount
+                })),
+                expenseDetails: thisMonthExpenses.map(e => ({
+                    name: e.title,
+                    amount: e.amount
+                }))
+            };
+
+            // Double check payload has valid userId
+            if (!payload.userId && cloudStatus.loggedIn) {
+                // If not found in session storage or state, decode the token to get user sub/id
+                const token = sessionStorage.getItem('pos_session_token');
+                if (token) {
+                    try {
+                        const base64Url = token.split('.')[1];
+                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                        }).join(''));
+                        const parsedToken = JSON.parse(jsonPayload);
+                        payload.userId = parsedToken.sub;
+                    } catch (decodeErr) {
+                        console.error('Error decoding token:', decodeErr);
+                    }
+                }
+            }
+
+            await cloudSyncAPI.syncMonthlyBackup(payload);
+            showSuccess(`Success! Aggregated backup for month starting ${monthStartStr} synced to cloud.`);
+        } catch (err) {
+            console.error('Manual monthly sync failed:', err);
+            showError(err.response?.data?.error || err.message || 'Sync failed');
+        } finally {
+            setSyncingMonthlyBackup(false);
         }
     };
 
@@ -1261,19 +1338,29 @@ const Settings = () => {
                                                     License & Synchronization Controls
                                                 </div>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                    Upload aggregates of this week's sales and expense totals.
+                                                    Upload aggregates of this week's or month's sales and expense totals.
                                                 </p>
                                             </div>
 
-                                            <div style={{ display: 'flex', gap: '16px' }}>
+                                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                                                 <Button
                                                     variant="primary"
                                                     onClick={handleManualSync}
                                                     loading={syncingBackup}
-                                                    disabled={syncingBackup}
+                                                    disabled={syncingBackup || syncingMonthlyBackup}
                                                     style={{ minWidth: '180px', height: '46px', borderRadius: '12px' }}
                                                 >
                                                     {syncingBackup ? 'Syncing...' : 'Sync Weekly Backup'}
+                                                </Button>
+
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={handleMonthlySync}
+                                                    loading={syncingMonthlyBackup}
+                                                    disabled={syncingBackup || syncingMonthlyBackup}
+                                                    style={{ minWidth: '180px', height: '46px', borderRadius: '12px', background: 'var(--accent-500, #10B981)' }}
+                                                >
+                                                    {syncingMonthlyBackup ? 'Syncing...' : 'Sync Monthly Backup'}
                                                 </Button>
 
                                                 <Button

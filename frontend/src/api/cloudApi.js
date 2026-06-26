@@ -89,6 +89,14 @@ export const cloudSyncAPI = {
     const { data } = await cloudApi.post('/backup/sync', backupPayload);
     return data;
   },
+
+  /**
+   * Sync monthly aggregated sales/expense backup to the cloud backend
+   */
+  syncMonthlyBackup: async (backupPayload) => {
+    const { data } = await cloudApi.post('/backup/sync-monthly', backupPayload);
+    return data;
+  },
 };
 
 // 5. Direct Supabase PostgREST Licensing queries

@@ -74,3 +74,33 @@ def test_top_products_endpoint(client, init_database):
     data = json.loads(response.data)
     assert data["success"] is True
     assert isinstance(data.get("products", []), list)
+
+
+def test_range_summary_weekly(client, init_database):
+    """GET /api/summary/range?range=week should return a weekly range summary."""
+    today = date.today().strftime("%Y-%m-%d")
+    response = client.get(f"/api/summary/range?range=week&date={today}")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["success"] is True
+    summary = data["summary"]
+    assert summary["range"] == "week"
+    assert "start_date" in summary
+    assert "end_date" in summary
+    assert "total_sales" in summary
+    assert "products" in summary
+
+
+def test_range_summary_monthly(client, init_database):
+    """GET /api/summary/range?range=month should return a monthly range summary."""
+    today = date.today().strftime("%Y-%m-%d")
+    response = client.get(f"/api/summary/range?range=month&date={today}")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["success"] is True
+    summary = data["summary"]
+    assert summary["range"] == "month"
+    assert "start_date" in summary
+    assert "end_date" in summary
+    assert "total_sales" in summary
+    assert "products" in summary

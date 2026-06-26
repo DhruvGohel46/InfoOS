@@ -160,6 +160,9 @@ export const summaryAPI = {
 
   // Get quick stats
   getQuickStats: () => api.get('/api/summary/quick-stats'),
+
+  // Get range-based summary (Week/Month/Year)
+  getRangeSummary: (range, date) => api.get('/api/summary/range', { params: { range, date } }),
 };
 
 // Reports APIs
