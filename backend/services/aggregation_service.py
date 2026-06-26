@@ -112,18 +112,21 @@ def _compute_top_products(target_date) -> str:
         for bill in bills:
             items = json.loads(bill.items) if isinstance(bill.items, str) else bill.items
             for item in items:
-                pid = item.get("product_id", "unknown")
+                from utils.product_variations import sales_line_key
+
+                line_key = sales_line_key(item)
                 name = item.get("name", "Unknown")
                 qty = item.get("quantity", 0)
                 price = item.get("price", 0)
                 revenue = qty * price
 
-                if pid in product_sales:
-                    product_sales[pid]["quantity"] += qty
-                    product_sales[pid]["revenue"] += revenue
+                if line_key in product_sales:
+                    product_sales[line_key]["quantity"] += qty
+                    product_sales[line_key]["revenue"] += revenue
                 else:
-                    product_sales[pid] = {
-                        "product_id": pid,
+                    product_sales[line_key] = {
+                        "product_id": item.get("product_id", "unknown"),
+                        "variation_id": item.get("variation_id"),
                         "name": name,
                         "quantity": qty,
                         "revenue": revenue,

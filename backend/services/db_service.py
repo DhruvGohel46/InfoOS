@@ -4,6 +4,7 @@ from typing import List, Dict, Optional, Any
 from sqlalchemy import func, or_
 from models import db, Product, Bill, Category, Settings, Inventory, AuditEvent, ItemGroup
 from config import config
+from utils.product_variations import enrich_product_dict, normalize_variations, serialize_variations
 
 
 class DatabaseService:
@@ -49,6 +50,29 @@ class DatabaseService:
     # PRODUCT MANAGEMENT
     # ---------------------------------------------------------
 
+    def _product_to_dict(
+        self, p: Product, extra: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        p_dict = {
+            "product_id": p.product_id,
+            "name": p.name,
+            "price": p.price,
+            "category_id": p.category_id,
+            "category": p.category,
+            "category_name": p.category_rel.name if p.category_rel else None,
+            "image_filename": p.image_filename,
+            "active": p.active,
+            "favorite": p.favorite,
+            "variations": normalize_variations(getattr(p, "variations", None)),
+            "created_at": str(p.created_at),
+            "updated_at": str(p.updated_at),
+        }
+        if extra:
+            p_dict.update(extra)
+        if not p_dict.get("category") and p_dict.get("category_name"):
+            p_dict["category"] = p_dict["category_name"]
+        return enrich_product_dict(p_dict)
+
     def get_all_products(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """Get all products with category info"""
         query = Product.query
@@ -60,23 +84,7 @@ class DatabaseService:
 
         result = []
         for p in products:
-            p_dict = {
-                "product_id": p.product_id,
-                "name": p.name,
-                "price": p.price,
-                "category_id": p.category_id,
-                "category": p.category,  # Legacy field
-                "category_name": p.category_rel.name if p.category_rel else None,
-                "image_filename": p.image_filename,
-                "active": p.active,
-                "favorite": p.favorite,
-                "created_at": str(p.created_at),
-                "updated_at": str(p.updated_at),
-            }
-            # Maintain legacy behavior
-            if not p_dict.get("category") and p_dict.get("category_name"):
-                p_dict["category"] = p_dict["category_name"]
-            result.append(p_dict)
+            result.append(self._product_to_dict(p))
 
         return result
 
@@ -94,34 +102,20 @@ class DatabaseService:
 
         products = []
         for p, inv in results:
-            p_dict = {
-                "product_id": p.product_id,
-                "name": p.name,
-                "price": p.price,
-                "category_id": p.category_id,
-                "category": p.category,
-                "category_name": p.category_rel.name if p.category_rel else None,
-                "image_filename": p.image_filename,
-                "active": p.active,
-                "favorite": p.favorite,
-                "stock": inv.stock if inv else 0,  # Default 0 if not linked
-                "stock_status": "In Stock",  # Default
+            extra = {
+                "stock": inv.stock if inv else 0,
+                "stock_status": "In Stock",
             }
 
             if inv:
                 if inv.stock <= 0:
-                    p_dict["stock_status"] = "Out of Stock"
+                    extra["stock_status"] = "Out of Stock"
                 elif inv.stock <= inv.alert_threshold:
-                    p_dict["stock_status"] = "Low Stock"
+                    extra["stock_status"] = "Low Stock"
             else:
-                # If no inventory record, maybe assume infinite or 0?
-                # Let's say "N/A" or handled by Frontend
-                p_dict["stock_status"] = "N/A"
+                extra["stock_status"] = "N/A"
 
-            if not p_dict.get("category") and p_dict.get("category_name"):
-                p_dict["category"] = p_dict["category_name"]
-
-            products.append(p_dict)
+            products.append(self._product_to_dict(p, extra))
         return products
 
     def get_product(self, product_id: str) -> Optional[Dict[str, Any]]:
@@ -130,22 +124,7 @@ class DatabaseService:
         if not p:
             return None
 
-        p_dict = {
-            "product_id": p.product_id,
-            "name": p.name,
-            "price": p.price,
-            "category_id": p.category_id,
-            "category": p.category,
-            "category_name": p.category_rel.name if p.category_rel else None,
-            "image_filename": p.image_filename,
-            "active": p.active,
-            "favorite": p.favorite,
-            "created_at": str(p.created_at),
-            "updated_at": str(p.updated_at),
-        }
-        if not p_dict.get("category") and p_dict.get("category_name"):
-            p_dict["category"] = p_dict["category_name"]
-        return p_dict
+        return self._product_to_dict(p)
 
     def create_product(self, product_data: Dict[str, Any]) -> bool:
         """Create a new product"""
@@ -161,6 +140,7 @@ class DatabaseService:
                 category=product_data.get("category"),
                 image_filename=product_data.get("image_filename"),
                 active=bool(product_data.get("active", True)),
+                variations=serialize_variations(product_data.get("variations", [])),
             )
             db.session.add(new_product)
             db.session.commit()
@@ -191,6 +171,8 @@ class DatabaseService:
                 p.active = bool(product_data["active"])
             if "favorite" in product_data:
                 p.favorite = bool(product_data["favorite"])
+            if "variations" in product_data:
+                p.variations = serialize_variations(product_data["variations"])
 
             p.updated_at = datetime.now()
             db.session.commit()

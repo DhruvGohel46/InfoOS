@@ -51,11 +51,13 @@ class Product(db.Model):
     product_id = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    takeaway_price = db.Column(db.Float, nullable=True)  # Optional takeaway price
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"))
     category = db.Column(db.String(255))  # Legacy field support
     image_filename = db.Column(db.String(255))
     active = db.Column(db.Boolean, default=True)
     favorite = db.Column(db.Boolean, default=False)
+    variations = db.Column(db.Text, default="[]")  # JSON array of {id, name, price}
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 

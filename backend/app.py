@@ -286,6 +286,19 @@ def run_programmatic_sqlite_migrations(app, db):
                 if "table_no" not in bills_cols:
                     _log.info("Migrating SQLite: Adding table_no column to bills table")
                     conn.execute(text("ALTER TABLE bills ADD COLUMN table_no TEXT"))
+
+                # 4. Add variations to products
+                res = conn.execute(text("PRAGMA table_info(products)"))
+                product_cols = [row[1] for row in res.fetchall()]
+                if "variations" not in product_cols:
+                    _log.info("Migrating SQLite: Adding variations column to products table")
+                    conn.execute(
+                        text("ALTER TABLE products ADD COLUMN variations TEXT DEFAULT '[]'")
+                    )
+                # 5. Add takeaway_price to products
+                if "takeaway_price" not in product_cols:
+                    _log.info("Migrating SQLite: Adding takeaway_price column to products table")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN takeaway_price FLOAT"))
             _log.info("Programmatic SQLite migrations completed successfully")
     except Exception as e:
         _log.error("Error during programmatic SQLite migrations: %s", e)

@@ -5,6 +5,7 @@ from services.printer_service import PrinterService
 from config import config
 from error_handler import safe_route, ValidationError, NotFoundError
 from validators import BillCreateSchema, BillUpdateSchema, MarshmallowValidationError
+from utils.product_variations import resolve_bill_line_item
 import cache as local_cache
 from caching import cache
 import logging
@@ -22,6 +23,36 @@ printer_service = PrinterService()
 # Reusable schema instances
 _bill_create_schema = BillCreateSchema()
 _bill_update_schema = BillUpdateSchema()
+
+
+def _validate_bill_products(products: list) -> tuple[list, float]:
+    """Validate bill line items and resolve variation pricing."""
+    validated_products = []
+    total = 0.0
+
+    for product_data in products:
+        product_id = product_data["product_id"]
+        product_found = db.get_product(product_id)
+
+        if not product_found:
+            raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
+
+        if not product_found.get("active", False):
+            raise ValidationError(
+                f'Product "{product_found.get("name", product_id)}" is inactive and cannot be billed',
+                code="PRODUCT_INACTIVE",
+            )
+
+        try:
+            line_item = resolve_bill_line_item(product_found, product_data)
+        except ValueError as exc:
+            raise ValidationError(str(exc), code="VARIATION_REQUIRED")
+
+        line_total = line_item["price"] * line_item["quantity"]
+        validated_products.append(line_item)
+        total += line_total
+
+    return validated_products, total
 
 
 def _build_printer_payload(bill: dict) -> dict:
@@ -63,37 +94,7 @@ def create_bill():
 
     products = validated["products"]
 
-    # Validate each product against the database
-    validated_products = []
-    total = 0.0
-
-    for product_data in products:
-        product_id = product_data["product_id"]
-        quantity = int(product_data["quantity"])
-
-        # Get product details from database
-        product_found = db.get_product(product_id)
-
-        if not product_found:
-            raise NotFoundError(f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND")
-
-        if not product_found.get("active", False):
-            raise ValidationError(
-                f'Product "{product_found.get("name", product_id)}" is inactive and cannot be billed',
-                code="PRODUCT_INACTIVE",
-            )
-
-        # Add to validated products
-        line_total = product_found["price"] * quantity
-        validated_products.append(
-            {
-                "product_id": product_id,
-                "name": product_found["name"],
-                "price": product_found["price"],
-                "quantity": quantity,
-            }
-        )
-        total += line_total
+    validated_products, total = _validate_bill_products(products)
 
     # Create bill in database (ACID — db_service handles transaction)
     bill_data = {
@@ -322,36 +323,11 @@ def update_bill(bill_no):
         )
 
     products = validated.get("products", [])
-    total = 0.0
     validated_products = []
+    total = 0.0
 
     if products:
-        for product_data in products:
-            product_id = product_data["product_id"]
-            quantity = int(product_data["quantity"])
-
-            product_found = db.get_product(product_id)
-            if not product_found:
-                raise NotFoundError(
-                    f"Product with ID {product_id} not found", code="PRODUCT_NOT_FOUND"
-                )
-
-            if not product_found.get("active", False):
-                raise ValidationError(
-                    f'Product "{product_found.get("name", product_id)}" is inactive and cannot be billed',
-                    code="PRODUCT_INACTIVE",
-                )
-
-            line_total = product_found["price"] * quantity
-            validated_products.append(
-                {
-                    "product_id": product_id,
-                    "name": product_found["name"],
-                    "price": product_found["price"],
-                    "quantity": quantity,
-                }
-            )
-            total += line_total
+        validated_products, total = _validate_bill_products(products)
 
     bill_update_data = {
         "customer_name": validated.get("customer_name", ""),

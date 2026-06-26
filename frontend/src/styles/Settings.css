@@ -13,11 +13,13 @@
     z-index: 100;
     background: color-mix(in srgb, var(--bg-primary) 80%, transparent);
     backdrop-filter: blur(20px);
-    padding: 12px 0;
+    padding: 16px 0;
     margin-bottom: 24px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    width: 100%;
 }
 
 .stHeader {
@@ -36,50 +38,50 @@
     color: var(--text-primary);
 }
 
-/* Tabs - Human Crafted Premium Navigation */
+/* Tabs - Segmented Pill Navigation */
 .stTabs {
     display: flex;
     justify-content: flex-start;
-    padding: 4px;
-    background: var(--surface-secondary);
-    border: 1px solid var(--border-primary);
-    width: fit-content;
+    padding: 0;
+    background: transparent;
+    border: none;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
     z-index: 90;
-    border-radius: 14px;
-    box-shadow:
-        0 4px 20px -5px rgba(0, 0, 0, 0.1),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: none;
 }
 
-[data-theme="dark"] .stTabs {
-    background: rgba(30, 32, 40, 0.6);
-}
-
-[data-theme="light"] .stTabs {
-    background: rgba(245, 247, 250, 0.8);
+.stTabs::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
 }
 
 .stTabList {
     display: flex;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 8px;
     position: relative;
     padding: 0;
 }
 
 .stTabButton {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: calc(10px * var(--display-zoom));
-    padding: calc(10px * var(--display-zoom)) calc(18px * var(--display-zoom));
-    border: none;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 20px;
+    border: 1px solid transparent;
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--font-md);
     font-weight: var(--weight-medium);
     cursor: pointer;
-    border-radius: 999px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 16px;
+    transition: all 0.2s ease-in-out;
     white-space: nowrap;
     z-index: 2;
 }
@@ -89,36 +91,22 @@
 }
 
 .stTabActive {
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 [data-theme="light"] .stTabActive {
-    color: #ffffff !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
 .stTabIcon {
     opacity: 0.7;
-    transition: transform 0.2s ease;
-}
-
-.stTabButton:hover .stTabIcon {
-    opacity: 1;
-    transform: scale(1.1);
 }
 
 .stTabLabel {
     letter-spacing: -0.01em;
-}
-
-.stTabIndicator {
-    position: absolute;
-    inset: 4px; /* Balanced breathing room within the button area */
-    background-image: var(--primary-gradient);
-    border-radius: 999px;
-    z-index: -1;
-    box-shadow:
-        0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Sections */

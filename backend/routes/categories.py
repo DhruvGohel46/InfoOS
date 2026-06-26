@@ -61,6 +61,7 @@ def create_category():
             "name": name,
             "description": validated.get("description", ""),
             "active": validated.get("active", True),
+            "group_id": validated.get("group_id"),
         }
     )
 

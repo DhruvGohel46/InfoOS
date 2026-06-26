@@ -49,6 +49,31 @@ export const cloudAuthAPI = {
    * Log in via Supabase Auth REST API
    */
   login: async (email, password) => {
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      console.log('Using dummy Supabase URL. Bypassing login with mock token.');
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+      const expTime = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // 1 year expiry
+      const payload = btoa(JSON.stringify({
+        sub: "dev-user-id-placeholder",
+        email: email,
+        exp: expTime,
+        role: "authenticated"
+      }));
+      const mockToken = `${header}.${payload}.mocksignature`;
+
+      return {
+        success: true,
+        data: {
+          access_token: mockToken,
+          user: {
+            id: "dev-user-id-placeholder",
+            email: email,
+            email_confirmed_at: new Date().toISOString()
+          }
+        }
+      };
+    }
+
     try {
       const response = await supabaseApi.post('/auth/v1/token?grant_type=password', {
         email,
@@ -102,6 +127,18 @@ export const cloudSyncAPI = {
 // 5. Direct Supabase PostgREST Licensing queries
 export const cloudLicenseAPI = {
   getSubscription: async (userId, token) => {
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      console.log('Using dummy Supabase URL. Bypassing subscription check.');
+      return {
+        id: "dev-subscription-id",
+        user_id: userId,
+        status: "active",
+        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        device_fingerprint: null,
+        device_name: null
+      };
+    }
+
     try {
       const response = await axios.get(`${SUPABASE_URL}/rest/v1/subscriptions`, {
         params: {
@@ -122,6 +159,18 @@ export const cloudLicenseAPI = {
   },
 
   registerDevice: async (userId, token, fingerprint, deviceName) => {
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      console.log('Using dummy Supabase URL. Bypassing device registration.');
+      return {
+        id: "dev-subscription-id",
+        user_id: userId,
+        status: "active",
+        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        device_fingerprint: fingerprint,
+        device_name: deviceName
+      };
+    }
+
     try {
       const response = await axios.patch(`${SUPABASE_URL}/rest/v1/subscriptions`, 
         {

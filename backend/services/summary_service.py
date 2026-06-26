@@ -254,15 +254,17 @@ class SummaryService:
             for bill in bills:
                 items = bill.get("items", [])
                 for product in items:
-                    product_id = product["product_id"]
+                    from utils.product_variations import sales_line_key
+
+                    line_key = sales_line_key(product)
                     quantity = product["quantity"]
                     total = product["price"] * quantity
 
-                    if product_id in product_sales:
-                        product_sales[product_id]["quantity"] += quantity
-                        product_sales[product_id]["total"] += total
+                    if line_key in product_sales:
+                        product_sales[line_key]["quantity"] += quantity
+                        product_sales[line_key]["total"] += total
                     else:
-                        product_sales[product_id] = {
+                        product_sales[line_key] = {
                             "name": product["name"],
                             "quantity": quantity,
                             "total": total,
@@ -274,10 +276,10 @@ class SummaryService:
             )
 
             result = []
-            for product_id, data in sorted_products[:limit]:
+            for line_key, data in sorted_products[:limit]:
                 result.append(
                     {
-                        "product_id": product_id,
+                        "product_id": line_key,
                         "name": data["name"],
                         "quantity_sold": data["quantity"],
                         "total_sales": data["total"],
@@ -320,23 +322,27 @@ class SummaryService:
                 )
 
                 for item in items:
-                    product_id = item["product_id"]
+                    from utils.product_variations import sales_line_key
 
-                    if product_id not in product_sales:
+                    product_id = item["product_id"]
+                    line_key = sales_line_key(item)
+
+                    if line_key not in product_sales:
                         # Get category from map or fallback to unknown
                         product_info = product_map.get(product_id)
                         category = self._normalize_category(product_info)
 
-                        product_sales[product_id] = {
+                        product_sales[line_key] = {
                             "product_id": product_id,
+                            "variation_id": item.get("variation_id"),
                             "name": item["name"],
                             "category": category,
                             "total_quantity": 0,
                             "total_revenue": 0.0,
                         }
 
-                    product_sales[product_id]["total_quantity"] += item["quantity"]
-                    product_sales[product_id]["total_revenue"] += item["price"] * item["quantity"]
+                    product_sales[line_key]["total_quantity"] += item["quantity"]
+                    product_sales[line_key]["total_revenue"] += item["price"] * item["quantity"]
 
             # Convert to list and sort by total revenue (descending)
             sorted_products = sorted(

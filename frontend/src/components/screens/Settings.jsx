@@ -576,8 +576,7 @@ const Settings = () => {
         { id: 'app', label: 'App Preferences', icon: IoAppsOutline },
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
-        { id: 'cloud', label: 'Cloud Sync & License', icon: IoCloudUploadOutline },
-        { id: 'about', label: 'About InfoOS', icon: IoInformationCircleOutline }
+        { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline }
     ];
 
     if (loading) {
@@ -603,14 +602,6 @@ const Settings = () => {
                                 >
                                     <tab.icon size={20} className="stTabIcon" />
                                     <span className="stTabLabel">{tab.label}</span>
-
-                                    {activeTab === tab.id && (
-                                        <motion.div
-                                            layoutId="stTabIndicator"
-                                            className="stTabIndicator"
-                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                        />
-                                    )}
                                 </button>
                             ))}
                         </div>
@@ -1327,384 +1318,384 @@ const Settings = () => {
                         )}
 
                         {activeTab === 'cloud' && (
-                            <div className="stSecurityGrid" style={{
-                                display: 'grid',
-                                gridTemplateColumns: '320px 1fr',
-                                gap: '32px',
-                                padding: '24px 0'
-                            }}>
-                                {/* Left side - Status & Summary */}
-                                <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                <div className="stSecurityGrid" style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '320px 1fr',
+                                    gap: '32px',
+                                    padding: '24px 0'
+                                }}>
+                                    {/* Left side - Status & Summary */}
+                                    <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div style={{
+                                            background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active'
+                                                ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
+                                                : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
+                                            border: `1px solid ${cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-200)' : 'var(--border-secondary)'}`,
+                                            borderRadius: '24px',
+                                            padding: '24px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            textAlign: 'center',
+                                            gap: '16px',
+                                            boxShadow: 'var(--shadow-card)'
+                                        }}>
+                                            <div style={{
+                                                width: '64px',
+                                                height: '64px',
+                                                borderRadius: '20px',
+                                                background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--primary-500)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                boxShadow: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
+                                                fontSize: '32px'
+                                            }}>
+                                                <IoCloudUploadOutline />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                    {cloudStatus.loggedIn ? 'Cloud Connected' : 'Offline Engine'}
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                    {cloudStatus.loggedIn 
+                                                        ? `Authenticated as ${cloudStatus.email}` 
+                                                        : 'Sync backups & fetch product catalog feeds from the cloud.'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {cloudStatus.loggedIn && (
+                                            <div style={{
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: '20px',
+                                                padding: '20px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '12px',
+                                                border: '1px solid var(--border-secondary)'
+                                            }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <IoInformationCircleOutline size={18} />
+                                                    Cloud Settings Details
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                    License Status: <strong style={{ color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--error-500)' }}>{cloudStatus.subscriptionStatus.toUpperCase()}</strong>
+                                                </div>
+                                                {cloudStatus.expiry && (
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                        Valid Until: <strong>{cloudStatus.expiry}</strong>
+                                                    </div>
+                                                )}
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                    Network Role: <strong>{cloudStatus.role.toUpperCase()}</strong>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right side - Controls */}
+                                    <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        {!cloudStatus.loggedIn ? (
+                                            <form onSubmit={handleCloudLogin} style={{
+                                                background: 'var(--surface-primary)',
+                                                border: '1px solid var(--glass-border)',
+                                                borderRadius: '24px',
+                                                padding: '32px',
+                                                boxShadow: 'var(--shadow-sm)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '20px'
+                                            }}>
+                                                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                    Log In to SaaS Cloud Portal
+                                                </div>
+                                                
+                                                <div className="stInputGroup">
+                                                    <label className="stInputLabel">Email Address</label>
+                                                    <input
+                                                        type="email"
+                                                        className="stInput"
+                                                        placeholder="your@restaurant.com"
+                                                        value={cloudEmail}
+                                                        onChange={e => setCloudEmail(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div className="stInputGroup">
+                                                    <label className="stInputLabel">Password</label>
+                                                    <input
+                                                        type="password"
+                                                        className="stInput"
+                                                        placeholder="••••••••"
+                                                        value={cloudPassword}
+                                                        onChange={e => setCloudPassword(e.target.value)}
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                                                    <Button
+                                                        type="submit"
+                                                        variant="primary"
+                                                        loading={cloudLoading}
+                                                        disabled={cloudLoading}
+                                                        style={{ height: '46px', borderRadius: '12px' }}
+                                                    >
+                                                        Connect Cloud Account
+                                                    </Button>
+                                                    
+                                                    <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                        Don't have an account?{' '}
+                                                        <a 
+                                                            href="https://infoos-web.vercel.app/auth?tab=signup" 
+                                                            style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                        >
+                                                            Create Account on Web
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <div style={{
+                                                background: 'var(--surface-primary)',
+                                                border: '1px solid var(--glass-border)',
+                                                borderRadius: '24px',
+                                                padding: '32px',
+                                                boxShadow: 'var(--shadow-sm)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '24px'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                        License & Synchronization Controls
+                                                    </div>
+                                                    <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                        Upload aggregates of this week's or month's sales and expense totals.
+                                                    </p>
+                                                </div>
+
+                                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                                    <Button
+                                                        variant="primary"
+                                                        onClick={handleManualSync}
+                                                        loading={syncingBackup}
+                                                        disabled={syncingBackup || syncingMonthlyBackup}
+                                                        style={{ minWidth: '180px', height: '46px', borderRadius: '12px' }}
+                                                    >
+                                                        {syncingBackup ? 'Syncing...' : 'Sync Weekly Backup'}
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="primary"
+                                                        onClick={handleMonthlySync}
+                                                        loading={syncingMonthlyBackup}
+                                                        disabled={syncingBackup || syncingMonthlyBackup}
+                                                        style={{ minWidth: '180px', height: '46px', borderRadius: '12px', background: 'var(--accent-500, #10B981)' }}
+                                                    >
+                                                        {syncingMonthlyBackup ? 'Syncing...' : 'Sync Monthly Backup'}
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={handleCloudLogout}
+                                                        style={{ 
+                                                            minWidth: '120px', 
+                                                            height: '46px', 
+                                                            borderRadius: '12px',
+                                                            borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
+                                                            color: 'var(--error-500)',
+                                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
+                                                        }}
+                                                    >
+                                                        Disconnect
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <hr style={{ border: '0', borderTop: '1px solid var(--border-secondary)', margin: '16px 0' }} />
+
+                                <div className="stAboutSection" style={{
+                                    padding: '12px 0',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '32px'
+                                }}>
+                                    {/* Top Banner info */}
                                     <div style={{
-                                        background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active'
-                                            ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
-                                            : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
-                                        border: `1px solid ${cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-200)' : 'var(--border-secondary)'}`,
-                                        borderRadius: '24px',
-                                        padding: '24px',
                                         display: 'flex',
-                                        flexDirection: 'column',
                                         alignItems: 'center',
-                                        textAlign: 'center',
-                                        gap: '16px',
-                                        boxShadow: 'var(--shadow-card)'
+                                        gap: '24px',
+                                        padding: '32px',
+                                        background: 'linear-gradient(135deg, rgba(255, 184, 105, 0.08) 0%, rgba(255, 140, 66, 0.08) 100%)',
+                                        border: '1px solid rgba(255, 151, 54, 0.15)',
+                                        borderRadius: '24px'
                                     }}>
                                         <div style={{
                                             width: '64px',
                                             height: '64px',
                                             borderRadius: '20px',
-                                            background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--primary-500)',
+                                            backgroundColor: '#FF8C42',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: 'white',
-                                            boxShadow: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
-                                            fontSize: '32px'
+                                            color: '#FFFFFF',
+                                            fontSize: '32px',
+                                            fontWeight: 800,
+                                            boxShadow: '0 8px 24px rgba(255, 140, 66, 0.25)'
                                         }}>
-                                            <IoCloudUploadOutline />
+                                            iO
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                                {cloudStatus.loggedIn ? 'Cloud Connected' : 'Offline Engine'}
-                                            </div>
-                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                {cloudStatus.loggedIn 
-                                                    ? `Authenticated as ${cloudStatus.email}` 
-                                                    : 'Sync backups & fetch product catalog feeds from the cloud.'}
-                                            </div>
+                                            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>InfoOS Desktop</h3>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                                Production-grade Point of Sale (POS) & retail optimization client.
+                                            </p>
                                         </div>
                                     </div>
-                                    
-                                    {cloudStatus.loggedIn && (
+
+                                    {/* Versions info grid */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                        gap: '20px'
+                                    }}>
+                                        {/* App Version */}
                                         <div style={{
-                                            background: 'var(--bg-secondary)',
-                                            borderRadius: '20px',
                                             padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '12px',
-                                            border: '1px solid var(--border-secondary)'
+                                            gap: '6px'
                                         }}>
-                                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <IoInformationCircleOutline size={18} />
-                                                Cloud Settings Details
-                                            </div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                License Status: <strong style={{ color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--error-500)' }}>{cloudStatus.subscriptionStatus.toUpperCase()}</strong>
-                                            </div>
-                                            {cloudStatus.expiry && (
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                    Valid Until: <strong>{cloudStatus.expiry}</strong>
-                                                </div>
-                                            )}
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                Network Role: <strong>{cloudStatus.role.toUpperCase()}</strong>
-                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Version</span>
+                                            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.appVersion}</span>
                                         </div>
-                                    )}
-                                </div>
 
-                                {/* Right side - Controls */}
-                                <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    {!cloudStatus.loggedIn ? (
-                                        <form onSubmit={handleCloudLogin} style={{
-                                            background: 'var(--surface-primary)',
-                                            border: '1px solid var(--glass-border)',
-                                            borderRadius: '24px',
-                                            padding: '32px',
-                                            boxShadow: 'var(--shadow-sm)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '20px'
-                                        }}>
-                                            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                Log In to SaaS Cloud Portal
-                                            </div>
-                                            
-                                            <div className="stInputGroup">
-                                                <label className="stInputLabel">Email Address</label>
-                                                <input
-                                                    type="email"
-                                                    className="stInput"
-                                                    placeholder="your@restaurant.com"
-                                                    value={cloudEmail}
-                                                    onChange={e => setCloudEmail(e.target.value)}
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div className="stInputGroup">
-                                                <label className="stInputLabel">Password</label>
-                                                <input
-                                                    type="password"
-                                                    className="stInput"
-                                                    placeholder="••••••••"
-                                                    value={cloudPassword}
-                                                    onChange={e => setCloudPassword(e.target.value)}
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
-                                                <Button
-                                                    type="submit"
-                                                    variant="primary"
-                                                    loading={cloudLoading}
-                                                    disabled={cloudLoading}
-                                                    style={{ height: '46px', borderRadius: '12px' }}
-                                                >
-                                                    Connect Cloud Account
-                                                </Button>
-                                                
-                                                <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                    Don't have an account?{' '}
-                                                    <a 
-                                                        href="https://infoos-web.vercel.app/auth?tab=signup" 
-                                                        style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}
-                                                    >
-                                                        Create Account on Web
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    ) : (
+                                        {/* Backend version */}
                                         <div style={{
-                                            background: 'var(--surface-primary)',
-                                            border: '1px solid var(--glass-border)',
-                                            borderRadius: '24px',
-                                            padding: '32px',
-                                            boxShadow: 'var(--shadow-sm)',
+                                            padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '24px'
+                                            gap: '6px'
                                         }}>
-                                            <div>
-                                                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                    License & Synchronization Controls
-                                                </div>
-                                                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                    Upload aggregates of this week's or month's sales and expense totals.
-                                                </p>
-                                            </div>
-
-                                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                                <Button
-                                                    variant="primary"
-                                                    onClick={handleManualSync}
-                                                    loading={syncingBackup}
-                                                    disabled={syncingBackup || syncingMonthlyBackup}
-                                                    style={{ minWidth: '180px', height: '46px', borderRadius: '12px' }}
-                                                >
-                                                    {syncingBackup ? 'Syncing...' : 'Sync Weekly Backup'}
-                                                </Button>
-
-                                                <Button
-                                                    variant="primary"
-                                                    onClick={handleMonthlySync}
-                                                    loading={syncingMonthlyBackup}
-                                                    disabled={syncingBackup || syncingMonthlyBackup}
-                                                    style={{ minWidth: '180px', height: '46px', borderRadius: '12px', background: 'var(--accent-500, #10B981)' }}
-                                                >
-                                                    {syncingMonthlyBackup ? 'Syncing...' : 'Sync Monthly Backup'}
-                                                </Button>
-
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={handleCloudLogout}
-                                                    style={{ 
-                                                        minWidth: '120px', 
-                                                        height: '46px', 
-                                                        borderRadius: '12px',
-                                                        borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
-                                                        color: 'var(--error-500)',
-                                                        background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
-                                                    }}
-                                                >
-                                                    Disconnect
-                                                </Button>
-                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend version</span>
+                                            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</span>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
-                        {activeTab === 'about' && (
-                            <div className="stAboutSection" style={{
-                                padding: '24px 0',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '32px'
-                            }}>
-                                {/* Top Banner info */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '24px',
-                                    padding: '32px',
-                                    background: 'linear-gradient(135deg, rgba(255, 184, 105, 0.08) 0%, rgba(255, 140, 66, 0.08) 100%)',
-                                    border: '1px solid rgba(255, 151, 54, 0.15)',
-                                    borderRadius: '24px'
-                                }}>
+                                        {/* Database schema revision */}
+                                        <div style={{
+                                            padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px'
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database Schema Version</span>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</span>
+                                        </div>
+
+                                        {/* Update Status */}
+                                        <div style={{
+                                            padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px'
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</span>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: getStatusColor(systemInfo.updateStatus) }}>
+                                                {formatStatusText(systemInfo.updateStatus)}
+                                            </span>
+                                        </div>
+
+                                        {/* Last Check */}
+                                        <div style={{
+                                            padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px'
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</span>
+                                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                {systemInfo.lastChecked ? new Date(systemInfo.lastChecked).toLocaleString() : 'Never'}
+                                            </span>
+                                        </div>
+
+                                        {/* Latest version */}
+                                        <div style={{
+                                            padding: '20px',
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px'
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest Available Version</span>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                {systemInfo.latestVersion && systemInfo.latestVersion !== 'unknown' ? `v${systemInfo.latestVersion}` : 'No updates found'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Controls */}
                                     <div style={{
-                                        width: '64px',
-                                        height: '64px',
+                                        display: 'flex',
+                                        gap: '16px',
+                                        padding: '24px',
+                                        background: 'rgba(255, 255, 255, 0.01)',
+                                        border: '1px solid var(--border-secondary)',
                                         borderRadius: '20px',
-                                        backgroundColor: '#FF8C42',
-                                        display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#FFFFFF',
-                                        fontSize: '32px',
-                                        fontWeight: 800,
-                                        boxShadow: '0 8px 24px rgba(255, 140, 66, 0.25)'
+                                        justifyContent: 'space-between'
                                     }}>
-                                        iO
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Check for new updates</span>
+                                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)' }}>Query the official InfoOS release repository for software updates.</p>
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleManualCheckForUpdates}
+                                            loading={checkingForUpdates}
+                                            style={{ minWidth: '150px', borderRadius: '12px' }}
+                                        >
+                                            Check Now
+                                        </Button>
                                     </div>
-                                    <div>
-                                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>InfoOS Desktop</h3>
-                                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                            Production-grade Point of Sale (POS) & retail optimization client.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Versions info grid */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                                    gap: '20px'
-                                }}>
-                                    {/* App Version */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Version</span>
-                                        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.appVersion}</span>
-                                    </div>
-
-                                    {/* Backend version */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend version</span>
-                                        <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</span>
-                                    </div>
-
-                                    {/* Database schema revision */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database Schema Version</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</span>
-                                    </div>
-
-                                    {/* Update Status */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: getStatusColor(systemInfo.updateStatus) }}>
-                                            {formatStatusText(systemInfo.updateStatus)}
-                                        </span>
-                                    </div>
-
-                                    {/* Last Check */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                            {systemInfo.lastChecked ? new Date(systemInfo.lastChecked).toLocaleString() : 'Never'}
-                                        </span>
-                                    </div>
-
-                                    {/* Latest version */}
-                                    <div style={{
-                                        padding: '20px',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px'
-                                    }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest Available Version</span>
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                            {systemInfo.latestVersion && systemInfo.latestVersion !== 'unknown' ? `v${systemInfo.latestVersion}` : 'No updates found'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Controls */}
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '16px',
-                                    padding: '24px',
-                                    background: 'rgba(255, 255, 255, 0.01)',
-                                    border: '1px solid var(--border-secondary)',
-                                    borderRadius: '20px',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between'
-                                }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Check for new updates</span>
-                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)' }}>Query the official InfoOS release repository for software updates.</p>
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={handleManualCheckForUpdates}
-                                        loading={checkingForUpdates}
-                                        style={{ minWidth: '150px', borderRadius: '12px' }}
-                                    >
-                                        Check Now
-                                    </Button>
                                 </div>
                             </div>
                         )}
 
-                        {activeTab !== 'about' && (
-                            <div className="stActions">
-                                <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
-                                <Button
-                                    variant="primary"
-                                    onClick={handleSave}
-                                    loading={saving}
-                                >
-                                    {saving ? 'Saving...' : 'Save Settings'}
-                                </Button>
-                            </div>
-                        )}
+                        <div className="stActions">
+                            <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
+                            <Button
+                                variant="primary"
+                                onClick={handleSave}
+                                loading={saving}
+                            >
+                                {saving ? 'Saving...' : 'Save Settings'}
+                            </Button>
+                        </div>
                     </motion.div>
                 </Card>
             </div>

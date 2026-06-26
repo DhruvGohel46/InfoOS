@@ -4,6 +4,7 @@ from typing import List, Dict, Optional, Any
 import json
 
 from config import config
+from utils.product_variations import enrich_product_dict, normalize_variations, serialize_variations
 
 
 class SQLiteDatabaseService:
@@ -96,6 +97,13 @@ class SQLiteDatabaseService:
                     cursor.execute("ALTER TABLE products ADD COLUMN image_filename TEXT")
                 except Exception as e:
                     print(f"Migration error (image_filename): {e}")
+
+            if "variations" not in prod_columns:
+                print("Migrating products: Adding variations column")
+                try:
+                    cursor.execute("ALTER TABLE products ADD COLUMN variations TEXT DEFAULT '[]'")
+                except Exception as e:
+                    print(f"Migration error (variations): {e}")
 
             # Create bills table
             cursor.execute("""
@@ -245,10 +253,9 @@ class SQLiteDatabaseService:
             for row in cursor.fetchall():
                 product = dict(row)
                 product["active"] = bool(product["active"])
-                # Map category for frontend backward compatibility
                 if not product.get("category") and product.get("category_name"):
                     product["category"] = product["category_name"]
-                products.append(product)
+                products.append(enrich_product_dict(product))
 
             return products
 
@@ -272,7 +279,7 @@ class SQLiteDatabaseService:
                 product["active"] = bool(product["active"])
                 if not product.get("category") and product.get("category_name"):
                     product["category"] = product["category_name"]
-                return product
+                return enrich_product_dict(product)
             return None
 
     def create_product(self, product_data: Dict[str, Any]) -> bool:
@@ -282,8 +289,8 @@ class SQLiteDatabaseService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO products (product_id, name, price, category_id, category, image_filename, active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO products (product_id, name, price, category_id, category, image_filename, active, variations)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         product_data["product_id"],
@@ -293,6 +300,7 @@ class SQLiteDatabaseService:
                         product_data.get("category"),
                         product_data.get("image_filename"),
                         bool(product_data.get("active", True)),
+                        serialize_variations(product_data.get("variations", [])),
                     ),
                 )
                 conn.commit()
@@ -317,6 +325,7 @@ class SQLiteDatabaseService:
                     "category",
                     "image_filename",
                     "active",
+                    "variations",
                 ]:
                     if field in product_data:
                         update_fields.append(f"{field} = ?")
@@ -324,6 +333,8 @@ class SQLiteDatabaseService:
                             values.append(float(product_data[field]))
                         elif field == "active":
                             values.append(bool(product_data[field]))
+                        elif field == "variations":
+                            values.append(serialize_variations(product_data[field]))
                         else:
                             values.append(product_data[field])
 

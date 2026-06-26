@@ -191,6 +191,7 @@ export default function AdminUnlockModal() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [handleClose, handleDelete, handleKey, isUnlockOpen]);
+  const isDarkTheme = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') !== 'light';
 
   return (
     <AnimatePresence>
@@ -207,7 +208,7 @@ export default function AdminUnlockModal() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0,0,0,0.62)',
+            background: isDarkTheme ? 'rgba(0,0,0,0.62)' : 'rgba(0,0,0,0.35)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             padding: 18,
@@ -224,13 +225,13 @@ export default function AdminUnlockModal() {
             style={{
               width: 'min(420px, 92vw)',
               borderRadius: 22,
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(22, 26, 32, 0.86)',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
+              border: isDarkTheme ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+              background: isDarkTheme ? 'rgba(22, 26, 32, 0.86)' : 'rgba(255, 255, 255, 0.9)',
+              boxShadow: isDarkTheme ? '0 24px 60px rgba(0,0,0,0.55)' : '0 20px 50px rgba(0,0,0,0.15)',
               overflow: 'hidden',
             }}
           >
-            <div style={{ padding: 18, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ padding: 18, borderBottom: isDarkTheme ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div
@@ -267,8 +268,8 @@ export default function AdminUnlockModal() {
                     width: 38,
                     height: 38,
                     borderRadius: 14,
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    background: 'rgba(255,255,255,0.06)',
+                    border: isDarkTheme ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+                    background: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
                     color: 'var(--text-secondary)',
                     cursor: 'pointer',
                   }}
@@ -287,7 +288,7 @@ export default function AdminUnlockModal() {
                 onSubmit={handleSubmit}
                 canSubmit={canSubmit}
                 isLoading={isLoading}
-              />
+              />         
               <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
                 Tip: Press <b>Esc</b> to close.
               </div>

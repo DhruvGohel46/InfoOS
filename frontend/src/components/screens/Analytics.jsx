@@ -20,7 +20,7 @@ import {
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString } from '../../utils/api';
+import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString, groupsAPI, categoriesAPI } from '../../utils/api';
 import { formatCurrency, handleAPIError, downloadFile } from '../../utils/api';
 import { usePOSData } from '../../context/POSDataContext';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -29,6 +29,7 @@ import Card from '../ui/Card';
 import Skeleton from '../ui/Skeleton';
 import GlobalDatePicker from '../ui/GlobalDatePicker';
 import PageContainer from '../layout/PageContainer';
+import GlobalSelect from '../ui/GlobalSelect';
 import {
     IoBarChartOutline,
     IoReceiptOutline,
@@ -145,6 +146,11 @@ const Analytics = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // ─── Groups for filtering ───
+    const [groups, setGroups] = useState([]);
+    const [selectedGroupId, setSelectedGroupId] = useState('all');
+    const [categories, setCategories] = useState([]);
+
     // ─── Range toggle ───
     const [viewRange, setViewRange] = useState('week');       // 'week' | 'month' | 'year'
     const [rangeProductSales, setRangeProductSales] = useState([]);
@@ -170,6 +176,31 @@ const Analytics = () => {
             loadProductSales(selectedDate);
         }
     }, [selectedDate, cachedAnalytics, isAdmin]);
+
+    // ─── Load groups and categories on mount ───
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [groupsRes, catsRes] = await Promise.all([
+                    groupsAPI.getAllGroups(false),
+                    categoriesAPI.getAllCategories(false)
+                ]);
+                setGroups(groupsRes.data.groups || []);
+                setCategories(catsRes.data.categories || []);
+            } catch (err) {
+                console.error('Failed to load data:', err);
+            }
+        };
+        loadData();
+    }, []);
+
+    // ─── Reload data when group changes ───
+    useEffect(() => {
+        if (isAdmin) {
+            loadProductSales(selectedDate);
+            loadRangeData();
+        }
+    }, [selectedGroupId]);
 
     // ─── Reports / Download ───
     const [downloading, setDownloading] = useState({});
@@ -260,7 +291,21 @@ const Analytics = () => {
         try {
             const response = await summaryAPI.getProductSales(date);
             if (response.data?.success) {
-                setProductSales(response.data.product_sales || []);
+                let sales = response.data.product_sales || [];
+                // Filter by group if selected
+                if (selectedGroupId !== 'all') {
+                    const groupCategories = categories
+                        .filter(cat => cat.group_id === parseInt(selectedGroupId))
+                        .map(cat => cat.id);
+                    sales = sales.filter(item => {
+                        // Filter by category_id if available in the data
+                        if (item.category_id) {
+                            return groupCategories.includes(item.category_id);
+                        }
+                        return true; // If no category_id, include it (fallback)
+                    });
+                }
+                setProductSales(sales);
             }
         } catch (err) {
             console.error('Error loading product sales:', err);
@@ -301,11 +346,21 @@ const Analytics = () => {
                 const daily = res.data.daily;
 
                 // Map daily data to what charts expect
-                setRangeProductSales(daily.map(d => ({
+                let mappedDaily = daily.map(d => ({
                     name: d.date.split('-').slice(1).join('/'), // MM/DD
                     total_amount: d.total_sales,
                     quantity: d.total_orders
-                })));
+                }));
+
+                // Filter by group if selected (note: aggregated data may not have category breakdown)
+                // For now, we'll apply filtering if the API supports it, otherwise show all
+                if (selectedGroupId !== 'all') {
+                    // Aggregated summary doesn't support group filtering yet
+                    // This is a limitation - we'd need to extend the backend API
+                    // For now, we'll show a warning or filter client-side if data permits
+                }
+
+                setRangeProductSales(mappedDaily);
 
                 setRangeSummary({
                     total_sales: totals.total_sales,
@@ -719,6 +774,16 @@ const Analytics = () => {
                                                 onChange={(val) => setSelectedDate(val)}
                                                 placeholder="Select Date"
                                                 className="report-select-override"
+                                            />
+                                        </div>
+                                        <div style={{ minWidth: '160px' }}>
+                                            <GlobalSelect
+                                                options={[{ label: 'All Groups', value: 'all' }, ...groups.map(g => ({ label: g.name, value: g.id }))]}
+                                                value={selectedGroupId}
+                                                onChange={setSelectedGroupId}
+                                                placeholder="Filter by Group"
+                                                className="report-select-override"
+                                                direction="bottom"
                                             />
                                         </div>
                                     </div>

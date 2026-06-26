@@ -40,8 +40,20 @@ class BillItemSchema(Schema):
 
     product_id = fields.String(required=True)
     quantity = fields.Integer(required=True, validate=validate.Range(min=1))
+    variation_id = fields.String(load_default=None)
     name = fields.String(load_default=None)
     price = fields.Float(load_default=None)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class ProductVariationSchema(Schema):
+    """Schema for a single product variation."""
+
+    id = fields.String(load_default=None)
+    name = fields.String(required=True, validate=validate.Length(min=1))
+    price = fields.Float(required=True, validate=validate.Range(min=0))
 
     class Meta:
         unknown = EXCLUDE
@@ -87,9 +99,11 @@ class ProductCreateSchema(Schema):
     product_id = fields.String(required=True)
     name = fields.String(required=True, validate=validate.Length(min=1))
     price = fields.Float(required=True, validate=validate.Range(min=0))
+    takeaway_price = fields.Float(allow_none=True, validate=validate.Range(min=0))
     category = fields.String(required=True)
     category_id = fields.Integer(load_default=None)
     active = fields.Boolean(load_default=True)
+    variations = fields.List(fields.Nested(ProductVariationSchema), load_default=[])
 
     class Meta:
         unknown = EXCLUDE
@@ -102,11 +116,13 @@ class ProductUpdateSchema(Schema):
     """
 
     name = fields.String(validate=validate.Length(min=1))
-    price = fields.Float(validate=validate.Range(min=0, min_inclusive=False))
+    price = fields.Float(validate=validate.Range(min=0))
+    takeaway_price = fields.Float(allow_none=True, validate=validate.Range(min=0))
     category = fields.String()
     category_id = fields.Integer()
     active = fields.Boolean()
     favorite = fields.Boolean()
+    variations = fields.List(fields.Nested(ProductVariationSchema))
 
     class Meta:
         unknown = EXCLUDE

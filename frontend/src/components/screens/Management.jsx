@@ -5,13 +5,14 @@ import { useAnimation } from '../../hooks/useAnimation';
 import { FiSearch, FiPackage, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
 import { productsAPI, categoriesAPI, handleAPIError, formatCurrency } from '../../utils/api';
 import { useAlert as useToast } from '../../context/AlertContext';
-import CategoryManagement from './CategoryManagement';
+import GroupManagement from './GroupManagement';
 import '../../styles/Management.css';
 import { useSettings } from '../../context/SettingsContext';
 import GlobalSelect from '../ui/GlobalSelect';
 import PageContainer from '../layout/PageContainer';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import { createEmptyVariation, sanitizeVariationsForSave } from '../../utils/productVariations';
 
 const IconPlus = (props) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -83,6 +84,7 @@ const ProductManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
+    takeaway_price: '',
     category_id: '',
     category: '', // Legacy support
     image_filename: null,
@@ -91,6 +93,7 @@ const ProductManagement = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [imageToDelete, setImageToDelete] = useState(false);
+  const [variations, setVariations] = useState([]);
 
   // Favorite toggle handler
   const handleToggleFavorite = async (product) => {
@@ -158,6 +161,7 @@ const ProductManagement = () => {
     setFormData({
       name: '',
       price: '',
+      takeaway_price: '',
       category_id: categories.length > 0 ? categories[0].id : '',
       category: categories.length > 0 ? categories[0].name : '',
       active: true
@@ -166,6 +170,7 @@ const ProductManagement = () => {
     setSelectedImage(null);
     setPreviewImage(null);
     setImageToDelete(false);
+    setVariations([]);
     setShowAddForm(false);
   };
 
@@ -199,7 +204,9 @@ const ProductManagement = () => {
       const productData = {
         ...formData,
         price: parseFloat(formData.price),
-        category_id: parseInt(formData.category_id)
+        takeaway_price: formData.takeaway_price ? parseFloat(formData.takeaway_price) : null,
+        category_id: parseInt(formData.category_id),
+        variations: sanitizeVariationsForSave(variations),
       };
 
       if (editingProduct) {
@@ -329,6 +336,7 @@ const ProductManagement = () => {
     setFormData({
       name: product.name,
       price: product.price,
+      takeaway_price: product.takeaway_price || '',
       category_id: product.category_id || '',
       category: product.category || '',
       image_filename: product.image_filename,
@@ -342,6 +350,7 @@ const ProductManagement = () => {
     }
     setSelectedImage(null);
     setImageToDelete(false);
+    setVariations(Array.isArray(product.variations) ? product.variations.map(v => ({ ...v })) : []);
 
     setShowAddForm(true);
 
@@ -366,6 +375,30 @@ const ProductManagement = () => {
       const apiError = handleAPIError(err);
       setError(apiError.message);
     }
+  };
+
+  const handleVariationChange = (index, field, value) => {
+    setVariations(prev => prev.map((item, i) => (
+      i === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const handleAddVariation = () => {
+    setVariations(prev => [...prev, createEmptyVariation()]);
+  };
+
+  const handleRemoveVariation = (index) => {
+    setVariations(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMoveVariation = (index, direction) => {
+    setVariations(prev => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[index], updated[nextIndex]] = [updated[nextIndex], updated[index]];
+      return updated;
+    });
   };
 
   const filteredProducts = products
@@ -559,8 +592,12 @@ const ProductManagement = () => {
                     <input className="pmInput" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required />
                   </div>
                   <div className="pmField">
-                    <div className="pmLabel">Price</div>
+                    <div className="pmLabel">Price (Dine-in)</div>
                     <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
+                  </div>
+                  <div className="pmField">
+                    <div className="pmLabel">Takeaway Price (Optional)</div>
+                    <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="Same as dine-in if empty" />
                   </div>
                   <div className="pmField" style={{ position: 'relative', zIndex: 10 }}>
                     <div className="pmLabel">Category</div>
@@ -573,6 +610,76 @@ const ProductManagement = () => {
                       direction="bottom"
                     />
                   </div>
+                </div>
+
+                <div className="pmVariationsCard">
+                  <div className="pmVariationsHeader">
+                    <div>
+                      <div className="pmLabel" style={{ marginBottom: '4px' }}>Variations</div>
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)' }}>
+                        Optional sizes or pack options with their own selling price.
+                      </div>
+                    </div>
+                    <button type="button" className="pmSecondaryBtn" onClick={handleAddVariation}>
+                      <IconPlus aria-hidden="true" /> Add Variation
+                    </button>
+                  </div>
+
+                  {variations.length > 0 ? (
+                    <div className="pmVariationsList">
+                      {variations.map((variation, index) => (
+                        <div key={variation.id || index} className="pmVariationRow">
+                          <input
+                            className="pmInput"
+                            value={variation.name}
+                            onChange={(e) => handleVariationChange(index, 'name', e.target.value)}
+                            placeholder="Variation name (e.g. 250 ml)"
+                          />
+                          <input
+                            className="pmInput"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={variation.price}
+                            onChange={(e) => handleVariationChange(index, 'price', e.target.value)}
+                            placeholder="Price"
+                          />
+                          <div className="pmVariationActions">
+                            <button
+                              type="button"
+                              className="pmActionBtn"
+                              onClick={() => handleMoveVariation(index, -1)}
+                              disabled={index === 0}
+                              title="Move up"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className="pmActionBtn"
+                              onClick={() => handleMoveVariation(index, 1)}
+                              disabled={index === variations.length - 1}
+                              title="Move down"
+                            >
+                              ↓
+                            </button>
+                            <button
+                              type="button"
+                              className="pmActionBtn pmActionDanger"
+                              onClick={() => handleRemoveVariation(index)}
+                              title="Delete variation"
+                            >
+                              <IconTrash />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="pmVariationsEmpty">
+                      No variations added. Product will use the base price above.
+                    </div>
+                  )}
                 </div>
 
                 <div className="pmField" style={{ gridColumn: '1 / -1' }}>
@@ -735,6 +842,11 @@ const ProductManagement = () => {
                       <div className="pmName" title={product.name} style={{ fontSize: showImages ? 'calc(16px * var(--text-scale))' : 'calc(17px * var(--text-scale))', WebkitLineClamp: showImages ? 2 : 1 }}>{product.name}</div>
                       <div className="pmPriceRow">
                         <div className="pmPrice">{formatCurrency(product.price)}</div>
+                        {Array.isArray(product.variations) && product.variations.length > 0 && (
+                          <div style={{ fontSize: 'calc(11px * var(--text-scale))', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                            {product.variations.length} variation{product.variations.length === 1 ? '' : 's'}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--display-zoom))' }}>
                           <div className="pmBadge">{product.category_name || product.category || 'Other'}</div>
                           <motion.button
@@ -1071,20 +1183,20 @@ const Management = () => {
             Products
           </button>
           <button
-            onClick={() => setActiveTab('categories')}
+            onClick={() => setActiveTab('groups')}
             style={{
               padding: 'calc(12px * var(--display-zoom)) calc(4px * var(--display-zoom))',
               background: 'none',
               border: 'none',
-              borderBottom: activeTab === 'categories' ? '2px solid #F97316' : '2px solid transparent',
-              color: activeTab === 'categories' ? '#F97316' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'categories' ? 600 : 500,
+              borderBottom: activeTab === 'groups' ? '2px solid #F97316' : '2px solid transparent',
+              color: activeTab === 'groups' ? '#F97316' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'groups' ? 600 : 500,
               fontSize: 'calc(16px * var(--text-scale))',
               cursor: 'pointer',
               transition: 'all 0.2s'
             }}
           >
-            Categories
+            Groups
           </button>
         </div>
 
@@ -1101,16 +1213,15 @@ const Management = () => {
               <ProductManagement />
             </motion.div>
           )}
-
-          {activeTab === 'categories' && (
+          {activeTab === 'groups' && (
             <motion.div
-              key="categories"
-              initial={{ opacity: 0, x: 10 }}
+              key="groups"
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
+              exit={{ opacity: 0, x: 10 }}
               transition={{ duration: 0.2 }}
             >
-              <CategoryManagement />
+              <GroupManagement />
             </motion.div>
           )}
         </AnimatePresence>

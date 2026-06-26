@@ -68,6 +68,20 @@ import { printerService } from '../../services/printerService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import SearchBar from '../ui/SearchBar';
+import VariationPickerModal from '../billing/VariationPickerModal';
+import {
+  IoSaveOutline,
+  IoPrintOutline,
+  IoReceiptOutline,
+  IoDocumentTextOutline
+} from 'react-icons/io5';
+import {
+  buildCartItem,
+  formatProductPriceLabel,
+  getCartLineKey,
+  getProductVariations,
+  mapBillPayloadItems,
+} from '../../utils/productVariations';
 import '../../styles/Management.css';
 
 
@@ -112,6 +126,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState('');
+  const [variationModalProduct, setVariationModalProduct] = useState(null);
 
   // Edit Mode State
   const location = useLocation();
@@ -211,7 +226,10 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     if (location.state?.bill) {
       const bill = location.state.bill;
       setEditingBill(bill);
-      setOrderItems(bill.items || []);
+      setOrderItems((bill.items || []).map((item) => ({
+        ...item,
+        line_key: getCartLineKey(item.product_id, item.variation_id),
+      })));
       setOrderType(bill.order_type || 'dine-in');
       setTableNumber(bill.table_no || '');
     }
@@ -261,7 +279,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     };
   }, [filteredProducts.length]);
 
-  const handleAddItem = (product, event) => {
+  const handleAddItem = (product, event, selectedVariation = null) => {
     // Prevent event bubbling
     if (event) {
       event.stopPropagation();
@@ -279,29 +297,56 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     lastClickTime.current = now;
 
+    const productVariations = getProductVariations(product);
+
+    if (!selectedVariation && productVariations.length === 1) {
+      selectedVariation = productVariations[0];
+    }
+
+    if (!selectedVariation && productVariations.length >= 3) {
+      setVariationModalProduct(product);
+      return;
+    }
+
+    setVariationModalProduct(null);
+
+    const cartItem = buildCartItem(product, selectedVariation, orderType);
+    const lineKey = cartItem.line_key || getCartLineKey(product.product_id, selectedVariation?.id);
+
     setOrderItems(prev => {
-      const existingIndex = prev.findIndex(item => item.product_id === product.product_id);
+      const existingIndex = prev.findIndex(item => (
+        item.line_key
+          ? item.line_key === lineKey
+          : getCartLineKey(item.product_id, item.variation_id) === lineKey
+      ));
 
       if (existingIndex >= 0) {
         const updated = [...prev];
         updated[existingIndex].quantity += 1;
         return updated;
-      } else {
-        return [...prev, { ...product, quantity: 1 }];
       }
+
+      return [...prev, cartItem];
     });
   };
 
-  const updateQuantity = (productId, quantity) => {
+  const handleVariationSelect = (product, variation) => {
+    handleAddItem(product, null, variation);
+  };
+
+  const updateQuantity = (lineKey, quantity) => {
     if (quantity <= 0) {
-      setOrderItems(prev => prev.filter(item => item.product_id !== productId));
+      setOrderItems(prev => prev.filter(item => (
+        item.line_key
+          ? item.line_key !== lineKey
+          : getCartLineKey(item.product_id, item.variation_id) !== lineKey
+      )));
     } else {
       setOrderItems(prev =>
-        prev.map(item =>
-          item.product_id === productId
-            ? { ...item, quantity }
-            : item
-        )
+        prev.map(item => {
+          const itemKey = item.line_key || getCartLineKey(item.product_id, item.variation_id);
+          return itemKey === lineKey ? { ...item, quantity } : item;
+        })
       );
     }
   };
@@ -320,10 +365,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setError('');
 
       const billData = {
-        products: orderItems.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        })),
+        products: mapBillPayloadItems(orderItems),
         print: false,
         customer_name: editingBill ? editingBill.customer_name : '',
         order_type: orderType,
@@ -366,10 +408,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       if (isNetworkError && !editingBill) {
         // Fallback catch if network drops mid-request
         const billData = {
-          products: orderItems.map(item => ({
-            product_id: item.product_id,
-            quantity: item.quantity
-          })),
+          products: mapBillPayloadItems(orderItems),
           print: false,
           customer_name: '',
           order_type: orderType,
@@ -436,10 +475,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setPrintStatus('Saving Bill...');
 
       const billData = {
-        products: orderItems.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        })),
+        products: mapBillPayloadItems(orderItems),
         print: false, // We handle printing manually for better control
         customer_name: editingBill ? editingBill.customer_name : '',
         order_type: orderType,
@@ -737,19 +773,28 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 padding: '4px'
               }}
             >
-              {displayedProducts.map((product) => (
+              {displayedProducts.map((product) => {
+                const productVariations = getProductVariations(product);
+                const hasTwoVariations = productVariations.length === 2;
+
+                return (
                 <div
                     key={product.product_id}
+                    style={{ position: 'relative' }}
                 >
                     <div 
                         className="glass-card lift-3d"
-                        onClick={(e) => handleAddItem(product, e)}
+                        onClick={(e) => {
+                          if (!hasTwoVariations) {
+                            handleAddItem(product, e);
+                          }
+                        }}
                         style={{
                             padding: 'calc(10px * var(--display-zoom))',
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
-                            cursor: product.stock_status === 'Out of Stock' ? 'not-allowed' : 'pointer',
+                            cursor: product.stock_status === 'Out of Stock' ? 'not-allowed' : (hasTwoVariations ? 'default' : 'pointer'),
                             opacity: product.stock_status === 'Out of Stock' ? 0.6 : 1,
                             position: 'relative',
                             overflow: 'hidden'
@@ -816,40 +861,109 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                             }}>
                                 {product.name}
                             </h4>
-                            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{
-                                    fontSize: 'calc(15px * var(--text-scale))',
-                                    fontWeight: 800,
-                                    color: 'var(--primary-500)',
-                                    textShadow: '0 0 10px rgba(249,115,22,0.15)'
-                                }}>
-                                    {formatCurrency(product.price)}
-                                </span>
-
-                                {/* Add Button */}
-                                <div
-                                    style={{
-                                        width: 'calc(28px * var(--display-zoom))', 
-                                        height: 'calc(28px * var(--display-zoom))',
-                                        backgroundColor: 'var(--primary-500)',
-                                        borderRadius: '50%',
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'center',
-                                        boxShadow: '0 4px 12px rgba(249,115,22,0.3)',
-                                        color: 'white',
-                                        transition: 'background-color 0.2s'
-                                    }}
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                                        <path d="M12 5V19M5 12H19" />
-                                    </svg>
+                            
+                            {hasTwoVariations ? (
+                                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {productVariations.map((variation, index) => (
+                                        <button
+                                            key={variation.id}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleVariationSelect(product, variation);
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '10px 12px',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--glass-border)',
+                                                background: 'rgba(255,255,255,0.03)',
+                                                color: 'var(--text-primary)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                fontSize: 'calc(13px * var(--text-scale))',
+                                                transition: 'all 0.15s ease',
+                                                minHeight: '44px',
+                                                position: 'relative',
+                                                overflow: 'hidden'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = 'rgba(249, 115, 22, 0.12)';
+                                                e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.4)';
+                                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                                e.currentTarget.style.borderColor = 'var(--glass-border)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = 'none';
+                                            }}
+                                            onMouseDown={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.background = 'rgba(249, 115, 22, 0.2)';
+                                            }}
+                                            onMouseUp={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                                e.currentTarget.style.background = 'rgba(249, 115, 22, 0.12)';
+                                            }}
+                                        >
+                                            <span style={{ 
+                                                fontWeight: 600,
+                                                letterSpacing: '0.02em'
+                                            }}>
+                                                {variation.name}
+                                            </span>
+                                            <span style={{ 
+                                                fontWeight: 800,
+                                                fontSize: 'calc(14px * var(--text-scale))',
+                                                color: '#F97316',
+                                                textShadow: '0 0 8px rgba(249, 115, 22, 0.3)'
+                                            }}>
+                                                {formatCurrency(variation.price)}
+                                            </span>
+                                        </button>
+                                    ))}
                                 </div>
-                            </div>
+                            ) : (
+                                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{
+                                        fontSize: 'calc(15px * var(--text-scale))',
+                                        fontWeight: 800,
+                                        color: 'var(--primary-500)',
+                                        textShadow: '0 0 10px rgba(249,115,22,0.15)'
+                                    }}>
+                                        {formatProductPriceLabel(product, formatCurrency, orderType)}
+                                    </span>
+
+                                    {/* Add Button */}
+                                    <div
+                                        style={{
+                                            width: 'calc(28px * var(--display-zoom))', 
+                                            height: 'calc(28px * var(--display-zoom))',
+                                            backgroundColor: 'var(--primary-500)',
+                                            borderRadius: '50%',
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            boxShadow: '0 4px 12px rgba(249,115,22,0.3)',
+                                            color: 'white',
+                                            transition: 'background-color 0.2s'
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                            <path d="M12 5V19M5 12H19" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-              ))}
+              );})}
               
               {/* Invisible sentinel for intersection observer */}
               {visibleCount < filteredProducts.length && (
@@ -942,7 +1056,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 gap: '6px'
               }}
             >
-              🍽️ Dine In
+              Dine In
             </button>
             <button
               onClick={() => setOrderType('takeaway')}
@@ -962,7 +1076,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 gap: '6px'
               }}
             >
-              🛍️ Takeaway
+              Takeaway
             </button>
           </div>
 
@@ -1049,8 +1163,10 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                 <div style={{ textAlign: 'right' }}>PRICE</div>
               </div>
 
-              {orderItems.map((item) => (
-                <div key={item.product_id} style={{
+              {orderItems.map((item) => {
+                const lineKey = item.line_key || getCartLineKey(item.product_id, item.variation_id);
+                return (
+                <div key={lineKey} style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1fr 1fr',
                   alignItems: 'center',
@@ -1083,7 +1199,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                        onClick={() => updateQuantity(lineKey, item.quantity - 1)}
                         style={{ minWidth: '28px', padding: '0' }}
                       >
                         −
@@ -1094,7 +1210,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                        onClick={() => updateQuantity(lineKey, item.quantity + 1)}
                         style={{ minWidth: '28px', padding: '0' }}
                       >
                         +
@@ -1106,88 +1222,168 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     {formatCurrency(item.price * item.quantity)}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
 
         <div style={{
           borderTop: `1px solid ${currentTheme.colors.border}`,
-          padding: currentTheme.spacing[4],
+          padding: '20px',
+          backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8F9FA'
         }}>
 
+          {/* Total Amount Card */}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: currentTheme.spacing[3],
-            padding: 'calc(16px * var(--display-zoom))',
-            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F6F7F9', // Glass-like strip
-            borderRadius: '12px',
-            border: isDark ? '1px solid rgba(255,255,255,0.03)' : 'none'
+            marginBottom: '20px',
+            padding: '20px 24px',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+            borderRadius: '16px',
+            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E5E7EB',
+            boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.3)' : '0 4px 20px rgba(0,0,0,0.08)'
           }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'rgba(249, 115, 22, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <IoReceiptOutline size={20} color="#F97316" />
+              </div>
+              <span style={{
+                fontSize: '13px',
+                color: currentTheme.colors.text.secondary,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em'
+              }}>Total Amount</span>
+            </div>
             <span style={{
-              fontSize: 'calc(14px * var(--text-scale))',
-              color: currentTheme.colors.text.secondary,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>Total Amount</span>
-            <span style={{
-              fontSize: 'calc(24px * var(--text-scale))',
-              fontFamily: 'monospace', // Tabular nums
-              fontWeight: 700,
-              color: currentTheme.colors.text.primary
+              fontSize: '32px',
+              fontFamily: 'monospace',
+              fontWeight: 800,
+              color: currentTheme.colors.text.primary,
+              letterSpacing: '-0.5px'
             }}>
               {formatCurrency(calculateTotal())}
             </span>
           </div>
 
+          {/* Action Buttons Grid */}
           <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'calc(10px * var(--display-zoom))',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px'
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'calc(10px * var(--display-zoom))' }}>
-               <Button variant="secondary" onClick={handleSaveOrder} size="lg" fullWidth disabled={isPrinting}>
-                {editingBill ? 'Update Only' : 'Save Only'}
-              </Button>
-              <Button variant="secondary" onClick={() => handleSaveAndPrintOrder('kot')} size="lg" fullWidth disabled={isPrinting}>
-                {isPrinting && printStatus.toLowerCase().includes('kot') ? 'KOT...' : 'Print KOT'}
-              </Button>
-            </div>
+            {/* Row 1 */}
+            <Button 
+              variant="secondary" 
+              onClick={handleSaveOrder} 
+              fullWidth 
+              disabled={isPrinting}
+              icon={<IoSaveOutline size={18} />}
+              style={{
+                height: '56px',
+                borderRadius: '14px',
+                fontSize: '15px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {editingBill ? 'Update Only' : 'Save Only'}
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={() => handleSaveAndPrintOrder('kot')} 
+              fullWidth 
+              disabled={isPrinting}
+              icon={<IoPrintOutline size={18} />}
+              style={{
+                height: '56px',
+                borderRadius: '14px',
+                fontSize: '15px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isPrinting && printStatus.toLowerCase().includes('kot') ? 'KOT...' : 'Print KOT'}
+            </Button>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'calc(10px * var(--display-zoom))' }}>
-              <Button variant="secondary" onClick={() => handleSaveAndPrintOrder('bill')} size="lg" fullWidth disabled={isPrinting}>
-                {isPrinting && printStatus.toLowerCase().includes('bill') && !printStatus.toLowerCase().includes('kot') ? 'Bill...' : 'Print Bill'}
-              </Button>
-              <Button 
-                variant="primary" 
-                onClick={() => handleSaveAndPrintOrder('both')} 
-                size="lg" 
-                fullWidth 
-                disabled={isPrinting}
-                style={{
-                  background: 'linear-gradient(135deg, var(--primary-500) 0%, #f97316 100%)',
-                  boxShadow: '0 4px 15px rgba(249, 115, 22, 0.3)',
-                  height: 'calc(44px * var(--display-zoom))',
-                  fontSize: 'calc(14px * var(--text-scale))',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {isPrinting && (printStatus.toLowerCase().includes('bill') || printStatus.toLowerCase().includes('kot')) ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div className="animate-spin" style={{ width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
-                    Printing...
-                  </div>
-                ) : (
-                  'BILL & KOT'
-                )}
-              </Button>
-            </div>
+            {/* Row 2 */}
+            <Button 
+              variant="secondary" 
+              onClick={() => handleSaveAndPrintOrder('bill')} 
+              fullWidth 
+              disabled={isPrinting}
+              icon={<IoDocumentTextOutline size={18} />}
+              style={{
+                height: '56px',
+                borderRadius: '14px',
+                fontSize: '15px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isPrinting && printStatus.toLowerCase().includes('bill') && !printStatus.toLowerCase().includes('kot') ? 'Bill...' : 'Print Bill'}
+            </Button>
+            <Button 
+              variant="primary" 
+              onClick={() => handleSaveAndPrintOrder('both')} 
+              fullWidth 
+              disabled={isPrinting}
+              style={{
+                height: '56px',
+                borderRadius: '14px',
+                fontSize: '15px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+                boxShadow: '0 4px 20px rgba(249, 115, 22, 0.4)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(249, 115, 22, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(249, 115, 22, 0.4)';
+              }}
+            >
+              {isPrinting && (printStatus.toLowerCase().includes('bill') || printStatus.toLowerCase().includes('kot')) ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                  Printing...
+                </div>
+              ) : (
+                <>
+                  <IoReceiptOutline size={18} />
+                  BILL & KOT
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -1244,6 +1440,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           </div>
         )}
       </>
+
+      <VariationPickerModal
+        product={variationModalProduct}
+        open={!!variationModalProduct}
+        onClose={() => setVariationModalProduct(null)}
+        onSelect={(variation) => handleVariationSelect(variationModalProduct, variation)}
+      />
     </div >
   );
 };

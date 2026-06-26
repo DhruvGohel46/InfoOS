@@ -682,6 +682,59 @@
   gap: calc(10px * var(--display-zoom));
 }
 
+.pmVariationsCard {
+  margin-top: calc(14px * var(--display-zoom));
+  padding: calc(14px * var(--display-zoom));
+  border: 1px solid var(--border-primary);
+  border-radius: calc(14px * var(--display-zoom));
+  background: color-mix(in srgb, var(--surface) 94%, var(--bg-secondary));
+}
+
+.pmVariationsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(12px * var(--display-zoom));
+  margin-bottom: calc(12px * var(--display-zoom));
+}
+
+.pmVariationsList {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--display-zoom));
+}
+
+.pmVariationRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) auto;
+  gap: calc(10px * var(--display-zoom));
+  align-items: center;
+}
+
+.pmVariationActions {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--display-zoom));
+}
+
+.pmVariationsEmpty {
+  padding: calc(12px * var(--display-zoom));
+  border-radius: calc(10px * var(--display-zoom));
+  border: 1px dashed var(--border-primary);
+  color: var(--text-tertiary);
+  font-size: var(--font-sm);
+}
+
+@media (max-width: 720px) {
+  .pmVariationRow {
+    grid-template-columns: 1fr;
+  }
+
+  .pmVariationsHeader {
+    flex-direction: column;
+  }
+}
+
 .pmSecondaryBtn {
   display: inline-flex;
   align-items: center;

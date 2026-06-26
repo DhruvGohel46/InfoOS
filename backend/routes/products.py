@@ -8,69 +8,85 @@ from validators import (
     ProductUpdateSchema,
     MarshmallowValidationError,
 )
+from utils.product_variations import normalize_variations
 import cache
 import os
 import re
 import logging
-
-# PIL is bundled with Pillow which IS in requirements — safe to import at module level
+import threading
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ─── rembg Lazy Loader ────────────────────────────────────────────────────────
+# ─── rembg Lazy & Async Loader ───────────────────────────────────────────────
 # rembg / onnxruntime are heavy ML dependencies.
 # They are OPTIONAL: production installs include them for background removal,
 # but CI / lightweight deploys intentionally omit them.
-# We lazy-load them inside a helper so the Flask app starts up regardless.
+# The first call to new_session downloads the u2netp model (~100MB) from GitHub,
+# which can block the request thread and trigger client-side timeouts.
+# We perform this asynchronously in a background thread during module import.
 
-_rembg_session = None  # Module-level singleton — initialised at first real use
-_rembg_available: bool | None = None  # None = not yet checked
+_rembg_session = None
+_rembg_available = None
+_rembg_loading = False
+
+
+def warmup_rembg():
+    """Warms up the rembg model session in a background thread."""
+    global _rembg_session, _rembg_available, _rembg_loading
+    if _rembg_available is not None or _rembg_loading:
+        return
+
+    _rembg_loading = True
+
+    def _load():
+        global _rembg_session, _rembg_available, _rembg_loading
+        try:
+            logger.info("Starting background loading/download of rembg ONNX model...")
+            from rembg import remove, new_session
+
+            session = new_session("u2netp")
+            _rembg_session = session
+            _rembg_available = True
+            logger.info("rembg loaded successfully — background removal enabled")
+        except ImportError:
+            _rembg_available = False
+            logger.warning("rembg dependency not installed — background removal disabled")
+        except Exception as exc:
+            _rembg_available = False
+            logger.error("rembg initialisation failed: %s", exc)
+        finally:
+            _rembg_loading = False
+
+    threading.Thread(target=_load, daemon=True).start()
+
+
+# Trigger warmup immediately on module load so the model starts downloading
+# in the background on server boot instead of the first user upload.
+warmup_rembg()
 
 
 def get_rembg():
     """
     Lazy-load rembg and return (remove_fn, session).
 
-    Returns (None, None) when rembg is not installed so callers can
-    gracefully degrade to a 503 instead of crashing.
-
-    The session is cached as a module-level singleton so the ONNX model
-    is only loaded once per process lifecycle — identical to the previous
-    global `bg_session = new_session("u2netp")` but without crashing on import.
+    Returns (None, None) immediately if background removal is loading,
+    not installed, or failed, ensuring request threads never block on model downloads.
     """
-    global _rembg_session, _rembg_available
+    global _rembg_session, _rembg_available, _rembg_loading
 
-    # Fast path: already tried, already know result
-    if _rembg_available is False:
+    if _rembg_available is False or _rembg_loading:
         return None, None
 
     if _rembg_available is True and _rembg_session is not None:
-        from rembg import remove  # noqa: F811 — already confirmed importable
+        from rembg import remove
 
         return remove, _rembg_session
 
-    # First call — attempt to import and warm up the model
-    try:
-        from rembg import remove, new_session
+    if _rembg_available is None and not _rembg_loading:
+        warmup_rembg()
 
-        _rembg_session = new_session("u2netp")
-        _rembg_available = True
-        logger.info("rembg loaded successfully — background removal enabled")
-        return remove, _rembg_session
-
-    except ImportError:
-        _rembg_available = False
-        logger.warning(
-            "rembg dependency not installed — background removal disabled. "
-            "Install rembg and onnxruntime to enable this feature."
-        )
-        return None, None
-
-    except Exception as exc:  # onnxruntime model load failure, etc.
-        _rembg_available = False
-        logger.error("rembg initialisation failed: %s", exc)
-        return None, None
+    return None, None
 
 
 def _rembg_unavailable_response():
@@ -163,6 +179,7 @@ def create_product():
         "category_id": category_id,
         "category": category_name,
         "active": active,
+        "variations": normalize_variations(validated.get("variations", [])),
     }
 
     success = db.create_product(product_data)
@@ -224,7 +241,7 @@ def update_product(product_id):
 
     if not validated:
         raise ValidationError(
-            "No fields to update. Provide at least one: name, price, category, active, favorite",
+            "No fields to update. Provide at least one: name, price, category, active, favorite, variations",
             code="NO_UPDATE_FIELDS",
         )
 
@@ -257,6 +274,9 @@ def update_product(product_id):
         if isinstance(favorite, str):
             favorite = favorite.lower() in ["true", "1", "yes"]
         update_data["favorite"] = bool(favorite)
+
+    if "variations" in validated:
+        update_data["variations"] = normalize_variations(validated["variations"])
 
     # Handle product name change → rename image on disk
     if "name" in update_data:
