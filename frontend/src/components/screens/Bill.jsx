@@ -208,6 +208,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     if (!exists) {
       setSelectedCategory('favorites');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrapCategories, selectedGroupId]);
 
   useEffect(() => {

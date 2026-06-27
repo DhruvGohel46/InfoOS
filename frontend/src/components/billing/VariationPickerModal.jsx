@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../utils/api';
 
 const VariationPickerModal = ({ product, open, onClose, onSelect }) => {
-  const variations = product?.variations || [];
+  const variations = useMemo(() => product?.variations || [], [product?.variations]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [search, setSearch] = useState('');
   const searchRef = useRef(null);

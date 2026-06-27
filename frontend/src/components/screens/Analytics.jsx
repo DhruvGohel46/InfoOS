@@ -175,6 +175,7 @@ const Analytics = () => {
             loadSummary(selectedDate);
             loadProductSales(selectedDate);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate, cachedAnalytics, isAdmin]);
 
     // ─── Load groups and categories on mount ───
@@ -200,6 +201,7 @@ const Analytics = () => {
             loadProductSales(selectedDate);
             loadRangeData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedGroupId]);
 
     // ─── Reports / Download ───
@@ -245,6 +247,7 @@ const Analytics = () => {
         if (!isAdmin) return;
         loadSummary(selectedDate);
         loadProductSales(selectedDate);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate, isAdmin]);
 
     useEffect(() => {
