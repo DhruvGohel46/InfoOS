@@ -15,11 +15,12 @@ export const ReminderProvider = ({ children }) => {
     // Sound management
     useEffect(() => {
         const soundFile = settings?.reminder_sound || "reminder.mp3";
-        // use timestamp to prevent caching the audio file
-        audioRef.current = new Audio("/api/sounds/" + soundFile + "?v=" + new Date().getTime());
+        // Use backend API URL for sounds with timestamp to prevent caching
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+        audioRef.current = new Audio(`${apiUrl}/api/sounds/${soundFile}?v=${new Date().getTime()}`);
         audioRef.current.loop = true;
         audioRef.current.playbackRate = 1.0;
-        
+
     }, [settings?.reminder_sound]);
 
     const playAlertSound = useCallback(() => {
