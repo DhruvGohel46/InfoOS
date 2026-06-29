@@ -69,6 +69,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import SearchBar from '../ui/SearchBar';
 import VariationPickerModal from '../billing/VariationPickerModal';
+import GlobalSelect from '../ui/GlobalSelect';
 import {
   IoSaveOutline,
   IoPrintOutline,
@@ -585,37 +586,19 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           />
 
           {/* Item Groups Dropdown Selector */}
-          <div style={{ position: 'relative' }}>
-            <select
+          <div style={{ width: '100%' }}>
+            <GlobalSelect
+              options={[
+                { label: 'All Groups', value: 'all' },
+                ...groups.map(group => ({
+                  label: group.name,
+                  value: group.id.toString()
+                }))
+              ]}
               value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="pmInput"
-              style={{
-                width: '100%',
-                height: 'calc(38px * var(--display-zoom))',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--glass-border)',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                fontSize: 'var(--text-sm)',
-                padding: '0 var(--spacing-3)',
-                cursor: 'pointer',
-                outline: 'none',
-                WebkitAppearance: 'none',
-                backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23a3a3a3%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                backgroundSize: '16px'
-              }}
-            >
-              <option value="all">▼ All Groups</option>
-              {groups.map(group => (
-                <option key={group.id} value={group.id}>
-                  {group.icon || '📁'} {group.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedGroupId(val)}
+              placeholder="Select Group"
+            />
           </div>
         </div>
 

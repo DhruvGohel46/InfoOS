@@ -63,7 +63,10 @@ def warmup_rembg():
 
 # Trigger warmup immediately on module load so the model starts downloading
 # in the background on server boot instead of the first user upload.
-warmup_rembg()
+# Skip during testing — the daemon thread outlives the test process and crashes
+# the interpreter on shutdown (numba JIT logging writes to closed stderr).
+if not os.environ.get("TESTING"):
+    warmup_rembg()
 
 
 def get_rembg():
