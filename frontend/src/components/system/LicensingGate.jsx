@@ -236,10 +236,11 @@ export default function LicensingGate({ children }) {
     setLicensingState({ status: 'login', errorMessage: '' });
   }, [getDeviceInfo, checkSubscriptionStatus]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     runStartupChecks();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Handle Login Submit
   const handleLoginSubmit = async (e) => {
