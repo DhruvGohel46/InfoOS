@@ -68,6 +68,7 @@ export default function LicensingGate({ children }) {
     } catch (err) {
       console.error('Failed to write local activation cache:', err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getDeviceInfo]);
 
   // Main subscription check logic

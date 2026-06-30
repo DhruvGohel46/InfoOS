@@ -21,11 +21,7 @@ import {
     IoReceiptOutline,
     IoHardwareChipOutline,
     IoColorPaletteOutline,
-    IoCalendarOutline,
     IoShieldCheckmarkOutline,
-    IoLockOpenOutline,
-    IoFingerPrintOutline,
-    IoInformationCircleOutline,
     IoVolumeHighOutline,
     IoCloudUploadOutline
 } from 'react-icons/io5';

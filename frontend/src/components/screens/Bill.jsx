@@ -274,8 +274,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  }, [bootstrapCategories, selectedGroupId]);
+  }, [bootstrapCategories, selectedGroupId, selectedCategory]);
 
 
 
@@ -936,7 +935,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
   // Helper function to get product count for a category
-
+  // eslint-disable-next-line no-unused-vars
   const getCategoryProductCount = (categoryName) => {
 
     if (categoryName === '★ Favorites') {

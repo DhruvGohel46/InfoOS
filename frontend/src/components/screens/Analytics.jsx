@@ -530,6 +530,7 @@ const Analytics = () => {
     };
 
     // ─── Sort helpers ───
+    // eslint-disable-next-line no-unused-vars
     const handleSort = (key) => {
         setSortConfig(prev => ({
             key,
@@ -613,12 +614,13 @@ const Analytics = () => {
     };
 
     // ─── Calculate summary metrics ───
+    // eslint-disable-next-line no-unused-vars
     const summaryMetrics = useMemo(() => {
         const totalBills = bills.length;
         const totalRevenue = bills.reduce((sum, bill) => sum + (bill.total_amount || 0), 0);
         const totalItems = bills.reduce((sum, bill) => sum + (bill.items?.length || 0), 0);
         const averageBill = totalBills > 0 ? totalRevenue / totalBills : 0;
-        
+
         return {
             totalBills,
             totalRevenue,
