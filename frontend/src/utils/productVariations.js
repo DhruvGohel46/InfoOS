@@ -16,7 +16,8 @@ export function buildCartItem(product, variation, orderType = 'dine-in') {
   const isTakeaway = orderType === 'takeaway';
   
   if (!variation) {
-    const price = isTakeaway && product.takeaway_price ? Number(product.takeaway_price) : Number(product.price);
+    const takeawayAddon = isTakeaway && product.takeaway_price ? Number(product.takeaway_price) : 0;
+    const price = Number(product.price) + takeawayAddon;
     return {
       ...product,
       price,
@@ -25,7 +26,8 @@ export function buildCartItem(product, variation, orderType = 'dine-in') {
     };
   }
 
-  const price = Number(variation.price);
+  const takeawayAddon = isTakeaway && product.takeaway_price ? Number(product.takeaway_price) : 0;
+  const price = Number(variation.price) + takeawayAddon;
   return {
     ...product,
     variation_id: variation.id,
@@ -45,14 +47,14 @@ export function getDisplayPrice(product) {
 
 export function formatProductPriceLabel(product, formatCurrency, orderType = 'dine-in') {
   const variations = getProductVariations(product);
+  if (variations.length > 2) return '';
+  const takeawayAddon = orderType === 'takeaway' && product.takeaway_price ? Number(product.takeaway_price) : 0;
   if (variations.length === 0) {
-    const price = orderType === 'takeaway' && product.takeaway_price 
-      ? Number(product.takeaway_price) 
-      : Number(product.price);
+    const price = Number(product.price) + takeawayAddon;
     return formatCurrency(price);
   }
 
-  const prices = variations.map((v) => Number(v.price));
+  const prices = variations.map((v) => Number(v.price) + takeawayAddon);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   if (min === max) return formatCurrency(min);

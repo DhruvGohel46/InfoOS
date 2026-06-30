@@ -156,6 +156,7 @@ const Analytics = () => {
     // ─── Range toggle ───
     const [viewRange, setViewRange] = useState('week');       // 'week' | 'month' | 'year'
     const [rangeProductSales, setRangeProductSales] = useState([]);
+    const [viewRangeProductSales, setViewRangeProductSales] = useState([]);
     const [rangeSummary, setRangeSummary] = useState(null);
     const [rangeLoading, setRangeLoading] = useState(false);
 
@@ -321,9 +322,6 @@ const Analytics = () => {
         try {
             setRangeLoading(true);
 
-            // PRODUCTION PT: Use the pre-aggregated summary API for instant loads
-            // instead of calculating on-the-fly from millions of bill rows.
-
             let start, end;
             const refDate = new Date(selectedDate);
 
@@ -344,11 +342,14 @@ const Analytics = () => {
                 end = `${refDate.getFullYear()}-12-31`;
             }
 
-            const res = await summaryAPI.getAggregatedSummary(start, end);
+            // Fetch aggregated stats for the chart
+            const [aggRes, rangeRes] = await Promise.all([
+                summaryAPI.getAggregatedSummary(start, end),
+                summaryAPI.getRangeSummary(viewRange, selectedDate)
+            ]);
 
-            if (res.data.success) {
-                const totals = res.data.totals;
-                const daily = res.data.daily;
+            if (aggRes.data.success) {
+                const daily = aggRes.data.daily;
 
                 // Map daily data to what charts expect
                 let mappedDaily = daily.map(d => ({
@@ -357,22 +358,43 @@ const Analytics = () => {
                     quantity: d.total_orders
                 }));
 
-                // Filter by group if selected (note: aggregated data may not have category breakdown)
-                // For now, we'll apply filtering if the API supports it, otherwise show all
+                setRangeProductSales(mappedDaily);
+            }
+
+            if (rangeRes.data.success && rangeRes.data.summary) {
+                const summaryObj = rangeRes.data.summary;
+                let rawProducts = summaryObj.products || [];
+
+                // Filter products by selected group if active
                 if (selectedGroupId !== 'all') {
-                    // Aggregated summary doesn't support group filtering yet
-                    // This is a limitation - we'd need to extend the backend API
-                    // For now, we'll show a warning or filter client-side if data permits
+                    const groupCategories = categories
+                        .filter(cat => cat.group_id === parseInt(selectedGroupId))
+                        .map(cat => cat.id);
+                    rawProducts = rawProducts.filter(item => {
+                        if (item.category_id) {
+                            return groupCategories.includes(item.category_id);
+                        }
+                        // Fallback filter by normalizing category comparison if needed
+                        return true;
+                    });
                 }
 
-                setRangeProductSales(mappedDaily);
+                // Map fields to match Top Selling Products layout expects
+                const mappedProducts = rawProducts.map(p => ({
+                    name: p.name,
+                    quantity: p.quantity,
+                    total_amount: p.total_amount
+                }));
 
+                setViewRangeProductSales(mappedProducts);
+
+                // Set aggregated totals from the full range summary to include category totals
                 setRangeSummary({
-                    total_sales: totals.total_sales,
-                    total_expenses: totals.total_expenses,
-                    net_profit: totals.net_profit,
-                    total_bills: totals.total_orders,
-                    category_totals: {} // We'd need to extend aggregated table to store category JSON if needed
+                    total_sales: summaryObj.total_sales,
+                    total_expenses: summaryObj.total_expenses,
+                    net_profit: summaryObj.net_profit,
+                    total_bills: summaryObj.total_bills,
+                    category_totals: summaryObj.category_totals || {}
                 });
             }
         } catch (err) {
@@ -1010,7 +1032,7 @@ const Analytics = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {(viewRange === 'day' ? chartProductSales : rangeProductSales).slice(0, 5).map((item, idx) => (
+                                                    {(viewRange === 'day' ? productSales : viewRangeProductSales).slice(0, 5).map((item, idx) => (
                                                         <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                                             <td style={{ padding: '12px 16px', fontWeight: 700, color: idx === 0 ? '#FF7A00' : 'var(--text-secondary)' }}>#{idx + 1}</td>
                                                             <td style={{ padding: '12px 16px', fontWeight: 600 }}>{item.name}</td>

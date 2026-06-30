@@ -1,38 +1,45 @@
 /**
- * WorkerTable — Premium worker list with card-style rows
- * Each row is a hoverable card with avatar, metadata, and contextual actions
+ * WorkerTable — Premium worker grid list replacing old list rows
+ * Each card displays a worker in a highly polished 340-380px square card layout.
  */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoEye, IoPencil, IoTrash, IoEllipsisVertical, IoCall, IoBriefcase } from 'react-icons/io5';
-import { useTheme } from '../../context/ThemeContext';
+import { 
+    IoEye, 
+    IoPencil, 
+    IoTrash, 
+    IoEllipsisVertical, 
+    IoCall, 
+    IoBriefcase,
+    IoWalletOutline,
+    IoCashOutline,
+    IoCalendarOutline,
+    IoDocumentTextOutline
+} from 'react-icons/io5';
 import { formatCurrency } from '../../utils/api';
 
 /* ─── Action Menu ─── */
 const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
-    const { isDark } = useTheme();
-
     return (
         <div style={{ position: 'relative' }}>
             <motion.button
                 onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-                whileHover={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                whileHover={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
                 whileTap={{ scale: 0.92 }}
                 style={{
-                    width: 'calc(32px * var(--display-zoom))', height: 'calc(32px * var(--display-zoom))',
+                    width: '32px', height: '32px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'transparent', border: 'none', cursor: 'pointer',
-                    borderRadius: 'calc(8px * var(--display-zoom))',
-                    color: isDark ? '#71717A' : '#9CA3AF',
+                    borderRadius: '8px',
+                    color: '#71717A',
                 }}
             >
-                <IoEllipsisVertical size={16 * 1} />
+                <IoEllipsisVertical size={16} />
             </motion.button>
 
             <AnimatePresence>
                 {open && (
                     <>
-                        {/* Invisible backdrop to close menu */}
                         <div
                             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
                             style={{ position: 'fixed', inset: 0, zIndex: 99 }}
@@ -45,24 +52,25 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
                             style={{
                                 position: 'absolute', right: 0, top: '100%', marginTop: 4,
                                 zIndex: 100,
-                                minWidth: 140,
-                                background: isDark ? '#1E1E22' : '#FFFFFF',
-                                border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-                                borderRadius: 10,
-                                boxShadow: isDark
-                                    ? '0 8px 24px rgba(0,0,0,0.5)'
-                                    : '0 8px 24px rgba(0,0,0,0.1)',
-                                padding: 4,
+                                minWidth: 160,
+                                background: '#1E1E22',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: 12,
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                padding: 6,
                                 overflow: 'hidden',
                             }}
                         >
-                            <MenuItem icon={IoEye} label="View Profile" onClick={() => { onView(worker); setOpen(false); }} color="#F97316" />
-                            <MenuItem icon={IoPencil} label="Edit" onClick={() => { onEdit(worker); setOpen(false); }} color="#3B82F6" />
+                            <MenuItem icon={IoEye} label="View Profile" onClick={() => { onView(worker); setOpen(false); }} color="#FF7A00" />
+                            <MenuItem icon={IoPencil} label="Edit Worker" onClick={() => { onEdit(worker); setOpen(false); }} color="#3B82F6" />
+                            <MenuItem icon={IoCalendarOutline} label="Attendance" onClick={() => { setOpen(false); }} color="#10B981" />
+                            <MenuItem icon={IoWalletOutline} label="Salary History" onClick={() => { setOpen(false); }} color="#A855F7" />
+                            <MenuItem icon={IoDocumentTextOutline} label="Payroll" onClick={() => { setOpen(false); }} color="#F59E0B" />
                             <div style={{
-                                height: 1, margin: '4px 8px',
-                                background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                height: 1, margin: '6px 8px',
+                                background: 'rgba(255,255,255,0.06)',
                             }} />
-                            <MenuItem icon={IoTrash} label="Delete" onClick={() => { onDelete(worker); setOpen(false); }} color="#EF4444" />
+                            <MenuItem icon={IoTrash} label="Delete Worker" onClick={() => { onDelete(worker); setOpen(false); }} color="#EF4444" />
                         </motion.div>
                     </>
                 )}
@@ -72,17 +80,16 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
 };
 
 const MenuItem = ({ icon: Icon, label, onClick, color }) => {
-    const { isDark } = useTheme();
     return (
         <motion.button
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            whileHover={{ backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}
+            whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
             style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 12px', border: 'none', background: 'transparent',
-                cursor: 'pointer', borderRadius: 6,
+                cursor: 'pointer', borderRadius: 8,
                 fontSize: 13, fontWeight: 500,
-                color: isDark ? '#D4D4D8' : '#374151',
+                color: '#D4D4D8',
             }}
         >
             <Icon size={14} style={{ color, flexShrink: 0 }} />
@@ -91,159 +98,40 @@ const MenuItem = ({ icon: Icon, label, onClick, color }) => {
     );
 };
 
-/* ─── Worker Row ─── */
-const WorkerRow = ({ worker, onView, onEdit, onDelete, index }) => {
+/* ─── Worker Card (Square Design) ─── */
+const WorkerCard = ({ worker, onView, onEdit, onDelete, index }) => {
     const [menuOpen, setMenuOpen] = useState(false);
-    const { isDark } = useTheme();
-
-    const statusColor = worker.status === 'active' ? '#10B981' : '#71717A';
-    const hasAdvance = worker.current_advance > 0;
-
+    
     return (
         <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: index * 0.04, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => onView(worker)}
-            whileHover={{
-                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
-                scale: 1.01,
-                transition: { duration: 0.2 }
-            }}
-            className="lift-3d"
+            className="worker-premium-card"
             style={{
+                width: '100%',
+                maxWidth: '380px',
+                aspectRatio: '1 / 1',
+                background: '#17181C',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '24px',
+                padding: '24px',
                 display: 'flex',
-                alignItems: 'center',
-                gap: 'calc(16px * var(--display-zoom))',
-                padding: 'calc(16px * var(--display-zoom)) calc(20px * var(--display-zoom))',
-                borderRadius: 'calc(20px * var(--display-zoom))',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
                 cursor: 'pointer',
-                border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'}`,
-                background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.3)',
-                backdropFilter: 'var(--glass-blur)',
-                marginBottom: 'calc(8px * var(--display-zoom))',
-                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                 position: 'relative',
-                zIndex: menuOpen ? 50 : 1,
-                overflow: 'visible',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxSizing: 'border-box'
             }}
         >
-            {/* Avatar */}
-            <div style={{
-                width: 'calc(42px * var(--display-zoom))', height: 'calc(42px * var(--display-zoom))', borderRadius: 'calc(12px * var(--display-zoom))',
-                overflow: 'hidden', flexShrink: 0,
-                backgroundImage: isDark
-                    ? 'linear-gradient(145deg, #27272A, #1C1C1F)'
-                    : 'linear-gradient(145deg, #F9FAFB, #F0F1F3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#F97316', fontWeight: 600, fontSize: 'calc(15px * var(--text-scale))',
-                border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-            }}>
-                {worker.photo ? (
-                    <img src={worker.photo} alt={worker.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                    (worker.name || '?').charAt(0).toUpperCase()
-                )}
-            </div>
-
-            {/* Name + Phone */}
-            <div style={{ flex: `1 1 calc(180px * var(--display-zoom))`, minWidth: 0 }}>
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 'calc(8px * var(--display-zoom))',
-                }}>
-                    <span style={{
-                        fontSize: 'calc(14px * var(--text-scale))', fontWeight: 600,
-                        color: isDark ? '#FAFAFA' : '#111827',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                        {worker.name}
-                    </span>
-                    {/* Status dot */}
-                    <span style={{
-                        width: 'calc(6px * var(--display-zoom))', height: 'calc(6px * var(--display-zoom))', borderRadius: '50%',
-                        background: statusColor, flexShrink: 0,
-                        boxShadow: worker.status === 'active' ? '0 0 6px rgba(16,185,129,0.4)' : 'none',
-                    }} />
-                </div>
-                {worker.phone && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        fontSize: 12, color: isDark ? '#52525B' : '#9CA3AF',
-                        marginTop: 2,
-                    }}>
-                        <IoCall size={10} />
-                        {worker.phone}
-                    </div>
-                )}
-            </div>
-
-            {/* Role */}
-            <div style={{
-                flex: `0 1 calc(120px * var(--display-zoom))`, minWidth: 0,
-                display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--display-zoom))',
-            }}>
-                <div style={{
-                    padding: 'calc(4px * var(--display-zoom)) calc(10px * var(--display-zoom))',
-                    borderRadius: 'calc(6px * var(--display-zoom))',
-                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                    fontSize: 'calc(12px * var(--text-scale))', fontWeight: 500,
-                    color: isDark ? '#A1A1AA' : '#6B7280',
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    display: 'flex', alignItems: 'center', gap: 'calc(4px * var(--display-zoom))',
-                }}>
-                    <IoBriefcase size={11} style={{ flexShrink: 0, opacity: 0.6 }} />
-                    {worker.role}
-                </div>
-            </div>
-
-            {/* Salary */}
-            <div style={{
-                flex: `0 1 calc(130px * var(--display-zoom))`, minWidth: 0,
-                textAlign: 'right',
-            }}>
-                <span style={{
-                    fontSize: 'calc(14px * var(--text-scale))', fontWeight: 600,
-                    color: isDark ? '#FAFAFA' : '#111827',
-                    fontVariantNumeric: 'tabular-nums',
-                }}>
-                    {formatCurrency(worker.salary)}
-                </span>
-                <span style={{
-                    fontSize: 'calc(11px * var(--text-scale))', color: isDark ? '#52525B' : '#9CA3AF',
-                    marginLeft: 'calc(2px * var(--display-zoom))',
-                }}>/mo</span>
-            </div>
-
-            {/* Advance */}
-            <div style={{
-                flex: `0 1 calc(100px * var(--display-zoom))`, minWidth: 0,
-                textAlign: 'right',
-            }}>
-                {hasAdvance ? (
-                    <span style={{
-                        fontSize: 'calc(13px * var(--text-scale))', fontWeight: 600,
-                        color: '#EF4444',
-                        fontVariantNumeric: 'tabular-nums',
-                        padding: 'calc(3px * var(--display-zoom)) calc(8px * var(--display-zoom))',
-                        borderRadius: 'calc(6px * var(--display-zoom))',
-                        background: 'rgba(239,68,68,0.08)',
-                    }}>
-                        {formatCurrency(worker.current_advance)}
-                    </span>
-                ) : (
-                    <span style={{
-                        fontSize: 12,
-                        color: isDark ? '#3F3F46' : '#D1D5DB',
-                    }}>
-                        —
-                    </span>
-                )}
-            </div>
-
-            {/* Action Menu */}
-            <div style={{ flexShrink: 0, marginLeft: 4 }}>
+            {/* Top Right Three Dot Menu */}
+            <div 
+                style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <ActionMenu
                     worker={worker}
                     onView={onView}
@@ -253,61 +141,210 @@ const WorkerRow = ({ worker, onView, onEdit, onDelete, index }) => {
                     setOpen={setMenuOpen}
                 />
             </div>
+
+            {/* Header Section (Top 45%) */}
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', height: '45%' }}>
+                {/* Profile Frame */}
+                <div style={{
+                    width: '120px',
+                    height: '120px',
+                    borderRadius: '18px',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, rgba(255,122,0,0.1) 0%, rgba(255,90,0,0.2) 100%)',
+                    border: '1px solid rgba(255,122,0,0.3)',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                }} className="worker-profile-frame">
+                    {worker.photo ? (
+                        <img 
+                            src={worker.photo} 
+                            alt={worker.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                    ) : (
+                        <span style={{ 
+                            fontSize: '36px', 
+                            fontWeight: 800, 
+                            color: '#FF7A00',
+                            textShadow: '0 2px 10px rgba(255,122,0,0.2)'
+                        }}>
+                            {(worker.name || '?').charAt(0).toUpperCase()}
+                        </span>
+                    )}
+                </div>
+
+                {/* Employee Information */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+                    <span style={{ 
+                        fontSize: '18px', 
+                        fontWeight: 700, 
+                        color: '#FFFFFF',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {worker.name}
+                    </span>
+                    
+                    {/* Role Badge */}
+                    <div style={{ 
+                        alignSelf: 'flex-start',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 10px',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: 'rgba(255,255,255,0.6)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                    }}>
+                        <IoBriefcase size={11} style={{ opacity: 0.8 }} />
+                        <span>{worker.role}</span>
+                    </div>
+
+                    {/* Phone Number */}
+                    {worker.phone && (
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '6px',
+                            fontSize: '13px',
+                            color: 'rgba(255,255,255,0.4)'
+                        }}>
+                            <IoCall size={12} style={{ opacity: 0.6 }} />
+                            <span>{worker.phone}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '12px 0' }}></div>
+
+            {/* Salary Section */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+                {/* Left Card */}
+                <div style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: '16px',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '6px',
+                            background: 'rgba(255,122,0,0.1)',
+                            color: '#FF7A00',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <IoWalletOutline size={12} />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em' }}>SALARY</span>
+                    </div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                        {formatCurrency(worker.salary)}
+                    </span>
+                </div>
+
+                {/* Right Card */}
+                <div style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: '16px',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '6px',
+                            background: 'rgba(34,197,94,0.1)',
+                            color: '#22C55E',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <IoCashOutline size={12} />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em' }}>NET PAY</span>
+                    </div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                        {formatCurrency(worker.salary - (worker.current_advance || 0))}
+                    </span>
+                </div>
+            </div>
+
+            {/* Bottom Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
+                    ID: WKR-{String(worker.worker_id).padStart(4, '0')}
+                </span>
+                
+                <button
+                    onClick={(e) => { e.stopPropagation(); onView(worker); }}
+                    className="worker-view-btn"
+                    style={{
+                        padding: '8px 16px',
+                        background: 'transparent',
+                        border: '1px solid #FF7A00',
+                        borderRadius: '12px',
+                        color: '#FF7A00',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                >
+                    View Details →
+                </button>
+            </div>
         </motion.div>
     );
 };
 
-/* ─── Table Container ─── */
+/* ─── Responsive Grid Container ─── */
 const WorkerTable = ({ workers, onView, onEdit, onDelete }) => {
-    const { isDark } = useTheme();
-
     return (
-        <div>
-            {/* Column labels */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 'calc(16px * var(--display-zoom))',
-                padding: `0 calc(16px * var(--display-zoom)) calc(10px * var(--display-zoom)) calc(16px * var(--display-zoom))`,
-                borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-            }}>
-                {/* Avatar spacer */}
-                <div style={{ width: 'calc(42px * var(--display-zoom))', flexShrink: 0 }} />
-                <div style={{
-                    flex: `1 1 calc(180px * var(--display-zoom))`, fontSize: 'calc(11px * var(--text-scale))', fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    color: isDark ? '#52525B' : '#9CA3AF',
-                }}>Name</div>
-                <div style={{
-                    flex: `0 1 calc(120px * var(--display-zoom))`, fontSize: 'calc(11px * var(--text-scale))', fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    color: isDark ? '#52525B' : '#9CA3AF',
-                }}>Role</div>
-                <div style={{
-                    flex: `0 1 calc(130px * var(--display-zoom))`, fontSize: 'calc(11px * var(--text-scale))', fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    color: isDark ? '#52525B' : '#9CA3AF', textAlign: 'right',
-                }}>Salary</div>
-                <div style={{
-                    flex: `0 1 calc(100px * var(--display-zoom))`, fontSize: 'calc(11px * var(--text-scale))', fontWeight: 600,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    color: isDark ? '#52525B' : '#9CA3AF', textAlign: 'right',
-                }}>Advance</div>
-                {/* Action spacer */}
-                <div style={{ width: 'calc(36px * var(--display-zoom))', flexShrink: 0 }} />
-            </div>
-
-            {/* Rows */}
-            <div style={{ marginTop: 4 }}>
-                {workers.map((worker, i) => (
-                    <WorkerRow
-                        key={worker.worker_id}
-                        worker={worker}
-                        onView={onView}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        index={i}
-                    />
-                ))}
-            </div>
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '24px',
+            padding: '4px 0 24px 0',
+            width: '100%'
+        }} className="workers-grid-layout">
+            {workers.map((worker, i) => (
+                <WorkerCard
+                    key={worker.worker_id}
+                    worker={worker}
+                    onView={onView}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    index={i}
+                />
+            ))}
         </div>
     );
 };
