@@ -136,7 +136,11 @@ class DatabaseService:
                 product_id=product_data["product_id"],
                 name=product_data["name"],
                 price=float(product_data["price"]),
-                takeaway_price=float(product_data["takeaway_price"]) if product_data.get("takeaway_price") is not None else None,
+                takeaway_price=(
+                    float(product_data["takeaway_price"])
+                    if product_data.get("takeaway_price") is not None
+                    else None
+                ),
                 category_id=product_data.get("category_id"),
                 category=product_data.get("category"),
                 image_filename=product_data.get("image_filename"),
@@ -163,7 +167,11 @@ class DatabaseService:
             if "price" in product_data:
                 p.price = float(product_data["price"])
             if "takeaway_price" in product_data:
-                p.takeaway_price = float(product_data["takeaway_price"]) if product_data["takeaway_price"] is not None else None
+                p.takeaway_price = (
+                    float(product_data["takeaway_price"])
+                    if product_data["takeaway_price"] is not None
+                    else None
+                )
             if "category_id" in product_data:
                 p.category_id = product_data["category_id"]
             if "category" in product_data:

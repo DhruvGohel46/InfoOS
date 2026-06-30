@@ -296,7 +296,11 @@ class SQLiteDatabaseService:
                         product_data["product_id"],
                         product_data["name"],
                         float(product_data["price"]),
-                        float(product_data["takeaway_price"]) if product_data.get("takeaway_price") is not None else None,
+                        (
+                            float(product_data["takeaway_price"])
+                            if product_data.get("takeaway_price") is not None
+                            else None
+                        ),
                         product_data.get("category_id"),
                         product_data.get("category"),
                         product_data.get("image_filename"),
@@ -334,7 +338,11 @@ class SQLiteDatabaseService:
                         if field == "price":
                             values.append(float(product_data[field]))
                         elif field == "takeaway_price":
-                            values.append(float(product_data[field]) if product_data[field] is not None else None)
+                            values.append(
+                                float(product_data[field])
+                                if product_data[field] is not None
+                                else None
+                            )
                         elif field == "active":
                             values.append(bool(product_data[field]))
                         elif field == "variations":
