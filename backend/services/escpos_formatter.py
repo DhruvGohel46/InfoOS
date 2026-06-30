@@ -312,7 +312,7 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
     # Separator line (dashed/dotted)
     formatter.align_left()
     formatter.bold_on()
-    formatter.line_with_margin("-" * usable_chars)
+    formatter.line_with_margin("-" * usable_chars, margin_w)
     formatter.bold_off()
 
     # Column titles - use usable_chars for width calculation
@@ -427,7 +427,7 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
     formatter.bold_on().line(shop_name.upper()).bold_off()
     shop_contact = settings.get("shop_contact", "")
     if shop_contact:
-        formatter.line(f"Ph: {shop_contact}")
+        formatter.bold_on().line(f"Ph: {shop_contact}").bold_off()
 
     formatter.align_left()
     formatter.divider()
@@ -515,11 +515,13 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
 
         formatter.bold_on()
         formatter.line(f"{chunks[0]:<{item_w}}{qty:>{qty_w}}{price:>{rate_w}.2f}{amt:>{amt_w}.2f}")
+        formatter.bold_off()
         for chunk in chunks[1:]:
             formatter.line(f"{chunk:<{item_w}}")
         if specification:
+            formatter.bold_on()
             formatter.line(f"({specification})")
-        formatter.bold_off()
+            formatter.bold_off()
 
     formatter.divider()
 
@@ -574,8 +576,9 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
     formatter.bold_off()
     formatter.divider()
 
-    formatter.feed(0)
-    formatter.cut()
+    # Add blank lines before cut to prevent text from being cut off
+    formatter.feed(5)
+    formatter.cut(mode=0)  # Full cut
 
     return formatter.build()
 

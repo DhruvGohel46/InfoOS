@@ -1074,18 +1074,23 @@ const Settings = () => {
                         )}
 
                         {activeTab === 'workers' && (
-                            <>
-                                <div className="stSectionTitle">
-                                    <IoCalendarOutline size={22} color="var(--primary)" />
-                                    Worker Management
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Worker Configuration</h2>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage salary and payroll settings</p>
                                 </div>
 
-                                <div className="stSectionContent">
-                                    <div className="stFormGroup">
-                                        <div className="stLabel">
-                                            <span className="stLabelTitle">Monthly Salary Date</span>
-                                            <span className="stLabelDesc">Day of the month to generate salary notifications (1-31)</span>
-                                        </div>
+                                <div style={{
+                                    padding: '24px',
+                                    background: 'var(--surface-primary)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
                                         <div style={{ width: '100%' }}>
                                             <GlobalDatePicker
                                                 value={(() => {
@@ -1094,9 +1099,7 @@ const Settings = () => {
                                                     return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
                                                 })()}
                                                 onChange={(dateStr) => {
-                                                    // Extract just the day number from the selected date
                                                     if (dateStr) {
-                                                        // dateStr is YYYY-MM-DD from the picker
                                                         const parts = dateStr.split('-');
                                                         if (parts.length === 3) {
                                                             const day = parseInt(parts[2]);
@@ -1106,578 +1109,516 @@ const Settings = () => {
                                                 }}
                                                 placeholder="Select Salary Day"
                                             />
-                                            <div style={{ marginTop: '8px', fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                                                Selected: <strong style={{ color: isDark ? '#fff' : '#0f172a' }}>Day {formSettings.salary_day || 1}</strong> of every month
+                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                                Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         )}
                         
                         {activeTab === 'security' && (
-                            <div className="stSecurityGrid" style={{
-                                display: 'grid',
-                                gridTemplateColumns: '320px 1fr',
-                                gap: '32px',
-                                padding: '24px 0'
-                            }}>
-                                {/* Left side - Status & Summary */}
-                                <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div style={{
-                                        background: pinStatus.is_setup 
-                                            ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
-                                            : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
-                                        border: `1px solid ${pinStatus.is_setup ? 'var(--success-200)' : 'var(--primary-200)'}`,
-                                        borderRadius: '24px',
-                                        padding: '24px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        textAlign: 'center',
-                                        gap: '16px',
-                                        boxShadow: 'var(--shadow-card)'
-                                    }}>
-                                        <div style={{
-                                            width: '64px',
-                                            height: '64px',
-                                            borderRadius: '20px',
-                                            background: pinStatus.is_setup ? 'var(--success-500)' : 'var(--primary-500)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'var(--text-inverse)',
-                                            boxShadow: pinStatus.is_setup ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
-                                            fontSize: '32px'
-                                        }}>
-                                            {pinStatus.is_setup ? <IoShieldCheckmarkOutline /> : <IoLockOpenOutline />}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                                {pinStatus.is_setup ? 'System Secured' : 'Unsecured Access'}
-                                            </div>
-                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                {pinStatus.is_setup 
-                                                    ? 'Your management dashboard is protected by a 4-6 digit PIN.' 
-                                                    : 'Setup a PIN to restrict access to settings and analytics.'}
-                                            </div>
-                                        </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                {/* Page Header with Status Badge */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <div>
+                                        <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Security & Access</h2>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage authentication and access controls</p>
                                     </div>
-
                                     <div style={{
-                                        background: 'var(--bg-secondary)',
+                                        padding: '6px 12px',
                                         borderRadius: '20px',
-                                        padding: '20px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px',
-                                        border: '1px solid var(--border-secondary)'
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        background: pinStatus.is_setup ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                        color: pinStatus.is_setup ? '#10B981' : '#EF4444',
+                                        border: pinStatus.is_setup ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
                                     }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                                            <IoInformationCircleOutline size={18} />
-                                            What's protected?
-                                        </div>
-                                        <ul style={{ margin: 0, padding: '0 0 0 24px', fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <li>Inventory & Stock Management</li>
-                                            <li>Revenue & Sales Analytics</li>
-                                            <li>System Configurations</li>
-                                            <li>Worker Salary Records</li>
-                                        </ul>
+                                        {pinStatus.is_setup ? 'Secured' : 'Unsecured'}
                                     </div>
                                 </div>
 
-                                {/* Right side - Controls */}
-                                <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                {/* Warning Banner */}
+                                {formSettings.require_pin_login !== 'true' && (
                                     <div style={{
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: '24px',
-                                        padding: '32px',
-                                        boxShadow: 'var(--shadow-sm)'
+                                        padding: '12px 16px',
+                                        background: 'rgba(239, 68, 68, 0.05)',
+                                        border: '1px solid rgba(239, 68, 68, 0.15)',
+                                        borderRadius: '8px',
+                                        fontSize: '13px',
+                                        color: 'var(--text-primary)'
                                     }}>
-                                        <div className="stFormGroup" style={{ border: 'none', padding: '0 0 32px 0' }}>
-                                            <div className="stLabel">
-                                                <span className="stLabelTitle">Require Owner PIN</span>
-                                                <span className="stLabelDesc">Request authentication on every launch</span>
-                                            </div>
-                                            <label className="stToggle">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formSettings.require_pin_login === 'true'}
-                                                    onChange={(e) => handleChange('require_pin_login', e.target.checked ? 'true' : 'false')}
-                                                />
-                                                <span className="stSlider"></span>
-                                            </label>
+                                        PIN requirement is disabled. Enable it to protect sensitive areas.
+                                    </div>
+                                )}
+
+                                {/* Settings Grid */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+                                    {/* Require PIN Toggle */}
+                                    <div style={{
+                                        padding: '16px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Require PIN on Launch</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Request authentication on every launch</div>
+                                        </div>
+                                        <label style={{
+                                            position: 'relative',
+                                            display: 'inline-block',
+                                            width: '44px',
+                                            height: '24px'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formSettings.require_pin_login === 'true'}
+                                                onChange={(e) => handleChange('require_pin_login', e.target.checked ? 'true' : 'false')}
+                                                style={{ opacity: 0, width: 0, height: 0 }}
+                                            />
+                                            <span style={{
+                                                position: 'absolute',
+                                                cursor: 'pointer',
+                                                top: 0, left: 0, right: 0, bottom: 0,
+                                                backgroundColor: formSettings.require_pin_login === 'true' ? 'var(--primary-500)' : 'var(--border-secondary)',
+                                                transition: '0.2s',
+                                                borderRadius: '24px'
+                                            }}>
+                                                <span style={{
+                                                    position: 'absolute',
+                                                    content: '""',
+                                                    height: '18px',
+                                                    width: '18px',
+                                                    left: formSettings.require_pin_login === 'true' ? '24px' : '3px',
+                                                    bottom: '3px',
+                                                    backgroundColor: 'white',
+                                                    transition: '0.2s',
+                                                    borderRadius: '50%'
+                                                }}></span>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Authentication Card */}
+                                    <div style={{
+                                        padding: '24px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '24px'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Authentication PIN</div>
+                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Set or change your 4-6 digit security PIN</div>
                                         </div>
 
-                                        <div style={{
-                                            borderTop: '1px solid var(--border-secondary)',
-                                            paddingTop: '32px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '20px'
-                                        }}>
-                                            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <IoFingerPrintOutline size={20} color="var(--primary-500)" />
-                                                {pinStatus.is_setup ? 'Manage PIN' : 'Configure Owner PIN'}
+                                        {pinStatus.is_setup && (
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Current PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={pinForm.currentPin}
+                                                    onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
+                                                    placeholder="Enter existing PIN"
+                                                    style={{
+                                                        width: '100%',
+                                                        maxWidth: '300px',
+                                                        padding: '10px 12px',
+                                                        background: 'var(--bg-primary)',
+                                                        border: '1px solid var(--border-secondary)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '14px',
+                                                        outline: 'none'
+                                                    }}
+                                                />
                                             </div>
+                                        )}
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>New PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={pinForm.newPin}
+                                                    onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
+                                                    placeholder="4–6 digits"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 12px',
+                                                        background: 'var(--bg-primary)',
+                                                        border: '1px solid var(--border-secondary)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '14px',
+                                                        outline: 'none'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Confirm PIN</label>
+                                                <input
+                                                    type="password"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={pinForm.confirmPin}
+                                                    onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
+                                                    placeholder="Repeat PIN"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 12px',
+                                                        background: 'var(--bg-primary)',
+                                                        border: '1px solid var(--border-secondary)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '14px',
+                                                        outline: 'none'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-secondary)', marginTop: '8px' }}>
+                                            <Button
+                                                variant="primary"
+                                                onClick={handleSavePinChange}
+                                                loading={pinSaving}
+                                                disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
+                                                style={{ height: '36px' }}
+                                            >
+                                                {pinSaving ? 'Saving...' : pinStatus.is_setup ? 'Update PIN' : 'Set PIN'}
+                                            </Button>
 
                                             {pinStatus.is_setup && (
-                                                <div className="stInputGroup">
-                                                    <label className="stInputLabel">Current PIN</label>
-                                                    <input
-                                                        type="password"
-                                                        inputMode="numeric"
-                                                        maxLength={6}
-                                                        className="stInput"
-                                                        placeholder="Enter existing PIN"
-                                                        value={pinForm.currentPin}
-                                                        onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
-                                                        style={{ maxWidth: '300px' }}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '600px' }}>
-                                                <div className="stInputGroup">
-                                                    <label className="stInputLabel">New PIN</label>
-                                                    <input
-                                                        type="password"
-                                                        inputMode="numeric"
-                                                        maxLength={6}
-                                                        className="stInput"
-                                                        placeholder="4–6 digits"
-                                                        value={pinForm.newPin}
-                                                        onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
-                                                    />
-                                                </div>
-                                                <div className="stInputGroup">
-                                                    <label className="stInputLabel">Confirm New PIN</label>
-                                                    <input
-                                                        type="password"
-                                                        inputMode="numeric"
-                                                        maxLength={6}
-                                                        className="stInput"
-                                                        placeholder="Repeat PIN"
-                                                        value={pinForm.confirmPin}
-                                                        onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                                                 <Button
-                                                    variant="primary"
-                                                    onClick={handleSavePinChange}
-                                                    loading={pinSaving}
-                                                    disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
-                                                    style={{ minWidth: 160, height: '46px', borderRadius: '12px' }}
+                                                    variant="secondary"
+                                                    onClick={handleResetPin}
+                                                    disabled={pinSaving}
+                                                    style={{ height: '36px' }}
                                                 >
-                                                    {pinSaving ? 'Processing…' : pinStatus.is_setup ? 'Update Security PIN' : 'Activate Owner PIN'}
+                                                    Reset
                                                 </Button>
-
-                                                {pinStatus.is_setup && (
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={handleResetPin}
-                                                        disabled={pinSaving}
-                                                        style={{ 
-                                                            minWidth: 140, 
-                                                            height: '46px', 
-                                                            borderRadius: '12px',
-                                                            borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
-                                                            color: 'var(--error-500)',
-                                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
-                                                        }}
-                                                    >
-                                                        Reset PIN
-                                                    </Button>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {formSettings.require_pin_login !== 'true' && (
-                                        <div style={{
-                                            padding: '16px 20px',
-                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)',
-                                            border: '1px solid color-mix(in srgb, var(--error-500) 15%, transparent)',
-                                            borderRadius: '16px',
-                                            fontSize: '13px',
-                                            color: 'var(--error-500)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px'
-                                        }}>
-                                            <IoInformationCircleOutline size={20} />
-                                            <span>Security Warning: PIN requirement is currently <strong>disabled</strong>. The system is vulnerable.</span>
+                                    {/* Protected Areas Info */}
+                                    <div style={{
+                                        padding: '16px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '8px'
+                                    }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>Protected Areas</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            {['Inventory', 'Analytics', 'Settings', 'Worker Records'].map((item, idx) => (
+                                                <span key={idx} style={{
+                                                    padding: '4px 10px',
+                                                    background: 'var(--bg-secondary)',
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px',
+                                                    color: 'var(--text-tertiary)'
+                                                }}>
+                                                    {item}
+                                                </span>
+                                            ))}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'cloud' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                                <div className="stSecurityGrid" style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '320px 1fr',
-                                    gap: '32px',
-                                    padding: '24px 0'
-                                }}>
-                                    {/* Left side - Status & Summary */}
-                                    <div className="stSecurityStatusCol" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+                                {/* Cloud Sync Section */}
+                                <div>
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Cloud Sync</h2>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Connect to cloud services for backup and synchronization</p>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '32px' }}>
+                                        {/* Status Card */}
                                         <div style={{
-                                            background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active'
-                                                ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' 
-                                                : 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
-                                            border: `1px solid ${cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-200)' : 'var(--border-secondary)'}`,
-                                            borderRadius: '24px',
                                             padding: '24px',
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '12px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            alignItems: 'center',
-                                            textAlign: 'center',
-                                            gap: '16px',
-                                            boxShadow: 'var(--shadow-card)'
+                                            gap: '16px'
                                         }}>
                                             <div style={{
-                                                width: '64px',
-                                                height: '64px',
-                                                borderRadius: '20px',
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '12px',
                                                 background: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--primary-500)',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                color: 'white',
-                                                boxShadow: cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' ? 'var(--shadow-success-md)' : 'var(--shadow-primary-md)',
-                                                fontSize: '32px'
+                                                color: 'white'
                                             }}>
-                                                <IoCloudUploadOutline />
+                                                <IoCloudUploadOutline size={24} />
                                             </div>
                                             <div>
-                                                <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                                    {cloudStatus.loggedIn ? 'Cloud Connected' : 'Offline Engine'}
+                                                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    {cloudStatus.loggedIn ? 'Connected' : 'Not Connected'}
                                                 </div>
                                                 <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                    {cloudStatus.loggedIn 
-                                                        ? `Authenticated as ${cloudStatus.email}` 
-                                                        : 'Sync backups & fetch product catalog feeds from the cloud.'}
+                                                    {cloudStatus.loggedIn ? cloudStatus.email : 'Sign in to enable cloud sync'}
                                                 </div>
                                             </div>
                                         </div>
-                                        
-                                        {cloudStatus.loggedIn && (
-                                            <div style={{
-                                                background: 'var(--bg-secondary)',
-                                                borderRadius: '20px',
-                                                padding: '20px',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '12px',
-                                                border: '1px solid var(--border-secondary)'
-                                            }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <IoInformationCircleOutline size={18} />
-                                                    Cloud Settings Details
-                                                </div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                    License Status: <strong style={{ color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--error-500)' }}>{cloudStatus.subscriptionStatus.toUpperCase()}</strong>
-                                                </div>
-                                                {cloudStatus.expiry && (
-                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                        Valid Until: <strong>{cloudStatus.expiry}</strong>
+
+                                        {/* Controls */}
+                                        <div style={{
+                                            padding: '24px',
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '12px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '24px'
+                                        }}>
+                                            {!cloudStatus.loggedIn ? (
+                                                <form onSubmit={handleCloudLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Email</label>
+                                                        <input
+                                                            type="email"
+                                                            value={cloudEmail}
+                                                            onChange={e => setCloudEmail(e.target.value)}
+                                                            placeholder="your@email.com"
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '10px 12px',
+                                                                background: 'var(--bg-primary)',
+                                                                border: '1px solid var(--border-secondary)',
+                                                                borderRadius: '8px',
+                                                                color: 'var(--text-primary)',
+                                                                fontSize: '14px',
+                                                                outline: 'none'
+                                                            }}
+                                                            required
+                                                        />
                                                     </div>
-                                                )}
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                    Network Role: <strong>{cloudStatus.role.toUpperCase()}</strong>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Right side - Controls */}
-                                    <div className="stSecurityControlsCol" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                        {!cloudStatus.loggedIn ? (
-                                            <form onSubmit={handleCloudLogin} style={{
-                                                background: 'var(--surface-primary)',
-                                                border: '1px solid var(--glass-border)',
-                                                borderRadius: '24px',
-                                                padding: '32px',
-                                                boxShadow: 'var(--shadow-sm)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '20px'
-                                            }}>
-                                                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                    Log In to SaaS Cloud Portal
-                                                </div>
-                                                
-                                                <div className="stInputGroup">
-                                                    <label className="stInputLabel">Email Address</label>
-                                                    <input
-                                                        type="email"
-                                                        className="stInput"
-                                                        placeholder="your@restaurant.com"
-                                                        value={cloudEmail}
-                                                        onChange={e => setCloudEmail(e.target.value)}
-                                                        required
-                                                    />
-                                                </div>
-
-                                                <div className="stInputGroup">
-                                                    <label className="stInputLabel">Password</label>
-                                                    <input
-                                                        type="password"
-                                                        className="stInput"
-                                                        placeholder="••••••••"
-                                                        value={cloudPassword}
-                                                        onChange={e => setCloudPassword(e.target.value)}
-                                                        required
-                                                    />
-                                                </div>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Password</label>
+                                                        <input
+                                                            type="password"
+                                                            value={cloudPassword}
+                                                            onChange={e => setCloudPassword(e.target.value)}
+                                                            placeholder="••••••••"
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '10px 12px',
+                                                                background: 'var(--bg-primary)',
+                                                                border: '1px solid var(--border-secondary)',
+                                                                borderRadius: '8px',
+                                                                color: 'var(--text-primary)',
+                                                                fontSize: '14px',
+                                                                outline: 'none'
+                                                            }}
+                                                            required
+                                                        />
+                                                    </div>
                                                     <Button
                                                         type="submit"
                                                         variant="primary"
                                                         loading={cloudLoading}
                                                         disabled={cloudLoading}
-                                                        style={{ height: '46px', borderRadius: '12px' }}
+                                                        style={{ height: '40px' }}
                                                     >
-                                                        Connect Cloud Account
+                                                        Connect
                                                     </Button>
-                                                    
-                                                    <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                        Don't have an account?{' '}
-                                                        <a 
-                                                            href="https://infoos-web.vercel.app/auth?tab=signup" 
-                                                            style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                                        No account? <a href="https://infoos-web.vercel.app/auth?tab=signup" style={{ color: 'var(--primary-500)', textDecoration: 'none' }}>Create one</a>
+                                                    </div>
+                                                </form>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <div style={{
+                                                        padding: '16px',
+                                                        background: 'var(--bg-secondary)',
+                                                        borderRadius: '8px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '8px'
+                                                    }}>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscription</div>
+                                                        <div style={{ fontSize: '14px', fontWeight: 600, color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--text-primary)' }}>
+                                                            {cloudStatus.subscriptionStatus.toUpperCase()}
+                                                        </div>
+                                                        {cloudStatus.expiry && (
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                                Expires: {cloudStatus.expiry}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <Button
+                                                            variant="primary"
+                                                            onClick={handleManualSync}
+                                                            loading={syncingBackup}
+                                                            disabled={syncingBackup || syncingMonthlyBackup}
+                                                            style={{ height: '40px' }}
                                                         >
-                                                            Create Account on Web
-                                                        </a>
+                                                            Sync Weekly
+                                                        </Button>
+                                                        <Button
+                                                            variant="primary"
+                                                            onClick={handleMonthlySync}
+                                                            loading={syncingMonthlyBackup}
+                                                            disabled={syncingBackup || syncingMonthlyBackup}
+                                                            style={{ height: '40px' }}
+                                                        >
+                                                            Sync Monthly
+                                                        </Button>
+                                                        <Button
+                                                            variant="secondary"
+                                                            onClick={handleCloudLogout}
+                                                            style={{ height: '40px' }}
+                                                        >
+                                                            Disconnect
+                                                        </Button>
                                                     </div>
                                                 </div>
-                                            </form>
-                                        ) : (
-                                            <div style={{
-                                                background: 'var(--surface-primary)',
-                                                border: '1px solid var(--glass-border)',
-                                                borderRadius: '24px',
-                                                padding: '32px',
-                                                boxShadow: 'var(--shadow-sm)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '24px'
-                                            }}>
-                                                <div>
-                                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                        License & Synchronization Controls
-                                                    </div>
-                                                    <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                        Upload aggregates of this week's or month's sales and expense totals.
-                                                    </p>
-                                                </div>
-
-                                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                                    <Button
-                                                        variant="primary"
-                                                        onClick={handleManualSync}
-                                                        loading={syncingBackup}
-                                                        disabled={syncingBackup || syncingMonthlyBackup}
-                                                        style={{ minWidth: '180px', height: '46px', borderRadius: '12px' }}
-                                                    >
-                                                        {syncingBackup ? 'Syncing...' : 'Sync Weekly Backup'}
-                                                    </Button>
-
-                                                    <Button
-                                                        variant="primary"
-                                                        onClick={handleMonthlySync}
-                                                        loading={syncingMonthlyBackup}
-                                                        disabled={syncingBackup || syncingMonthlyBackup}
-                                                        style={{ minWidth: '180px', height: '46px', borderRadius: '12px', background: 'var(--accent-500, #10B981)' }}
-                                                    >
-                                                        {syncingMonthlyBackup ? 'Syncing...' : 'Sync Monthly Backup'}
-                                                    </Button>
-
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={handleCloudLogout}
-                                                        style={{ 
-                                                            minWidth: '120px', 
-                                                            height: '46px', 
-                                                            borderRadius: '12px',
-                                                            borderColor: 'color-mix(in srgb, var(--error-500) 20%, transparent)', 
-                                                            color: 'var(--error-500)',
-                                                            background: 'color-mix(in srgb, var(--error-500) 5%, transparent)'
-                                                        }}
-                                                    >
-                                                        Disconnect
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <hr style={{ border: '0', borderTop: '1px solid var(--border-secondary)', margin: '16px 0' }} />
-
-                                <div className="stAboutSection" style={{
-                                    padding: '12px 0',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '32px'
-                                }}>
-                                    {/* Top Banner info */}
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '24px',
-                                        padding: '32px',
-                                        background: 'linear-gradient(135deg, rgba(255, 184, 105, 0.08) 0%, rgba(255, 140, 66, 0.08) 100%)',
-                                        border: '1px solid rgba(255, 151, 54, 0.15)',
-                                        borderRadius: '24px'
-                                    }}>
-                                        <div style={{
-                                            width: '64px',
-                                            height: '64px',
-                                            borderRadius: '20px',
-                                            backgroundColor: '#FF8C42',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: '#FFFFFF',
-                                            fontSize: '32px',
-                                            fontWeight: 800,
-                                            boxShadow: '0 8px 24px rgba(255, 140, 66, 0.25)'
-                                        }}>
-                                            iO
-                                        </div>
-                                        <div>
-                                            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>InfoOS Desktop</h3>
-                                            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                                Production-grade Point of Sale (POS) & retail optimization client.
-                                            </p>
-                                        </div>
+                                {/* About Section */}
+                                <div>
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>About</h2>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>System information and version details</p>
                                     </div>
 
-                                    {/* Versions info grid */}
+                                    {/* Version Grid */}
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                                        gap: '20px'
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                                        gap: '16px',
+                                        marginBottom: '32px'
                                     }}>
-                                        {/* App Version */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Version</span>
-                                            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.appVersion}</span>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>App Version</div>
+                                            <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>v{systemInfo.appVersion}</div>
                                         </div>
 
-                                        {/* Backend version */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend version</span>
-                                            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</span>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend</div>
+                                            <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</div>
                                         </div>
 
-                                        {/* Database schema revision */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database Schema Version</span>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</span>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database</div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</div>
                                         </div>
 
-                                        {/* Update Status */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</span>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: getStatusColor(systemInfo.updateStatus) }}>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: getStatusColor(systemInfo.updateStatus) }}>
                                                 {formatStatusText(systemInfo.updateStatus)}
-                                            </span>
+                                            </div>
                                         </div>
 
-                                        {/* Last Check */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</span>
-                                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                {systemInfo.lastChecked ? new Date(systemInfo.lastChecked).toLocaleString() : 'Never'}
-                                            </span>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest</div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                {systemInfo.latestVersion && systemInfo.latestVersion !== 'unknown' ? `v${systemInfo.latestVersion}` : 'No updates'}
+                                            </div>
                                         </div>
 
-                                        {/* Latest version */}
                                         <div style={{
-                                            padding: '20px',
-                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            padding: '16px',
+                                            background: 'var(--surface-primary)',
                                             border: '1px solid var(--border-secondary)',
-                                            borderRadius: '16px',
+                                            borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '6px'
+                                            gap: '4px'
                                         }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest Available Version</span>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                {systemInfo.latestVersion && systemInfo.latestVersion !== 'unknown' ? `v${systemInfo.latestVersion}` : 'No updates found'}
-                                            </span>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Checked</div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                {systemInfo.lastChecked ? new Date(systemInfo.lastChecked).toLocaleDateString() : 'Never'}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Controls */}
+                                    {/* Update Controls */}
                                     <div style={{
-                                        display: 'flex',
-                                        gap: '16px',
-                                        padding: '24px',
-                                        background: 'rgba(255, 255, 255, 0.01)',
+                                        padding: '16px',
+                                        background: 'var(--surface-primary)',
                                         border: '1px solid var(--border-secondary)',
-                                        borderRadius: '20px',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between'
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
                                     }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Check for new updates</span>
-                                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-tertiary)' }}>Query the official InfoOS release repository for software updates.</p>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Check for updates</div>
+                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Query the official release repository</div>
                                         </div>
                                         <Button
                                             variant="secondary"
                                             onClick={handleManualCheckForUpdates}
                                             loading={checkingForUpdates}
-                                            style={{ minWidth: '150px', borderRadius: '12px' }}
+                                            style={{ height: '36px' }}
                                         >
                                             Check Now
                                         </Button>

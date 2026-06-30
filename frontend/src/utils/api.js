@@ -307,7 +307,12 @@ export const setCurrencySymbol = (symbol) => {
 
 export const formatCurrency = (amount) => {
   // Use custom formatting to support arbitrary symbols
-  return `${currentCurrencySymbol}${Number(amount).toFixed(2)}`;
+  // Remove trailing zeros for cleaner display (e.g., 50.00 -> 50, 50.50 -> 50.50)
+  const num = Number(amount);
+  const formatted = num.toFixed(2);
+  // Remove trailing zeros and decimal point if not needed
+  const cleaned = formatted.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+  return `${currentCurrencySymbol}${cleaned}`;
 };
 
 /**

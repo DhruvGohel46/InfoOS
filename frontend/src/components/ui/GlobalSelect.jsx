@@ -181,9 +181,6 @@ const GlobalSelect = ({
                                         }}
                                     >
                                         <span>{option.label}</span>
-                                        {option.value === value && (
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
-                                        )}
                                     </div>
                                 ))
                             ) : (

@@ -179,6 +179,7 @@ def create_product():
         "product_id": validated["product_id"],
         "name": name,
         "price": price,
+        "takeaway_price": validated.get("takeaway_price"),
         "category_id": category_id,
         "category": category_name,
         "active": active,
@@ -255,6 +256,9 @@ def update_product(product_id):
 
     if "price" in validated:
         update_data["price"] = validated["price"]
+
+    if "takeaway_price" in validated:
+        update_data["takeaway_price"] = validated["takeaway_price"]
 
     if "category_id" in validated:
         update_data["category_id"] = validated["category_id"]

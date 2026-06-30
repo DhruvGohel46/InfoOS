@@ -5,7 +5,9 @@ import {
   IoWarningOutline, 
   IoLaptopOutline, 
   IoLogOutOutline,
-  IoRefreshOutline
+  IoRefreshOutline,
+  IoMailOutline,
+  IoKeyOutline
 } from 'react-icons/io5';
 import { cloudAuthAPI, cloudLicenseAPI, setCloudAuthToken } from '../../api/cloudApi';
 import '../../styles/Licensing.css';
@@ -26,14 +28,19 @@ export default function LicensingGate({ children }) {
   const [loading, setLoading] = useState(false);
   const [showWarningBar, setShowWarningBar] = useState(false);
   const [offlineDaysRemaining, setOfflineDaysRemaining] = useState(0);
+  const [deviceInfo, setDeviceInfo] = useState(null);
 
   // Helper: Get local device info
   const getDeviceInfo = useCallback(async () => {
     if (window.electronAPI && window.electronAPI.getDeviceFingerprint) {
-      return await window.electronAPI.getDeviceFingerprint();
+      const info = await window.electronAPI.getDeviceFingerprint();
+      setDeviceInfo(info);
+      return info;
     }
     // Web fallback for testing/development
-    return { fingerprint: 'web-dev-fingerprint-placeholder', deviceName: 'Web Browser' };
+    const fallbackInfo = { fingerprint: 'web-dev-fingerprint-placeholder', deviceName: 'Web Browser' };
+    setDeviceInfo(fallbackInfo);
+    return fallbackInfo;
   }, []);
 
   // Helper: Write encrypted local activation cache
@@ -61,7 +68,7 @@ export default function LicensingGate({ children }) {
     } catch (err) {
       console.error('Failed to write local activation cache:', err);
     }
-  }, [email, getDeviceInfo]);
+  }, [getDeviceInfo]);
 
   // Main subscription check logic
   const checkSubscriptionStatus = useCallback(async (userId, token, forceDeviceCheck = false) => {
@@ -229,8 +236,9 @@ export default function LicensingGate({ children }) {
   }, [getDeviceInfo, checkSubscriptionStatus]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     runStartupChecks();
-  }, [runStartupChecks]);
+  }, []);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e) => {
@@ -330,8 +338,9 @@ export default function LicensingGate({ children }) {
         <div className="licensing-card">
           <div className="licensing-header">
             <div className="licensing-logo">InfoOS</div>
-            <h2 className="licensing-title">Device Activation</h2>
-            <p className="licensing-desc">Connect your business account to activate this machine.</p>
+            <div className="licensing-logo-sub">Business Operating System</div>
+            <h2 className="licensing-title">Secure Device Activation</h2>
+            <p className="licensing-desc">Connect your cloud account to activate this device.</p>
           </div>
 
           {licensingState.errorMessage && (
@@ -343,29 +352,35 @@ export default function LicensingGate({ children }) {
 
           <form className="licensing-form" onSubmit={handleLoginSubmit}>
             <div className="licensing-input-group">
-              <label className="licensing-label">Cloud Portal Email</label>
-              <input 
-                type="email" 
-                className="licensing-input" 
-                placeholder="your@restaurant.com" 
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                disabled={loading}
-              />
+              <label className="licensing-label">Email</label>
+              <div className="licensing-input-wrapper">
+                <IoMailOutline className="licensing-input-icon" />
+                <input 
+                  type="email" 
+                  className="licensing-input" 
+                  placeholder="your@restaurant.com" 
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
             </div>
             
             <div className="licensing-input-group">
               <label className="licensing-label">Password</label>
-              <input 
-                type="password" 
-                className="licensing-input" 
-                placeholder="••••••••" 
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                disabled={loading}
-              />
+              <div className="licensing-input-wrapper">
+                <IoKeyOutline className="licensing-input-icon" />
+                <input 
+                  type="password" 
+                  className="licensing-input" 
+                  placeholder="••••••••" 
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <button type="submit" className="licensing-btn" disabled={loading}>
@@ -374,13 +389,22 @@ export default function LicensingGate({ children }) {
             </button>
           </form>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create Account</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px' }}>
+            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create Account →</span>
             <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot Password?</span>
           </div>
 
+          {deviceInfo && (
+            <div className="licensing-device-info">
+              <div className="licensing-device-label">Device</div>
+              <div className="licensing-device-name">{deviceInfo.deviceName || 'Unknown Device'}</div>
+              <div className="licensing-device-os">Windows</div>
+              <div className="licensing-device-id">{deviceInfo.fingerprint?.substring(0, 12) || 'Unknown ID'}</div>
+            </div>
+          )}
+
           <div className="licensing-footer">
-            Don't have an active license? Purchase one at the <span className="licensing-link" onClick={() => openWebsite()}>InfoOS website</span>.
+            Need an InfoOS license? <span className="licensing-link" onClick={() => openWebsite()}>Purchase one from our website</span>.
           </div>
         </div>
       </div>

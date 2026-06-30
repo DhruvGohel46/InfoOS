@@ -47,7 +47,9 @@ import {
     IoCartOutline,
     IoFlashOutline,
     IoHomeOutline,
-    IoBusOutline
+    IoBusOutline,
+    IoTrendingUpOutline,
+    IoStatsChartOutline
 } from 'react-icons/io5';
 import { FiDollarSign } from 'react-icons/fi';
 import '../../styles/Analytics.css';
@@ -595,6 +597,36 @@ const Analytics = () => {
         }
     };
 
+    // ─── Accent Color System based on Bill Number ───
+    const getAccentColor = (billNo) => {
+        const colors = [
+            '#FF7A00', // Orange (primary)
+            '#3B82F6', // Blue
+            '#A855F7', // Purple
+            '#14B8A6', // Teal
+            '#22C55E', // Green
+            '#F59E0B', // Amber
+            '#EC4899', // Pink
+            '#6366F1', // Indigo
+        ];
+        return colors[billNo % colors.length];
+    };
+
+    // ─── Calculate summary metrics ───
+    const summaryMetrics = useMemo(() => {
+        const totalBills = bills.length;
+        const totalRevenue = bills.reduce((sum, bill) => sum + (bill.total_amount || 0), 0);
+        const totalItems = bills.reduce((sum, bill) => sum + (bill.items?.length || 0), 0);
+        const averageBill = totalBills > 0 ? totalRevenue / totalBills : 0;
+        
+        return {
+            totalBills,
+            totalRevenue,
+            totalItems,
+            averageBill
+        };
+    }, [bills]);
+
 
 
     const filteredRangeExpenses = useMemo(() => {
@@ -732,8 +764,6 @@ const Analytics = () => {
                         </motion.div>
                     </div>
                 </div>
-
-
             </motion.div>
 
             {/* ════════════════ TAB CONTENT ════════════════ */}
@@ -748,13 +778,13 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Gross Sales Stat & Range Filters in One Line (Swapped order: filters on left, stat card on right) */}
+                            {/* Range Filters */}
                             <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 gap: '20px',
-                                marginBottom: 'var(--spacing-5)',
+                                marginBottom: '20px',
                                 flexWrap: 'wrap'
                             }}>
                                 <div className="analytics-range-bar" style={{ margin: 0 }}>
@@ -791,38 +821,61 @@ const Analytics = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <motion.div
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        padding: '14px 20px',
-                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-2xl)',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                        boxSizing: 'border-box',
-                                        flex: '0 1 auto',
-                                        minWidth: '220px'
-                                    }}
-                                >
-                                    <div style={{
-                                        width: 36, height: 36, borderRadius: 10,
-                                        background: 'color-mix(in srgb, var(--primary-500) 15%, transparent)',
-                                        border: '1px solid color-mix(in srgb, var(--primary-500) 20%, transparent)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'var(--primary-500)', fontSize: '1.1rem',
-                                    }}>
+                            {/* KPI Metrics Row */}
+                            <div className="kpi-cards-grid">
+                                <motion.div className="kpi-card" whileHover={{ y: -2 }}>
+                                    <div className="kpi-card-icon-wrap" style={{ background: 'rgba(255, 122, 0, 0.1)', color: '#FF7A00' }}>
                                         <FiDollarSign />
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Gross Sales</span>
-                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                            {formatCurrency(chartSummary.total_sales || 0)}
+                                    <div className="kpi-card-info">
+                                        <span className="kpi-card-title">Revenue</span>
+                                        <span className="kpi-card-value">{formatCurrency(chartSummary.total_sales || 0)}</span>
+                                        <span className="kpi-card-trend"><IoTrendingUpOutline style={{ marginRight: 2 }} /> Gross sales</span>
+                                    </div>
+                                </motion.div>
+
+                                <motion.div className="kpi-card" whileHover={{ y: -2 }}>
+                                    <div className="kpi-card-icon-wrap" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>
+                                        <IoReceiptOutline />
+                                    </div>
+                                    <div className="kpi-card-info">
+                                        <span className="kpi-card-title">Orders</span>
+                                        <span className="kpi-card-value">{chartSummary.total_bills || 0}</span>
+                                        <span className="kpi-card-trend">Bills processed</span>
+                                    </div>
+                                </motion.div>
+
+                                <motion.div className="kpi-card" whileHover={{ y: -2 }}>
+                                    <div className="kpi-card-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}>
+                                        <IoCartOutline />
+                                    </div>
+                                    <div className="kpi-card-info">
+                                        <span className="kpi-card-title">Items Sold</span>
+                                        <span className="kpi-card-value">
+                                            {viewRange === 'day' 
+                                                ? (productSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0))
+                                                : (rangeProductSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0) || '—')
+                                            }
                                         </span>
+                                        <span className="kpi-card-trend">Units sold</span>
+                                    </div>
+                                </motion.div>
+
+                                <motion.div className="kpi-card" whileHover={{ y: -2 }}>
+                                    <div className="kpi-card-icon-wrap" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8B5CF6' }}>
+                                        <IoStatsChartOutline />
+                                    </div>
+                                    <div className="kpi-card-info">
+                                        <span className="kpi-card-title">Avg Bill</span>
+                                        <span className="kpi-card-value">
+                                            {chartSummary.total_bills > 0 
+                                                ? formatCurrency(Math.round((chartSummary.total_sales || 0) / chartSummary.total_bills)) 
+                                                : formatCurrency(0)
+                                            }
+                                        </span>
+                                        <span className="kpi-card-trend">Per transaction</span>
                                     </div>
                                 </motion.div>
                             </div>
@@ -830,86 +883,151 @@ const Analytics = () => {
                             {/* Charts Grid */}
                             {rangeLoading ? (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px', marginBottom: '28px' }}>
-                                    <Skeleton height="380px" borderRadius="16px" />
-                                    <Skeleton height="380px" borderRadius="16px" />
+                                    <Skeleton height="360px" borderRadius="16px" />
+                                    <Skeleton height="360px" borderRadius="16px" />
                                 </div>
-                            ) : rangeProductSales.length > 0 ? (
-                                <div className="analytics-charts-grid">
-                                    {/* Bar Chart */}
-                                    <motion.div
-                                        className="analytics-chart-card"
-                                        initial={{ opacity: 0, y: 16 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.5, delay: 0.1 }}
-                                    >
-                                        <h3 className="chart-card-title">Product Sales</h3>
-                                        <ResponsiveContainer width="100%" height={320}>
-                                            <BarChart
-                                                data={rangeProductSales.slice(0, 15)}
-                                                margin={{ top: 8, right: 16, left: 0, bottom: 60 }}
-                                                barCategoryGap="20%"
-                                            >
-                                                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} />
-                                                <XAxis
-                                                    dataKey="name"
-                                                    tick={{ fontSize: 11, fill: 'var(--text-secondary)' }}
-                                                    angle={-40}
-                                                    textAnchor="end"
-                                                    interval={0}
-                                                    height={70}
-                                                />
-                                                <YAxis
-                                                    tick={{ fontSize: 11, fill: 'var(--text-secondary)' }}
-                                                    tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
-                                                />
-                                                <RechartsTooltip content={<BarTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} />
-                                                <Bar dataKey="total_amount" radius={[6, 6, 0, 0]} animationDuration={800}>
-                                                    {chartProductSales.slice(0, 15).map((_, i) => (
-                                                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                                                    ))}
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </motion.div>
-
-                                    {/* Pie Chart */}
-                                    <motion.div
-                                        className="analytics-chart-card"
-                                        initial={{ opacity: 0, y: 16 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.5, delay: 0.2 }}
-                                    >
-                                        <h3 className="chart-card-title">Category Distribution</h3>
-                                        <div style={{ width: '100%', height: '320px' }}>
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie
-                                                        activeIndex={activePieIndex}
-                                                        activeShape={renderActiveShape}
-                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
-                                                        onMouseLeave={() => setActivePieIndex(-1)}
-                                                        data={Object.entries(rangeSummary.category_totals || {}).map(([name, val]) => ({ name, total_amount: val }))}
-                                                        dataKey="total_amount"
-                                                        nameKey="name"
-                                                        cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3}
-                                                        isAnimationActive={false}
+                            ) : chartProductSales.length > 0 ? (
+                                <div className="analytics-charts-grid-wrap">
+                                    <div className="analytics-charts-grid">
+                                        {/* Bar Chart */}
+                                        <motion.div
+                                            className="analytics-chart-card"
+                                            initial={{ opacity: 0, y: 16 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.5, delay: 0.1 }}
+                                        >
+                                            <div style={{ marginBottom: 16 }}>
+                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Product Sales</h3>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Top selling products this {viewRange}</span>
+                                            </div>
+                                            <ResponsiveContainer width="100%" height={290}>
+                                                <BarChart
+                                                    data={chartProductSales.slice(0, 10)}
+                                                    margin={{ top: 8, right: 16, left: 0, bottom: 20 }}
+                                                    barCategoryGap="25%"
+                                                >
+                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+                                                    <XAxis
+                                                        dataKey="name"
+                                                        tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                        tickFormatter={(tick) => tick.length > 12 ? `${tick.substring(0, 10)}...` : tick}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                    />
+                                                    <YAxis
+                                                        tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                        tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                    />
+                                                    <RechartsTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 122, 0, 0.04)' }} />
+                                                    <Bar 
+                                                        dataKey="total_amount" 
+                                                        radius={[4, 4, 0, 0]} 
+                                                        animationDuration={800}
+                                                        fill="#3B82F6" 
                                                     >
-                                                        {Object.entries(rangeSummary.category_totals || {}).map((_, i) => (
-                                                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                                        {chartProductSales.slice(0, 10).map((entry, index) => (
+                                                            <Cell 
+                                                                key={`cell-${index}`} 
+                                                                fill="#3B82F6"
+                                                                style={{ transition: 'fill 0.2s ease' }}
+                                                                onMouseEnter={(e) => { e.target.setAttribute('fill', '#FF7A00'); }}
+                                                                onMouseLeave={(e) => { e.target.setAttribute('fill', '#3B82F6'); }}
+                                                            />
                                                         ))}
-                                                    </Pie>
-                                                    <RechartsTooltip formatter={(v) => formatCurrency(v)} />
-                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
-                                                </PieChart>
+                                                    </Bar>
+                                                </BarChart>
                                             </ResponsiveContainer>
+                                        </motion.div>
+
+                                        {/* Doughnut Chart */}
+                                        <motion.div
+                                            className="analytics-chart-card"
+                                            initial={{ opacity: 0, y: 16 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.5, delay: 0.2 }}
+                                        >
+                                            <div style={{ marginBottom: 16 }}>
+                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Category Share</h3>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Revenue contribution by category</span>
+                                            </div>
+                                            <div style={{ width: '100%', height: '290px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {Object.keys(chartSummary.category_totals || {}).length > 0 ? (
+                                                    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <PieChart>
+                                                                <Pie
+                                                                    activeIndex={activePieIndex}
+                                                                    activeShape={renderActiveShape}
+                                                                    onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                                    onMouseLeave={() => setActivePieIndex(-1)}
+                                                                    data={Object.entries(chartSummary.category_totals || {}).map(([name, val]) => ({ name, total_amount: val }))}
+                                                                    dataKey="total_amount"
+                                                                    nameKey="name"
+                                                                    cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4}
+                                                                    isAnimationActive={false}
+                                                                >
+                                                                    {Object.entries(chartSummary.category_totals || {}).map((_, i) => (
+                                                                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                                                    ))}
+                                                                </Pie>
+                                                                <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                            </PieChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No Category details found</div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    </div>
+
+                                    {/* Top Selling Products List Section */}
+                                    <motion.div 
+                                        className="analytics-chart-card"
+                                        style={{ width: '100%', overflow: 'hidden' }}
+                                        initial={{ opacity: 0, y: 16 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.5, delay: 0.3 }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <div>
+                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Top Selling Products</h3>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Performance leaderboard for selected duration</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table className="transactions-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ background: 'transparent', padding: '12px 16px' }}>Rank</th>
+                                                        <th style={{ background: 'transparent', padding: '12px 16px' }}>Product Name</th>
+                                                        <th style={{ background: 'transparent', padding: '12px 16px', textAlign: 'center' }}>Qty Sold</th>
+                                                        <th style={{ background: 'transparent', padding: '12px 16px', textAlign: 'right' }}>Total Revenue</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(viewRange === 'day' ? chartProductSales : rangeProductSales).slice(0, 5).map((item, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: idx === 0 ? '#FF7A00' : 'var(--text-secondary)' }}>#{idx + 1}</td>
+                                                            <td style={{ padding: '12px 16px', fontWeight: 600 }}>{item.name}</td>
+                                                            <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
+                                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary-500)' }}>{formatCurrency(item.total_amount)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </motion.div>
                                 </div>
                             ) : (
-                                <div className="analytics-empty">
-                                    <div className="analytics-empty-icon">📊</div>
-                                    <h3>No Data for this {viewRange}</h3>
-                                    <p>Try selecting a different date or range.</p>
+                                <div className="analytics-empty" style={{ padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+                                    <div className="analytics-empty-icon" style={{ fontSize: '3rem', marginBottom: '16px' }}>📊</div>
+                                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>No sales found</h3>
+                                    <p style={{ color: 'var(--text-secondary)', maxWidth: '340px', margin: '0 auto 20px' }}>
+                                        Change the date filter or create your first bill.
+                                    </p>
                                 </div>
                             )}
                         </motion.div>
@@ -924,169 +1042,273 @@ const Analytics = () => {
                             exit={{ opacity: 0, x: 12 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Total Bills Stat & Controls in One Line (Swapped order: filters on left, stat card on right) */}
+                            {/* Floating Toolbar */}
                             <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 gap: '20px',
-                                marginBottom: 'var(--spacing-5)',
+                                marginBottom: '24px',
+                                padding: '14px 20px',
+                                background: 'rgba(32,33,36,0.8)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: '18px',
                                 flexWrap: 'wrap'
                             }}>
-                                <div className="transactions-header" style={{ margin: 0, flex: '1 1 auto', justifyContent: 'flex-start', width: 'auto', borderBottom: 'none', background: 'none' }}>
-                                    <div className="transactions-controls">
-                                        <button
-                                            onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
-                                            className={`transactions-today-btn ${selectedBillDate === new Date().toISOString().split('T')[0] ? 'active' : ''}`}
-                                        >
-                                            <IoTodayOutline size={15} />
-                                            Today
-                                        </button>
-                                        <input
-                                            type="date"
-                                            value={selectedBillDate}
-                                            onChange={(e) => setSelectedBillDate(e.target.value)}
-                                            className="transactions-date-input"
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <button
+                                        onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
+                                        style={{
+                                            padding: '10px 16px',
+                                            background: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FF7A00' : 'rgba(255,255,255,0.05)',
+                                            border: selectedBillDate === new Date().toISOString().split('T')[0] ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '12px',
+                                            color: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+                                            fontSize: '14px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            transition: 'all 180ms ease-out',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <IoTodayOutline size={16} />
+                                        Today
+                                    </button>
+                                    <input
+                                        type="date"
+                                        value={selectedBillDate}
+                                        onChange={(e) => setSelectedBillDate(e.target.value)}
+                                        style={{
+                                            padding: '10px 16px',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '12px',
+                                            color: 'rgba(255,255,255,0.7)',
+                                            fontSize: '14px',
+                                            cursor: 'pointer',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => loadBills(selectedBillDate)}
+                                        disabled={loadingBills}
+                                        style={{
+                                            padding: '10px 16px',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '12px',
+                                            color: 'rgba(255,255,255,0.7)',
+                                            fontSize: '14px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            transition: 'all 180ms ease-out',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <IoRefreshOutline
+                                            size={16}
+                                            style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
                                         />
-                                        <button
-                                            onClick={() => loadBills(selectedBillDate)}
-                                            className="transactions-refresh-btn"
-                                            disabled={loadingBills}
-                                        >
-                                            <IoRefreshOutline
-                                                size={15}
-                                                style={{ animation: loadingBills ? 'spin 1s linear infinite' : 'none' }}
-                                            />
-                                            Refresh
-                                        </button>
-                                    </div>
+                                        Refresh
+                                    </button>
                                 </div>
-
-                                <motion.div
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        padding: '14px 20px',
-                                        background: 'color-mix(in srgb, var(--glass-card) 92%, transparent)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-2xl)',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                        boxSizing: 'border-box',
-                                        flex: '0 1 auto',
-                                        minWidth: '200px'
-                                    }}
-                                >
-                                    <div style={{
-                                        width: 36, height: 36, borderRadius: 10,
-                                        background: 'rgba(245,158,11,0.12)',
-                                        border: '1px solid rgba(245,158,11,0.2)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: '#F59E0B', fontSize: '1.1rem',
-                                    }}>
-                                        <IoReceiptOutline size={18} />
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Total Bills</span>
-                                        <span style={{ fontSize: 'var(--text-lg)', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                            {bills.length}
-                                        </span>
-                                    </div>
-                                </motion.div>
                             </div>
 
-                            {/* Table */}
+                            {/* Transaction Cards Grid */}
                             {bills.length > 0 ? (
-                                <motion.div
-                                    className="transactions-table-wrap"
-                                    initial={{ opacity: 0, y: 12 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, delay: 0.1 }}
-                                >
-                                    <table className="transactions-table">
-                                        <thead>
-                                            <tr>
-                                                {[
-                                                    { key: 'bill_no', label: 'Bill #' },
-                                                    { key: 'created_at', label: 'Date / Time' },
-                                                    { key: 'items', label: 'Items' },
-                                                    { key: 'total_amount', label: 'Amount' },
-                                                    { key: 'status', label: 'Status' },
-                                                    { key: null, label: 'Actions' },
-                                                ].map((col) => (
-                                                    <th
-                                                        key={col.label}
-                                                        onClick={() => col.key && handleSort(col.key)}
-                                                        className={sortConfig.key === col.key ? 'sorted' : ''}
-                                                        style={col.key ? {} : { cursor: 'default' }}
-                                                    >
-                                                        {col.label}
-                                                        {col.key && (
-                                                            <span className={`sort-arrow ${sortConfig.key === col.key && sortConfig.direction === 'desc' ? 'sort-arrow--desc' : ''}`}>
-                                                                ▲
-                                                            </span>
-                                                        )}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sortedBills.map((bill) => {
-                                                const isCancelled = bill.status === 'CANCELLED';
-                                                const statusText = (!bill.status || bill.status === 'ACTIVE') ? 'CONFIRMED' : bill.status;
-                                                return (
-                                                    <tr
-                                                        key={bill.bill_no}
-                                                        className={isCancelled ? 'cancelled-row' : ''}
-                                                        onClick={() => !isCancelled && handleEditBill(bill)}
-                                                        style={{ cursor: isCancelled ? 'default' : 'pointer' }}
-                                                    >
-                                                        <td style={{ fontWeight: 700 }}>{bill.bill_no}</td>
-                                                        <td>
-                                                            <div>{formatDate(bill.created_at)}</div>
-                                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                                                {formatTime(bill.created_at)}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                                    gap: '20px',
+                                    padding: '24px'
+                                }}>
+                                    {sortedBills.map((bill, index) => {
+                                        const accentColor = getAccentColor(bill.bill_no);
+                                        const isCancelled = bill.status === 'CANCELLED';
+                                        const statusText = (!bill.status || bill.status === 'ACTIVE') ? 'CONFIRMED' : bill.status;
+                                        
+                                        return (
+                                            <motion.div
+                                                key={bill.bill_no}
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.4, delay: index * 0.05 }}
+                                                whileHover={{ y: -4, transition: { duration: 0.18, ease: 'easeOut' } }}
+                                                style={{
+                                                    padding: '20px',
+                                                    background: `linear-gradient(180deg, ${accentColor}08 0%, transparent 100%)`,
+                                                    border: '1px solid rgba(255,255,255,0.08)',
+                                                    borderRadius: '20px',
+                                                    boxShadow: '0 15px 40px rgba(0,0,0,0.35)',
+                                                    cursor: isCancelled ? 'default' : 'pointer',
+                                                    transition: 'all 180ms ease-out',
+                                                    position: 'relative',
+                                                    overflow: 'hidden'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!isCancelled) {
+                                                        e.currentTarget.style.borderColor = accentColor;
+                                                        e.currentTarget.style.boxShadow = `0 20px 50px ${accentColor}20`;
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                                                    e.currentTarget.style.boxShadow = '0 15px 40px rgba(0,0,0,0.35)';
+                                                }}
+                                                onClick={() => !isCancelled && handleEditBill(bill)}
+                                            >
+                                                {/* Top Section */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <div style={{
+                                                            width: 44, height: 44, borderRadius: '14px',
+                                                            background: `${accentColor}15`,
+                                                            border: `1px solid ${accentColor}30`,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            color: accentColor
+                                                        }}>
+                                                            <IoReceiptOutline size={22} />
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontSize: '18px', fontWeight: 700, color: accentColor, marginBottom: '2px' }}>
+                                                                #{bill.bill_no}
                                                             </div>
-                                                        </td>
-                                                        <td>{bill.items?.length || 0}</td>
-                                                        <td style={{ fontWeight: 700 }}>{formatCurrency(bill.total_amount)}</td>
-                                                        <td>
-                                                            <span className={`status-badge ${isCancelled ? 'status-badge--cancelled' : 'status-badge--confirmed'}`}>
-                                                                {statusText}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <div className="table-actions-cell">
-                                                                <button
-                                                                    className="table-action-btn edit"
-                                                                    onClick={(e) => { e.stopPropagation(); handleEditBill(bill); }}
-                                                                    disabled={isCancelled}
-                                                                >
-                                                                    <IoCreateOutline size={13} />
-                                                                    Edit
-                                                                </button>
-                                                                <button
-                                                                    className="table-action-btn cancel"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setSelectedBill(bill);
-                                                                        setShowCancelConfirm(true);
-                                                                    }}
-                                                                    disabled={isCancelled}
-                                                                >
-                                                                    <IoCloseCircleOutline size={13} />
-                                                                    Cancel
-                                                                </button>
+                                                            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                                                                {formatDate(bill.created_at)}
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </motion.div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                                                        {formatTime(bill.created_at)}
+                                                    </div>
+                                                </div>
+
+                                                {/* Horizontal Divider */}
+                                                <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+
+                                                {/* Middle Section */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>
+                                                            Items
+                                                        </div>
+                                                        <div style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF' }}>
+                                                            {bill.items?.length || 0}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>
+                                                            Amount
+                                                        </div>
+                                                        <div style={{ fontSize: '22px', fontWeight: 700, color: accentColor }}>
+                                                            {formatCurrency(bill.total_amount)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Status Pill */}
+                                                <div style={{ marginBottom: '16px' }}>
+                                                    <span style={{
+                                                        padding: '6px 14px',
+                                                        borderRadius: '20px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.5px',
+                                                        background: isCancelled 
+                                                            ? 'rgba(239,68,68,0.15)' 
+                                                            : 'rgba(34,197,94,0.15)',
+                                                        color: isCancelled 
+                                                            ? '#EF4444' 
+                                                            : '#22C55E',
+                                                        border: isCancelled 
+                                                            ? '1px solid rgba(239,68,68,0.3)' 
+                                                            : '1px solid rgba(34,197,94,0.3)'
+                                                    }}>
+                                                        {statusText}
+                                                    </span>
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEditBill(bill); }}
+                                                        disabled={isCancelled}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '10px 14px',
+                                                            background: 'rgba(255,255,255,0.05)',
+                                                            border: '1px solid rgba(255,255,255,0.08)',
+                                                            borderRadius: '12px',
+                                                            color: 'rgba(255,255,255,0.7)',
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            cursor: isCancelled ? 'not-allowed' : 'pointer',
+                                                            transition: 'all 180ms ease-out',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            opacity: isCancelled ? 0.5 : 1
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isCancelled) {
+                                                                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                                        }}
+                                                    >
+                                                        <IoCreateOutline size={14} />
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedBill(bill);
+                                                            setShowCancelConfirm(true);
+                                                        }}
+                                                        disabled={isCancelled}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '10px 14px',
+                                                            background: 'rgba(239,68,68,0.05)',
+                                                            border: '1px solid rgba(239,68,68,0.15)',
+                                                            borderRadius: '12px',
+                                                            color: 'rgba(239,68,68,0.8)',
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            cursor: isCancelled ? 'not-allowed' : 'pointer',
+                                                            transition: 'all 180ms ease-out',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            opacity: isCancelled ? 0.5 : 1
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isCancelled) {
+                                                                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.background = 'rgba(239,68,68,0.05)';
+                                                        }}
+                                                    >
+                                                        <IoCloseCircleOutline size={14} />
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
                             ) : (
                                 <div className="analytics-empty">
                                     <div className="analytics-empty-icon">🧾</div>

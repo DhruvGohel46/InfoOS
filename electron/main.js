@@ -281,11 +281,15 @@ app.on('web-contents-created', (event, contents) => {
   
   // Set Content-Security-Policy
   contents.session.webRequest.onHeadersReceived((details, callback) => {
+    // Get Supabase URL from environment variable for dynamic CSP
+    const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://pldolwabxypmttsqxeef.supabase.co';
+    const supabaseHost = new URL(supabaseUrl).hostname;
+    
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: http://localhost:* http://127.0.0.1:* https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com;"
+          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost};`
         ]
       }
     });
