@@ -1292,21 +1292,22 @@ const Analytics = () => {
                                                         <IoCreateOutline size={14} />
                                                         Edit
                                                     </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedBill(bill);
-                                                            setShowCancelConfirm(true);
-                                                        }}
-                                                        disabled={isCancelled}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '10px 14px',
-                                                            background: 'rgba(239,68,68,0.05)',
-                                                            border: '1px solid rgba(239,68,68,0.15)',
-                                                            borderRadius: '12px',
-                                                            color: 'rgba(239,68,68,0.8)',
-                                                            fontSize: '13px',
+                                                    {isAdmin && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedBill(bill);
+                                                                setShowCancelConfirm(true);
+                                                            }}
+                                                            disabled={isCancelled}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '10px 14px',
+                                                                background: 'rgba(239,68,68,0.05)',
+                                                                border: '1px solid rgba(239,68,68,0.15)',
+                                                                borderRadius: '12px',
+                                                                color: 'rgba(239,68,68,0.8)',
+                                                                fontSize: '13px',
                                                             fontWeight: 600,
                                                             cursor: isCancelled ? 'not-allowed' : 'pointer',
                                                             transition: 'all 180ms ease-out',
@@ -1328,6 +1329,7 @@ const Analytics = () => {
                                                         <IoCloseCircleOutline size={14} />
                                                         Cancel
                                                     </button>
+                                                    )}
                                                 </div>
                                             </motion.div>
                                         );
