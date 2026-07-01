@@ -8,9 +8,9 @@ const crypto = require('crypto');
 const updateManager = require('./services/updateManager');
 
 // Configuration
-// Configuration
-const BACKEND_PORT = 5050; // Use same port as backend default
-const HEALTH_ENDPOINT = `http://127.0.0.1:${BACKEND_PORT}/health`;
+const BACKEND_PORT = process.env.BACKEND_PORT || 5050; // Use same port as backend default
+const BACKEND_HOST = process.env.BACKEND_HOST || '127.0.0.1';
+const HEALTH_ENDPOINT = `http://${BACKEND_HOST}:${BACKEND_PORT}/health`;
 const isDev = !app.isPackaged; // Better check for dev mode
 
 // Keep global references
@@ -284,7 +284,7 @@ app.on('web-contents-created', (event, contents) => {
     // Get Supabase URL from environment variable for dynamic CSP
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://pldolwabxypmttsqxeef.supabase.co';
     const supabaseHost = new URL(supabaseUrl).hostname;
-    
+
     // Get Cloud Backend URL from environment variable for dynamic CSP
     // Only include in CSP if it's configured (not using placeholder)
     const cloudApiUrl = process.env.REACT_APP_CLOUD_API_URL;
@@ -293,12 +293,16 @@ app.on('web-contents-created', (event, contents) => {
       const cloudApiHost = new URL(cloudApiUrl).hostname;
       connectSrc += ` https://${cloudApiHost}`;
     }
-    
+
+    // Dynamic backend host for CSP
+    const backendHost = BACKEND_HOST === '127.0.0.1' ? '127.0.0.1' : BACKEND_HOST;
+    const backendSrc = `http://${backendHost}:* http://127.0.0.1:*`;
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https: *; media-src 'self' http://localhost:* http://127.0.0.1:*; connect-src ${connectSrc};`
+          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: ${backendSrc} https: *; media-src 'self' ${backendSrc}; connect-src ${connectSrc} ${backendSrc};`
         ]
       }
     });

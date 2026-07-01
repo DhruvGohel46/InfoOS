@@ -376,11 +376,13 @@ if __name__ == "__main__":
         _log.info("Using Waitress WSGI server for production")
         from waitress import serve
 
-        serve(app, host="0.0.0.0", port=args.port)
+        backend_host = os.environ.get("BACKEND_HOST", "0.0.0.0")
+        serve(app, host=backend_host, port=args.port)
     else:
         _log.info("Using Flask development server")
+        backend_host = os.environ.get("BACKEND_HOST", "0.0.0.0")
         app.run(
-            host="0.0.0.0",
+            host=backend_host,
             port=args.port,
             debug=app.config["DEBUG"],
             use_reloader=False,  # Prevent duplicate refresher threads

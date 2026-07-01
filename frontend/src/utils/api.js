@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Base URL for API calls
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+// Base URL for API calls - support both dev and production
+const API_BASE_URL = process.env.REACT_APP_API_URL || `http://${process.env.REACT_APP_API_HOST || 'localhost'}:${process.env.REACT_APP_API_PORT || 5050}`;
 const SESSION_KEY = 'pos_session_token';
 let _authToken = null;
 
