@@ -129,7 +129,6 @@ export default function LicensingGate({ children }) {
     setLicensingState(prev => ({ ...prev, status: 'checking', errorMessage: '' }));
 
     const cache = localStorage.getItem('infoos_activation_cache');
-    const cloudToken = localStorage.getItem('cloud_auth_token');
 
     // Fetch device fingerprint
     const { fingerprint } = await getDeviceInfo();
@@ -171,15 +170,8 @@ export default function LicensingGate({ children }) {
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
         if (diffDays >= OFFLINE_LIMIT_DAYS) {
-          // Exceeded offline limit, lock app and force online verification
-          if (navigator.onLine && cloudToken) {
-            // Try to auto-validate online
-            const result = await checkSubscriptionStatus(data.user_id, cloudToken);
-            if (result.status === 'active') {
-              setLicensingState({ status: 'active', expiryDate: result.expiryDate });
-              return;
-            }
-          }
+          // Exceeded offline limit - require online verification
+          // Don't attempt auto-validation to avoid 401 errors with expired tokens
           setLicensingState({ 
             status: 'login', 
             errorMessage: `You have been offline for over ${OFFLINE_LIMIT_DAYS} days. Please connect to the internet to verify your subscription.` 
@@ -188,6 +180,9 @@ export default function LicensingGate({ children }) {
         }
 
         // If online, perform background refresh of license
+        // Disabled to avoid 401 errors with expired tokens
+        // Cache is valid, so we don't need immediate refresh
+        /*
         if (navigator.onLine && cloudToken) {
           checkSubscriptionStatus(data.user_id, cloudToken).then(result => {
             if (result.status && result.status !== 'active') {
@@ -201,6 +196,7 @@ export default function LicensingGate({ children }) {
             }
           }).catch(e => console.error('Background license refresh failed:', e));
         }
+        */
 
         // Within grace period, allow launch
         if (diffDays >= OFFLINE_WARNING_DAYS) {
@@ -219,22 +215,9 @@ export default function LicensingGate({ children }) {
     }
 
     // No valid cache - online login required
-    if (navigator.onLine && cloudToken) {
-      // Attempt auto-login if token is available
-      try {
-        const payload = JSON.parse(atob(cloudToken.split('.')[1]));
-        const result = await checkSubscriptionStatus(payload.sub, cloudToken);
-        if (result.status === 'active') {
-          setLicensingState({ status: 'active', expiryDate: result.expiryDate });
-          return;
-        }
-      } catch (e) {
-        console.error('Token auto-activation failed:', e);
-      }
-    }
-
+    // Don't attempt auto-login to avoid 401 errors with expired tokens
     setLicensingState({ status: 'login', errorMessage: '' });
-  }, [getDeviceInfo, checkSubscriptionStatus]);
+  }, [getDeviceInfo]);
 
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
