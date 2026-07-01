@@ -248,6 +248,48 @@
   border-bottom: none;
 }
 
+/* Premium Worker Card Animations & Overrides */
+.worker-premium-card:hover {
+  transform: translateY(-4px);
+  border-color: #FF7A00 !important;
+  box-shadow: 0 25px 50px rgba(255, 122, 0, 0.12) !important;
+}
+
+.worker-premium-card:hover .worker-profile-frame {
+  transform: scale(1.03);
+}
+
+.worker-premium-card:hover .worker-view-btn {
+  background: #FF7A00 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 0, 0.3);
+}
+
+/* Responsive grid media queries */
+@media (min-width: 1440px) {
+  .workers-grid-layout {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .workers-grid-layout {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .workers-grid-layout {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .workers-grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Responsive profile card */
 @media (max-width: 768px) {
   .wpHeader {

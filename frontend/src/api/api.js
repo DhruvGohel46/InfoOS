@@ -69,15 +69,27 @@ api.interceptors.response.use(
 
     let message;
     if (isNetworkError) {
-      message = 'Network error — Unable to connect to server';
+      message = 'Unable to connect to the server. Please check if the backend is running.';
+    } else if (status === 400) {
+      message = serverMessage || 'The request was invalid. Please check your input and try again.';
     } else if (status === 401) {
-      message = serverMessage || 'Authentication required';
+      message = serverMessage || 'Your session has expired. Please log in again.';
+    } else if (status === 403) {
+      message = serverMessage || 'You do not have permission to perform this action.';
     } else if (status === 404) {
-      message = serverMessage || 'Resource not found';
+      message = serverMessage || 'The requested item was not found.';
+    } else if (status === 408) {
+      message = 'The request timed out. Please try again.';
+    } else if (status === 409) {
+      message = serverMessage || 'A conflict occurred. The item may have been modified by someone else.';
+    } else if (status === 422) {
+      message = serverMessage || 'The provided data is invalid. Please check your input.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please wait a moment and try again.';
     } else if (status >= 500) {
-      message = serverMessage || 'Server error — please try again';
+      message = serverMessage || 'Something went wrong on the server. Please try again later.';
     } else {
-      message = serverMessage || error.message || 'Request failed';
+      message = serverMessage || error.message || 'An unexpected error occurred. Please try again.';
     }
 
     // Dispatch custom event for ApiErrorListener
@@ -265,23 +277,46 @@ export const flog = {
 // Utility function to handle API errors
 export const handleAPIError = (error) => {
   if (error.response) {
-    // Server responded with error status
+    const status = error.response.status;
+    const serverMsg = error.response.data?.message || error.response.data?.error || '';
+
+    let message;
+    if (status === 400) {
+      message = serverMsg || 'The request was invalid. Please check your input and try again.';
+    } else if (status === 401) {
+      message = serverMsg || 'Your session has expired. Please log in again.';
+    } else if (status === 403) {
+      message = serverMsg || 'You do not have permission to perform this action.';
+    } else if (status === 404) {
+      message = serverMsg || 'The requested item was not found.';
+    } else if (status === 408) {
+      message = 'The request timed out. Please try again.';
+    } else if (status === 409) {
+      message = serverMsg || 'A conflict occurred. The item may have been modified by someone else.';
+    } else if (status === 422) {
+      message = serverMsg || 'The provided data is invalid. Please check your input.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please wait a moment and try again.';
+    } else if (status >= 500) {
+      message = serverMsg || 'Something went wrong on the server. Please try again later.';
+    } else {
+      message = serverMsg || 'An unexpected error occurred.';
+    }
+
     return {
-      message: error.response.data.message || 'Server error',
-      status: error.response.status,
+      message,
+      status,
       data: error.response.data,
     };
   } else if (error.request) {
-    // Request was made but no response received
     return {
-      message: 'Network error - Unable to connect to server',
+      message: 'Unable to connect to the server. Please check if the backend is running.',
       status: 0,
       data: null,
     };
   } else {
-    // Something else happened
     return {
-      message: error.message || 'Unknown error occurred',
+      message: error.message || 'An unexpected error occurred. Please try again.',
       status: -1,
       data: null,
     };

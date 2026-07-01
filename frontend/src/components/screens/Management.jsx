@@ -13,6 +13,7 @@ import PageContainer from '../layout/PageContainer';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { createEmptyVariation, sanitizeVariationsForSave } from '../../utils/productVariations';
+import { usePOSData } from '../../context/POSDataContext';
 
 const IconPlus = (props) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -66,6 +67,7 @@ const ProductManagement = () => {
   const { staggerContainer, staggerItem } = useAnimation();
   const { showSuccess } = useToast();
   const { settings } = useSettings();
+  const { checkCatalogVersion } = usePOSData();
   const showImages = settings?.show_product_images !== 'false';
   const topRef = useRef(null);
 
@@ -246,7 +248,8 @@ const ProductManagement = () => {
         }
       }
       resetForm();
-      loadProducts();
+      await loadProducts();
+      checkCatalogVersion();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -257,19 +260,21 @@ const ProductManagement = () => {
     try {
       await productsAPI.updateProduct(product.product_id, { active: true });
       showSuccess('Product reactivated successfully');
-      loadProducts();
+      await loadProducts();
+      checkCatalogVersion();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
     }
-  }
+  };
 
 
   const handleDisable = async (product) => {
     try {
       await productsAPI.updateProduct(product.product_id, { active: false });
       showSuccess('Product disabled');
-      loadProducts();
+      await loadProducts();
+      checkCatalogVersion();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -280,7 +285,8 @@ const ProductManagement = () => {
     try {
       await productsAPI.deleteProductPermanently(product.product_id);
       showSuccess('Product permanently deleted');
-      loadProducts();
+      await loadProducts();
+      checkCatalogVersion();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -297,7 +303,8 @@ const ProductManagement = () => {
       setShowPasswordModal(false);
       setItemToDelete(null);
       setDeletePassword('');
-      loadProducts();
+      await loadProducts();
+      checkCatalogVersion();
     } catch (err) {
       // If 401, it's invalid password
       if (err.response && err.response.status === 401) {
@@ -595,9 +602,9 @@ const ProductManagement = () => {
                     <div className="pmLabel">Price (Dine-in)</div>
                     <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
                   </div>
-                  <div className="pmField">
-                    <div className="pmLabel">Takeaway Price (Optional)</div>
-                    <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="Same as dine-in if empty" />
+                   <div className="pmField">
+                    <div className="pmLabel">Takeaway Add-on Charges (Optional)</div>
+                    <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="0.00 if empty" />
                   </div>
                   <div className="pmField" style={{ position: 'relative', zIndex: 10 }}>
                     <div className="pmLabel">Category</div>

@@ -293,10 +293,13 @@ export default function LicensingGate({ children }) {
         }));
       }
     } catch (err) {
+      const friendlyMsg = err.message && !err.message.includes('AxiosError')
+        ? err.message
+        : 'Unable to connect. Please check your internet connection and try again.';
       setLicensingState(prev => ({
         ...prev,
         status: 'login',
-        errorMessage: 'Login failed: ' + (err.message || 'Unknown network error')
+        errorMessage: friendlyMsg
       }));
     } finally {
       setLoading(false);
@@ -337,30 +340,44 @@ export default function LicensingGate({ children }) {
   if (licensingState.status === 'login') {
     return (
       <div className="licensing-container">
+        <div className="licensing-glow-1"></div>
+        <div className="licensing-glow-2"></div>
+        
         <div className="licensing-card">
+          {/* Stepper Progress Feeling */}
+          <div className="licensing-stepper">
+            <div className="licensing-step-dot active"></div>
+            <div className="licensing-step-line"></div>
+            <div className="licensing-step-dot"></div>
+          </div>
+
           <div className="licensing-header">
             <div className="licensing-logo">InfoOS</div>
             <div className="licensing-logo-sub">Business Operating System</div>
-            <h2 className="licensing-title">Secure Device Activation</h2>
-            <p className="licensing-desc">Connect your cloud account to activate this device.</p>
+            <div className="licensing-divider"></div>
+            <h2 className="licensing-title stagger-in stagger-1">Secure Device Activation</h2>
+            <p className="licensing-desc stagger-in stagger-2">Sign in with your InfoOS account to securely activate this device.</p>
           </div>
 
           {licensingState.errorMessage && (
-            <div className="licensing-error-box">
-              <IoAlertCircleOutline size={20} style={{ flexShrink: 0 }} />
-              <span>{licensingState.errorMessage}</span>
+            <div className="licensing-error-box stagger-in">
+              <IoAlertCircleOutline size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>Activation Alert</span>
+                <span style={{ fontSize: '12.5px', opacity: 0.9 }}>{licensingState.errorMessage}</span>
+              </div>
             </div>
           )}
 
           <form className="licensing-form" onSubmit={handleLoginSubmit}>
-            <div className="licensing-input-group">
+            <div className="licensing-input-group stagger-in stagger-3">
               <label className="licensing-label">Email</label>
               <div className="licensing-input-wrapper">
                 <IoMailOutline className="licensing-input-icon" />
                 <input 
                   type="email" 
                   className="licensing-input" 
-                  placeholder="your@restaurant.com" 
+                  placeholder="john@email.com" 
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -369,7 +386,7 @@ export default function LicensingGate({ children }) {
               </div>
             </div>
             
-            <div className="licensing-input-group">
+            <div className="licensing-input-group stagger-in stagger-4">
               <label className="licensing-label">Password</label>
               <div className="licensing-input-wrapper">
                 <IoKeyOutline className="licensing-input-icon" />
@@ -385,28 +402,53 @@ export default function LicensingGate({ children }) {
               </div>
             </div>
 
-            <button type="submit" className="licensing-btn" disabled={loading}>
+            <button type="submit" className="licensing-btn stagger-in stagger-5" disabled={loading}>
               {loading ? <IoRefreshOutline className="spinning" size={18} /> : <IoLockClosedOutline size={18} />}
               <span>{loading ? 'Activating Device...' : 'Activate InfoOS'}</span>
             </button>
           </form>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px' }}>
-            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create Account →</span>
-            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot Password?</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create account</span>
+            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot password</span>
           </div>
 
           {deviceInfo && (
-            <div className="licensing-device-info">
-              <div className="licensing-device-label">Device</div>
-              <div className="licensing-device-name">{deviceInfo.deviceName || 'Unknown Device'}</div>
-              <div className="licensing-device-os">Windows</div>
-              <div className="licensing-device-id">{deviceInfo.fingerprint?.substring(0, 12) || 'Unknown ID'}</div>
+            <div className="licensing-device-card stagger-in stagger-5">
+              <div className="licensing-device-header">
+                <IoLaptopOutline size={14} />
+                <span>🖥 Device Configuration</span>
+              </div>
+              <div className="licensing-device-grid">
+                <div className="licensing-device-row">
+                  <span className="licensing-device-icon">💻</span>
+                  <span className="licensing-device-value">{deviceInfo.deviceName || 'Unknown Device'}</span>
+                </div>
+                <div className="licensing-device-row">
+                  <span className="licensing-device-icon">⚙️</span>
+                  <span className="licensing-device-value">Windows 11 Pro</span>
+                </div>
+                <div className="licensing-device-row">
+                  <span className="licensing-device-icon">🔑</span>
+                  <span className="licensing-device-value" style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                    Device ID: {deviceInfo.fingerprint?.substring(0, 12) || 'Unknown'}...
+                  </span>
+                </div>
+              </div>
+              <div className="licensing-device-status-badge">
+                <span>✓ Ready for activation</span>
+              </div>
             </div>
           )}
 
-          <div className="licensing-footer">
-            Need an InfoOS license? <span className="licensing-link" onClick={() => openWebsite()}>Purchase one from our website</span>.
+          <div className="licensing-footer stagger-in stagger-5">
+            <div style={{ marginBottom: '12px' }}>
+              Don't have a license? <span className="licensing-link" style={{ color: '#FF7A00', fontWeight: '700' }} onClick={() => openWebsite()}>Buy License →</span>
+            </div>
+            <div style={{ opacity: 0.5, fontSize: '11px', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span>Protected by InfoOS Cloud</span>
+              <span>Version 2.0.1</span>
+            </div>
           </div>
         </div>
       </div>
@@ -456,33 +498,93 @@ export default function LicensingGate({ children }) {
     );
   }
 
+  const handleUnlinkActiveDevice = async () => {
+    const cloudToken = localStorage.getItem('cloud_auth_token');
+    if (!cloudToken) {
+      setLicensingState(prev => ({
+        ...prev,
+        status: 'login',
+        errorMessage: 'Authentication session expired. Please log in again.'
+      }));
+      return;
+    }
+
+    setLoading(true);
+    setLicensingState(prev => ({ ...prev, errorMessage: '' }));
+
+    try {
+      const payload = JSON.parse(atob(cloudToken.split('.')[1]));
+      const userId = payload.sub;
+      
+      // Call the API to clear active fingerprint
+      await cloudLicenseAPI.unlinkDevice(userId, cloudToken);
+      
+      // Re-trigger validation now that the slot is open
+      const result = await checkSubscriptionStatus(userId, cloudToken);
+      if (result.status === 'active') {
+        setLicensingState({ status: 'active', expiryDate: result.expiryDate });
+      } else {
+        setLicensingState({
+          status: result.status,
+          expiryDate: result.expiryDate,
+          registeredDevice: result.registeredDevice,
+          errorMessage: result.error
+        });
+      }
+    } catch (err) {
+      setLicensingState(prev => ({
+        ...prev,
+        errorMessage: err.message || 'Failed to unlink device. Please try again.'
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (licensingState.status === 'mismatch') {
     return (
       <div className="licensing-container">
+        <div className="licensing-glow-1"></div>
+        <div className="licensing-glow-2"></div>
+
         <div className="licensing-card">
           <div className="licensing-header">
             <div className="licensing-logo">InfoOS</div>
+            <div className="licensing-logo-sub">Business Operating System</div>
+            <div className="licensing-divider"></div>
             <div style={{ color: 'var(--primary-500)', fontSize: '48px', margin: '8px 0' }}>
               <IoLaptopOutline />
             </div>
             <h2 className="licensing-title">Device Limit Reached</h2>
             <p className="licensing-desc">
-              Your subscription is active, but currently linked to another machine: <br />
+              Your subscription is active, but linked to another machine:<br />
               <b style={{ color: 'white' }}>"{licensingState.registeredDevice}"</b>
             </p>
           </div>
 
-          <div className="licensing-error-box" style={{ background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.2)', color: 'var(--primary-300)' }}>
+          {licensingState.errorMessage && (
+            <div className="licensing-error-box">
+              <IoAlertCircleOutline size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>Failed to Link</span>
+                <span style={{ fontSize: '12.5px', opacity: 0.9 }}>{licensingState.errorMessage}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="licensing-error-box" style={{ background: 'rgba(249, 115, 22, 0.08)', borderLeft: '3px solid var(--primary-500)', color: 'var(--primary-300)' }}>
             <IoAlertCircleOutline size={20} style={{ flexShrink: 0 }} />
-            <span>InfoOS policy allows 1 active device per subscription. You can reset linked devices in the Cloud Portal.</span>
+            <span>InfoOS policy allows 1 active device per subscription. You can deactivate the other machine instantly below.</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button className="licensing-btn" onClick={() => openWebsite('/devices')}>
-              Manage Registered Devices
-            </button>
-            <button className="licensing-secondary-btn" onClick={() => openWebsite('/support')}>
-              Contact Support
+            <button 
+              className="licensing-btn" 
+              onClick={handleUnlinkActiveDevice}
+              disabled={loading}
+            >
+              {loading ? <IoRefreshOutline className="spinning" size={18} /> : null}
+              <span>{loading ? 'Deactivating other device...' : 'Deactivate Other Device & Connect'}</span>
             </button>
             <button className="licensing-secondary-btn" onClick={runStartupChecks}>
               <IoRefreshOutline size={16} />

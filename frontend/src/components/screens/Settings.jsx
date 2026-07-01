@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuth } from '../../context/AuthContext';
 import { useAlert as useToast } from '../../context/AlertContext';
 import { useTheme } from '../../context/ThemeContext';
 import '../../styles/Settings.css';
@@ -37,6 +38,7 @@ const Settings = () => {
     const { showSuccess, showError } = useToast();
     const { isDark } = useTheme();
     const { settings: globalSettings, loading, updateSettings } = useSettings();
+    const { lockToWorker } = useAuth();
 
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('shop');
@@ -266,7 +268,10 @@ const Settings = () => {
                 showError(res.error || 'Invalid credentials');
             }
         } catch (err) {
-            showError('Login failed: ' + err.message);
+            const friendlyMsg = err.message && !err.message.includes('AxiosError')
+                ? err.message
+                : 'Unable to connect. Please check your internet connection and try again.';
+            showError(friendlyMsg);
         } finally {
             setCloudLoading(false);
         }
@@ -541,7 +546,8 @@ const Settings = () => {
     };
 
     const previewSound = () => {
-        const audio = new Audio(`/api/sounds/${formSettings.reminder_sound}?v=${Date.now()}`);
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
+        const audio = new Audio(`${apiUrl}/api/sounds/${formSettings.reminder_sound}?v=${Date.now()}`);
         audio.play().catch(e => showError('Cannot play sound: ' + e.message));
     };
 
@@ -785,8 +791,8 @@ const Settings = () => {
                                         </div>
                                         <Dropdown
                                             options={[
-                                                { label: 'Dine In 🍽️', value: 'dine-in' },
-                                                { label: 'Takeaway 🛍️', value: 'takeaway' }
+                                                { label: 'Dine In', value: 'dine-in' },
+                                                { label: 'Takeaway', value: 'takeaway' }
                                             ]}
                                             value={formSettings.default_order_type || 'dine-in'}
                                             onChange={(val) => handleChange('default_order_type', val)}
@@ -1624,6 +1630,13 @@ const Settings = () => {
                         )}
 
                         <div className="stActions">
+                            <Button 
+                                variant="secondary" 
+                                style={{ marginRight: 'auto', borderColor: '#ef4444', color: '#ef4444' }} 
+                                onClick={lockToWorker}
+                            >
+                                Log Out Owner
+                            </Button>
                             <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
                             <Button
                                 variant="primary"

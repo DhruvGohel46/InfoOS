@@ -16,7 +16,7 @@ export const ReminderProvider = ({ children }) => {
     useEffect(() => {
         const soundFile = settings?.reminder_sound || "reminder.mp3";
         // Use backend API URL for sounds with timestamp to prevent caching
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
         audioRef.current = new Audio(`${apiUrl}/api/sounds/${soundFile}?v=${new Date().getTime()}`);
         audioRef.current.loop = true;
         audioRef.current.playbackRate = 1.0;
