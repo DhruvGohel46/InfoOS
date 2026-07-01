@@ -298,7 +298,7 @@ app.on('web-contents-created', (event, contents) => {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:*; media-src 'self' http://localhost:* http://127.0.0.1:*; connect-src ${connectSrc};`
+          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https: *; media-src 'self' http://localhost:* http://127.0.0.1:*; connect-src ${connectSrc};`
         ]
       }
     });
