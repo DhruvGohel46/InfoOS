@@ -12,6 +12,19 @@ import {
 import { cloudAuthAPI, cloudLicenseAPI, setCloudAuthToken } from '../../api/cloudApi';
 import '../../styles/Licensing.css';
 
+// Helper: Check if JWT token is expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.exp) return true;
+    // Check if token is expired (with 60s buffer for clock skew)
+    return payload.exp * 1000 < Date.now() + 60_000;
+  } catch {
+    return true;
+  }
+};
+
 const OFFLINE_LIMIT_DAYS = 14;
 const OFFLINE_WARNING_DAYS = 7;
 
@@ -171,15 +184,8 @@ export default function LicensingGate({ children }) {
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
         if (diffDays >= OFFLINE_LIMIT_DAYS) {
-          // Exceeded offline limit, lock app and force online verification
-          if (navigator.onLine && cloudToken) {
-            // Try to auto-validate online
-            const result = await checkSubscriptionStatus(data.user_id, cloudToken);
-            if (result.status === 'active') {
-              setLicensingState({ status: 'active', expiryDate: result.expiryDate });
-              return;
-            }
-          }
+          // Exceeded offline limit - require online verification
+          // Don't attempt auto-validation to avoid 401 errors with expired tokens
           setLicensingState({ 
             status: 'login', 
             errorMessage: `You have been offline for over ${OFFLINE_LIMIT_DAYS} days. Please connect to the internet to verify your subscription.` 
@@ -187,8 +193,12 @@ export default function LicensingGate({ children }) {
           return;
         }
 
-        // If online, perform background refresh of license
-        if (navigator.onLine && cloudToken) {
+        // If online, perform background refresh of license (best effort, don't force re-login on failure)
+        // Only attempt refresh if token is valid to avoid 401 errors
+        // Skip background refresh entirely to avoid any 401 errors when token is expired
+        // The cache is valid, so we don't need to refresh immediately
+        /*
+        if (navigator.onLine && cloudToken && !isTokenExpired(cloudToken)) {
           checkSubscriptionStatus(data.user_id, cloudToken).then(result => {
             if (result.status && result.status !== 'active') {
               // License state changed (expired/disabled) - enforce immediately
@@ -199,8 +209,12 @@ export default function LicensingGate({ children }) {
                 errorMessage: result.error 
               });
             }
-          }).catch(e => console.error('Background license refresh failed:', e));
+          }).catch(e => {
+            // Silently fail background refresh - don't interrupt user experience
+            console.error('Background license refresh failed:', e);
+          });
         }
+        */
 
         // Within grace period, allow launch
         if (diffDays >= OFFLINE_WARNING_DAYS) {
@@ -219,20 +233,7 @@ export default function LicensingGate({ children }) {
     }
 
     // No valid cache - online login required
-    if (navigator.onLine && cloudToken) {
-      // Attempt auto-login if token is available
-      try {
-        const payload = JSON.parse(atob(cloudToken.split('.')[1]));
-        const result = await checkSubscriptionStatus(payload.sub, cloudToken);
-        if (result.status === 'active') {
-          setLicensingState({ status: 'active', expiryDate: result.expiryDate });
-          return;
-        }
-      } catch (e) {
-        console.error('Token auto-activation failed:', e);
-      }
-    }
-
+    // Don't attempt auto-login to avoid 401 errors with expired tokens
     setLicensingState({ status: 'login', errorMessage: '' });
   }, [getDeviceInfo, checkSubscriptionStatus]);
 
