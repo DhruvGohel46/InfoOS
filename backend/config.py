@@ -37,11 +37,10 @@ class Config:
     EXPORT_DIR = os.path.join(DATA_DIR, "exports")
 
     # Reports directory for automated reports
-    REPORTS_FOLDER = os.environ.get("REPORTS_FOLDER") or r"D:\Sales Data of other product"
+    REPORTS_FOLDER = os.environ.get("REPORTS_FOLDER") or os.path.join(DATA_DIR, "reports")
 
     # Flask configuration
     SECRET_KEY = os.environ.get("SECRET_KEY") or "pos-secret-key-for-local-development"
-    DEBUG = True
 
     # Printer configuration
     PRINTER_NAME = os.environ.get("PRINTER_NAME") or "Default Printer"
@@ -60,7 +59,7 @@ class Config:
     TAX_RATE = float(os.environ.get("TAX_RATE", 0.0))  # Tax rate as decimal (0.18 for 18%)
 
     # Security configuration
-    RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or "Karam2@15"
+    RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or "admin123"
 
 
 class DevelopmentConfig(Config):

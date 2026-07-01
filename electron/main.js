@@ -202,7 +202,7 @@ function createWindow() {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -285,11 +285,20 @@ app.on('web-contents-created', (event, contents) => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://pldolwabxypmttsqxeef.supabase.co';
     const supabaseHost = new URL(supabaseUrl).hostname;
     
+    // Get Cloud Backend URL from environment variable for dynamic CSP
+    // Only include in CSP if it's configured (not using placeholder)
+    const cloudApiUrl = process.env.REACT_APP_CLOUD_API_URL;
+    let connectSrc = `'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost}`;
+    if (cloudApiUrl && !cloudApiUrl.includes('your-cloud-backend.onrender.com')) {
+      const cloudApiHost = new URL(cloudApiUrl).hostname;
+      connectSrc += ` https://${cloudApiHost}`;
+    }
+    
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost};`
+          `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:*; connect-src ${connectSrc};`
         ]
       }
     });
