@@ -374,14 +374,13 @@ class DatabaseService:
             return []
 
     def get_bills_by_date(self, date_str: str) -> List[Dict[str, Any]]:
-        """Get all bills for a specific date (YYYY-MM-DD)"""
+        """Get all bills for a specific date (YYYY-MM-DD) including cancelled"""
         try:
             # date_str is expected YYYY-MM-DD
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             bills = (
                 Bill.query.filter(
                     func.date(Bill.created_at) == target_date,
-                    func.trim(Bill.status) != "CANCELLED",
                 )
                 .order_by(Bill.created_at.asc())
                 .all()
@@ -393,7 +392,7 @@ class DatabaseService:
             return []
 
     def get_bills_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
-        """Get bills in date range"""
+        """Get bills in date range including cancelled"""
         try:
             s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
             e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -402,7 +401,6 @@ class DatabaseService:
                 Bill.query.filter(
                     func.date(Bill.created_at) >= s_date,
                     func.date(Bill.created_at) <= e_date,
-                    func.trim(Bill.status) != "CANCELLED",
                 )
                 .order_by(Bill.created_at.asc())
                 .all()
