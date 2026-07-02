@@ -231,7 +231,7 @@ export default function LicensingGate({ children }) {
       // In dev mode, allow access for testing
       setLicensingState({ status: 'active', expiryDate: 'Development Mode' });
     }
-  }, [getDeviceInfo, isProduction]);
+  }, [getDeviceInfo, isProduction, checkSubscriptionStatus]);
 
   // Check if running in production mode
   useEffect(() => {

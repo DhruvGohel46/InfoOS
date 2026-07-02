@@ -376,7 +376,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     );
 
-  }, [orderType, products]);
+  }, [orderType, products, orderItems.length]);
 
 
 
