@@ -30,8 +30,7 @@ import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 import { cloudAuthAPI, cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
-import api, { summaryAPI } from '../../api/api';
-import { expensesAPI } from '../../api/expenses';
+import api from '../../api/api';
 
 
 const Settings = () => {
@@ -76,8 +75,6 @@ const Settings = () => {
     const [cloudEmail, setCloudEmail] = useState('');
     const [cloudPassword, setCloudPassword] = useState('');
     const [cloudLoading, setCloudLoading] = useState(false);
-    const [syncingBackup, setSyncingBackup] = useState(false);
-    const [syncingMonthlyBackup, setSyncingMonthlyBackup] = useState(false);
     const [cloudStatus, setCloudStatus] = useState({
         loggedIn: false,
         email: '',
@@ -86,15 +83,6 @@ const Settings = () => {
         role: 'standalone',
         loading: true
     });
-
-    useEffect(() => {
-        if (!window.posActiveTasks) window.posActiveTasks = new Set();
-        if (syncingBackup || syncingMonthlyBackup) {
-            window.posActiveTasks.add('sync');
-        } else {
-            window.posActiveTasks.delete('sync');
-        }
-    }, [syncingBackup, syncingMonthlyBackup]);
 
     // ── About & Updater State ──────────────────────────────────────────────
     const [systemInfo, setSystemInfo] = useState({
