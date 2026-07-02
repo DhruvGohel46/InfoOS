@@ -16,6 +16,7 @@ const OFFLINE_LIMIT_DAYS = 14;
 const OFFLINE_WARNING_DAYS = 7;
 
 export default function LicensingGate({ children }) {
+  const [isProduction, setIsProduction] = useState(false);
   const [licensingState, setLicensingState] = useState({
     status: 'checking', // 'checking' | 'login' | 'expired' | 'mismatch' | 'active'
     errorMessage: '',
@@ -171,32 +172,40 @@ export default function LicensingGate({ children }) {
 
         if (diffDays >= OFFLINE_LIMIT_DAYS) {
           // Exceeded offline limit - require online verification
-          // Don't attempt auto-validation to avoid 401 errors with expired tokens
-          setLicensingState({ 
-            status: 'login', 
-            errorMessage: `You have been offline for over ${OFFLINE_LIMIT_DAYS} days. Please connect to the internet to verify your subscription.` 
-          });
-          return;
+          // In production, always require online validation
+          if (isProduction) {
+            setLicensingState({ 
+              status: 'login', 
+              errorMessage: `You have been offline for over ${OFFLINE_LIMIT_DAYS} days. Please connect to the internet to verify your subscription.` 
+            });
+            return;
+          }
         }
 
-        // If online, perform background refresh of license
-        // Disabled to avoid 401 errors with expired tokens
-        // Cache is valid, so we don't need immediate refresh
-        /*
-        if (navigator.onLine && cloudToken) {
-          checkSubscriptionStatus(data.user_id, cloudToken).then(result => {
-            if (result.status && result.status !== 'active') {
-              // License state changed (expired/disabled) - enforce immediately
-              setLicensingState({ 
-                status: result.status, 
-                expiryDate: result.expiryDate, 
-                registeredDevice: result.registeredDevice,
-                errorMessage: result.error 
-              });
+        // If online and in production, perform background refresh of license
+        if (isProduction && navigator.onLine) {
+          const cloudToken = localStorage.getItem('cloud_auth_token');
+          if (cloudToken) {
+            try {
+              const result = await checkSubscriptionStatus(data.user_id, cloudToken);
+              if (result.status && result.status !== 'active') {
+                // License state changed (expired/disabled) - enforce immediately
+                setLicensingState({ 
+                  status: result.status, 
+                  expiryDate: result.expiryDate, 
+                  registeredDevice: result.registeredDevice,
+                  errorMessage: result.error 
+                });
+                return;
+              }
+            } catch (e) {
+              console.error('Background license refresh failed:', e);
+              // In production, if refresh fails, require re-login
+              setLicensingState({ status: 'login', errorMessage: 'License verification failed. Please log in again.' });
+              return;
             }
-          }).catch(e => console.error('Background license refresh failed:', e));
+          }
         }
-        */
 
         // Within grace period, allow launch
         if (diffDays >= OFFLINE_WARNING_DAYS) {
@@ -215,9 +224,25 @@ export default function LicensingGate({ children }) {
     }
 
     // No valid cache - online login required
-    // Don't attempt auto-login to avoid 401 errors with expired tokens
-    setLicensingState({ status: 'login', errorMessage: '' });
-  }, [getDeviceInfo]);
+    // In production, always require login
+    if (isProduction) {
+      setLicensingState({ status: 'login', errorMessage: '' });
+    } else {
+      // In dev mode, allow access for testing
+      setLicensingState({ status: 'active', expiryDate: 'Development Mode' });
+    }
+  }, [getDeviceInfo, isProduction]);
+
+  // Check if running in production mode
+  useEffect(() => {
+    const checkProductionMode = async () => {
+      if (window.electronAPI && window.electronAPI.isProduction) {
+        const prod = await window.electronAPI.isProduction();
+        setIsProduction(prod);
+      }
+    };
+    checkProductionMode();
+  }, []);
 
   /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {

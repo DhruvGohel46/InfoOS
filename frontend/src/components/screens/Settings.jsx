@@ -1472,24 +1472,6 @@ const Settings = () => {
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                                                         <Button
-                                                            variant="primary"
-                                                            onClick={handleManualSync}
-                                                            loading={syncingBackup}
-                                                            disabled={syncingBackup || syncingMonthlyBackup}
-                                                            style={{ height: '40px' }}
-                                                        >
-                                                            Sync Weekly
-                                                        </Button>
-                                                        <Button
-                                                            variant="primary"
-                                                            onClick={handleMonthlySync}
-                                                            loading={syncingMonthlyBackup}
-                                                            disabled={syncingBackup || syncingMonthlyBackup}
-                                                            style={{ height: '40px' }}
-                                                        >
-                                                            Sync Monthly
-                                                        </Button>
-                                                        <Button
                                                             variant="secondary"
                                                             onClick={handleCloudLogout}
                                                             style={{ height: '40px' }}

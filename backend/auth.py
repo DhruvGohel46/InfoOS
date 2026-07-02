@@ -39,6 +39,9 @@ def verify_admin_pin(pin: str) -> bool:
         from config import config
 
         RESET_PASSWORD = config["default"].RESET_PASSWORD
+        # In production, if no PIN is set and no RESET_PASSWORD, reject
+        if RESET_PASSWORD is None:
+            return False
         return pin == RESET_PASSWORD
     return verify_pin(pin, stored_hash)
 

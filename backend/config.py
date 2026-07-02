@@ -59,7 +59,13 @@ class Config:
     TAX_RATE = float(os.environ.get("TAX_RATE", 0.0))  # Tax rate as decimal (0.18 for 18%)
 
     # Security configuration
-    RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or "admin123"
+    # Only set RESET_PASSWORD in development mode - production should have no default
+    if getattr(sys, "frozen", False):
+        # Production build - no default password
+        RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or None
+    else:
+        # Development mode - allow default for testing
+        RESET_PASSWORD = os.environ.get("RESET_PASSWORD") or "admin123"
 
 
 class DevelopmentConfig(Config):

@@ -433,6 +433,7 @@ def upload_product_image(product_id):
             output = remove_fn(img, session=bg_session)
             output.save(file_path, format="PNG")
             bg_removed = True
+            logger.info("Background removal successful for product %s", product_id)
         except Exception as e:
             logger.warning("Background removal failed, saving original: %s", e)
             file.seek(0)
@@ -442,6 +443,7 @@ def upload_product_image(product_id):
     else:
         # rembg not installed — save original without background removal
         current_app.logger.warning("rembg not installed — saving image without background removal")
+        logger.warning("Background removal unavailable - rembg library not loaded")
         file.seek(0)
         img = Image.open(file)
         img.save(file_path, format="PNG")
@@ -458,7 +460,7 @@ def upload_product_image(product_id):
         {
             "success": True,
             "message": "Image uploaded successfully"
-            + (" (background removed)" if bg_removed else ""),
+            + (" (background removed)" if bg_removed else " (background removal unavailable)"),
             "image_filename": filename,
             "background_removed": bg_removed,
         }
@@ -478,6 +480,7 @@ def remove_background(product_id):
     remove_fn, bg_session = get_rembg()
 
     if remove_fn is None:
+        logger.error("Background removal requested but rembg is not available")
         return _rembg_unavailable_response()
 
     product = db.get_product(product_id)
@@ -495,9 +498,11 @@ def remove_background(product_id):
         raise NotFoundError("Image file not found on disk", code="IMAGE_FILE_MISSING")
 
     try:
+        logger.info("Starting background removal for product %s", product_id)
         img = Image.open(file_path).convert("RGB")
         output = remove_fn(img, session=bg_session)
         output.save(file_path, format="PNG")
+        logger.info("Background removal completed successfully for product %s", product_id)
     except Exception as e:
         logger.error("Background removal failed for %s: %s", product_id, e)
         raise Exception("Background removal processing failed")

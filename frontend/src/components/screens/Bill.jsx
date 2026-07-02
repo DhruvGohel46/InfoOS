@@ -328,6 +328,58 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
+  // Recalculate cart item prices when order type changes
+
+  useEffect(() => {
+
+    if (orderItems.length === 0) return;
+
+
+
+    setOrderItems(prevItems =>
+
+      prevItems.map(item => {
+
+        const product = products.find(p => p.product_id === item.product_id);
+
+        if (!product) return item;
+
+
+
+        const variation = item.variation_id
+
+          ? product.variations?.find(v => v.id === item.variation_id)
+
+          : null;
+
+
+
+        const isTakeaway = orderType === 'takeaway';
+
+        const takeawayAddon = isTakeaway && product.takeaway_price ? Number(product.takeaway_price) : 0;
+
+        const basePrice = variation ? Number(variation.price) : Number(product.price);
+
+        const newPrice = basePrice + takeawayAddon;
+
+
+
+        return {
+
+          ...item,
+
+          price: newPrice
+
+        };
+
+      })
+
+    );
+
+  }, [orderType, products]);
+
+
+
 
 
 

@@ -312,6 +312,7 @@ app.on('web-contents-created', (event, contents) => {
 // IPC handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-platform', () => process.platform);
+ipcMain.handle('is-production', () => !isDev);
 
 // Licensing Device Fingerprinting & OS-Level Encryption
 ipcMain.handle('license:getFingerprint', () => {
