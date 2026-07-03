@@ -21,6 +21,28 @@ hidden_imports = [
 binaries = []
 datas = [('migrations', 'migrations'), ('data/Sound', 'Sound')]
 
+# Copy pywin32 system DLLs to target directory to fix import errors in production build
+import os
+import sys
+
+pywin32_dirs = []
+
+# 1. Check virtual env
+venv_base = os.path.join(os.getcwd(), '.venv')
+if not os.path.exists(venv_base):
+    venv_base = os.path.join(os.path.dirname(os.getcwd()), '.venv')
+pywin32_dirs.append(os.path.join(venv_base, 'Lib', 'site-packages', 'pywin32_system32'))
+
+# 2. Check sys.prefix (global python)
+pywin32_dirs.append(os.path.join(sys.prefix, 'Lib', 'site-packages', 'pywin32_system32'))
+
+for d in pywin32_dirs:
+    if os.path.exists(d):
+        for f in os.listdir(d):
+            if f.endswith('.dll'):
+                binaries.append((os.path.join(d, f), '.'))
+        break
+
 # Collect all files for heavy ML libraries
 datas_onnx, binaries_onnx, hiddenimports_onnx = collect_all('onnxruntime')
 hidden_imports += hiddenimports_onnx
@@ -76,3 +98,20 @@ coll = COLLECT(
     upx_exclude=[],
     name='backend',
 )
+
+# Post-build copy to ensure pywin32 DLLs are in the root of _internal directory for successful import
+import shutil
+
+dist_dir = os.path.join('dist', 'backend')
+dist_internal = os.path.join(dist_dir, '_internal')
+
+for target_dir in [dist_dir, dist_internal]:
+    if os.path.exists(target_dir):
+        for d in pywin32_dirs:
+            if os.path.exists(d):
+                for f in os.listdir(d):
+                    if f.endswith('.dll'):
+                        src_path = os.path.join(d, f)
+                        dest_path = os.path.join(target_dir, f)
+                        print(f"[Spec] Post-build copy: {src_path} -> {dest_path}")
+                        shutil.copy2(src_path, dest_path)

@@ -250,6 +250,22 @@ export default function LicensingGate({ children }) {
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  // Listen for custom logout events dispatched from settings
+  useEffect(() => {
+    const onLicensingLogout = () => {
+      console.log('Received licensing-logout event, resetting activation cache and navigating to login.');
+      setCloudAuthToken(null);
+      localStorage.removeItem('infoos_activation_cache');
+      setEmail('');
+      setPassword('');
+      setLicensingState({ status: 'login', errorMessage: 'Logged out successfully.' });
+    };
+    window.addEventListener('licensing-logout', onLicensingLogout);
+    return () => {
+      window.removeEventListener('licensing-logout', onLicensingLogout);
+    };
+  }, []);
+
   // Handle Login Submit
   const handleLoginSubmit = async (e) => {
     e.preventDefault();

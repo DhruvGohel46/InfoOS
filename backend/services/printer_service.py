@@ -188,19 +188,21 @@ class PrinterService:
             if not settings["printer_enabled"]:
                 return {"success": True, "error": None}
 
+            if not self.printer_name:
+                return {
+                    "success": False,
+                    "error": "No printer selected. Please go to Settings -> Printer Settings and configure an active printer."
+                }
+
             # Validate printer
             modules = load_win32_modules()
             if modules:
-                if not self.printer_name:
-                    # Log warning but do not return False to avoid crashing billing
-                    print("[PrinterService] Warning: No printer configured in settings.")
-                else:
-                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-                    if not is_valid:
-                        # Log the connection error but do not throw or crash
-                        print(
-                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
-                        )
+                is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                if not is_valid:
+                    print(
+                        f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                    )
+                    return {"success": False, "error": error}
             else:
                 # Bypassed win32 validation for development/fallback
                 pass
@@ -228,19 +230,21 @@ class PrinterService:
             if not settings["printer_enabled"]:
                 return {"success": True, "error": None}
 
+            if not self.printer_name:
+                return {
+                    "success": False,
+                    "error": "No printer selected. Please go to Settings -> Printer Settings and configure an active printer."
+                }
+
             # Validate printer
             modules = load_win32_modules()
             if modules:
-                if not self.printer_name:
-                    # Log warning but do not return False to avoid crashing billing
-                    print("[PrinterService] Warning: No printer configured in settings.")
-                else:
-                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-                    if not is_valid:
-                        # Log the connection error but do not throw or crash
-                        print(
-                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
-                        )
+                is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                if not is_valid:
+                    print(
+                        f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                    )
+                    return {"success": False, "error": error}
             else:
                 # Bypassed win32 validation for development/fallback
                 pass
@@ -266,19 +270,21 @@ class PrinterService:
             self._ensure_initialized()
             settings = self._get_settings()
 
+            if not self.printer_name:
+                return {
+                    "success": False,
+                    "error": "No printer selected. Please go to Settings -> Printer Settings and configure an active printer."
+                }
+
             # Validate printer
             modules = load_win32_modules()
             if modules:
-                if not self.printer_name:
-                    # Log warning but do not return False to avoid crashing billing
-                    print("[PrinterService] Warning: No printer configured in settings.")
-                else:
-                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-                    if not is_valid:
-                        # Log the connection error but do not throw or crash
-                        print(
-                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
-                        )
+                is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                if not is_valid:
+                    print(
+                        f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                    )
+                    return {"success": False, "error": error}
             else:
                 # Bypassed win32 validation for development/fallback
                 pass

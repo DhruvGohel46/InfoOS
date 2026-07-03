@@ -274,7 +274,7 @@ def run_programmatic_sqlite_migrations(app, db):
                     )
                 """))
 
-                # 2. Add group_id to categories
+                # 2. Add group_id and display_order to categories
                 res = conn.execute(text("PRAGMA table_info(categories)"))
                 cat_cols = [row[1] for row in res.fetchall()]
                 if "group_id" not in cat_cols:
@@ -283,6 +283,11 @@ def run_programmatic_sqlite_migrations(app, db):
                         text(
                             "ALTER TABLE categories ADD COLUMN group_id INTEGER REFERENCES item_groups(id)"
                         )
+                    )
+                if "display_order" not in cat_cols:
+                    _log.info("Migrating SQLite: Adding display_order column to categories table")
+                    conn.execute(
+                        text("ALTER TABLE categories ADD COLUMN display_order INTEGER DEFAULT 0")
                     )
 
                 # 3. Add order_type and table_no to bills
@@ -297,7 +302,7 @@ def run_programmatic_sqlite_migrations(app, db):
                     _log.info("Migrating SQLite: Adding table_no column to bills table")
                     conn.execute(text("ALTER TABLE bills ADD COLUMN table_no TEXT"))
 
-                # 4. Add variations to products
+                # 4. Add variations, takeaway_price, and display_order to products
                 res = conn.execute(text("PRAGMA table_info(products)"))
                 product_cols = [row[1] for row in res.fetchall()]
                 if "variations" not in product_cols:
@@ -309,6 +314,11 @@ def run_programmatic_sqlite_migrations(app, db):
                 if "takeaway_price" not in product_cols:
                     _log.info("Migrating SQLite: Adding takeaway_price column to products table")
                     conn.execute(text("ALTER TABLE products ADD COLUMN takeaway_price FLOAT"))
+                if "display_order" not in product_cols:
+                    _log.info("Migrating SQLite: Adding display_order column to products table")
+                    conn.execute(
+                        text("ALTER TABLE products ADD COLUMN display_order INTEGER DEFAULT 0")
+                    )
             _log.info("Programmatic SQLite migrations completed successfully")
     except Exception as e:
         _log.error("Error during programmatic SQLite migrations: %s", e)

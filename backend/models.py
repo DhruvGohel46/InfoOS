@@ -39,6 +39,7 @@ class Category(db.Model):
     name = db.Column(db.String(255), unique=True, nullable=False)
     description = db.Column(db.Text)
     active = db.Column(db.Boolean, default=True)
+    display_order = db.Column(db.Integer, default=0)
     group_id = db.Column(db.Integer, db.ForeignKey("item_groups.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
@@ -57,6 +58,7 @@ class Product(db.Model):
     image_filename = db.Column(db.String(255))
     active = db.Column(db.Boolean, default=True)
     favorite = db.Column(db.Boolean, default=False)
+    display_order = db.Column(db.Integer, default=0)
     variations = db.Column(db.Text, default="[]")  # JSON array of {id, name, price}
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())

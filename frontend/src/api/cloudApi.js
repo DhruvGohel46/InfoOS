@@ -39,6 +39,7 @@ const supabaseApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
   },
   timeout: 15000,
 });
@@ -149,6 +150,60 @@ export const cloudSyncAPI = {
   syncMonthlyBackup: async (backupPayload) => {
     const { data } = await cloudApi.post('/backup/sync-monthly', backupPayload);
     return data;
+  },
+
+  /**
+   * Check if weekly report backup already exists on Supabase for given user and start date
+   */
+  checkWeeklyReportExists: async (userId, weekStartDate, token) => {
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      return false;
+    }
+    try {
+      const response = await axios.get(`${SUPABASE_URL}/rest/v1/weekly_backups`, {
+        params: {
+          user_id: `eq.${userId}`,
+          week_start_date: `eq.${weekStartDate}`,
+          select: 'id'
+        },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data && response.data.length > 0;
+    } catch (error) {
+      console.error('checkWeeklyReportExists REST error:', error.response?.data || error.message);
+      return false;
+    }
+  },
+
+  /**
+   * Check if monthly report backup already exists on Supabase for given user and start date
+   */
+  checkMonthlyReportExists: async (userId, monthStartDate, token) => {
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      return false;
+    }
+    try {
+      const response = await axios.get(`${SUPABASE_URL}/rest/v1/monthly_backups`, {
+        params: {
+          user_id: `eq.${userId}`,
+          month_start_date: `eq.${monthStartDate}`,
+          select: 'id'
+        },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data && response.data.length > 0;
+    } catch (error) {
+      console.error('checkMonthlyReportExists REST error:', error.response?.data || error.message);
+      return false;
+    }
   },
 };
 

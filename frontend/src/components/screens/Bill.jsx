@@ -6,7 +6,7 @@ import { useAlert } from '../../context/AlertContext';
 import { usePOSData } from '../../context/POSDataContext';
 import { useNetwork } from '../../context/NetworkContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { productsAPI, billingAPI, groupsAPI } from '../../utils/api';
+import { productsAPI, billingAPI, groupsAPI, categoriesAPI } from '../../utils/api';
 import { syncService } from '../../api/sync';
 import { handleAPIError, formatCurrency } from '../../utils/api';
 import { printerService } from '../../services/printerService';
@@ -19,8 +19,13 @@ import {
   IoSaveOutline,
   IoPrintOutline,
   IoReceiptOutline,
-  IoDocumentTextOutline
+  IoDocumentTextOutline,
+  IoMoveOutline,
+  IoCheckmarkDoneOutline,
+  IoCloseOutline,
+  IoCreateOutline
 } from 'react-icons/io5';
+import { motion, Reorder } from 'framer-motion';
 import {
   buildCartItem,
   formatProductPriceLabel,
@@ -69,7 +74,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     refreshProducts,
 
-    checkCatalogVersion
+    checkCatalogVersion,
+
+    refreshAll
 
   } = usePOSData();
 
@@ -178,6 +185,96 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     }
 
   }, [isPrinting]);
+
+  // ── Edit Layout Mode States & Functions ──
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editableCategories, setEditableCategories] = useState([]);
+  const [editableProducts, setEditableProducts] = useState([]);
+  const [draggedProductId, setDraggedProductId] = useState(null);
+  const [savingLayout, setSavingLayout] = useState(false);
+
+  const startEditMode = () => {
+    // Categories: filter out favorites
+    const activeCats = bootstrapCategories.filter(c => c.id !== 'favorites');
+    setEditableCategories(activeCats);
+
+    // Products: filter products for the current selected category
+    const activeProds = products.filter(product => 
+      selectedCategory === 'favorites' 
+        ? !!product.favorite 
+        : (product.category_id === selectedCategory || product.category === selectedCategory)
+    );
+    setEditableProducts(activeProds);
+    setIsEditMode(true);
+  };
+
+  const cancelEditMode = () => {
+    setIsEditMode(false);
+    setEditableCategories([]);
+    setEditableProducts([]);
+  };
+
+  const saveLayout = async () => {
+    try {
+      setSavingLayout(true);
+
+      const categoryOrders = editableCategories.map((cat, index) => ({
+        id: cat.id,
+        display_order: index
+      }));
+
+      const productOrders = editableProducts.map((prod, index) => ({
+        product_id: prod.product_id,
+        display_order: index
+      }));
+
+      const promises = [];
+      if (categoryOrders.length > 0) {
+        promises.push(categoriesAPI.reorderCategories(categoryOrders));
+      }
+      if (productOrders.length > 0) {
+        promises.push(productsAPI.reorderProducts(productOrders));
+      }
+
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
+
+      await refreshAll();
+      showSuccess('Layout reordered successfully');
+      setIsEditMode(false);
+    } catch (err) {
+      console.error('Failed to save layout order:', err);
+      showWarning(err.message || 'Failed to save layout reordering');
+    } finally {
+      setSavingLayout(false);
+    }
+  };
+
+  const handleProductDragStart = (e, productId) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', productId);
+    setDraggedProductId(productId);
+  };
+
+  const handleProductDragOver = (e, targetId) => {
+    e.preventDefault();
+    if (!draggedProductId || draggedProductId === targetId) return;
+
+    const draggedIndex = editableProducts.findIndex(p => p.product_id === draggedProductId);
+    const targetIndex = editableProducts.findIndex(p => p.product_id === targetId);
+
+    if (draggedIndex !== -1 && targetIndex !== -1) {
+      const updatedProducts = [...editableProducts];
+      const [removed] = updatedProducts.splice(draggedIndex, 1);
+      updatedProducts.splice(targetIndex, 0, removed);
+      setEditableProducts(updatedProducts);
+    }
+  };
+
+  const handleProductDragEnd = () => {
+    setDraggedProductId(null);
+  };
 
 
 
@@ -786,7 +883,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     } catch (err) {
 
-      showWarning('Printer error. Please check connections.');
+      showWarning(err.message || 'Printer error. Please check connections.');
 
     } finally {
 
@@ -822,7 +919,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     } catch (err) {
 
-      showWarning('Sequence interrupted. Check printer.');
+      showWarning(err.message || 'Sequence interrupted. Check printer.');
 
     } finally {
 
@@ -1199,153 +1296,143 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-            {categories.map((category) => {
-
-              const isActive = selectedCategory === category.id;
-
-              return (
-
-                <button
-
-                  key={category.id}
-
-                  onClick={() => setSelectedCategory(category.id)}
-
+            {isEditMode ? (
+              <>
+                {/* Favorites is always static and not draggable */}
+                <div
                   className="rounded-lg glass-card"
-
                   style={{
-
                     position: 'relative',
-
                     width: '100%',
-
                     height: '40px',
-
                     display: 'flex',
-
                     alignItems: 'center',
-
                     gap: '12px',
-
                     padding: '0 16px',
-
-                    backgroundColor: isActive ? 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)' : '#2B2B2B',
-
-                    border: isActive ? '1px solid #FF8A00' : '1px solid rgba(255,255,255,0.08)',
-
+                    backgroundColor: selectedCategory === 'favorites' ? '#2B2B2B' : 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
                     borderRadius: '16px',
-
-                    cursor: 'pointer',
-
-                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
-
-                    transition: 'all 180ms cubic-bezier(0.16, 1, 0.3, 1)',
-
-                    textAlign: 'left',
-
-                    overflow: 'hidden',
-
-                    boxShadow: isActive ? '0 8px 24px rgba(255,120,0,0.25)' : 'none'
-
+                    color: 'var(--text-muted)',
+                    opacity: 0.5,
+                    overflow: 'hidden'
                   }}
-
-                  onMouseEnter={(e) => {
-
-                    if (!isActive) {
-
-                      e.currentTarget.style.backgroundColor = '#333333';
-
-                      e.currentTarget.style.transform = 'translateX(3px)';
-
-                    }
-
-                  }}
-
-                  onMouseLeave={(e) => {
-
-                    if (!isActive) {
-
-                      e.currentTarget.style.backgroundColor = '#2B2B2B';
-
-                      e.currentTarget.style.transform = 'translateX(0)';
-
-                    }
-
-                  }}
-
                 >
+                  <span style={{ fontSize: '16px', fontWeight: '500' }}>★ Favorites</span>
+                </div>
 
-                  {isActive && (
-
-                    <div
-
-                      style={{
-
-                        position: 'absolute',
-
-                        left: 0,
-
-                        top: '50%',
-
-                        transform: 'translateY(-50%)',
-
-                        width: '4px',
-
-                        height: '20px',
-
-                        backgroundColor: '#ffffff',
-
-                        borderRadius: '0 2px 2px 0',
-
-                      }}
-
-                    />
-
-                  )}
-
-
-
-                  <div style={{
-
-                    display: 'flex',
-
-                    flexDirection: 'column',
-
-                    gap: '2px',
-
-                    flex: 1
-
-                  }}>
-
-                    <span style={{
-
-                      fontSize: '16px',
-
-                      fontWeight: '500',
-
+                {/* Draggable categories list */}
+                <Reorder.Group axis="y" values={editableCategories} onReorder={setEditableCategories} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: 0, margin: 0, listStyle: 'none' }}>
+                  {editableCategories.map((category) => (
+                    <Reorder.Item key={category.id} value={category} style={{ listStyleType: 'none' }}>
+                      <div
+                        className="rounded-lg glass-card"
+                        style={{
+                          position: 'relative',
+                          width: '100%',
+                          height: '40px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '0 16px',
+                          backgroundColor: '#2B2B2B',
+                          border: '1px dashed rgba(255,255,255,0.2)',
+                          borderRadius: '16px',
+                          cursor: 'grab',
+                          color: 'var(--text-secondary)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <IoMoveOutline style={{ opacity: 0.6, fontSize: '18px', color: '#FF8A00' }} />
+                        <span style={{
+                          fontSize: '16px',
+                          fontWeight: '500',
+                          color: 'var(--text-secondary)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {category.name}
+                        </span>
+                      </div>
+                    </Reorder.Item>
+                  ))}
+                </Reorder.Group>
+              </>
+            ) : (
+              categories.map((category) => {
+                const isActive = selectedCategory === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className="rounded-lg glass-card"
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '0 16px',
+                      backgroundColor: isActive ? 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)' : '#2B2B2B',
+                      border: isActive ? '1px solid #FF8A00' : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
                       color: isActive ? '#ffffff' : 'var(--text-secondary)',
-
+                      transition: 'all 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      textAlign: 'left',
                       overflow: 'hidden',
+                      boxShadow: isActive ? '0 8px 24px rgba(255,120,0,0.25)' : 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = '#333333';
+                        e.currentTarget.style.transform = 'translateX(3px)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = '#2B2B2B';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }
+                    }}
+                  >
+                    {isActive && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '4px',
+                          height: '20px',
+                          backgroundColor: '#ffffff',
+                          borderRadius: '0 2px 2px 0',
+                        }}
+                      />
+                    )}
 
-                      textOverflow: 'ellipsis',
-
-                      whiteSpace: 'nowrap'
-
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      flex: 1
                     }}>
-
-                      {category.name}
-
-                    </span>
-
-                  </div>
-
-                </button>
-
-              );
-
-            })}
-
+                      <span style={{
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {category.name}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
 
         </div>
@@ -1363,6 +1450,133 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           minHeight: 'calc(100% - 1rem)',
 
         }}>
+
+          {/* Edit Layout Header Bar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            padding: '4px 8px 12px 8px',
+            borderBottom: '1px solid rgba(255,255,255,0.06)'
+          }}>
+            <h2 style={{
+              fontSize: '20px',
+              fontWeight: '700',
+              color: 'var(--text-primary)',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              {selectedCategory === 'favorites' 
+                ? '★ Favorites' 
+                : (bootstrapCategories.find(c => c.id === selectedCategory)?.name || 'Products')}
+              {isEditMode && (
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: '#FF8A00',
+                  background: 'rgba(255,138,0,0.1)',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255,138,0,0.2)'
+                }}>
+                  Editing Layout
+                </span>
+              )}
+            </h2>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {!isEditMode ? (
+                <button
+                  onClick={startEditMode}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '10px',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <IoCreateOutline size={16} />
+                  Edit Layout
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={cancelEditMode}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      background: 'rgba(239,68,68,0.1)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      borderRadius: '10px',
+                      color: '#EF4444',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239,68,68,0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                    }}
+                  >
+                    <IoCloseOutline size={16} />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveLayout}
+                    disabled={savingLayout}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      background: 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)',
+                      border: 'none',
+                      borderRadius: '10px',
+                      color: '#ffffff',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(255,120,0,0.25)',
+                      transition: 'all 0.2s ease',
+                      opacity: savingLayout ? 0.7 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.filter = 'brightness(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.filter = 'brightness(1)';
+                    }}
+                  >
+                    <IoCheckmarkDoneOutline size={16} />
+                    {savingLayout ? 'Saving...' : 'Done'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
 
           {loading ? (
 
@@ -1478,406 +1692,228 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             >
 
-              {displayedProducts.map((product) => {
-
+              {(isEditMode ? editableProducts : displayedProducts).map((product) => {
                 const productVariations = getProductVariations(product);
-
                 const hasTwoVariations = productVariations.length === 2;
 
+                return (
+                  <motion.div
+                    layout
+                    key={product.product_id}
+                    draggable={isEditMode}
+                    onDragStart={isEditMode ? (e) => handleProductDragStart(e, product.product_id) : undefined}
+                    onDragOver={isEditMode ? (e) => handleProductDragOver(e, product.product_id) : undefined}
+                    onDragEnd={isEditMode ? handleProductDragEnd : undefined}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    style={{ position: 'relative' }}
+                  >
+                    <div 
+                      onClick={isEditMode ? undefined : (e) => {
+                        if (!hasTwoVariations) {
+                          handleAddItem(product, e);
+                        }
+                      }}
+                      style={{
+                        padding: '16px 10px 10px 10px',
+                        maxWidth: 'calc(250px * var(--display-zoom))',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: isEditMode ? 'grab' : (product.stock_status === 'Out of Stock' ? 'not-allowed' : (hasTwoVariations ? 'default' : 'pointer')),
+                        opacity: product.stock_status === 'Out of Stock' ? 0.6 : 1,
+                        position: 'relative',
+                        boxSizing: 'border-box',
+                        borderRadius: '20px',
+                        background: '#212121b3',
+                        border: isEditMode ? '1.5px dashed #FF8A00' : '1px solid #4a4a4a',
+                        boxShadow: isEditMode ? '0 8px 24px rgba(255,138,0,0.15)' : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                        transition: 'border-color 150ms ease, transform 150ms ease',
+                        transform: isEditMode ? 'scale(1.03)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isEditMode) e.currentTarget.style.borderColor = '#5a5a5a';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isEditMode) e.currentTarget.style.borderColor = '#4a4a4a';
+                      }}
+                    >
+                      {/* Drag handle overlay in edit mode */}
+                      {isEditMode && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          backgroundColor: 'rgba(255, 138, 0, 0.2)',
+                          color: '#FF8A00',
+                          padding: '4px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          zIndex: 10
+                        }}>
+                          <IoMoveOutline size={16} />
+                        </div>
+                      )}
 
+                      {/* Image Container */}
+                      <div style={{
+                        height: '100px',
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        background: '#2d2d2d',
+                        borderRadius: '14px',
+                        border: '1px solid #5a5a5a',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        zIndex: 2
+                      }}>
+                        {product.stock_status === 'Out of Stock' && (
+                          <div style={{
+                            position: 'absolute',
+                            backgroundColor: 'var(--error-500)',
+                            color: 'white',
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            zIndex: 10
+                          }}>OUT</div>
+                        )}
 
-                        return (
+                        {product.image_filename ? (
+                          <img
+                            src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
+                            alt={product.name}
+                            style={{ 
+                              maxWidth: '72%',
+                              maxHeight: '72%',
+                              objectFit: 'contain',
+                            }}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="M21 15l-5-5L5 21" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Name */}
+                      <h4 style={{
+                        fontFamily: 'Inter, system-ui',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        color: '#F2F2F2',
+                        margin: '12px 0 10px 0',
+                        textAlign: 'left',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {product.name}
+                      </h4>
+
+                      {/* Options or Single Price */}
+                      {hasTwoVariations ? (
+                        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {productVariations.map((variation) => {
+                            const nameParts = variation.name.split(' ');
+                            return (
+                              <button
+                                key={variation.id}
+                                type="button"
+                                onClick={isEditMode ? undefined : (e) => {
+                                  e.stopPropagation();
+                                  handleVariationSelect(product, variation);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  height: '64px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  padding: '0 12px',
+                                  borderRadius: '12px',
+                                  border: '1px solid #555',
+                                  background: '#2d2d2d',
+                                  boxSizing: 'border-box',
+                                  cursor: isEditMode ? 'default' : 'pointer',
+                                  fontFamily: 'Inter, system-ui',
+                                  transition: 'border-color 150ms ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isEditMode) e.currentTarget.style.borderColor = '#777';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isEditMode) e.currentTarget.style.borderColor = '#555';
+                                }}
+                              >
+                                <div style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'flex-start',
+                                  textAlign: 'left',
+                                  fontWeight: 700,
+                                  fontSize: '15px',
+                                  color: '#ECECEC',
+                                  lineHeight: '1.2'
+                                }}>
+                                  {nameParts.map((part, index) => (
+                                    <span key={index}>{part}</span>
+                                  ))}
+                                </div>
+                                <div style={{
+                                  fontWeight: 700,
+                                  fontSize: '18px',
+                                  color: '#ff6b00',
+                                  textAlign: 'right'
+                                }}>
+                                  {formatCurrency(variation.price)}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 6px 4px' }}>
+                          <span style={{
+                            fontWeight: 700,
+                            fontSize: '16px',
+                            color: '#ff6b00',
+                            fontFamily: 'Inter, system-ui'
+                          }}>
+                            {formatProductPriceLabel(product, formatCurrency, orderType)}
+                          </span>
 
                           <div
-
-                            key={product.product_id}
-
-                            style={{ position: 'relative' }}
-
+                            style={{
+                              width: '28px', 
+                              height: '28px',
+                              backgroundColor: '#ff6b00',
+                              borderRadius: '50%',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              color: 'white',
+                              cursor: isEditMode ? 'default' : 'pointer'
+                            }}
                           >
-
-                            <div 
-
-                              onClick={(e) => {
-
-                                if (!hasTwoVariations) {
-
-                                  handleAddItem(product, e);
-
-                                }
-
-                              }}
-
-                              style={{
-
-                                padding: '16px 10px 10px 10px',
-
-                                maxWidth: 'calc(250px * var(--display-zoom))',
-
-                                display: 'flex',
-
-                                flexDirection: 'column',
-
-                                cursor: product.stock_status === 'Out of Stock' ? 'not-allowed' : (hasTwoVariations ? 'default' : 'pointer'),
-
-                                opacity: product.stock_status === 'Out of Stock' ? 0.6 : 1,
-
-                                position: 'relative',
-
-                                boxSizing: 'border-box',
-
-                                borderRadius: '20px',
-
-                                background: '#212121b3',
-
-                                border: '1px solid #4a4a4a',
-
-                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
-
-                                transition: 'border-color 150ms ease'
-
-                              }}
-
-                              onMouseEnter={(e) => {
-
-                                e.currentTarget.style.borderColor = '#5a5a5a';
-
-                              }}
-
-                              onMouseLeave={(e) => {
-
-                                e.currentTarget.style.borderColor = '#4a4a4a';
-
-                              }}
-
-                            >
-
-                              {/* Image Container */}
-
-                              <div style={{
-
-                                height: '100px',
-
-                                width: '100%',
-
-                                boxSizing: 'border-box',
-
-                                background: '#2d2d2d',
-
-                                borderRadius: '14px',
-
-                                border: '1px solid #5a5a5a',
-
-                                display: 'flex',
-
-                                alignItems: 'center',
-
-                                justifyContent: 'center',
-
-                                position: 'relative',
-
-                                overflow: 'hidden',
-
-                                zIndex: 2
-
-                              }}>
-
-                                {product.stock_status === 'Out of Stock' && (
-
-                                  <div style={{
-
-                                    position: 'absolute',
-
-                                    backgroundColor: 'var(--error-500)',
-
-                                    color: 'white',
-
-                                    fontSize: '9px',
-
-                                    fontWeight: 800,
-
-                                    padding: '1px 5px',
-
-                                    borderRadius: '4px',
-
-                                    zIndex: 10
-
-                                  }}>OUT</div>
-
-                                )}
-
-
-
-                                {product.image_filename ? (
-
-                                  <img
-
-                                    src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
-
-                                    alt={product.name}
-
-                                    style={{ 
-
-                                      maxWidth: '72%',
-
-                                      maxHeight: '72%',
-
-                                      objectFit: 'contain',
-
-                                    }}
-
-                                    loading="lazy"
-
-                                  />
-
-                                ) : (
-
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
-
-                                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-
-                                      <circle cx="8.5" cy="8.5" r="1.5" />
-
-                                      <path d="M21 15l-5-5L5 21" />
-
-                                    </svg>
-
-                                  </div>
-
-                                )}
-
-                              </div>
-
-
-
-                              {/* Product Name */}
-
-                              <h4 style={{
-
-                                fontFamily: 'Inter, system-ui',
-
-                                fontSize: '16px',
-
-                                fontWeight: 700,
-
-                                color: '#F2F2F2',
-
-                                margin: '12px 0 10px 0',
-
-                                textAlign: 'left',
-
-                                whiteSpace: 'nowrap',
-
-                                overflow: 'hidden',
-
-                                textOverflow: 'ellipsis',
-
-                              }}>
-
-                                {product.name}
-
-                              </h4>
-
-
-
-                              {/* Options or Single Price */}
-
-                              {hasTwoVariations ? (
-
-                                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                                  {productVariations.map((variation) => {
-
-                                    const nameParts = variation.name.split(' ');
-
-                                    return (
-
-                                      <button
-
-                                        key={variation.id}
-
-                                        type="button"
-
-                                        onClick={(e) => {
-
-                                          e.stopPropagation();
-
-                                          handleVariationSelect(product, variation);
-
-                                        }}
-
-                                        style={{
-
-                                          width: '100%',
-
-                                          height: '64px',
-
-                                          display: 'flex',
-
-                                          justifyContent: 'space-between',
-
-                                          alignItems: 'center',
-
-                                          padding: '0 12px',
-
-                                          borderRadius: '12px',
-
-                                          border: '1px solid #555',
-
-                                          background: '#2d2d2d',
-
-                                          boxSizing: 'border-box',
-
-                                          cursor: 'pointer',
-
-                                          fontFamily: 'Inter, system-ui',
-
-                                          transition: 'border-color 150ms ease'
-
-                                        }}
-
-                                        onMouseEnter={(e) => {
-
-                                          e.currentTarget.style.borderColor = '#777';
-
-                                        }}
-
-                                        onMouseLeave={(e) => {
-
-                                          e.currentTarget.style.borderColor = '#555';
-
-                                        }}
-
-                                      >
-
-                                        {/* Left column: Option title (bold, 15px, #ECECEC, two lines) */}
-
-                                        <div style={{
-
-                                          display: 'flex',
-
-                                          flexDirection: 'column',
-
-                                          alignItems: 'flex-start',
-
-                                          textAlign: 'left',
-
-                                          fontWeight: 700,
-
-                                          fontSize: '15px',
-
-                                          color: '#ECECEC',
-
-                                          lineHeight: '1.2'
-
-                                        }}>
-
-                                          {nameParts.map((part, index) => (
-
-                                            <span key={index}>{part}</span>
-
-                                          ))}
-
-                                        </div>
-
-
-
-                                        {/* Right column: Price (18px, bold, Orange #ff6b00, right aligned) */}
-
-                                        <div style={{
-
-                                          fontWeight: 700,
-
-                                          fontSize: '18px',
-
-                                          color: '#ff6b00',
-
-                                          textAlign: 'right'
-
-                                        }}>
-
-                                          {formatCurrency(variation.price)}
-
-                                        </div>
-
-                                      </button>
-
-                                    );
-
-                                  })}
-
-                                </div>
-
-                              ) : (
-
-                                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 6px 4px' }}>
-
-                                  <span style={{
-
-                                    fontWeight: 700,
-
-                                    fontSize: '16px',
-
-                                    color: '#ff6b00',
-
-                                    fontFamily: 'Inter, system-ui'
-
-                                  }}>
-
-                                    {formatProductPriceLabel(product, formatCurrency, orderType)}
-
-                                  </span>
-
-
-
-                                  {/* Add Button */}
-
-                                  <div
-
-                                    style={{
-
-                                      width: '28px', 
-
-                                      height: '28px',
-
-                                      backgroundColor: '#ff6b00',
-
-                                      borderRadius: '50%',
-
-                                      display: 'flex', 
-
-                                      alignItems: 'center', 
-
-                                      justifyContent: 'center',
-
-                                      color: 'white',
-
-                                      cursor: 'pointer'
-
-                                    }}
-
-                                  >
-
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-
-                                      <path d="M12 5V19M5 12H19" />
-
-                                    </svg>
-
-                                  </div>
-
-                                </div>
-
-                              )}
-
-                            </div>
-
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                              <path d="M12 5V19M5 12H19" />
+                            </svg>
                           </div>
-
-                        );
-
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
               })}
 
 

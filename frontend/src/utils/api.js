@@ -102,6 +102,9 @@ export const productsAPI = {
   // Toggle favorite status
   toggleFavorite: (productId, isFavorite) =>
     api.put(`/api/products/${productId}`, { favorite: isFavorite }),
+
+  // Reorder products
+  reorderProducts: (orders) => api.put('/api/products/reorder', { orders }),
 };
 
 // Category Management APIs
@@ -121,6 +124,9 @@ export const categoriesAPI = {
 
   // Check usage
   checkUsage: (id) => api.get(`/api/categories/${id}/usage`),
+
+  // Reorder categories
+  reorderCategories: (orders) => api.put('/api/categories/reorder', { orders }),
 };
 
 // Group Management APIs

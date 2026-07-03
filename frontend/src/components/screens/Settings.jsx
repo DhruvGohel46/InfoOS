@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
-import { useAuth } from '../../context/AuthContext';
 import { useAlert as useToast } from '../../context/AlertContext';
 import { useTheme } from '../../context/ThemeContext';
 import '../../styles/Settings.css';
@@ -29,15 +28,15 @@ import {
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
-import { cloudAuthAPI, cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
-import api from '../../api/api';
+import { cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
+import api, { summaryAPI } from '../../api/api';
+import { expensesAPI } from '../../api/expenses';
 
 
 const Settings = () => {
     const { showSuccess, showError } = useToast();
     const { isDark } = useTheme();
     const { settings: globalSettings, loading, updateSettings } = useSettings();
-    const { lockToWorker } = useAuth();
 
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('shop');
@@ -72,11 +71,11 @@ const Settings = () => {
     const [pinSaving, setPinSaving] = useState(false);
 
     // ── Cloud Sync & SaaS states ──────────────────────────────────────────
-    const [cloudEmail, setCloudEmail] = useState('');
-    const [cloudPassword, setCloudPassword] = useState('');
-    const [cloudLoading, setCloudLoading] = useState(false);
+    const [syncingBackup, setSyncingBackup] = useState(false);
+    const [syncingMonthlyBackup, setSyncingMonthlyBackup] = useState(false);
     const [cloudStatus, setCloudStatus] = useState({
         loggedIn: false,
+        userId: null,
         email: '',
         subscriptionStatus: 'inactive',
         expiry: null,
@@ -264,8 +263,17 @@ const Settings = () => {
             console.error('Failed to load franchise profile:', err);
         }
 
+        let userId = null;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.sub;
+        } catch (e) {
+            console.error('Failed to parse token payload:', e);
+        }
+
         setCloudStatus({
             loggedIn: true,
+            userId,
             email,
             subscriptionStatus: subStatus,
             expiry: subExpiry,
@@ -278,47 +286,162 @@ const Settings = () => {
         loadCloudProfile();
     }, []);
 
-    const handleCloudLogin = async (e) => {
-        e.preventDefault();
-        if (!cloudEmail || !cloudPassword) {
-            showError('Email and password are required');
+    const handleManualSync = async () => {
+        const token = localStorage.getItem('cloud_auth_token');
+        if (!token) {
+            showError('Please connect your cloud account first');
             return;
         }
-        setCloudLoading(true);
-        try {
-            const res = await cloudAuthAPI.login(cloudEmail, cloudPassword);
-            if (res.success && res.data?.access_token) {
-                setCloudAuthToken(res.data.access_token);
-                localStorage.setItem('cloud_user_email', cloudEmail);
-                showSuccess('Connected to cloud SaaS successfully!');
-                setCloudEmail('');
-                setCloudPassword('');
-                await loadCloudProfile();
-            } else {
-                showError(res.error || 'Invalid credentials');
+        if (cloudStatus.subscriptionStatus !== 'active') {
+            showError('SaaS Subscription required: Please purchase a plan on the website.');
+            return;
+        }
+
+        let userId = cloudStatus.userId;
+        if (!userId) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                userId = payload.sub;
+            } catch (e) {
+                console.error('Failed to parse token payload:', e);
             }
+        }
+        if (!userId) {
+            showError('Invalid session. Please logout and log back in.');
+            return;
+        }
+
+        setSyncingBackup(true);
+        try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const summaryRes = await summaryAPI.getRangeSummary('week', todayStr);
+            if (!summaryRes.data?.success) {
+                throw new Error(summaryRes.data?.error || 'Failed to fetch weekly summaries');
+            }
+
+            const summary = summaryRes.data.summary;
+            const weekStartStr = summary.start_date;
+
+            // Verify with Supabase whether the report already exists (single source of truth)
+            const exists = await cloudSyncAPI.checkWeeklyReportExists(userId, weekStartStr, token);
+            if (exists) {
+                showSuccess(`Report for week of ${weekStartStr} has already been synced to the cloud. (Supabase verified)`);
+                return;
+            }
+
+            const expensesRes = await expensesAPI.getExpenses(200);
+            const allExpenses = expensesRes.expenses || [];
+
+            const startOfWeekTime = new Date(summary.start_date).getTime();
+            const endOfWeekTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
+
+            const thisWeekExpenses = allExpenses.filter(e => {
+                const eTime = new Date(e.date).getTime();
+                return eTime >= startOfWeekTime && eTime <= endOfWeekTime;
+            });
+
+            const payload = {
+                userId,
+                weekStartDate: weekStartStr,
+                totalSales: summary.total_sales,
+                totalExpenses: summary.total_expenses,
+                salesDetails: (summary.products || []).map(p => ({
+                    name: p.name,
+                    amount: p.total_amount
+                })),
+                expenseDetails: thisWeekExpenses.map(e => ({
+                    name: e.title,
+                    amount: e.amount
+                }))
+            };
+
+            await cloudSyncAPI.syncBackup(payload);
+            showSuccess(`Success! Aggregated backup for week of ${weekStartStr} synced to cloud.`);
         } catch (err) {
-            const friendlyMsg = err.message && !err.message.includes('AxiosError')
-                ? err.message
-                : 'Unable to connect. Please check your internet connection and try again.';
-            showError(friendlyMsg);
+            console.error('Manual sync failed:', err);
+            showError(err.response?.data?.error || err.message || 'Sync failed');
         } finally {
-            setCloudLoading(false);
+            setSyncingBackup(false);
         }
     };
 
-    const handleCloudLogout = () => {
-        setCloudAuthToken(null);
-        localStorage.removeItem('cloud_user_email');
-        setCloudStatus({
-            loggedIn: false,
-            email: '',
-            subscriptionStatus: 'inactive',
-            expiry: null,
-            role: 'standalone',
-            loading: false
-        });
-        showSuccess('Disconnected from cloud SaaS.');
+    const handleMonthlySync = async () => {
+        const token = localStorage.getItem('cloud_auth_token');
+        if (!token) {
+            showError('Offline: Please authenticate with your master franchise first.');
+            return;
+        }
+        if (cloudStatus.subscriptionStatus !== 'active') {
+            showError('SaaS Subscription required: Please purchase a plan on the website.');
+            return;
+        }
+
+        let userId = cloudStatus.userId;
+        if (!userId) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                userId = payload.sub;
+            } catch (e) {
+                console.error('Failed to parse token payload:', e);
+            }
+        }
+        if (!userId) {
+            showError('Invalid session. Please logout and log back in.');
+            return;
+        }
+
+        setSyncingMonthlyBackup(true);
+        try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const summaryRes = await summaryAPI.getRangeSummary('month', todayStr);
+            if (!summaryRes.data?.success) {
+                throw new Error(summaryRes.data?.error || 'Failed to fetch monthly summaries');
+            }
+
+            const summary = summaryRes.data.summary;
+            const monthStartStr = summary.start_date;
+
+            // Verify with Supabase whether the report already exists (single source of truth)
+            const exists = await cloudSyncAPI.checkMonthlyReportExists(userId, monthStartStr, token);
+            if (exists) {
+                showSuccess(`Report for month starting ${monthStartStr} has already been synced to the cloud. (Supabase verified)`);
+                return;
+            }
+
+            const expensesRes = await expensesAPI.getExpenses(200);
+            const allExpenses = expensesRes.expenses || [];
+
+            const startOfMonthTime = new Date(summary.start_date).getTime();
+            const endOfMonthTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
+
+            const thisMonthExpenses = allExpenses.filter(e => {
+                const eTime = new Date(e.date).getTime();
+                return eTime >= startOfMonthTime && eTime <= endOfMonthTime;
+            });
+
+            const payload = {
+                userId,
+                monthStartDate: monthStartStr,
+                totalSales: summary.total_sales,
+                totalExpenses: summary.total_expenses,
+                salesDetails: (summary.products || []).map(p => ({
+                    name: p.name,
+                    amount: p.total_amount
+                })),
+                expenseDetails: thisMonthExpenses.map(e => ({
+                    name: e.title,
+                    amount: e.amount
+                }))
+            };
+
+            await cloudSyncAPI.syncMonthlyBackup(payload);
+            showSuccess(`Success! Aggregated backup for month starting ${monthStartStr} synced to cloud.`);
+        } catch (err) {
+            console.error('Manual monthly sync failed:', err);
+            showError(err.response?.data?.error || err.message || 'Sync failed');
+        } finally {
+            setSyncingMonthlyBackup(false);
+        }
     };
 
     useEffect(() => {
@@ -971,10 +1094,9 @@ const Settings = () => {
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
                                             <Dropdown
                                                 options={[
-                                                    { label: 'Small', value: '0.8' },
-                                                    { label: 'Normal', value: '1' },
-                                                    { label: 'Large', value: '1.1' },
-                                                    { label: 'Extra Large', value: '1.2' }
+                                                    { label: '1x (Even Smaller)', value: '0.6' },
+                                                    { label: '2x (Small)', value: '0.8' },
+                                                    { label: '3x (Normal)', value: '1' }
                                                 ]}
                                                 value={textScale.toString()}
                                                 onChange={(val) => setTextScale(parseFloat(val))}
@@ -990,7 +1112,7 @@ const Settings = () => {
                                                 borderRadius: '6px',
                                                 background: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)'
                                             }}>
-                                                Scale: {(textScale * 100).toFixed(0)}%
+                                                Scale: {textScale === 0.6 ? '1x' : textScale === 0.8 ? '2x' : '3x'} ({(textScale * 100).toFixed(0)}%)
                                             </div>
                                         </div>
                                     </div>
@@ -1004,10 +1126,9 @@ const Settings = () => {
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
                                             <Dropdown
                                                 options={[
-                                                    { label: 'Small', value: '0.8' },
-                                                    { label: 'Normal', value: '1' },
-                                                    { label: 'Large', value: '1.1' },
-                                                    { label: 'Extra Large', value: '1.2' }
+                                                    { label: '1x (Even Smaller)', value: '0.6' },
+                                                    { label: '2x (Small)', value: '0.8' },
+                                                    { label: '3x (Normal)', value: '1' }
                                                 ]}
                                                 value={displayZoom.toString()}
                                                 onChange={(val) => setDisplayZoom(parseFloat(val))}
@@ -1023,7 +1144,7 @@ const Settings = () => {
                                                 borderRadius: '6px',
                                                 background: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)'
                                             }}>
-                                                Zoom: {(displayZoom * 100).toFixed(0)}%
+                                                Zoom: {displayZoom === 0.6 ? '1x' : displayZoom === 0.8 ? '2x' : '3x'} ({(displayZoom * 100).toFixed(0)}%)
                                             </div>
                                         </div>
                                     </div>
@@ -1305,7 +1426,7 @@ const Settings = () => {
                                 <div>
                                     <div style={{ marginBottom: '24px' }}>
                                         <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Cloud Sync</h2>
-                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Connect to cloud services for backup and synchronization</p>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>View cloud connection status and manually synchronize backups.</p>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '32px' }}>
@@ -1341,7 +1462,7 @@ const Settings = () => {
                                             </div>
                                         </div>
 
-                                        {/* Controls */}
+                                        {/* Subscription & Sync Controls */}
                                         <div style={{
                                             padding: '24px',
                                             background: 'var(--surface-primary)',
@@ -1351,88 +1472,46 @@ const Settings = () => {
                                             flexDirection: 'column',
                                             gap: '24px'
                                         }}>
-                                            {!cloudStatus.loggedIn ? (
-                                                <form onSubmit={handleCloudLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Email</label>
-                                                        <input
-                                                            type="email"
-                                                            value={cloudEmail}
-                                                            onChange={e => setCloudEmail(e.target.value)}
-                                                            placeholder="your@email.com"
-                                                            style={{
-                                                                width: '100%',
-                                                                padding: '10px 12px',
-                                                                background: 'var(--bg-primary)',
-                                                                border: '1px solid var(--border-secondary)',
-                                                                borderRadius: '8px',
-                                                                color: 'var(--text-primary)',
-                                                                fontSize: '14px',
-                                                                outline: 'none'
-                                                            }}
-                                                            required
-                                                        />
+                                            <div style={{
+                                                padding: '16px',
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: '8px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscription</div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--text-primary)' }}>
+                                                    {cloudStatus.subscriptionStatus.toUpperCase()}
+                                                </div>
+                                                {cloudStatus.expiry && (
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                        Expires: {cloudStatus.expiry}
                                                     </div>
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Password</label>
-                                                        <input
-                                                            type="password"
-                                                            value={cloudPassword}
-                                                            onChange={e => setCloudPassword(e.target.value)}
-                                                            placeholder="••••••••"
-                                                            style={{
-                                                                width: '100%',
-                                                                padding: '10px 12px',
-                                                                background: 'var(--bg-primary)',
-                                                                border: '1px solid var(--border-secondary)',
-                                                                borderRadius: '8px',
-                                                                color: 'var(--text-primary)',
-                                                                fontSize: '14px',
-                                                                outline: 'none'
-                                                            }}
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <Button
-                                                        type="submit"
-                                                        variant="primary"
-                                                        loading={cloudLoading}
-                                                        disabled={cloudLoading}
-                                                        style={{ height: '40px' }}
-                                                    >
-                                                        Connect
-                                                    </Button>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                                                        No account? <a href="https://infoos-web.vercel.app/auth?tab=signup" style={{ color: 'var(--primary-500)', textDecoration: 'none' }}>Create one</a>
-                                                    </div>
-                                                </form>
-                                            ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                    <div style={{
-                                                        padding: '16px',
-                                                        background: 'var(--bg-secondary)',
-                                                        borderRadius: '8px',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        gap: '8px'
-                                                    }}>
-                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscription</div>
-                                                        <div style={{ fontSize: '14px', fontWeight: 600, color: cloudStatus.subscriptionStatus === 'active' ? 'var(--success-500)' : 'var(--text-primary)' }}>
-                                                            {cloudStatus.subscriptionStatus.toUpperCase()}
-                                                        </div>
-                                                        {cloudStatus.expiry && (
-                                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                                Expires: {cloudStatus.expiry}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Manual Backups</div>
                                                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                                                         <Button
-                                                            variant="secondary"
-                                                            onClick={handleCloudLogout}
+                                                            variant="primary"
+                                                            onClick={handleManualSync}
+                                                            loading={syncingBackup}
+                                                            disabled={syncingBackup || syncingMonthlyBackup}
                                                             style={{ height: '40px' }}
                                                         >
-                                                            Disconnect
+                                                            Sync Weekly
+                                                        </Button>
+                                                        <Button
+                                                            variant="primary"
+                                                            onClick={handleMonthlySync}
+                                                            loading={syncingMonthlyBackup}
+                                                            disabled={syncingBackup || syncingMonthlyBackup}
+                                                            style={{ height: '40px' }}
+                                                        >
+                                                            Sync Monthly
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -1571,9 +1650,11 @@ const Settings = () => {
                             <Button 
                                 variant="secondary" 
                                 style={{ marginRight: 'auto', borderColor: '#ef4444', color: '#ef4444' }} 
-                                onClick={lockToWorker}
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('licensing-logout'));
+                                }}
                             >
-                                Log Out Owner
+                                Logout
                             </Button>
                             <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
                             <Button

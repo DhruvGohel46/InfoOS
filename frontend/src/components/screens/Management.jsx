@@ -435,6 +435,30 @@ const ProductManagement = () => {
     })
     .filter((p) => (categoryFilter === 'all' ? true : p.category_id === parseInt(categoryFilter)));
 
+  const groupedProducts = (() => {
+    const groups = {};
+    categories.forEach(cat => {
+      groups[cat.id] = {
+        name: cat.name,
+        products: []
+      };
+    });
+    const OTHER_KEY = 'other';
+    groups[OTHER_KEY] = {
+      name: 'Other Category',
+      products: []
+    };
+    filteredProducts.forEach(product => {
+      const catId = product.category_id;
+      if (catId && groups[catId]) {
+        groups[catId].products.push(product);
+      } else {
+        groups[OTHER_KEY].products.push(product);
+      }
+    });
+    return groups;
+  })();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -821,127 +845,165 @@ const ProductManagement = () => {
             No matching products found.
           </div>
         ) : (
-          <motion.div className="pmGrid" variants={staggerContainer} initial="initial" animate="animate">
-            {filteredProducts.map((product) => (
-              <motion.div
-                key={product.product_id}
-                variants={staggerItem}
-              >
-                <Card
-                  className={`pmCard ${!product.active ? 'pmCardInactive' : ''} card-zoom`}
-                  padding={showImages ? 'calc(20px * var(--display-zoom))' : 'calc(16px * var(--display-zoom))'}
-                  hover={true}
-                  style={{
-                    minHeight: showImages ? '180px' : 'auto',
-                    marginBottom: '0'
-                  }}
-                >
-                  {showImages && (
-                    <div className="pmCardImageContainer">
-                      {product.image_filename ? (
-                        <img
-                          src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
-                          alt={product.name}
-                          className="pmCardImage"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'calc(24px * var(--display-zoom))' }}>
+            {Object.keys(groupedProducts).map(catId => {
+              const group = groupedProducts[catId];
+              if (group.products.length === 0) return null;
+
+              return (
+                <div key={catId} className="pmCategorySection" style={{ display: 'flex', flexDirection: 'column', gap: 'calc(12px * var(--display-zoom))' }}>
+                  <h3 className="pmCategorySectionTitle" style={{
+                    fontSize: 'calc(18px * var(--text-scale))',
+                    fontWeight: '700',
+                    color: 'var(--text-primary)',
+                    margin: 'calc(16px * var(--display-zoom)) 0 0 0',
+                    paddingBottom: 'calc(8px * var(--display-zoom))',
+                    borderBottom: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'calc(8px * var(--display-zoom))'
+                  }}>
+                    <FiPackage style={{ color: 'var(--brand-primary)', opacity: 0.8 }} />
+                    {group.name}
+                    <span style={{
+                      fontSize: 'calc(11px * var(--text-scale))',
+                      fontWeight: '600',
+                      color: 'var(--text-tertiary)',
+                      background: 'var(--bg-secondary)',
+                      padding: 'calc(2px * var(--display-zoom)) calc(8px * var(--display-zoom))',
+                      borderRadius: 'var(--radius-full)',
+                      marginLeft: 'calc(8px * var(--display-zoom))',
+                      border: '1px solid var(--border-primary)'
+                    }}>
+                      {group.products.length} item{group.products.length === 1 ? '' : 's'}
+                    </span>
+                  </h3>
+
+                  <motion.div className="pmGrid" variants={staggerContainer} initial="initial" animate="animate">
+                    {group.products.map((product) => (
+                      <motion.div
+                        key={product.product_id}
+                        variants={staggerItem}
+                      >
+                        <Card
+                          className={`pmCard ${!product.active ? 'pmCardInactive' : ''} card-zoom`}
+                          padding={showImages ? 'calc(20px * var(--display-zoom))' : 'calc(16px * var(--display-zoom))'}
+                          hover={true}
+                          style={{
+                            minHeight: showImages ? '180px' : 'auto',
+                            marginBottom: '0'
                           }}
-                        />
-                      ) : null}
-                      <div className="pmCardImagePlaceholder" style={{ display: product.image_filename ? 'none' : 'flex', position: product.image_filename ? 'absolute' : 'relative', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <span>No Image</span>
-                      </div>
-                    </div>
-                  )}
+                        >
+                          {showImages && (
+                            <div className="pmCardImageContainer">
+                              {product.image_filename ? (
+                                <img
+                                  src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
+                                  alt={product.name}
+                                  className="pmCardImage"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className="pmCardImagePlaceholder" style={{ display: product.image_filename ? 'none' : 'flex', position: product.image_filename ? 'absolute' : 'relative', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                <span>No Image</span>
+                              </div>
+                            </div>
+                          )}
 
-                  <div className="pmCardContent" style={{ padding: showImages ? 'calc(16px * var(--display-zoom))' : '0 0 calc(8px * var(--display-zoom)) 0', gap: showImages ? 'calc(12px * var(--display-zoom))' : 'calc(8px * var(--display-zoom))' }}>
-                    <div className="pmCardHeader">
-                      <div className="pmName" title={product.name} style={{ fontSize: showImages ? 'calc(16px * var(--text-scale))' : 'calc(17px * var(--text-scale))', WebkitLineClamp: showImages ? 2 : 1 }}>{product.name}</div>
-                      <div className="pmPriceRow">
-                        <div className="pmPrice">{formatCurrency(product.price)}</div>
-                        {Array.isArray(product.variations) && product.variations.length > 0 && (
-                          <div style={{ fontSize: 'calc(11px * var(--text-scale))', color: 'var(--text-tertiary)', fontWeight: 600 }}>
-                            {product.variations.length} variation{product.variations.length === 1 ? '' : 's'}
+                          <div className="pmCardContent" style={{ padding: showImages ? 'calc(16px * var(--display-zoom))' : '0 0 calc(8px * var(--display-zoom)) 0', gap: showImages ? 'calc(12px * var(--display-zoom))' : 'calc(8px * var(--display-zoom))' }}>
+                            <div className="pmCardHeader">
+                              <div className="pmName" title={product.name} style={{ fontSize: showImages ? 'calc(16px * var(--text-scale))' : 'calc(17px * var(--text-scale))', WebkitLineClamp: showImages ? 2 : 1 }}>{product.name}</div>
+                              <div className="pmPriceRow">
+                                <div className="pmPrice">{formatCurrency(product.price)}</div>
+                                {Array.isArray(product.variations) && product.variations.length > 0 && (
+                                  <div style={{ fontSize: 'calc(11px * var(--text-scale))', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                    {product.variations.length} variation{product.variations.length === 1 ? '' : 's'}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--display-zoom))' }}>
+                                  <div className="pmBadge">{product.category_name || product.category || 'Other'}</div>
+                                  <motion.button
+                                    className="pmFavoriteBtn"
+                                    whileHover={{ scale: 1.2 }}
+                                    whileTap={{ scale: 0.85 }}
+                                    onClick={(e) => { e.stopPropagation(); handleToggleFavorite(product); }}
+                                    title={product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: 'calc(4px * var(--display-zoom))',
+                                      color: product.favorite ? '#EF4444' : 'var(--text-tertiary)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      transition: 'color 0.2s ease',
+                                    }}
+                                  >
+                                    <IconHeart filled={product.favorite} />
+                                  </motion.button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {showImages && (
+                              <div className="pmMetaRow" style={{ justifyContent: 'center', width: '100%' }}>
+                                <div className="pmId">ID: {product.product_id}</div>
+                              </div>
+                            )}
+
+                            <div className={`pmActions ${showImages ? 'pmActionsWithBorder' : ''}`}>
+                              <div className="pmStockRow">
+                                <span className="pmStockLabel">Stock</span>
+                                <span className="pmStockValue" style={{
+                                  color: (product.stock === 0 || product.stock_status === 'Out of Stock') ? '#EF4444' :
+                                    product.stock_status === 'Low Stock' ? '#F59E0B' : '#10B981'
+                                }}>
+                                  {product.stock !== undefined ? product.stock : '-'}
+                                </span>
+                              </div>
+
+                              <div className="pmButtonGrid">
+                                <button className="pmActionBtn" onClick={() => handleEdit(product)} style={{ justifyContent: 'center' }}>
+                                  <IconEdit /> {showImages ? 'Edit' : ''}
+                                </button>
+                                {product.active ? (
+                                  <button className="pmActionBtn pmActionDanger" onClick={() => handleDisable(product)} title="Deactivate" style={{ justifyContent: 'center' }}>
+                                    <IconPower /> {showImages ? 'Disable' : ''}
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button className="pmActionBtn pmActionReactivate" onClick={() => handleReactivate(product)} title="Reactivate" style={{ color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center' }}>
+                                      <IconPower /> {showImages ? 'Enable' : ''}
+                                    </button>
+                                    <button className="pmActionBtn" onClick={() => handleDeleteDirect(product)} title="Delete Permanently" style={{
+                                      color: '#EF4444',
+                                      borderColor: 'rgba(239, 68, 68, 0.3)',
+                                      background: 'rgba(239, 68, 68, 0.1)',
+                                      justifyContent: 'center',
+                                      gridColumn: '1 / -1'
+                                    }}>
+                                      <IconTrash /> {showImages ? 'Delete Permanently' : ''}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(6px * var(--display-zoom))' }}>
-                          <div className="pmBadge">{product.category_name || product.category || 'Other'}</div>
-                          <motion.button
-                            className="pmFavoriteBtn"
-                            whileHover={{ scale: 1.2 }}
-                            whileTap={{ scale: 0.85 }}
-                            onClick={(e) => { e.stopPropagation(); handleToggleFavorite(product); }}
-                            title={product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: 'calc(4px * var(--display-zoom))',
-                              color: product.favorite ? '#EF4444' : 'var(--text-tertiary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'color 0.2s ease',
-                            }}
-                          >
-                            <IconHeart filled={product.favorite} />
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {showImages && (
-                      <div className="pmMetaRow" style={{ justifyContent: 'center', width: '100%' }}>
-                        <div className="pmId">ID: {product.product_id}</div>
-                      </div>
-                    )}
-
-                    <div className={`pmActions ${showImages ? 'pmActionsWithBorder' : ''}`}>
-                      <div className="pmStockRow">
-                        <span className="pmStockLabel">Stock</span>
-                        <span className="pmStockValue" style={{
-                          color: (product.stock === 0 || product.stock_status === 'Out of Stock') ? '#EF4444' :
-                            product.stock_status === 'Low Stock' ? '#F59E0B' : '#10B981'
-                        }}>
-                          {product.stock !== undefined ? product.stock : '-'}
-                        </span>
-                      </div>
-
-                      <div className="pmButtonGrid">
-                        <button className="pmActionBtn" onClick={() => handleEdit(product)} style={{ justifyContent: 'center' }}>
-                          <IconEdit /> {showImages ? 'Edit' : ''}
-                        </button>
-                        {product.active ? (
-                          <button className="pmActionBtn pmActionDanger" onClick={() => handleDisable(product)} title="Deactivate" style={{ justifyContent: 'center' }}>
-                          <IconPower /> {showImages ? 'Disable' : ''}
-                        </button>
-                        ) : (
-                          <>
-                            <button className="pmActionBtn pmActionReactivate" onClick={() => handleReactivate(product)} title="Reactivate" style={{ color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center' }}>
-                              <IconPower /> {showImages ? 'Enable' : ''}
-                            </button>
-                            <button className="pmActionBtn" onClick={() => handleDeleteDirect(product)} title="Delete Permanently" style={{
-                              color: '#EF4444',
-                              borderColor: 'rgba(239, 68, 68, 0.3)',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              justifyContent: 'center',
-                              gridColumn: '1 / -1'
-                            }}>
-                              <IconTrash /> {showImages ? 'Delete Permanently' : ''}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

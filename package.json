@@ -16,7 +16,7 @@
     "eject": "cd frontend && npm run eject",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3050 && electron .\"",
-    "build:backend": "cd backend && pyinstaller backend.spec",
+    "build:backend": "cd backend && pyinstaller --noconfirm backend.spec",
     "dist": "npm run build && npm run build:backend && electron-builder",
     "preelectron-pack": "npm run build",
     "backend": "cd backend && python app.py",

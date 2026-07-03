@@ -228,6 +228,25 @@ def get_all_products():
     return jsonify({"success": True, "products": products})
 
 
+@products_bp.route("/reorder", methods=["PUT"])
+@require_admin
+@safe_route
+def reorder_products():
+    """Bulk update products display order."""
+    data = request.get_json()
+    if not data or "orders" not in data:
+        raise ValidationError("Missing orders in request body", code="MISSING_ORDERS")
+
+    orders = data["orders"]
+    success = db.update_products_display_order(orders)
+    if not success:
+        raise Exception("Failed to update products order")
+
+    cache.invalidate("products")
+    cache.invalidate("products_with_stock")
+    return jsonify({"success": True, "message": "Products reordered successfully"}), 200
+
+
 @products_bp.route("/<product_id>", methods=["PUT"])
 @require_admin
 @safe_route

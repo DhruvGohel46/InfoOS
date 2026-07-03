@@ -165,6 +165,8 @@ function AppContent() {
           alertSuccess(`Successfully synced ${count} offline bill(s)`);
         }
       });
+      // Automatically sync weekly/monthly reports
+      syncService.syncWeeklyAndMonthlyReports();
     }
   }, [isOnline, alertSuccess]);
 

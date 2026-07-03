@@ -155,3 +155,21 @@ def check_category_usage(category_id):
     """Check if category is used."""
     usage = db.is_category_used(category_id)
     return jsonify({"success": True, "usage": usage}), 200
+
+
+@categories_bp.route("/reorder", methods=["PUT"])
+@require_admin
+@safe_route
+def reorder_categories():
+    """Bulk update categories display order."""
+    data = request.get_json()
+    if not data or "orders" not in data:
+        raise ValidationError("Missing orders in request body", code="MISSING_ORDERS")
+
+    orders = data["orders"]
+    success = db.update_categories_display_order(orders)
+    if not success:
+        raise Exception("Failed to update categories order")
+
+    cache.invalidate("categories")
+    return jsonify({"success": True, "message": "Categories reordered successfully"}), 200

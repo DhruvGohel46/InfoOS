@@ -64,6 +64,7 @@ class DatabaseService:
             "image_filename": p.image_filename,
             "active": p.active,
             "favorite": p.favorite,
+            "display_order": getattr(p, "display_order", 0),
             "variations": normalize_variations(getattr(p, "variations", None)),
             "created_at": str(p.created_at),
             "updated_at": str(p.updated_at),
@@ -81,7 +82,7 @@ class DatabaseService:
         if not include_inactive:
             query = query.filter(Product.active == True)
 
-        products = query.order_by(Product.name).all()
+        products = query.order_by(Product.display_order, Product.name).all()
 
         result = []
         for p in products:
@@ -99,7 +100,7 @@ class DatabaseService:
         if not include_inactive:
             query = query.filter(Product.active == True)
 
-        results = query.order_by(Product.name).all()
+        results = query.order_by(Product.display_order, Product.name).all()
 
         products = []
         for p, inv in results:
@@ -574,7 +575,7 @@ class DatabaseService:
         if not include_inactive:
             query = query.filter(Category.active == True)
 
-        cats = query.order_by(Category.name).all()
+        cats = query.order_by(Category.display_order, Category.name).all()
 
         result = []
         for c in cats:
@@ -585,6 +586,7 @@ class DatabaseService:
                 "name": c.name,
                 "description": c.description,
                 "active": c.active,
+                "display_order": getattr(c, "display_order", 0),
                 "created_at": str(c.created_at),
                 "updated_at": str(c.updated_at),
                 "product_count": count,
@@ -1189,3 +1191,35 @@ class DatabaseService:
         except Exception as e:
             print(f"Error getting expenses range: {e}")
             return []
+
+    def update_categories_display_order(self, orders: List[Dict[str, Any]]) -> bool:
+        """Bulk update categories display order."""
+        try:
+            for item in orders:
+                cat_id = item.get("id")
+                display_order = item.get("display_order", 0)
+                cat = Category.query.get(cat_id)
+                if cat:
+                    cat.display_order = display_order
+            db.session.commit()
+            return True
+        except Exception as e:
+            print(f"Error updating categories display order: {e}")
+            db.session.rollback()
+            return False
+
+    def update_products_display_order(self, orders: List[Dict[str, Any]]) -> bool:
+        """Bulk update products display order."""
+        try:
+            for item in orders:
+                product_id = item.get("product_id")
+                display_order = item.get("display_order", 0)
+                product = Product.query.get(product_id)
+                if product:
+                    product.display_order = display_order
+            db.session.commit()
+            return True
+        except Exception as e:
+            print(f"Error updating products display order: {e}")
+            db.session.rollback()
+            return False
