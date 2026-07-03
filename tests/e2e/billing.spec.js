@@ -169,3 +169,127 @@ test.describe("Navigation", () => {
     expect(errors).toHaveLength(0);
   });
 });
+
+test.describe("POS Layout Reordering", () => {
+  test("allows entering, reordering categories/products, cancelling and saving", async ({ page }) => {
+    // 1. Mock products and categories API responses
+    await page.route("**/api/products**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          products: [
+            {
+              product_id: "TEST-A",
+              name: "Burger A",
+              price: 100,
+              category: "Food",
+              category_id: 1,
+              active: true,
+              favorite: true,
+              display_order: 0
+            },
+            {
+              product_id: "TEST-B",
+              name: "Burger B",
+              price: 120,
+              category: "Food",
+              category_id: 1,
+              active: true,
+              favorite: true,
+              display_order: 1
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route("**/api/pos/bootstrap", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          categories: [
+            { id: 1, name: "Food", display_order: 0 },
+            { id: 2, name: "Drinks", display_order: 1 }
+          ],
+          products: [
+            {
+              product_id: "TEST-A",
+              name: "Burger A",
+              price: 100,
+              category: "Food",
+              category_id: 1,
+              active: true,
+              favorite: true,
+              display_order: 0
+            },
+            {
+              product_id: "TEST-B",
+              name: "Burger B",
+              price: 120,
+              category: "Food",
+              category_id: 1,
+              active: true,
+              favorite: true,
+              display_order: 1
+            }
+          ],
+          workers: [],
+          settings: {},
+          next_bill_number: 1
+        })
+      });
+    });
+
+    // Mock the reorder API endpoints
+    let categoriesReordered = false;
+    let productsReordered = false;
+
+    await page.route("**/api/categories/reorder", async (route) => {
+      categoriesReordered = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, message: "Categories reordered successfully" })
+      });
+    });
+
+    await page.route("**/api/products/reorder", async (route) => {
+      productsReordered = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, message: "Products reordered successfully" })
+      });
+    });
+
+    await goToBillingScreen(page);
+
+    // 2. Locate and click "Edit Layout" button
+    const editLayoutBtn = page.locator('button:has-text("Edit Layout")');
+    await expect(editLayoutBtn).toBeVisible();
+    await editLayoutBtn.click();
+
+    // 3. Verify Edit Mode indicators
+    const cancelBtn = page.locator('button:has-text("Cancel")');
+    const doneBtn = page.locator('button:has-text("Done")');
+    await expect(cancelBtn).toBeVisible();
+    await expect(doneBtn).toBeVisible();
+
+    // 4. Click Cancel and verify we exit Edit Mode
+    await cancelBtn.click();
+    await expect(editLayoutBtn).toBeVisible();
+    await expect(doneBtn).not.toBeVisible();
+
+    // 5. Enter Edit Mode again and click Done to verify reordering persistence
+    await editLayoutBtn.click();
+    await doneBtn.click();
+
+    // Verify the APIs were triggered on Done click
+    expect(categoriesReordered).toBe(true);
+    expect(productsReordered).toBe(true);
+  });
+});

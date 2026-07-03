@@ -367,11 +367,7 @@ def print_bill(bill_no):
 
     if not result.get("success"):
         error_msg = result.get("error", "Failed to print bill")
-        return jsonify({
-            "success": False,
-            "error": error_msg,
-            "message": error_msg
-        }), 200
+        return jsonify({"success": False, "error": error_msg, "message": error_msg}), 200
 
     return (
         jsonify({"success": True, "message": f"Bill {bill_no} printed successfully"}),
@@ -396,11 +392,7 @@ def print_kot(bill_no):
 
     if not result.get("success"):
         error_msg = result.get("error", "Failed to print KOT")
-        return jsonify({
-            "success": False,
-            "error": error_msg,
-            "message": error_msg
-        }), 200
+        return jsonify({"success": False, "error": error_msg, "message": error_msg}), 200
 
     return (
         jsonify({"success": True, "message": f"KOT for Bill {bill_no} printed successfully"}),
