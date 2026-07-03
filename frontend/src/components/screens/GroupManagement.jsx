@@ -6,7 +6,6 @@ import '../../styles/Management.css';
 import Button from '../ui/Button';
 import PageContainer from '../layout/PageContainer';
 import {
-  IoFolderOutline,
   IoAddOutline,
   IoCloseOutline,
   IoCreateOutline,
@@ -14,7 +13,6 @@ import {
   IoSearchOutline,
   IoChevronBackOutline,
   IoCheckmarkCircle,
-  IoGridOutline,
   IoFolderOpenOutline
 } from 'react-icons/io5';
 
