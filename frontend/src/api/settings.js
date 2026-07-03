@@ -34,5 +34,14 @@ export const settingsAPI = {
             }
         });
         return response.data;
+    },
+
+    /**
+     * Get available printers and current active printer info
+     * @returns {Promise<Object>} Object containing active_printer, available_printers, status, error
+     */
+    getPrinterInfo: async () => {
+        const response = await api.get('/api/settings/printer-info');
+        return response.data;
     }
 };

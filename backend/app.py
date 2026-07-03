@@ -212,12 +212,22 @@ def create_app(config_name="default"):
         except Exception:
             db_version = "initial"
 
+        # Check rembg availability
+        from routes.products import _rembg_available, _rembg_loading
+
+        rembg_status = "unavailable"
+        if _rembg_available is True:
+            rembg_status = "active"
+        elif _rembg_loading:
+            rembg_status = "loading"
+
         return jsonify(
             {
                 "success": True,
                 "backend_version": "1.0.0",
                 "database_schema_version": db_version,
                 "status": "healthy",
+                "rembg_status": rembg_status,
             }
         )
 
@@ -358,7 +368,34 @@ if __name__ == "__main__":
         os.makedirs(app.config["BILLS_DIR"], exist_ok=True)
         os.makedirs(app.config["ARCHIVE_DIR"], exist_ok=True)
         os.makedirs(app.config["EXPORT_DIR"], exist_ok=True)
-        os.makedirs(os.path.join(app.config["DATA_DIR"], "Sound"), exist_ok=True)
+        sounds_dir = os.path.join(app.config["DATA_DIR"], "Sound")
+        os.makedirs(sounds_dir, exist_ok=True)
+
+        # Seed default reminder.mp3 if it doesn't exist in the data directory
+        default_sound_dest = os.path.join(sounds_dir, "reminder.mp3")
+        if not os.path.exists(default_sound_dest):
+            import shutil
+
+            # Look for bundled default sound in multiple possible locations
+            candidate_paths = []
+            if getattr(sys, "frozen", False):
+                # Production: bundled via PyInstaller in resources
+                candidate_paths.append(os.path.join(sys._MEIPASS, "Sound", "reminder.mp3"))
+                candidate_paths.append(
+                    os.path.join(os.path.dirname(sys.executable), "Sound", "reminder.mp3")
+                )
+            # Dev / fallback: check relative to backend source
+            candidate_paths.append(
+                os.path.join(app.config["BASE_DIR"], "data", "Sound", "reminder.mp3")
+            )
+
+            for src_path in candidate_paths:
+                if os.path.exists(src_path):
+                    shutil.copy2(src_path, default_sound_dest)
+                    _log.info("Seeded default reminder.mp3 from: %s", src_path)
+                    break
+            else:
+                _log.warning("Default reminder.mp3 not found in any bundled location")
     except OSError as e:
         print(f"Error creating directories: {e}")
         # Continue anyway, might be permission issue handled by user

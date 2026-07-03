@@ -60,10 +60,13 @@ class PrinterService:
             try:
                 settings = self._get_settings()
                 if settings.get("printer_enabled"):
-                    # Try to get thermal printer first, then default
-                    self.printer_name = self.printer_manager.get_thermal_printer()
+                    # Check if a custom printer is configured in settings
+                    self.printer_name = settings.get("active_printer")
                     if not self.printer_name:
-                        self.printer_name = self.printer_manager.get_default_printer()
+                        # Try to get thermal printer first, then default
+                        self.printer_name = self.printer_manager.get_thermal_printer()
+                        if not self.printer_name:
+                            self.printer_name = self.printer_manager.get_default_printer()
                 self._initialized = True
             except Exception as exc:
                 print(f"[PrinterService] Error initializing printer: {exc}")
@@ -95,6 +98,7 @@ class PrinterService:
             "gst_rate": float(settings.get("gst_rate", "5")),
             "discount_enabled": settings.get("discount_enabled", "false") == "true",
             "mobile_enabled": settings.get("mobile_enabled", "false") == "true",
+            "active_printer": settings.get("active_printer", ""),
         }
 
     # ------------------------------------------------------------------
@@ -185,12 +189,21 @@ class PrinterService:
                 return {"success": True, "error": None}
 
             # Validate printer
-            if not self.printer_name:
-                return {"success": False, "error": "No printer configured"}
-
-            is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-            if not is_valid:
-                return {"success": False, "error": error}
+            modules = load_win32_modules()
+            if modules:
+                if not self.printer_name:
+                    # Log warning but do not return False to avoid crashing billing
+                    print("[PrinterService] Warning: No printer configured in settings.")
+                else:
+                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                    if not is_valid:
+                        # Log the connection error but do not throw or crash
+                        print(
+                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                        )
+            else:
+                # Bypassed win32 validation for development/fallback
+                pass
 
             # Build ESC/POS bytes
             esc_pos_bytes = build_bill(bill_data, settings)
@@ -216,12 +229,21 @@ class PrinterService:
                 return {"success": True, "error": None}
 
             # Validate printer
-            if not self.printer_name:
-                return {"success": False, "error": "No printer configured"}
-
-            is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-            if not is_valid:
-                return {"success": False, "error": error}
+            modules = load_win32_modules()
+            if modules:
+                if not self.printer_name:
+                    # Log warning but do not return False to avoid crashing billing
+                    print("[PrinterService] Warning: No printer configured in settings.")
+                else:
+                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                    if not is_valid:
+                        # Log the connection error but do not throw or crash
+                        print(
+                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                        )
+            else:
+                # Bypassed win32 validation for development/fallback
+                pass
 
             # Build ESC/POS bytes
             esc_pos_bytes = build_kot(bill_data, settings)
@@ -245,12 +267,21 @@ class PrinterService:
             settings = self._get_settings()
 
             # Validate printer
-            if not self.printer_name:
-                return {"success": False, "error": "No printer configured"}
-
-            is_valid, error = self.printer_manager.validate_printer(self.printer_name)
-            if not is_valid:
-                return {"success": False, "error": error}
+            modules = load_win32_modules()
+            if modules:
+                if not self.printer_name:
+                    # Log warning but do not return False to avoid crashing billing
+                    print("[PrinterService] Warning: No printer configured in settings.")
+                else:
+                    is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                    if not is_valid:
+                        # Log the connection error but do not throw or crash
+                        print(
+                            f"[PrinterService] Connection warning for '{self.printer_name}': {error}"
+                        )
+            else:
+                # Bypassed win32 validation for development/fallback
+                pass
 
             # Build ESC/POS bytes
             esc_pos_bytes = build_test_print(settings)

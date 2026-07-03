@@ -45,6 +45,37 @@ def update_settings():
     return jsonify({"success": True, "message": "Settings updated successfully"})
 
 
+@settings_bp.route("/api/settings/printer-info", methods=["GET"])
+@safe_route
+def get_printer_info():
+    """Get list of available printers and status of currently active printer."""
+    from services.printer_service import PrinterService
+
+    ps = PrinterService()
+
+    # Active printer name from DB settings
+    settings = db_service.get_all_settings()
+    active_printer = settings.get("active_printer")
+    if active_printer:
+        ps.printer_name = active_printer
+    else:
+        ps._ensure_initialized()
+        active_printer = ps.printer_name
+
+    available = ps.get_available_printers()
+    status = ps.get_printer_status()
+
+    return jsonify(
+        {
+            "success": True,
+            "active_printer": active_printer,
+            "available_printers": available,
+            "status": status.get("status", "Unknown"),
+            "error": status.get("error"),
+        }
+    )
+
+
 @settings_bp.route("/api/settings/upload-sound", methods=["POST"])
 @safe_route
 def upload_sound():

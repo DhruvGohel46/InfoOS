@@ -95,6 +95,38 @@ const Settings = () => {
     });
     const [checkingForUpdates, setCheckingForUpdates] = useState(false);
 
+    // ── Printer Info State ──────────────────────────────────────────────────
+    const [printerInfo, setPrinterInfo] = useState({
+        activePrinter: '',
+        availablePrinters: [],
+        status: 'Unknown',
+        error: null
+    });
+    const [printerInfoLoading, setPrinterInfoLoading] = useState(false);
+
+    const loadPrinterInfo = async () => {
+        setPrinterInfoLoading(true);
+        try {
+            const data = await settingsAPI.getPrinterInfo();
+            setPrinterInfo({
+                activePrinter: data.active_printer || '',
+                availablePrinters: data.available_printers || [],
+                status: data.status || 'Unknown',
+                error: data.error || null
+            });
+        } catch (err) {
+            console.error('Failed to load printer info:', err);
+        } finally {
+            setPrinterInfoLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'printer') {
+            loadPrinterInfo();
+        }
+    }, [activeTab]);
+
     // Fetch local versions and updater status
     const loadSystemInfo = async () => {
         let appVer = '30.2.10';
@@ -209,27 +241,37 @@ const Settings = () => {
         }
 
         setCloudStatus(prev => ({ ...prev, loading: true }));
+        setCloudAuthToken(token);
+
+        // Fetch subscription status and franchise profile independently
+        // so one failure doesn't prevent the other from displaying
+        let subStatus = 'inactive';
+        let subExpiry = null;
+        let role = 'standalone';
+
         try {
-            setCloudAuthToken(token);
             const sub = await cloudSyncAPI.getSubscriptionStatus();
-            const prof = await cloudSyncAPI.getFranchiseProfile();
-            setCloudStatus({
-                loggedIn: true,
-                email,
-                subscriptionStatus: sub.subscriptionStatus || 'inactive',
-                expiry: sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null,
-                role: prof.role || 'standalone',
-                loading: false
-            });
+            subStatus = sub.subscriptionStatus || 'inactive';
+            subExpiry = sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null;
         } catch (err) {
-            console.error('Failed to load cloud profile:', err);
-            setCloudStatus(prev => ({
-                ...prev,
-                loggedIn: true,
-                email,
-                loading: false
-            }));
+            console.error('Failed to load subscription status:', err);
         }
+
+        try {
+            const prof = await cloudSyncAPI.getFranchiseProfile();
+            role = prof.role || 'standalone';
+        } catch (err) {
+            console.error('Failed to load franchise profile:', err);
+        }
+
+        setCloudStatus({
+            loggedIn: true,
+            email,
+            subscriptionStatus: subStatus,
+            expiry: subExpiry,
+            role: role,
+            loading: false
+        });
     };
 
     useEffect(() => {
@@ -716,6 +758,64 @@ const Settings = () => {
                                             zIndex={50}
                                         />
                                     </div>
+
+                                    {/* Active Printer Selection */}
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Selected Printer</span>
+                                            <span className="stLabelDesc">Choose active system print spooler</span>
+                                        </div>
+                                        <Dropdown
+                                            options={[
+                                                { label: 'Default Printer', value: '' },
+                                                ...printerInfo.availablePrinters.map(p => ({
+                                                    label: `${p.name}${p.is_thermal ? ' (Thermal)' : ''}`,
+                                                    value: p.name
+                                                }))
+                                            ]}
+                                            value={formSettings.active_printer || ''}
+                                            onChange={(val) => handleChange('active_printer', val)}
+                                            placeholder="Select Printer"
+                                            className="stDropdown"
+                                            zIndex={40}
+                                        />
+                                    </div>
+
+                                    {/* Printer Connection Status Indicator */}
+                                    <div className="stFormGroup" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '15px', marginTop: '10px' }}>
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Printer Connection Status</span>
+                                            <span className="stLabelDesc">
+                                                {printerInfo.activePrinter ? `Active Spooler: ${printerInfo.activePrinter}` : 'Auto-detect Mode'}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{
+                                                width: '10px',
+                                                height: '10px',
+                                                borderRadius: '50%',
+                                                backgroundColor: printerInfo.status === 'Ready' ? '#10b981' : '#f59e0b'
+                                            }} />
+                                            <span style={{ fontWeight: '600', fontSize: '14px', color: printerInfo.status === 'Ready' ? '#10b981' : '#f59e0b' }}>
+                                                {printerInfoLoading ? 'Checking...' : printerInfo.status}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {printerInfo.error && (
+                                        <div style={{
+                                            fontSize: '12px',
+                                            color: '#ef4444',
+                                            padding: '8px 12px',
+                                            borderRadius: '8px',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                            marginTop: '10px',
+                                            fontWeight: '500'
+                                        }}>
+                                            Warning: {printerInfo.error}
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}

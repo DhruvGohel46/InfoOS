@@ -351,113 +351,134 @@ export default function LicensingGate({ children }) {
         <div className="licensing-glow-1"></div>
         <div className="licensing-glow-2"></div>
         
-        <div className="licensing-card">
-          {/* Stepper Progress Feeling */}
-          <div className="licensing-stepper">
-            <div className="licensing-step-dot active"></div>
-            <div className="licensing-step-line"></div>
-            <div className="licensing-step-dot"></div>
-          </div>
-
-          <div className="licensing-header">
-            <div className="licensing-logo">InfoOS</div>
-            <div className="licensing-logo-sub">Business Operating System</div>
-            <div className="licensing-divider"></div>
-            <h2 className="licensing-title stagger-in stagger-1">Secure Device Activation</h2>
-            <p className="licensing-desc stagger-in stagger-2">Sign in with your InfoOS account to securely activate this device.</p>
-          </div>
-
-          {licensingState.errorMessage && (
-            <div className="licensing-error-box stagger-in">
-              <IoAlertCircleOutline size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, color: '#ff6b6b' }}>Activation Alert</span>
-                <span style={{ fontSize: '12.5px', opacity: 0.9 }}>{licensingState.errorMessage}</span>
-              </div>
-            </div>
-          )}
-
-          <form className="licensing-form" onSubmit={handleLoginSubmit}>
-            <div className="licensing-input-group stagger-in stagger-3">
-              <label className="licensing-label">Email</label>
-              <div className="licensing-input-wrapper">
-                <IoMailOutline className="licensing-input-icon" />
-                <input 
-                  type="email" 
-                  className="licensing-input" 
-                  placeholder="john@email.com" 
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-            </div>
-            
-            <div className="licensing-input-group stagger-in stagger-4">
-              <label className="licensing-label">Password</label>
-              <div className="licensing-input-wrapper">
-                <IoKeyOutline className="licensing-input-icon" />
-                <input 
-                  type="password" 
-                  className="licensing-input" 
-                  placeholder="••••••••" 
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
+        {/* Main Split-Panel Login Card */}
+        <div className="licensing-split-card">
+          
+          {/* Left Branding & Device Information Panel */}
+          <div className="licensing-left-panel">
+            <div className="licensing-logo-area">
+              <div className="licensing-logo">InfoOS</div>
+              <div className="licensing-logo-sub">Point of Sale OS</div>
+              <div className="licensing-tagline">Fast • Reliable • Secure</div>
             </div>
 
-            <button type="submit" className="licensing-btn stagger-in stagger-5" disabled={loading}>
-              {loading ? <IoRefreshOutline className="spinning" size={18} /> : <IoLockClosedOutline size={18} />}
-              <span>{loading ? 'Activating Device...' : 'Activate InfoOS'}</span>
-            </button>
-          </form>
+            {/* Subtle monochrome vector/icon representation of POS */}
+            <div className="licensing-pos-graphic">
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.12 }}>
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+                <path d="M17 9h.01M7 9h10" />
+              </svg>
+            </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create account</span>
-            <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot password</span>
-          </div>
-
-          {deviceInfo && (
-            <div className="licensing-device-card stagger-in stagger-5">
-              <div className="licensing-device-header">
-                <IoLaptopOutline size={14} />
-                <span>🖥 Device Configuration</span>
-              </div>
-              <div className="licensing-device-grid">
-                <div className="licensing-device-row">
-                  <span className="licensing-device-icon">💻</span>
-                  <span className="licensing-device-value">{deviceInfo.deviceName || 'Unknown Device'}</span>
+            {/* System Info Widget */}
+            {deviceInfo && (
+              <div className="licensing-device-widget">
+                <div className="licensing-widget-title">Device Information</div>
+                
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">💻 Device Name</span>
+                  <span className="licensing-widget-value">{deviceInfo.deviceName || 'POS Station'}</span>
                 </div>
-                <div className="licensing-device-row">
-                  <span className="licensing-device-icon">⚙️</span>
-                  <span className="licensing-device-value">Windows 11 Pro</span>
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">🖥 Operating System</span>
+                  <span className="licensing-widget-value">Windows 11 Pro</span>
                 </div>
-                <div className="licensing-device-row">
-                  <span className="licensing-device-icon">🔑</span>
-                  <span className="licensing-device-value" style={{ fontFamily: 'monospace', fontSize: '12px' }}>
-                    Device ID: {deviceInfo.fingerprint?.substring(0, 12) || 'Unknown'}...
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">🔑 Hardware Key</span>
+                  <span className="licensing-widget-value" style={{ fontFamily: 'monospace' }}>
+                    {deviceInfo.fingerprint?.substring(0, 10) || 'Unknown'}...
                   </span>
                 </div>
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">🌐 Internet Link</span>
+                  <span className={`licensing-status-badge ${navigator.onLine ? 'online' : 'offline'}`}>
+                    {navigator.onLine ? 'Connected' : 'Offline'}
+                  </span>
+                </div>
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">⚡ License Check</span>
+                  <span className="licensing-status-badge online">Ready</span>
+                </div>
+                <div className="licensing-widget-row">
+                  <span className="licensing-widget-label">🕒 System Time</span>
+                  <span className="licensing-widget-value">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
               </div>
-              <div className="licensing-device-status-badge">
-                <span>✓ Ready for activation</span>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div className="licensing-footer stagger-in stagger-5">
-            <div style={{ marginBottom: '12px' }}>
-              Don't have a license? <span className="licensing-link" style={{ color: '#FF7A00', fontWeight: '700' }} onClick={() => openWebsite()}>Buy License →</span>
+          {/* Right Login Form Panel */}
+          <div className="licensing-right-panel">
+            <div className="licensing-welcome-header">
+              <h2 className="licensing-title">Welcome Back</h2>
+              <p className="licensing-desc">Sign in to continue using InfoOS POS</p>
             </div>
-            <div style={{ opacity: 0.5, fontSize: '11px', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span>Protected by InfoOS Cloud</span>
-              <span>Version 2.0.1</span>
+
+            {licensingState.errorMessage && (
+              <div className="licensing-error-box">
+                <IoAlertCircleOutline size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '13px', opacity: 0.9 }}>{licensingState.errorMessage}</span>
+                </div>
+              </div>
+            )}
+
+            <form className="licensing-form" onSubmit={handleLoginSubmit}>
+              <div className="licensing-input-group">
+                <label className="licensing-label">Username / Email</label>
+                <div className="licensing-input-wrapper">
+                  <IoMailOutline className="licensing-input-icon" />
+                  <input 
+                    type="email" 
+                    className="licensing-input" 
+                    placeholder="name@company.com" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+              
+              <div className="licensing-input-group">
+                <label className="licensing-label">Password</label>
+                <div className="licensing-input-wrapper">
+                  <IoKeyOutline className="licensing-input-icon" />
+                  <input 
+                    type="password" 
+                    className="licensing-input" 
+                    placeholder="••••••••" 
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="licensing-btn" disabled={loading}>
+                {loading ? <IoRefreshOutline className="spinning" size={18} /> : <IoLockClosedOutline size={18} />}
+                <span>{loading ? 'Authenticating Device...' : 'Login to License'}</span>
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+              <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create account</span>
+              <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot password</span>
+            </div>
+
+            <div className="licensing-footer">
+              <div style={{ marginBottom: '8px' }}>
+                Need help? <span className="licensing-link" style={{ color: '#FF7A00', fontWeight: '700' }} onClick={() => openWebsite()}>Contact Administrator</span>
+              </div>
+              <div style={{ opacity: 0.5, fontSize: '11px', marginTop: '16px' }}>
+                InfoOS POS v2.5.0 • © 2026 Karam Enterprise
+              </div>
             </div>
           </div>
+
         </div>
       </div>
     );

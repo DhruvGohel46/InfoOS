@@ -57,6 +57,7 @@ class DatabaseService:
             "product_id": p.product_id,
             "name": p.name,
             "price": p.price,
+            "takeaway_price": p.takeaway_price,
             "category_id": p.category_id,
             "category": p.category,
             "category_name": p.category_rel.name if p.category_rel else None,

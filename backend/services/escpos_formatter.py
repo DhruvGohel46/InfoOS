@@ -211,6 +211,65 @@ class ESCPOSFormatter:
         self.commands.append(b"\x1dV" + bytes([mode, 1]))
         return self
 
+    def image(self, img_source, width_pixels: int = 384) -> "ESCPOSFormatter":
+        """
+        Add a monochrome image to the receipt using Pillow and ESC/POS graphics command (GS v 0).
+
+        Args:
+            img_source: Path to image file, file-like object, or PIL Image object.
+            width_pixels: Resize width in pixels (default: 384, typical for 58mm).
+
+        Returns:
+            Self for method chaining
+        """
+        try:
+            from PIL import Image
+
+            # Load image
+            if isinstance(img_source, Image.Image):
+                img = img_source
+            else:
+                img = Image.open(img_source)
+
+            # Convert to monochrome / 1-bit pixel format with dithering
+            # Resize preserving aspect ratio
+            w, h = img.size
+            height_pixels = int(h * (width_pixels / w))
+            img = img.resize((width_pixels, height_pixels), Image.Resampling.LANCZOS)
+            img_mono = img.convert("1")
+
+            # ESC/POS raster print command: GS v 0 m xL xH yL yH d1...dk
+            # m = 0 (normal size)
+            x_bytes = (width_pixels + 7) // 8
+            xL = x_bytes & 0xFF
+            xH = (x_bytes >> 8) & 0xFF
+            yL = height_pixels & 0xFF
+            yH = (height_pixels >> 8) & 0xFF
+
+            header = b"\x1dv\x30\x00" + bytes([xL, xH, yL, yH])
+            self.commands.append(header)
+
+            # Extract pixels and pack them into bytes (8 pixels per byte)
+            pixel_bytes = bytearray()
+            for y in range(height_pixels):
+                current_byte = 0
+                for x in range(x_bytes * 8):
+                    bit = 0
+                    if x < width_pixels:
+                        # 0 is black, 255 is white in 1-bit PIL mode
+                        pixel = img_mono.getpixel((x, y))
+                        if pixel == 0:
+                            bit = 1
+                    current_byte = (current_byte << 1) | bit
+                    if (x + 1) % 8 == 0:
+                        pixel_bytes.append(current_byte)
+                        current_byte = 0
+
+            self.commands.append(bytes(pixel_bytes))
+        except Exception as e:
+            print(f"[ESCPOSFormatter] Error formatting image: {e}")
+        return self
+
     def build(self) -> bytes:
         """
         Build the final ESC/POS byte stream.
@@ -423,6 +482,7 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
 
     # Header - center aligned
     formatter.align_center()
+
     shop_name = settings.get("shop_name", "RESTAURANT")
     formatter.bold_on().line(shop_name.upper()).bold_off()
     shop_contact = settings.get("shop_contact", "")

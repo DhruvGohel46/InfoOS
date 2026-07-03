@@ -224,10 +224,17 @@ const ProductManagement = () => {
           try {
             const formData = new FormData();
             formData.append('image', selectedImage);
-            await productsAPI.uploadImage(editingProduct.product_id, formData);
+            const res = await productsAPI.uploadImage(editingProduct.product_id, formData);
+            if (res && res.data && res.data.background_removed === false) {
+              showSuccess('Product updated, but background removal was unavailable. Original image saved.');
+            } else {
+              showSuccess('Product updated successfully with background-removed image!');
+            }
           } finally {
             setImageUploading(false);
           }
+        } else {
+          showSuccess('Product updated successfully');
         }
 
       } else {
@@ -241,10 +248,17 @@ const ProductManagement = () => {
           try {
             const formData = new FormData();
             formData.append('image', selectedImage);
-            await productsAPI.uploadImage(id, formData);
+            const res = await productsAPI.uploadImage(id, formData);
+            if (res && res.data && res.data.background_removed === false) {
+              showSuccess('Product created, but background removal was unavailable. Original image saved.');
+            } else {
+              showSuccess('Product created successfully with background-removed image!');
+            }
           } finally {
             setImageUploading(false);
           }
+        } else {
+          showSuccess('Product created successfully');
         }
       }
       resetForm();

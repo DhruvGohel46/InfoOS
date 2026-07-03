@@ -914,6 +914,7 @@ class SQLiteDatabaseService:
                 ("printer_enabled", "false", "printer"),
                 ("printer_width", "58mm", "printer"),
                 ("auto_print", "false", "printer"),
+                ("active_printer", "", "printer"),
                 # App Preferences
                 ("dark_mode", "false", "app"),
                 ("sound_enabled", "true", "app"),
