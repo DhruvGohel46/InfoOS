@@ -85,7 +85,7 @@ const Settings = () => {
 
     // ── About & Updater State ──────────────────────────────────────────────
     const [systemInfo, setSystemInfo] = useState({
-        appVersion: '30.2.10',
+        appVersion: 'loading...',
         backendVersion: '1.0.0',
         dbSchemaVersion: 'loading...',
         latestVersion: 'unknown',
@@ -128,7 +128,7 @@ const Settings = () => {
 
     // Fetch local versions and updater status
     const loadSystemInfo = async () => {
-        let appVer = '30.2.10';
+        let appVer = 'unknown';
         let bVer = '1.0.0';
         let dbVer = 'initial';
 
@@ -1548,41 +1548,15 @@ const Settings = () => {
                                         </div>
 
                                         <div style={{
-                                            padding: '16px',
-                                            background: 'var(--surface-primary)',
-                                            border: '1px solid var(--border-secondary)',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px'
-                                        }}>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend</div>
-                                            <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>v{systemInfo.backendVersion}</div>
-                                        </div>
-
-                                        <div style={{
-                                            padding: '16px',
-                                            background: 'var(--surface-primary)',
-                                            border: '1px solid var(--border-secondary)',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px'
-                                        }}>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database</div>
-                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{systemInfo.dbSchemaVersion}</div>
-                                        </div>
-
-                                        <div style={{
-                                            padding: '16px',
-                                            background: 'var(--surface-primary)',
-                                            border: '1px solid var(--border-secondary)',
-                                            borderRadius: '8px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px'
-                                        }}>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</div>
+                                             padding: '16px',
+                                             background: 'var(--surface-primary)',
+                                             border: '1px solid var(--border-secondary)',
+                                             borderRadius: '8px',
+                                             display: 'flex',
+                                             flexDirection: 'column',
+                                             gap: '4px'
+                                         }}>
+                                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</div>
                                             <div style={{ fontSize: '14px', fontWeight: 600, color: getStatusColor(systemInfo.updateStatus) }}>
                                                 {formatStatusText(systemInfo.updateStatus)}
                                             </div>
