@@ -12,6 +12,7 @@ class ExcelXLSXService:
 
     def __init__(self, data_dir: str = None):
         from config import Config
+
         self.data_dir = data_dir or Config.DATA_DIR
         self.export_dir = os.path.join(self.data_dir, "exports")
         os.makedirs(self.export_dir, exist_ok=True)
@@ -47,6 +48,7 @@ class ExcelXLSXService:
         shop_name = Config.SHOP_NAME
         try:
             from services.db_service import DatabaseService
+
             db_service = DatabaseService()
             settings = db_service.get_all_settings()
             shop_name = settings.get("shop_name") or Config.SHOP_NAME

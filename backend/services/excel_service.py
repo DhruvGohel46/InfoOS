@@ -9,6 +9,7 @@ class ExcelService:
 
     def __init__(self, data_dir: str = None):
         from config import Config
+
         self.data_dir = data_dir or Config.DATA_DIR
         self.export_dir = os.path.join(self.data_dir, "exports")
         os.makedirs(self.export_dir, exist_ok=True)

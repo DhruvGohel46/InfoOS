@@ -94,6 +94,7 @@ def create_app(config_name="default"):
 
     # Load configuration
     from config import config
+
     app.config.from_object(config[config_name])
 
     # Ensure critical data directories exist immediately after loading config
