@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { clearToken, getStoredToken, isTokenValid, loginWithPin, persistToken } from '../api/auth';
+import { clearToken, getStoredToken, getAuthStatus, isTokenValid, loginWithPin, persistToken } from '../api/auth';
 
 const AuthContext = createContext(null);
 
@@ -22,7 +22,23 @@ export function AuthProvider({ children }) {
   const [pendingPath, setPendingPath] = useState(null);
   const [pendingCallback, setPendingCallback] = useState(null);
 
-  const openUnlock = useCallback((action = null) => {
+  const openUnlock = useCallback(async (action = null) => {
+    try {
+      const status = await getAuthStatus();
+      if (!status.enabled || !status.is_setup) {
+        setMode(MODE.ADMIN);
+        
+        if (typeof action === 'function') {
+          action();
+        } else if (action) {
+          navigate(action);
+        }
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to check auth status in openUnlock:', err);
+    }
+
     if (typeof action === 'function') {
       setPendingCallback(() => action);
       setPendingPath(null);
@@ -31,7 +47,7 @@ export function AuthProvider({ children }) {
       setPendingCallback(null);
     }
     setIsUnlockOpen(true);
-  }, []);
+  }, [navigate]);
 
   const closeUnlock = useCallback(() => {
     setIsUnlockOpen(false);

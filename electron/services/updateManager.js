@@ -44,6 +44,16 @@ class UpdateManager {
    */
   init(window) {
     this.mainWindow = window;
+    
+    // Register IPC bindings (register always to avoid IPC route errors in frontend)
+    this.registerIpc();
+
+    const { app } = require('electron');
+    if (!app.isPackaged) {
+      log('INFO', 'Updater disabled in development mode.');
+      return;
+    }
+
     log('INFO', 'Initializing auto-update system...');
 
     // 1. Configure auto-updater behaviour
@@ -110,9 +120,6 @@ class UpdateManager {
       }
     });
 
-    // 3. Register IPC bindings
-    this.registerIpc();
-
     // 4. Startup Schedule: wait 12 seconds then check silently
     setTimeout(() => {
       this.checkForUpdates();
@@ -129,10 +136,18 @@ class UpdateManager {
   }
 
   checkForUpdates() {
+    const { app } = require('electron');
+    if (!app.isPackaged) {
+      log('INFO', 'Update check skipped (Development Mode)');
+      return;
+    }
     log('INFO', 'Triggering check for updates...');
     this.lastChecked = new Date().toISOString();
     autoUpdater.checkForUpdates().catch(err => {
       log('ERROR', `Failed to check for updates: ${err.message}`);
+      this.status = 'error';
+      this.errorMessage = err.message || String(err);
+      this.notifyStatus();
     });
   }
 

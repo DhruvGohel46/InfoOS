@@ -236,8 +236,12 @@ def reset_pin():
         [
             {"key": "admin_pin_hash", "value": ""},
             {"key": "require_pin_login", "value": "false"},
+            {"key": "admin_pin_length", "value": "0"},
         ]
     )
+    import cache
+
+    cache.invalidate("settings")
     return jsonify({"success": True, "message": "PIN reset successful"}), 200
 
 
