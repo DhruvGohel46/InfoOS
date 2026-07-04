@@ -106,7 +106,14 @@ import LicensingGate from './components/system/LicensingGate';
   try {
     const zoom = localStorage.getItem('display_zoom');
     const scale = localStorage.getItem('text_scale');
-    if (zoom) document.documentElement.style.setProperty('--display-zoom', zoom);
+    if (zoom) {
+      if (window.electronAPI && window.electronAPI.setZoomFactor) {
+        window.electronAPI.setZoomFactor(parseFloat(zoom));
+        document.documentElement.style.setProperty('--display-zoom', 1);
+      } else {
+        document.documentElement.style.setProperty('--display-zoom', zoom);
+      }
+    }
     if (scale) document.documentElement.style.setProperty('--text-scale', scale);
   } catch (_) { }
 })();
@@ -378,7 +385,7 @@ function AppContent() {
 
   return (
     <div style={{
-      height: '100vh',
+      height: 'var(--viewport-height, 100vh)',
       display: 'flex',
       backgroundColor: 'transparent',
       color: currentTheme.colors.text.primary,
@@ -419,7 +426,7 @@ function AppContent() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 var(--spacing-6)',
+            padding: 'calc(10px * var(--display-zoom)) var(--spacing-6) 0 var(--spacing-6)',
             zIndex: 2000,
             flexShrink: 0,
             transition: 'filter var(--transition-normal) var(--ease-out)',
@@ -490,15 +497,15 @@ function AppContent() {
             <div
               className="rounded-pill"
               style={{
-                height: '42px',
+                height: 'calc(42px * var(--display-zoom))',
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '0 16px',
+                padding: '0 calc(16px * var(--display-zoom))',
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--glass-border)',
-                fontSize: '13px',
+                fontSize: 'calc(13px * var(--display-zoom))',
                 fontWeight: 600,
                 color: 'var(--text-secondary)',
                 cursor: 'default',
@@ -507,7 +514,7 @@ function AppContent() {
                 WebkitBackdropFilter: 'var(--glass-blur)',
                 boxShadow: 'var(--shadow-sm)',
                 whiteSpace: 'nowrap',
-                gap: '8px'
+                gap: 'calc(8px * var(--display-zoom))'
               }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--glass-header)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
@@ -523,36 +530,32 @@ function AppContent() {
                 title={isAdmin ? 'Admin mode active' : 'Worker mode active'}
                 style={{
                   position: 'relative',
-                  width: '240px',
-                  height: '42px',
-                  borderRadius: '12px',
+                  width: 'calc(240px * var(--display-zoom))',
+                  height: 'calc(42px * var(--display-zoom))',
+                  borderRadius: 'calc(12px * var(--display-zoom))',
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--glass-border)',
                   backdropFilter: 'var(--glass-blur)',
                   WebkitBackdropFilter: 'var(--glass-blur)',
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '4px',
+                  padding: 'calc(4px * var(--display-zoom))',
                   boxShadow: 'var(--shadow-card)',
                 }}
               >
-                {/* Sliding Indicator */}
-                <motion.div
-                  initial={false}
-                  animate={{
-                    x: isAdmin ? 0 : '112px',
-                    background: 'var(--primary-500)'
-                  }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                {/* Sliding Indicator (CSS-transition driven for zoom scaling correctness) */}
+                <div
                   style={{
                     position: 'absolute',
-                    top: '4px',
-                    left: '4px',
-                    width: '116px',
-                    height: '34px',
-                    borderRadius: '8px',
+                    top: 'calc(4px * var(--display-zoom))',
+                    left: isAdmin ? 'calc(4px * var(--display-zoom))' : 'calc(120px * var(--display-zoom))',
+                    width: 'calc(116px * var(--display-zoom))',
+                    height: 'calc(34px * var(--display-zoom))',
+                    borderRadius: 'calc(8px * var(--display-zoom))',
+                    background: 'var(--primary-500)',
                     boxShadow: '0 4px 12px rgba(249, 115, 22, 0.2)',
                     zIndex: 1,
+                    transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                   }}
                 />
 
@@ -568,13 +571,13 @@ function AppContent() {
                     border: 'none',
                     background: 'transparent',
                     cursor: 'pointer',
-                    fontSize: '13px',
+                    fontSize: 'calc(13px * var(--display-zoom))',
                     fontWeight: 700,
                     color: isAdmin ? 'var(--text-inverse)' : 'var(--text-tertiary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: 'calc(6px * var(--display-zoom))',
                     transition: 'color 0.2s ease',
                   }}
                 >
@@ -597,13 +600,13 @@ function AppContent() {
                     border: 'none',
                     background: 'transparent',
                     cursor: 'pointer',
-                    fontSize: '13px',
+                    fontSize: 'calc(13px * var(--display-zoom))',
                     fontWeight: 700,
                     color: !isAdmin ? 'var(--text-inverse)' : 'var(--text-tertiary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: 'calc(6px * var(--display-zoom))',
                     transition: 'color 0.2s ease',
                   }}
                 >
@@ -616,8 +619,8 @@ function AppContent() {
                 onClick={() => setShowNotificationPanel(!showNotificationPanel)}
                 className="rounded-lg"
                 style={{
-                  width: '40px',
-                  height: '40px',
+                  width: 'calc(40px * var(--display-zoom))',
+                  height: 'calc(40px * var(--display-zoom))',
                   border: '1px solid var(--glass-border)',
                   backgroundImage: 'var(--glass-card)',
                   color: activeAlerts.length > 0 ? 'var(--primary-500)' : 'var(--text-primary)',
@@ -723,8 +726,8 @@ function AppContent() {
                 onClick={toggleTheme}
                 className="rounded-lg"
                 style={{
-                  width: '40px',
-                  height: '40px',
+                  width: 'calc(40px * var(--display-zoom))',
+                  height: 'calc(40px * var(--display-zoom))',
                   padding: 0,
                   backgroundImage: 'var(--glass-card)',
                   color: 'var(--text-primary)',

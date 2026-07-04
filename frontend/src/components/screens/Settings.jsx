@@ -59,10 +59,15 @@ const Settings = () => {
         return saved ? parseFloat(saved) : 1;
     });
 
-    // Apply display zoom to CSS variable
+    // Apply display zoom
     useEffect(() => {
-        document.documentElement.style.setProperty('--display-zoom', displayZoom);
         localStorage.setItem('display_zoom', displayZoom);
+        if (window.electronAPI && window.electronAPI.setZoomFactor) {
+            window.electronAPI.setZoomFactor(displayZoom);
+            document.documentElement.style.setProperty('--display-zoom', 1);
+        } else {
+            document.documentElement.style.setProperty('--display-zoom', displayZoom);
+        }
     }, [displayZoom]);
 
     // ── PIN / Security state ──────────────────────────────────────────────

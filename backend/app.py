@@ -5,7 +5,6 @@ import os
 import logging
 import threading
 from dotenv import load_dotenv
-from config import config
 from error_handler import register_error_handlers
 from logger import setup_logging, register_logger_middleware
 
@@ -94,7 +93,18 @@ def create_app(config_name="default"):
     from limiter import limiter
 
     # Load configuration
+    from config import config
     app.config.from_object(config[config_name])
+
+    # Ensure critical data directories exist immediately after loading config
+    try:
+        os.makedirs(app.config["DATA_DIR"], exist_ok=True)
+        os.makedirs(app.config["BILLS_DIR"], exist_ok=True)
+        os.makedirs(app.config["ARCHIVE_DIR"], exist_ok=True)
+        os.makedirs(app.config["EXPORT_DIR"], exist_ok=True)
+        os.makedirs(os.path.join(app.config["DATA_DIR"], "Sound"), exist_ok=True)
+    except Exception as exc:
+        _log.error("Failed to pre-create data directories: %s", exc)
 
     # Initialize SQLAlchemy and Migrate
     from models import db
@@ -442,12 +452,8 @@ if __name__ == "__main__":
     db_health_check(app, db)
     migrate_worker_ids_to_sequential(app, db)
 
-    # Ensure data directory exists
+    # Ensure data directory exists and seed default sound
     try:
-        os.makedirs(app.config["DATA_DIR"], exist_ok=True)
-        os.makedirs(app.config["BILLS_DIR"], exist_ok=True)
-        os.makedirs(app.config["ARCHIVE_DIR"], exist_ok=True)
-        os.makedirs(app.config["EXPORT_DIR"], exist_ok=True)
         sounds_dir = os.path.join(app.config["DATA_DIR"], "Sound")
         os.makedirs(sounds_dir, exist_ok=True)
 
@@ -477,7 +483,7 @@ if __name__ == "__main__":
             else:
                 _log.warning("Default reminder.mp3 not found in any bundled location")
     except OSError as e:
-        print(f"Error creating directories: {e}")
+        print(f"Error creating directories/seeding sound: {e}")
         # Continue anyway, might be permission issue handled by user
 
     # Start dashboard refresher in background thread

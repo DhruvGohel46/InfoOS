@@ -185,8 +185,8 @@ export const reportsAPI = {
     api.get(`/api/reports/excel/today?type=${reportType}`, { responseType: 'blob' }),
 
   // Export today's CSV report
-  exportTodayCSV: (reportType = 'simple') =>
-    api.get(`/api/reports/excel/today?type=${reportType}`, { responseType: 'blob' }),
+  exportTodayCSV: () =>
+    api.get('/api/reports/csv/today', { responseType: 'blob' }),
 
   // Export today's XML report
   exportTodayXML: () =>
@@ -326,6 +326,20 @@ export const handleAPIError = (error) => {
 
 // Utility function to download files
 export const downloadFile = (blob, filename) => {
+  if (blob && blob.type === 'application/json') {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const errorData = JSON.parse(reader.result);
+        alert(errorData.message || errorData.error || 'Failed to download report.');
+      } catch (err) {
+        alert('Failed to download report.');
+      }
+    };
+    reader.readAsText(blob);
+    return;
+  }
+
   if (window.electronAPI && window.electronAPI.saveFile) {
     const reader = new FileReader();
     reader.onload = async () => {

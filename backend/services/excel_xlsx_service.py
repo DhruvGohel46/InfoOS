@@ -10,9 +10,10 @@ from config import Config
 class ExcelXLSXService:
     """Excel export service for generating true .xlsx files"""
 
-    def __init__(self, data_dir: str = "../backend/data"):
-        self.data_dir = data_dir
-        self.export_dir = os.path.join(data_dir, "exports")
+    def __init__(self, data_dir: str = None):
+        from config import Config
+        self.data_dir = data_dir or Config.DATA_DIR
+        self.export_dir = os.path.join(self.data_dir, "exports")
         os.makedirs(self.export_dir, exist_ok=True)
 
         # Define styles
@@ -43,7 +44,15 @@ class ExcelXLSXService:
 
         # Shop Name
         ws.merge_cells(f"A2:{max_col_letter}2")
-        ws["A2"] = Config.SHOP_NAME
+        shop_name = Config.SHOP_NAME
+        try:
+            from services.db_service import DatabaseService
+            db_service = DatabaseService()
+            settings = db_service.get_all_settings()
+            shop_name = settings.get("shop_name") or Config.SHOP_NAME
+        except Exception:
+            pass
+        ws["A2"] = shop_name
         ws["A2"].font = Font(bold=True, size=12, color="FFFFFF")
         ws["A2"].fill = PatternFill(start_color="34495e", end_color="34495e", fill_type="solid")
         ws["A2"].alignment = Alignment(horizontal="center", vertical="center")

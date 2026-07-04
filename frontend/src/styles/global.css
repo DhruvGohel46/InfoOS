@@ -12,12 +12,16 @@
   --display-zoom: 1;
   --text-scale: 1;
 
+  /* Derived viewport dimensions compensated for zoom */
+  --viewport-height: calc(100vh / var(--display-zoom));
+  --viewport-width: calc(100vw / var(--display-zoom));
+
   /* Derived sidebar widths — used by Sidebar.js variants */
   --sidebar-width-expanded: calc(260px * var(--display-zoom));
   --sidebar-width-collapsed: calc(80px  * var(--display-zoom));
 
   /* Derived header height */
-  --header-height: calc(54px * var(--display-zoom));
+  --header-height: calc(66px * var(--display-zoom));
 
   /* Color RGB components for rgba() utilities */
   --accent-primary-rgb: 249, 115, 22;
@@ -50,7 +54,7 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  min-height: var(--viewport-height, 100vh);
   display: block;
   zoom: var(--display-zoom, 1);
 }

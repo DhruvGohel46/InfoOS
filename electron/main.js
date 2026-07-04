@@ -13,6 +13,12 @@ const BACKEND_HOST = process.env.BACKEND_HOST || '127.0.0.1';
 const HEALTH_ENDPOINT = `http://${BACKEND_HOST}:${BACKEND_PORT}/health`;
 const isDev = !app.isPackaged; // Better check for dev mode
 
+// Setup POS_DATA_DIR early so all main process modules share the correct folder
+const dataDir = isDev
+  ? path.join(__dirname, '../backend/data')
+  : app.getPath('userData');
+process.env.POS_DATA_DIR = dataDir;
+
 // Keep global references
 let mainWindow;
 let splashWindow;
@@ -51,12 +57,7 @@ function startBackend() {
   log('Starting backend...');
 
   const { command, args } = getBackendPath();
-
-  // In Dev: Use local backend/data to keep existing data
-  // In Prod: Use AppData to ensure write permissions
-  const dataDir = isDev
-    ? path.join(__dirname, '../backend/data')
-    : app.getPath('userData');
+  const dataDir = process.env.POS_DATA_DIR;
 
   // Pass data directory to backend
   const backendArgs = [...args, '--data-dir', dataDir, '--port', BACKEND_PORT.toString()];
@@ -66,7 +67,7 @@ function startBackend() {
   backendProcess = spawn(command, backendArgs, {
     cwd: isDev ? path.join(__dirname, '..') : path.dirname(command),
     stdio: 'pipe', // Change to 'inherit' for debugging in console, 'pipe' to capture
-    env: { ...process.env, POS_DATA_DIR: dataDir }
+    env: { ...process.env }
   });
 
   backendProcess.stdout.on('data', (data) => {
@@ -168,9 +169,23 @@ function createWindow() {
 
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
+    // Restore saved zoom factor natively (matches the CSS --display-zoom value
+    // the renderer will also set via restoreDisplayPrefs).  By applying it here
+    // before the window is shown we avoid a visible layout shift.
+    mainWindow.webContents
+      .executeJavaScript(`localStorage.getItem('display_zoom')`)
+      .then((saved) => {
+        const factor = parseFloat(saved);
+        if (factor && factor > 0) {
+          mainWindow.webContents.setZoomFactor(factor);
+        }
+      })
+      .catch(() => { /* ignore – first launch has no saved value */ });
+
     if (splashWindow) {
       splashWindow.close();
     }
+    mainWindow.maximize();
     mainWindow.show();
   });
 
@@ -187,41 +202,8 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Build menu
-  const template = [
-    {
-      label: 'File',
-      submenu: [
-        { label: 'New Bill', accelerator: 'CmdOrCtrl+N', click: () => mainWindow.webContents.send('menu-new-bill') },
-        { type: 'separator' },
-        { label: 'Exit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() }
-      ]
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
-    },
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'close' }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  // Disable system menu bar (File, View, Window)
+  Menu.setApplicationMenu(null);
 }
 
 // Quit when all windows are closed.
@@ -406,10 +388,7 @@ ipcMain.handle('write-log', (event, payload) => {
   }
 
   // Resolve log directory — same DATA_DIR the backend uses
-  const dataDir = process.env.POS_DATA_DIR ||
-    (isDev
-      ? path.join(__dirname, '../backend/data')
-      : path.join(app.getPath('userData'), 'data'));
+  const dataDir = process.env.POS_DATA_DIR;
 
   const logDir  = path.join(dataDir, 'logs');
   const logFile = path.join(logDir, 'app.log');
@@ -430,10 +409,22 @@ ipcMain.handle('write-log', (event, payload) => {
   }
 });
 
+// Native Zoom Factor handler
+ipcMain.on('set-zoom-factor', (event, factor) => {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.setZoomFactor(factor);
+    }
+  } catch (err) {
+    console.error('[main] set-zoom-factor error:', err.message);
+  }
+});
+
 // File Save IPC — renderer → main (shows OS Save Dialog and writes file)
 ipcMain.handle('file:save', async (event, filename, base64Data) => {
   try {
-    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+    const parentWindow = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    const { filePath } = await dialog.showSaveDialog(parentWindow, {
       defaultPath: filename,
       title: 'Save Report',
       buttonLabel: 'Save',

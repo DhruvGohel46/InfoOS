@@ -7,9 +7,10 @@ import csv
 class ExcelService:
     """Excel export service for daily sales reports"""
 
-    def __init__(self, data_dir: str = "./backend/data"):
-        self.data_dir = data_dir
-        self.export_dir = os.path.join(data_dir, "exports")
+    def __init__(self, data_dir: str = None):
+        from config import Config
+        self.data_dir = data_dir or Config.DATA_DIR
+        self.export_dir = os.path.join(self.data_dir, "exports")
         os.makedirs(self.export_dir, exist_ok=True)
 
     def export_today_sales_to_csv(self, bills: List[Dict]) -> str:

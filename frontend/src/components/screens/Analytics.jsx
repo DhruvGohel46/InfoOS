@@ -1547,7 +1547,7 @@ const Analytics = () => {
                             {/* Full-width Responsive Grid Layout */}
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(540px, 1fr))',
                                 gap: '16px',
                                 width: '100%'
                             }}>
@@ -1630,11 +1630,12 @@ const Analytics = () => {
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
                                             gap: '16px',
+                                            flexWrap: 'wrap',
                                             transition: 'all 200ms ease'
                                         }}
                                         className="report-item-hover-border"
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
                                             <div style={{
                                                 width: '34px',
                                                 height: '34px',

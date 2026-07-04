@@ -10,12 +10,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Menu events
   onNewBill: (callback) => ipcRenderer.on('menu-new-bill', callback),
+
+  // Zoom scaling
+  setZoomFactor: (factor) => ipcRenderer.send('set-zoom-factor', factor),
   
   // Remove all listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
   
   // Logging operations (Security hardened)
-  writeLog: (level, message) => ipcRenderer.invoke('write-log', level, message),
+  writeLog: (level, message) => ipcRenderer.invoke('write-log', typeof level === 'object' ? level : { level, message }),
   
   // System info
   getSystemInfo: () => ipcRenderer.invoke('system:getInfo'),
