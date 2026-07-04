@@ -553,3 +553,68 @@
 
 .spinning { animation: spin 1s infinite linear; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ─── Light Theme Overrides ─────────────────────────────────────────── */
+[data-theme="light"] .reminderAlertCard {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    color: #111827;
+}
+[data-theme="light"] .reminderAlertCard::before {
+    background: radial-gradient(120% 120% at 10% 0%, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.0) 60%);
+}
+[data-theme="light"] .reminderTimeLabel {
+    color: rgba(17, 24, 39, 0.5);
+}
+[data-theme="light"] .reminderDesc {
+    color: rgba(17, 24, 39, 0.8);
+}
+[data-theme="light"] .snoozeBtn,
+[data-theme="light"] .dismissBtn {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: #111827;
+}
+[data-theme="light"] .barField input,
+[data-theme="light"] .barField .barDatePicker button,
+[data-theme="light"] .barField .barTimePicker button {
+    background: rgba(0, 0, 0, 0.03) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #111827 !important;
+}
+[data-theme="light"] .filterTab:hover {
+    color: #111827;
+    border-color: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .filterTab.active {
+    color: #ffffff;
+    background: var(--primary-500);
+}
+[data-theme="light"] .longBarItem:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .barTimeSep {
+    color: rgba(0, 0, 0, 0.25);
+}
+[data-theme="light"] .iconAction:hover {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-primary);
+}
+[data-theme="light"] .emptyQueueBar {
+    background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .reminderItem {
+    background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .reminderItem:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .statusIndicator {
+    border: 2px solid #ffffff;
+}
+[data-theme="light"] .itemContent p {
+    color: rgba(17, 24, 39, 0.6);
+}

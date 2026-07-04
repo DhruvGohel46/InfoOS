@@ -336,6 +336,10 @@ def run_programmatic_sqlite_migrations(app, db):
 
     try:
         with app.app_context():
+            # Check if dialect is sqlite
+            if db.engine.dialect.name != "sqlite":
+                return
+
             with db.engine.begin() as conn:
                 # 1. Create item_groups table if not exists
                 conn.execute(text("""
@@ -404,6 +408,61 @@ def run_programmatic_sqlite_migrations(app, db):
         _log.error("Error during programmatic SQLite migrations: %s", e)
 
 
+def run_programmatic_postgres_migrations(app, db):
+    """Execute dynamic alter statements for PostgreSQL database columns that db.create_all() won't add."""
+    from sqlalchemy import text
+
+    try:
+        with app.app_context():
+            # Check if dialect is postgresql
+            if db.engine.dialect.name != "postgresql":
+                return
+
+            _log.info("Running programmatic PostgreSQL migrations...")
+            with db.engine.begin() as conn:
+                # 1. Add group_id and display_order to categories
+                conn.execute(
+                    text(
+                        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES item_groups(id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0"
+                    )
+                )
+
+                # 2. Add order_type and table_no to bills
+                conn.execute(
+                    text(
+                        "ALTER TABLE bills ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) DEFAULT 'dine-in'"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE bills ADD COLUMN IF NOT EXISTS table_no VARCHAR(50)")
+                )
+
+                # 3. Add variations, takeaway_price, and display_order to products
+                conn.execute(
+                    text(
+                        "ALTER TABLE products ADD COLUMN IF NOT EXISTS variations TEXT DEFAULT '[]'"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE products ADD COLUMN IF NOT EXISTS takeaway_price DOUBLE PRECISION"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0"
+                    )
+                )
+            _log.info("Programmatic PostgreSQL migrations completed successfully")
+    except Exception as e:
+        _log.error("Error during programmatic PostgreSQL migrations: %s", e)
+
+
 if __name__ == "__main__":
     import argparse
     import sys
@@ -434,6 +493,9 @@ if __name__ == "__main__":
 
             # Run programmatic column migrations on SQLite
             run_programmatic_sqlite_migrations(app, db)
+
+            # Run programmatic column migrations on PostgreSQL
+            run_programmatic_postgres_migrations(app, db)
 
             # Execute database migrations programmatically
             migrations_dir = os.path.join(app.config["BASE_DIR"], "migrations")

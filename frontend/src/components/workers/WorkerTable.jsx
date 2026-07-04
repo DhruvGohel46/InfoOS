@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../context/ThemeContext';
 import { 
     IoEye, 
     IoPencil, 
@@ -21,11 +22,12 @@ import { formatCurrency } from '../../utils/api';
 
 /* ─── Action Menu ─── */
 const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setOpen }) => {
+    const { isDark } = useTheme();
     return (
         <div style={{ position: 'relative' }}>
             <motion.button
                 onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-                whileHover={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+                whileHover={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
                 whileTap={{ scale: 0.92 }}
                 style={{
                     width: '32px', height: '32px',
@@ -54,13 +56,13 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setO
                                 position: 'absolute', right: 0, top: '100%', marginTop: 4,
                                 zIndex: 100,
                                 minWidth: 160,
-                                background: '#1E1E22',
-                                border: '1px solid rgba(255,255,255,0.08)',
+                                background: isDark ? '#1E1E22' : '#FFFFFF',
+                                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                 borderRadius: 12,
-                                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.08)',
                                 padding: 6,
                                 overflow: 'hidden',
-                            }}
+                             }}
                         >
                             <MenuItem icon={IoEye} label="View Profile" onClick={() => { onView(worker); setOpen(false); }} color="#FF7A00" />
                             <MenuItem icon={IoPencil} label="Edit Worker" onClick={() => { onEdit(worker); setOpen(false); }} color="#3B82F6" />
@@ -69,7 +71,7 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setO
                             <MenuItem icon={IoDocumentTextOutline} label="Payroll" onClick={() => { setOpen(false); }} color="#F59E0B" />
                             <div style={{
                                 height: 1, margin: '6px 8px',
-                                background: 'rgba(255,255,255,0.06)',
+                                background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
                             }} />
                             {worker.status === 'inactive' ? (
                                 <MenuItem icon={IoCheckmarkCircle} label="Reactivate" onClick={() => { onReactivate(worker); setOpen(false); }} color="#10B981" />
@@ -85,16 +87,17 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setO
 };
 
 const MenuItem = ({ icon: Icon, label, onClick, color }) => {
+    const { isDark } = useTheme();
     return (
         <motion.button
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
+            whileHover={{ backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}
             style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 12px', border: 'none', background: 'transparent',
                 cursor: 'pointer', borderRadius: 8,
                 fontSize: 13, fontWeight: 500,
-                color: '#D4D4D8',
+                color: isDark ? '#D4D4D8' : '#333333',
             }}
         >
             <Icon size={14} style={{ color, flexShrink: 0 }} />
@@ -106,6 +109,7 @@ const MenuItem = ({ icon: Icon, label, onClick, color }) => {
 /* ─── Worker Card (Square Design) ─── */
 const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const { isDark } = useTheme();
     
     return (
         <motion.div
@@ -118,8 +122,8 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                 width: '100%',
                 maxWidth: '380px',
                 aspectRatio: '1 / 1',
-                background: '#17181C',
-                border: '1px solid rgba(255,255,255,0.06)',
+                background: isDark ? '#17181C' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)',
                 borderRadius: '24px',
                 padding: '24px',
                 display: 'flex',
@@ -127,7 +131,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                 justifyContent: 'space-between',
                 cursor: 'pointer',
                 position: 'relative',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                boxShadow: isDark ? '0 20px 40px rgba(0,0,0,0.3)' : '0 10px 25px rgba(0,0,0,0.04)',
                 transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxSizing: 'border-box'
             }}
@@ -162,7 +166,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                     justifyContent: 'center',
                     background: 'linear-gradient(135deg, rgba(255,122,0,0.1) 0%, rgba(255,90,0,0.2) 100%)',
                     border: '1px solid rgba(255,122,0,0.3)',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                    boxShadow: isDark ? '0 8px 16px rgba(0,0,0,0.2)' : '0 4px 10px rgba(0,0,0,0.05)',
                     transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
                 }} className="worker-profile-frame">
                     {worker.photo ? (
@@ -188,7 +192,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                     <span style={{ 
                         fontSize: '18px', 
                         fontWeight: 700, 
-                        color: '#FFFFFF',
+                        color: isDark ? '#FFFFFF' : 'var(--text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
@@ -203,12 +207,12 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                         alignItems: 'center',
                         gap: '6px',
                         padding: '4px 10px',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                         borderRadius: '20px',
                         fontSize: '11px',
                         fontWeight: 600,
-                        color: 'rgba(255,255,255,0.6)',
+                        color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em'
                     }}>
@@ -223,7 +227,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                             alignItems: 'center', 
                             gap: '6px',
                             fontSize: '13px',
-                            color: 'rgba(255,255,255,0.4)'
+                            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)'
                         }}>
                             <IoCall size={12} style={{ opacity: 0.6 }} />
                             <span>{worker.phone}</span>
@@ -233,15 +237,15 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
             </div>
 
             {/* Divider */}
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '12px 0' }}></div>
+            <div style={{ height: '1px', background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)', margin: '12px 0' }}></div>
 
             {/* Salary Section */}
             <div style={{ display: 'flex', gap: '12px' }}>
                 {/* Left Card */}
                 <div style={{
                     flex: 1,
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.04)',
+                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                    border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.06)',
                     borderRadius: '16px',
                     padding: '12px',
                     display: 'flex',
@@ -261,9 +265,9 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                         }}>
                             <IoWalletOutline size={12} />
                         </div>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em' }}>SALARY</span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', letterSpacing: '0.05em' }}>SALARY</span>
                     </div>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: isDark ? '#FFFFFF' : 'var(--text-primary)' }}>
                         {formatCurrency(worker.salary)}
                     </span>
                 </div>
@@ -271,8 +275,8 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                 {/* Right Card */}
                 <div style={{
                     flex: 1,
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.04)',
+                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                    border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.06)',
                     borderRadius: '16px',
                     padding: '12px',
                     display: 'flex',
@@ -292,9 +296,9 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                         }}>
                             <IoCashOutline size={12} />
                         </div>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em' }}>NET PAY</span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', letterSpacing: '0.05em' }}>NET PAY</span>
                     </div>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: isDark ? '#FFFFFF' : 'var(--text-primary)' }}>
                         {formatCurrency(worker.salary - (worker.current_advance || 0))}
                     </span>
                 </div>
@@ -302,7 +306,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
 
             {/* Bottom Section */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
+                <span style={{ fontSize: '11px', fontFamily: 'monospace', color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', fontWeight: 600 }}>
                     ID: WKR-{String(worker.worker_id).padStart(4, '0')}
                 </span>
                 

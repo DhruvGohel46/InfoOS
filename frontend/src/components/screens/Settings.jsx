@@ -327,12 +327,7 @@ const Settings = () => {
             const summary = summaryRes.data.summary;
             const weekStartStr = summary.start_date;
 
-            // Verify with Supabase whether the report already exists (single source of truth)
-            const exists = await cloudSyncAPI.checkWeeklyReportExists(userId, weekStartStr, token);
-            if (exists) {
-                showSuccess(`Report for week of ${weekStartStr} has already been synced to the cloud. (Supabase verified)`);
-                return;
-            }
+            // Directly sync (backend uses UPSERT to automatically replace/update the existing record)
 
             const expensesRes = await expensesAPI.getExpenses(200);
             const allExpenses = expensesRes.expenses || [];
@@ -406,12 +401,7 @@ const Settings = () => {
             const summary = summaryRes.data.summary;
             const monthStartStr = summary.start_date;
 
-            // Verify with Supabase whether the report already exists (single source of truth)
-            const exists = await cloudSyncAPI.checkMonthlyReportExists(userId, monthStartStr, token);
-            if (exists) {
-                showSuccess(`Report for month starting ${monthStartStr} has already been synced to the cloud. (Supabase verified)`);
-                return;
-            }
+            // Directly sync (backend uses UPSERT to automatically replace/update the existing record)
 
             const expensesRes = await expensesAPI.getExpenses(200);
             const allExpenses = expensesRes.expenses || [];
@@ -1496,7 +1486,7 @@ const Settings = () => {
                                                 )}
                                             </div>
 
-                                            {cloudStatus.loggedIn && cloudStatus.subscriptionStatus === 'active' && (
+                                            {cloudStatus.loggedIn && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                     <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Manual Backups</div>
                                                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

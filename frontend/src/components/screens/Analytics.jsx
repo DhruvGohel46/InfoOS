@@ -12,6 +12,7 @@
  * =============================================================================
  */
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -451,7 +452,7 @@ const Analytics = () => {
     const handleCancelBillConfirm = async () => {
         try {
             if (!selectedBill) return;
-            const response = await billingAPI.cancelBill(selectedBill.bill_no);
+            const response = await billingAPI.cancelBill(selectedBill.id);
             if (response.data.success) {
                 setShowCancelConfirm(false);
                 setSelectedBill(null);
@@ -1074,21 +1075,22 @@ const Analytics = () => {
                                 gap: '20px',
                                 marginBottom: '24px',
                                 padding: '14px 20px',
-                                background: 'rgba(32,33,36,0.8)',
+                                background: isDark ? 'rgba(32,33,36,0.8)' : 'rgba(255,255,255,0.95)',
                                 backdropFilter: 'blur(20px)',
-                                border: '1px solid rgba(255,255,255,0.08)',
+                                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                 borderRadius: '18px',
-                                flexWrap: 'wrap'
+                                flexWrap: 'wrap',
+                                boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.2)' : '0 10px 30px rgba(0,0,0,0.04)'
                             }}>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                     <button
                                         onClick={() => setSelectedBillDate(new Date().toISOString().split('T')[0])}
                                         style={{
                                             padding: '10px 16px',
-                                            background: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FF7A00' : 'rgba(255,255,255,0.05)',
-                                            border: selectedBillDate === new Date().toISOString().split('T')[0] ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                            background: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FF7A00' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
+                                            border: selectedBillDate === new Date().toISOString().split('T')[0] ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
                                             borderRadius: '12px',
-                                            color: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+                                            color: selectedBillDate === new Date().toISOString().split('T')[0] ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)'),
                                             fontSize: '14px',
                                             fontWeight: 600,
                                             cursor: 'pointer',
@@ -1107,10 +1109,10 @@ const Analytics = () => {
                                         onChange={(e) => setSelectedBillDate(e.target.value)}
                                         style={{
                                             padding: '10px 16px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                             borderRadius: '12px',
-                                            color: 'rgba(255,255,255,0.7)',
+                                            color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
                                             fontSize: '14px',
                                             cursor: 'pointer',
                                             outline: 'none'
@@ -1121,10 +1123,10 @@ const Analytics = () => {
                                         disabled={loadingBills}
                                         style={{
                                             padding: '10px 16px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                             borderRadius: '12px',
-                                            color: 'rgba(255,255,255,0.7)',
+                                            color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
                                             fontSize: '14px',
                                             fontWeight: 600,
                                             cursor: 'pointer',
@@ -1166,9 +1168,9 @@ const Analytics = () => {
                                                 style={{
                                                     padding: '20px',
                                                     background: `linear-gradient(180deg, ${accentColor}08 0%, transparent 100%)`,
-                                                    border: '1px solid rgba(255,255,255,0.08)',
+                                                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                                     borderRadius: '20px',
-                                                    boxShadow: '0 15px 40px rgba(0,0,0,0.35)',
+                                                    boxShadow: isDark ? '0 15px 40px rgba(0,0,0,0.35)' : '0 10px 25px rgba(0,0,0,0.05)',
                                                     cursor: isCancelled ? 'default' : 'pointer',
                                                     transition: 'all 180ms ease-out',
                                                     position: 'relative',
@@ -1181,8 +1183,8 @@ const Analytics = () => {
                                                     }
                                                 }}
                                                 onMouseLeave={(e) => {
-                                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
-                                                    e.currentTarget.style.boxShadow = '0 15px 40px rgba(0,0,0,0.35)';
+                                                    e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+                                                    e.currentTarget.style.boxShadow = isDark ? '0 15px 40px rgba(0,0,0,0.35)' : '0 10px 25px rgba(0,0,0,0.05)';
                                                 }}
                                                 onClick={() => !isCancelled && handleEditBill(bill)}
                                             >
@@ -1202,31 +1204,31 @@ const Analytics = () => {
                                                             <div style={{ fontSize: '18px', fontWeight: 700, color: accentColor, marginBottom: '2px' }}>
                                                                 #{bill.bill_no}
                                                             </div>
-                                                            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                                                            <div style={{ fontSize: '13px', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
                                                                 {formatDate(bill.created_at)}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                                                    <div style={{ fontSize: '13px', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
                                                         {formatTime(bill.created_at)}
                                                     </div>
                                                 </div>
 
                                                 {/* Horizontal Divider */}
-                                                <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+                                                <div style={{ height: '1px', background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', margin: '12px 0' }} />
 
                                                 {/* Middle Section */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                                     <div>
-                                                        <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>
+                                                        <div style={{ fontSize: '14px', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>
                                                             Items
                                                         </div>
-                                                        <div style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF' }}>
+                                                        <div style={{ fontSize: '18px', fontWeight: 600, color: isDark ? '#FFFFFF' : 'var(--text-primary)' }}>
                                                             {bill.items?.length || 0}
                                                         </div>
                                                     </div>
                                                     <div style={{ textAlign: 'right' }}>
-                                                        <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>
+                                                        <div style={{ fontSize: '14px', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>
                                                             Amount
                                                         </div>
                                                         <div style={{ fontSize: '22px', fontWeight: 700, color: accentColor }}>
@@ -1266,10 +1268,10 @@ const Analytics = () => {
                                                         style={{
                                                             flex: 1,
                                                             padding: '10px 14px',
-                                                            background: 'rgba(255,255,255,0.05)',
-                                                            border: '1px solid rgba(255,255,255,0.08)',
+                                                            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                                             borderRadius: '12px',
-                                                            color: 'rgba(255,255,255,0.7)',
+                                                            color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
                                                             fontSize: '13px',
                                                             fontWeight: 600,
                                                             cursor: isCancelled ? 'not-allowed' : 'pointer',
@@ -1282,11 +1284,11 @@ const Analytics = () => {
                                                         }}
                                                         onMouseEnter={(e) => {
                                                             if (!isCancelled) {
-                                                                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                                                                e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
                                                             }
                                                         }}
                                                         onMouseLeave={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                                            e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
                                                         }}
                                                     >
                                                         <IoCreateOutline size={14} />
@@ -1303,27 +1305,11 @@ const Analytics = () => {
                                                             style={{
                                                                 flex: 1,
                                                                 padding: '10px 14px',
-                                                                background: 'rgba(239,68,68,0.05)',
-                                                                border: '1px solid rgba(239,68,68,0.15)',
+                                                                background: isDark ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.08)',
+                                                                border: isDark ? '1px solid rgba(239,68,68,0.15)' : '1px solid rgba(239,68,68,0.2)',
                                                                 borderRadius: '12px',
-                                                                color: 'rgba(239,68,68,0.8)',
+                                                                color: isDark ? 'rgba(239,68,68,0.8)' : '#D32F2F',
                                                                 fontSize: '13px',
-                                                            fontWeight: 600,
-                                                            cursor: isCancelled ? 'not-allowed' : 'pointer',
-                                                            transition: 'all 180ms ease-out',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            gap: '6px',
-                                                            opacity: isCancelled ? 0.5 : 1
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            if (!isCancelled) {
-                                                                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-                                                            }
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(239,68,68,0.05)';
                                                         }}
                                                     >
                                                         <IoCloseCircleOutline size={14} />
@@ -1787,176 +1773,184 @@ const Analytics = () => {
             </div>
 
             {/* ════════════════ CLEAR DATA MODAL ════════════════ */}
-            <AnimatePresence>
-                {isAdmin && showClearConfirm && (
-                    <motion.div
-                        className="pmOverlay"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => { setShowClearConfirm(false); setClearPassword(''); }}
-                    >
+            {createPortal(
+                <AnimatePresence>
+                    {isAdmin && showClearConfirm && (
                         <motion.div
-                            className="pmDialog"
-                            initial={{ y: 20, scale: 0.95, opacity: 0 }}
-                            animate={{ y: 0, scale: 1, opacity: 1 }}
-                            exit={{ y: 20, scale: 0.95, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
+                            className="pmOverlay"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => { setShowClearConfirm(false); setClearPassword(''); }}
+                            style={{ zIndex: 999999 }}
                         >
-                            <div className="pmDialogTitle">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                Clear All Data?
-                            </div>
-                            <div className="pmDialogBody">
-                                This will permanently delete all bills and sales data. This action cannot be undone.
-                                <div style={{ marginTop: '16px', position: 'relative' }}>
-                                    <input
-                                        type={showClearPassword ? 'text' : 'password'}
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        maxLength={6}
-                                        className="pmInput"
-                                        placeholder="Enter Owner PIN to confirm"
-                                        value={clearPassword}
-                                        onChange={(e) => setClearPassword(e.target.value.replace(/\D/g, ''))}
-                                        onKeyPress={(e) => e.key === 'Enter' && handleClearBills()}
-                                        autoFocus
-                                        style={{ width: '100%', textAlign: 'center', paddingRight: '40px' }}
-                                    />
+                            <motion.div
+                                className="pmDialog"
+                                initial={{ y: 20, scale: 0.95, opacity: 0 }}
+                                animate={{ y: 0, scale: 1, opacity: 1 }}
+                                exit={{ y: 20, scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="pmDialogTitle">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    Clear All Data?
+                                </div>
+                                <div className="pmDialogBody">
+                                    This will permanently delete all bills and sales data. This action cannot be undone.
+                                    <div style={{ marginTop: '16px', position: 'relative' }}>
+                                        <input
+                                            type={showClearPassword ? 'text' : 'password'}
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            maxLength={6}
+                                            className="pmInput"
+                                            placeholder="Enter Owner PIN to confirm"
+                                            value={clearPassword}
+                                            onChange={(e) => setClearPassword(e.target.value.replace(/\D/g, ''))}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleClearBills()}
+                                            autoFocus
+                                            style={{ width: '100%', textAlign: 'center', paddingRight: '40px' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowClearPassword(!showClearPassword)}
+                                            style={{
+                                                position: 'absolute', right: '8px', top: '50%',
+                                                transform: 'translateY(-50%)', background: 'none',
+                                                border: 'none', cursor: 'pointer', padding: '4px',
+                                                display: 'flex', alignItems: 'center', opacity: 0.6,
+                                            }}
+                                        >
+                                            {showClearPassword ? (
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.584 10.587a2 2 0 002.828 2.826M9.363 5.365A9.466 9.466 0 0112 5c7 0 10 7 10 7a13.16 13.16 0 01-1.658 2.366M6.632 6.632A9.466 9.466 0 005 12s3 7 7 7a9.466 9.466 0 005.368-1.632" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                            ) : (
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" /></svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="pmDialogActions">
                                     <button
-                                        type="button"
-                                        onClick={() => setShowClearPassword(!showClearPassword)}
-                                        style={{
-                                            position: 'absolute', right: '8px', top: '50%',
-                                            transform: 'translateY(-50%)', background: 'none',
-                                            border: 'none', cursor: 'pointer', padding: '4px',
-                                            display: 'flex', alignItems: 'center', opacity: 0.6,
-                                        }}
+                                        className="pmDialogBtn"
+                                        onClick={() => { setShowClearConfirm(false); setClearPassword(''); }}
                                     >
-                                        {showClearPassword ? (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.584 10.587a2 2 0 002.828 2.826M9.363 5.365A9.466 9.466 0 0112 5c7 0 10 7 10 7a13.16 13.16 0 01-1.658 2.366M6.632 6.632A9.466 9.466 0 005 12s3 7 7 7a9.466 9.466 0 005.368-1.632" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                        ) : (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" /></svg>
-                                        )}
+                                        Cancel
+                                    </button>
+                                    <button className="pmDialogBtn pmDialogBtnPrimary" onClick={handleClearBills}>
+                                        {clearingData ? 'Clearing...' : 'Clear All Data'}
                                     </button>
                                 </div>
-                            </div>
-                            <div className="pmDialogActions">
-                                <button
-                                    className="pmDialogBtn"
-                                    onClick={() => { setShowClearConfirm(false); setClearPassword(''); }}
-                                >
-                                    Cancel
-                                </button>
-                                <button className="pmDialogBtn pmDialogBtnPrimary" onClick={handleClearBills}>
-                                    {clearingData ? 'Clearing...' : 'Clear All Data'}
-                                </button>
-                            </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {/* ════════════════ CANCEL BILL MODAL ════════════════ */}
-            <AnimatePresence>
-                {isAdmin && showCancelConfirm && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        style={{
-                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(5px)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001,
-                        }}
-                        onClick={() => setShowCancelConfirm(false)}
-                    >
+            {createPortal(
+                <AnimatePresence>
+                    {isAdmin && showCancelConfirm && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
                             style={{
-                                background: 'var(--surface-primary)',
-                                borderRadius: '16px',
-                                padding: '32px',
-                                maxWidth: '400px',
-                                width: '90%',
-                                border: '1px solid var(--border-primary)',
-                                boxShadow: isDark
-                                    ? '0 25px 50px -12px rgba(0,0,0,0.5)'
-                                    : '0 25px 50px -12px rgba(0,0,0,0.25)',
+                                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999,
                             }}
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={() => setShowCancelConfirm(false)}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                <div style={{
-                                    width: '48px', height: '48px', borderRadius: '12px',
-                                    background: 'rgba(239,68,68,0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <IoTrashOutline size={22} color="#ef4444" />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                style={{
+                                    background: 'var(--surface-primary)',
+                                    borderRadius: '16px',
+                                    padding: '32px',
+                                    maxWidth: '400px',
+                                    width: '90%',
+                                    border: '1px solid var(--border-primary)',
+                                    boxShadow: isDark
+                                        ? '0 25px 50px -12px rgba(0,0,0,0.5)'
+                                        : '0 25px 50px -12px rgba(0,0,0,0.25)',
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                    <div style={{
+                                        width: '48px', height: '48px', borderRadius: '12px',
+                                        background: 'rgba(239,68,68,0.1)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <IoTrashOutline size={22} color="#ef4444" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, marginBottom: '4px' }}>
+                                            Cancel Bill
+                                        </h3>
+                                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                                            Caution: This affects sales reports
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, marginBottom: '4px' }}>
-                                        Cancel Bill
-                                    </h3>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                        Caution: This affects sales reports
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                        Are you sure you want to cancel <strong>Bill #{selectedBill?.bill_no}</strong>?
                                     </p>
+                                    <ul style={{ margin: '12px 0 0 12px', paddingLeft: '16px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                        <li>Bill amount will be deducted from sales totals.</li>
+                                        <li>Bill status will change to "CANCELLED".</li>
+                                    </ul>
                                 </div>
-                            </div>
 
-                            <div style={{ marginBottom: '24px' }}>
-                                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                    Are you sure you want to cancel <strong>Bill #{selectedBill?.bill_no}</strong>?
-                                </p>
-                                <ul style={{ margin: '12px 0 0 12px', paddingLeft: '16px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                    <li>Bill amount will be deducted from sales totals.</li>
-                                    <li>Bill status will change to "CANCELLED".</li>
-                                </ul>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                <Button
-                                    onClick={() => setShowCancelConfirm(false)}
-                                    variant="secondary"
-                                    style={{
-                                        background: 'var(--bg-primary)',
-                                        border: '1px solid var(--border-primary)',
-                                        color: 'var(--text-secondary)',
-                                        borderRadius: '12px',
-                                        padding: '12px 24px',
-                                        fontWeight: 500,
-                                    }}
-                                >
-                                    Keep Bill
-                                </Button>
-                                <Button
-                                    onClick={handleCancelBillConfirm}
-                                    variant="secondary"
-                                    style={{
-                                        background: 'var(--error-500, #EF4444)',
-                                        border: '1px solid var(--error-500, #EF4444)',
-                                        color: '#ffffff',
-                                        borderRadius: '12px',
-                                        padding: '12px 24px',
-                                        fontWeight: 500,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                    }}
-                                >
-                                    <IoTrashOutline size={16} />
-                                    Confirm Cancel
-                                </Button>
-                            </div>
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                    <Button
+                                        onClick={() => setShowCancelConfirm(false)}
+                                        variant="secondary"
+                                        style={{
+                                            background: 'var(--bg-primary)',
+                                            border: '1px solid var(--border-primary)',
+                                            color: 'var(--text-secondary)',
+                                            borderRadius: '12px',
+                                            padding: '12px 24px',
+                                            fontWeight: 500,
+                                        }}
+                                    >
+                                        Keep Bill
+                                    </Button>
+                                    <Button
+                                        onClick={handleCancelBillConfirm}
+                                        variant="primary"
+                                        style={{
+                                            background: 'var(--error-500, #EF4444)',
+                                            border: '1px solid var(--error-500, #EF4444)',
+                                            color: '#ffffff',
+                                            borderRadius: '12px',
+                                            padding: '12px 24px',
+                                            fontWeight: 500,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                        }}
+                                    >
+                                        <IoTrashOutline size={16} />
+                                        Confirm Cancel
+                                    </Button>
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </PageContainer>
     );
 };

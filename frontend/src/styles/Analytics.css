@@ -187,8 +187,8 @@
 }
 
 .kpi-card {
-  background: #1C1D20;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
   border-radius: 20px;
   padding: 20px 24px;
   height: 104px;
@@ -196,12 +196,12 @@
   align-items: center;
   gap: 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-card);
 }
 
 .kpi-card:hover {
   border-color: #FF7A00;
-  box-shadow: 0 12px 32px rgba(255, 122, 0, 0.15);
+  box-shadow: var(--shadow-card-hover);
   transform: translateY(-4px);
 }
 
@@ -227,7 +227,7 @@
 .kpi-card-title {
   font-size: 0.8rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -238,7 +238,7 @@
 .kpi-card-value {
   font-size: 1.65rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--text-primary);
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
@@ -247,7 +247,7 @@
 
 .kpi-card-trend {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 

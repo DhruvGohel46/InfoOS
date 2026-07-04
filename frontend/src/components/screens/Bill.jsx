@@ -1128,9 +1128,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const leftSidebarStyle = {
 
-    width: 'calc(240px * var(--display-zoom))', // Increased from 180px for better spacing
+    width: 'calc(216px * var(--display-zoom))', // Decreased to 0.9x (from 240px) for better screen space balance
 
-    background: 'linear-gradient(180deg, #1E1E22 0%, #17171A 100%)',
+    background: isDark ? 'linear-gradient(180deg, #1E1E22 0%, #17171A 100%)' : 'linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%)',
 
     borderRight: '1px solid var(--glass-border)',
 
@@ -1156,7 +1156,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     height: '100%',
 
-    backgroundColor: '#0f0f11', // Recreate exactly: Background #0f0f11
+    backgroundColor: isDark ? '#0f0f11' : '#F4F6F8', // Recreate exactly: Background #0f0f11
 
   };
 
@@ -1312,8 +1312,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     alignItems: 'center',
                     gap: '12px',
                     padding: '0 16px',
-                    backgroundColor: selectedCategory === 'favorites' ? '#2B2B2B' : 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.04)',
+                    backgroundColor: selectedCategory === 'favorites' ? (isDark ? '#2B2B2B' : '#E2E8F0') : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'),
+                    border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #E2E8F0',
                     borderRadius: '16px',
                     color: 'var(--text-muted)',
                     opacity: 0.5,
@@ -1337,8 +1337,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           alignItems: 'center',
                           gap: '12px',
                           padding: '0 16px',
-                          backgroundColor: '#2B2B2B',
-                          border: '1px dashed rgba(255,255,255,0.2)',
+                          backgroundColor: isDark ? '#2B2B2B' : '#F1F5F9',
+                          border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed #CBD5E1',
                           borderRadius: '16px',
                           cursor: 'grab',
                           color: 'var(--text-secondary)',
@@ -1377,8 +1377,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       alignItems: 'center',
                       gap: '12px',
                       padding: '0 16px',
-                      backgroundColor: isActive ? 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)' : '#2B2B2B',
-                      border: isActive ? '1px solid #FF8A00' : '1px solid rgba(255,255,255,0.08)',
+                      background: isActive ? 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)' : (isDark ? '#2B2B2B' : '#FFFFFF'),
+                      border: isActive ? '1px solid #FF8A00' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E2E8F0'),
                       borderRadius: '16px',
                       cursor: 'pointer',
                       color: isActive ? '#ffffff' : 'var(--text-secondary)',
@@ -1389,13 +1389,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
-                        e.currentTarget.style.backgroundColor = '#333333';
+                        e.currentTarget.style.backgroundColor = isDark ? '#333333' : '#F1F5F9';
                         e.currentTarget.style.transform = 'translateX(3px)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isActive) {
-                        e.currentTarget.style.backgroundColor = '#2B2B2B';
+                        e.currentTarget.style.backgroundColor = isDark ? '#2B2B2B' : '#FFFFFF';
                         e.currentTarget.style.transform = 'translateX(0)';
                       }
                     }}
@@ -1726,17 +1726,17 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         position: 'relative',
                         boxSizing: 'border-box',
                         borderRadius: '20px',
-                        background: '#212121b3',
-                        border: isEditMode ? '1.5px dashed #FF8A00' : '1px solid #4a4a4a',
+                        background: isDark ? '#212121b3' : '#FFFFFF',
+                        border: isEditMode ? '1.5px dashed #FF8A00' : (isDark ? '1px solid #4a4a4a' : '1px solid #E2E8F0'),
                         boxShadow: isEditMode ? '0 8px 24px rgba(255,138,0,0.15)' : 'inset 0 1px 0 rgba(255,255,255,0.05)',
                         transition: 'border-color 150ms ease, transform 150ms ease',
                         transform: isEditMode ? 'scale(1.03)' : 'none'
                       }}
                       onMouseEnter={(e) => {
-                        if (!isEditMode) e.currentTarget.style.borderColor = '#5a5a5a';
+                        if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#5a5a5a' : '#CBD5E1';
                       }}
                       onMouseLeave={(e) => {
-                        if (!isEditMode) e.currentTarget.style.borderColor = '#4a4a4a';
+                        if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#4a4a4a' : '#E2E8F0';
                       }}
                     >
                       {/* Drag handle overlay in edit mode */}
@@ -1763,9 +1763,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         height: '100px',
                         width: '100%',
                         boxSizing: 'border-box',
-                        background: '#2d2d2d',
+                        background: isDark ? '#2d2d2d' : '#f3f4f6',
                         borderRadius: '14px',
-                        border: '1px solid #5a5a5a',
+                        border: isDark ? '1px solid #5a5a5a' : '1px solid #e2e8f0',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1813,7 +1813,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         fontFamily: 'Inter, system-ui',
                         fontSize: '16px',
                         fontWeight: 700,
-                        color: '#F2F2F2',
+                        color: isDark ? '#F2F2F2' : '#111827',
                         margin: '12px 0 10px 0',
                         textAlign: 'left',
                         whiteSpace: 'nowrap',
@@ -1844,18 +1844,18 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                   alignItems: 'center',
                                   padding: '0 12px',
                                   borderRadius: '12px',
-                                  border: '1px solid #555',
-                                  background: '#2d2d2d',
+                                  border: isDark ? '1px solid #555' : '1px solid #e2e8f0',
+                                  background: isDark ? '#2d2d2d' : '#f8fafc',
                                   boxSizing: 'border-box',
                                   cursor: isEditMode ? 'default' : 'pointer',
                                   fontFamily: 'Inter, system-ui',
                                   transition: 'border-color 150ms ease'
                                 }}
                                 onMouseEnter={(e) => {
-                                  if (!isEditMode) e.currentTarget.style.borderColor = '#777';
+                                  if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#777' : '#cbd5e1';
                                 }}
                                 onMouseLeave={(e) => {
-                                  if (!isEditMode) e.currentTarget.style.borderColor = '#555';
+                                  if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#555' : '#e2e8f0';
                                 }}
                               >
                                 <div style={{
@@ -1865,7 +1865,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                   textAlign: 'left',
                                   fontWeight: 700,
                                   fontSize: '15px',
-                                  color: '#ECECEC',
+                                  color: isDark ? '#ECECEC' : '#111827',
                                   lineHeight: '1.2'
                                 }}>
                                   {nameParts.map((part, index) => (

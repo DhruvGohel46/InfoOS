@@ -449,17 +449,18 @@ class DatabaseService:
         except Exception:
             return 0
 
-    def cancel_bill(self, bill_no: int) -> bool:
+    def cancel_bill(self, bill_id_or_no: int) -> bool:
         """Cancel a bill"""
         try:
-            # Find the bill (latest one with this no? or today's?)
-            # Assuming user cancels recent bills usually.
-            # Ideally should pass ID, but sticking to bill_no interface.
-            # We search for the bill with this number created TODAY.
-            today = date.today()
-            bill = Bill.query.filter(
-                Bill.bill_no == bill_no, func.date(Bill.created_at) == today
-            ).first()
+            # 1. Try finding by unique primary key ID first
+            bill = Bill.query.get(bill_id_or_no)
+
+            # 2. If not found by ID, fall back to today's bill_no
+            if not bill:
+                today = date.today()
+                bill = Bill.query.filter(
+                    Bill.bill_no == bill_id_or_no, func.date(Bill.created_at) == today
+                ).first()
 
             if bill:
                 bill.status = "CANCELLED"

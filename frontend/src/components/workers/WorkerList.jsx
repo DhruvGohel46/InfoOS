@@ -84,10 +84,10 @@ const WorkerList = () => {
                             onClick={() => setStatusFilter(filter)}
                             style={{
                                 padding: '10px 16px',
-                                background: statusFilter === filter ? '#FF7A00' : 'rgba(255,255,255,0.05)',
-                                border: statusFilter === filter ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                background: statusFilter === filter ? '#FF7A00' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'),
+                                border: statusFilter === filter ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
                                 borderRadius: '12px',
-                                color: statusFilter === filter ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+                                color: statusFilter === filter ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)'),
                                 fontSize: '14px',
                                 fontWeight: 600,
                                 cursor: 'pointer',

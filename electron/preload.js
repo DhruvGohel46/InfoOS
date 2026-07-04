@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   isProduction: () => ipcRenderer.invoke('is-production'),
+  changeTheme: (theme) => ipcRenderer.invoke('theme-changed', theme),
   
   // Menu events
   onNewBill: (callback) => ipcRenderer.on('menu-new-bill', callback),

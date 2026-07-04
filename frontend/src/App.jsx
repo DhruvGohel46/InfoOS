@@ -121,7 +121,7 @@ import LicensingGate from './components/system/LicensingGate';
 function AppContent() {
   const { currentTheme, toggleTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const { activeAlerts, dismissReminder } = useReminders();
+  const { reminders, activeAlerts, dismissReminder } = useReminders();
   const { isOnline } = useNetwork();
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
@@ -131,6 +131,25 @@ function AppContent() {
   const navigate = useNavigate();
   // eslint-disable-next-line no-unused-vars
   const _location = useLocation();
+
+  // Re-apply display zoom and text scale on every location (route) change
+  useEffect(() => {
+    try {
+      const zoom = localStorage.getItem('display_zoom');
+      const scale = localStorage.getItem('text_scale');
+      if (zoom) {
+        if (window.electronAPI && window.electronAPI.setZoomFactor) {
+          window.electronAPI.setZoomFactor(parseFloat(zoom));
+          document.documentElement.style.setProperty('--display-zoom', 1);
+        } else {
+          document.documentElement.style.setProperty('--display-zoom', zoom);
+        }
+      }
+      if (scale) {
+        document.documentElement.style.setProperty('--text-scale', scale);
+      }
+    } catch (_) {}
+  }, [_location]);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [posKey, setPosKey] = useState(0);
@@ -661,7 +680,7 @@ function AppContent() {
                   top: '120%',
                   right: '0',
                   width: '320px',
-                  background: 'rgba(24, 28, 34, 0.92)',
+                  background: isDark ? 'rgba(24, 28, 34, 0.92)' : 'rgba(255, 255, 255, 0.94)',
                   border: '1px solid var(--glass-border)',
                   borderRadius: '16px',
                   boxShadow: '0 14px 28px rgba(0,0,0,0.28)',
@@ -679,14 +698,14 @@ function AppContent() {
                     alignItems: 'center'
                   }}>
                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>Reminder Queue</h3>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{activeAlerts.length} Active</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{reminders.length} Active</span>
                   </div>
                   <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '10px' }}>
-                    {activeAlerts.length > 0 ? activeAlerts.map(alert => (
+                    {reminders.length > 0 ? reminders.map(alert => (
                       <div key={alert.id} style={{
                         padding: '12px',
                         marginBottom: '8px',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
                         border: '1px solid var(--glass-border)',
                         borderRadius: '12px',
                         display: 'flex',
@@ -715,7 +734,7 @@ function AppContent() {
                     )) : (
                       <div style={{ padding: '30px 20px', textAlign: 'center' }}>
                         <IoSyncOutline size={32} style={{ opacity: 0.2, marginBottom: '10px' }} />
-                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>The queue is empty. Good job!</p>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>No reminders scheduled.</p>
                       </div>
                     )}
                   </div>
@@ -818,11 +837,11 @@ function AppContent() {
                 maxWidth: '420px',
                 width: '90%',
                 borderRadius: '20px',
-                border: '1px solid rgba(255, 140, 0, 0.2)',
-                background: 'rgba(22, 26, 32, 0.8)',
+                border: isDark ? '1px solid rgba(255, 140, 0, 0.2)' : '1px solid rgba(255, 140, 0, 0.15)',
+                background: isDark ? 'rgba(22, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+                boxShadow: isDark ? '0 20px 40px rgba(0, 0, 0, 0.4)' : '0 20px 40px rgba(0, 0, 0, 0.08)'
               }}
             >
               <div style={{
@@ -930,11 +949,11 @@ function AppContent() {
                 maxWidth: '420px',
                 width: '90%',
                 borderRadius: '20px',
-                border: '1px solid rgba(76, 175, 80, 0.2)',
-                background: 'rgba(22, 26, 32, 0.8)',
+                border: isDark ? '1px solid rgba(76, 175, 80, 0.2)' : '1px solid rgba(76, 175, 80, 0.15)',
+                background: isDark ? 'rgba(22, 26, 32, 0.8)' : 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+                boxShadow: isDark ? '0 20px 40px rgba(0, 0, 0, 0.4)' : '0 20px 40px rgba(0, 0, 0, 0.08)'
               }}
             >
               <div style={{

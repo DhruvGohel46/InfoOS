@@ -139,6 +139,9 @@ export const ThemeProvider = ({ children }) => {
     setCurrentTheme(nextTheme);
     localStorage.setItem('pos_theme', theme);
     applyThemeTokensToCSS(nextTheme);
+    if (window.electronAPI && window.electronAPI.changeTheme) {
+      window.electronAPI.changeTheme(theme).catch(err => console.error('Failed to notify theme change:', err));
+    }
   }, [theme]);
 
   const toggleTheme = () => {

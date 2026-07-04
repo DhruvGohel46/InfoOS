@@ -353,19 +353,20 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
     formatter.line_with_margin(order_type, margin_w)
     formatter.bold_off()
 
-    # Table Number - Center aligned, Bold
-    table_no = order.get("table_no") or order.get("tableNumber") or order.get("table")
-    if table_no:
+    # Table Number - Only printed if Dine-In and table number is provided
+    is_dine_in = order_type.lower() in ["dine-in", "dine in"]
+    table_part = ""
+    if is_dine_in and table_no:
+        table_no_str = str(table_no).strip()
+        if table_no_str:
+            if table_no_str.lower().startswith("table"):
+                table_part = table_no_str
+            else:
+                table_part = f"Table No: {table_no_str}"
+
+    if table_part:
         formatter.bold_on()
-        formatter.line_with_margin(f"Table No: {table_no}", margin_w)
-        formatter.bold_off()
-    elif order_type.lower() == "takeaway":
-        formatter.bold_on()
-        formatter.line_with_margin("Customer: Walk In", margin_w)
-        formatter.bold_off()
-    elif order_type.lower() == "delivery":
-        formatter.bold_on()
-        formatter.line_with_margin("Delivery Order", margin_w)
+        formatter.line_with_margin(table_part, margin_w)
         formatter.bold_off()
 
     # Separator line (dashed/dotted)
@@ -423,7 +424,7 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
 
     # Separator line
     formatter.bold_on()
-    formatter.line_with_margin("-" * usable_chars)
+    formatter.line_with_margin("-" * usable_chars, margin_w)
     formatter.bold_off()
 
     # Special Note Section - positioned on right side area
@@ -498,50 +499,53 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
         formatter.bold_on().line(f"Name: {customer_name}").bold_off()
         formatter.divider()
 
-    # Date & Order Type on same line
+    # Date, Time, Order Type, Bill No., Token, Table No., and Cashier in a clean two-column grid format
     date_str = str(order.get("date", datetime.now().strftime("%d-%m-%y")))
+    # Strict formatting to ensure only HH:MM is printed for time (excluding seconds)
+    raw_time = order.get("time")
+    if raw_time:
+        time_parts = str(raw_time).strip().split(":")
+        if len(time_parts) >= 2:
+            time_str = f"{time_parts[0]}:{time_parts[1]}"
+        else:
+            time_str = str(raw_time)
+    else:
+        time_str = datetime.now().strftime("%H:%M")
     order_type = str(order.get("order_type") or order.get("orderType") or "Dine-In")
-    date_label = f"Date: {date_str}"
-    pad = max_chars - len(date_label) - len(order_type)
-    if pad < 1:
-        pad = 1
-
-    # Time
-    time_str = str(order.get("time", datetime.now().strftime("%H:%M")))
-
-    # Cashier & Bill No on same line
-    cashier = (
-        order.get("cashier") or order.get("cashier_name") or order.get("cashierName") or "Cashier"
-    )
     bill_no = str(
         order.get("bill_no") or order.get("bill_number") or order.get("billNumber") or "1"
     )
-    cashier_part = f"Cashier: {cashier}"
-    bill_no_part = f"Bill No.: {bill_no}"
-    pad2 = max_chars - len(cashier_part) - len(bill_no_part)
-    if pad2 < 1:
-        pad2 = 1
+    token_no = str(
+        order.get("token_no") or order.get("tokenNumber") or order.get("today_token") or ""
+    )
+    table_no = order.get("table_no") or order.get("tableNumber") or order.get("table") or ""
+    cashier = (
+        order.get("cashier") or order.get("cashier_name") or order.get("cashierName") or "Cashier"
+    )
+
+    col_w = max_chars // 2
+
+    def make_grid_row(left_str: str, right_str: str) -> str:
+        right_w = max_chars - col_w
+        return f"{left_str[:col_w-1]:<{col_w}}{right_str[:right_w-1]:>{right_w}}"
+
+    # Table formatting: only display Table No if order is Dine-In and custom number is provided
+    is_dine_in = order_type.lower() in ["dine-in", "dine in"]
+    table_part = ""
+    if is_dine_in and table_no:
+        table_no_str = str(table_no).strip()
+        if table_no_str:
+            if table_no_str.lower().startswith("table"):
+                table_part = table_no_str
+            else:
+                table_part = f"Table: {table_no_str}"
 
     formatter.bold_on()
-    formatter.line(f"{date_label}{' ' * pad}{order_type}")
-    formatter.line(f"Time: {time_str}")
-    formatter.line(f"{cashier_part}{' ' * pad2}{bill_no_part}")
+    formatter.line(make_grid_row(f"Date: {date_str}", f"Time: {time_str}"))
+    formatter.line(make_grid_row(f"Bill No: {bill_no}", table_part))
+    formatter.line(make_grid_row(f"Type: {order_type}", ""))
+    formatter.line(make_grid_row(f"Cashier: {cashier}", ""))
     formatter.bold_off()
-
-    # Token No. & Table No.
-    token_no = str(
-        order.get("token_no") or order.get("tokenNumber") or order.get("today_token") or "1"
-    )
-    token_line = f"Token No.: {token_no}"
-    table_no = order.get("table_no") or order.get("tableNumber") or order.get("table")
-    if table_no and order_type.lower() in ["dine-in", "dine in"]:
-        table_part = f"Table No: {table_no}"
-        pad3 = max_chars - len(token_line) - len(table_part)
-        if pad3 < 1:
-            pad3 = 1
-        formatter.bold_on().line(f"{token_line}{' ' * pad3}{table_part}").bold_off()
-    else:
-        formatter.bold_on().line(token_line).bold_off()
     formatter.divider()
 
     # Column widths

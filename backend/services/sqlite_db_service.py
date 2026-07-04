@@ -598,18 +598,32 @@ class SQLiteDatabaseService:
 
             return bills
 
-    def cancel_bill(self, bill_no: int) -> bool:
+    def cancel_bill(self, bill_id_or_no: int) -> bool:
         """Cancel a bill by updating its status"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                # 1. Try by unique ID first
                 cursor.execute(
                     """
                     UPDATE bills 
                     SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP
-                    WHERE bill_no = ?
+                    WHERE id = ?
                 """,
-                    (bill_no,),
+                    (bill_id_or_no,),
+                )
+                if cursor.rowcount > 0:
+                    conn.commit()
+                    return True
+
+                # 2. Fall back to today's bill_no
+                cursor.execute(
+                    """
+                    UPDATE bills 
+                    SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP
+                    WHERE bill_no = ? AND date(created_at) = date('now')
+                """,
+                    (bill_id_or_no,),
                 )
                 conn.commit()
                 return cursor.rowcount > 0

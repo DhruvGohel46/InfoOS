@@ -123,8 +123,8 @@ function waitForBackend(callback) {
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
+    width: 440,
+    height: 340,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -134,7 +134,30 @@ function createSplashWindow() {
     }
   });
 
-  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  // Read saved theme
+  let theme = 'dark';
+  try {
+    const { nativeTheme } = require('electron');
+    const themeFilePath = path.join(app.getPath('userData'), 'theme.json');
+    if (fs.existsSync(themeFilePath)) {
+      const data = JSON.parse(fs.readFileSync(themeFilePath, 'utf8'));
+      if (data && (data.theme === 'light' || data.theme === 'dark')) {
+        theme = data.theme;
+      }
+    } else {
+      theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    }
+  } catch (err) {
+    console.error('[main] Error reading theme file:', err.message);
+  }
+
+  const appVersion = app.getVersion();
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'), {
+    query: {
+      theme: theme,
+      version: appVersion
+    }
+  });
   
   splashWindow.on('closed', () => {
     splashWindow = null;
@@ -446,5 +469,16 @@ ipcMain.handle('file:save', async (event, filename, base64Data) => {
     console.error('[main] file:save error:', err.message);
     return { success: false, error: err.message };
   }
+});
+
+// Theme Persistence IPC
+ipcMain.handle('theme-changed', (event, theme) => {
+  try {
+    const themeFilePath = path.join(app.getPath('userData'), 'theme.json');
+    fs.writeFileSync(themeFilePath, JSON.stringify({ theme }), 'utf8');
+  } catch (err) {
+    console.error('[main] Failed to save theme preference:', err.message);
+  }
+  return true;
 });
 

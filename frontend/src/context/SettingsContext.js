@@ -57,6 +57,23 @@ export const applyDisplayPrefs = (config = {}) => {
 
     // Fallback scaling for rem-based units not using the direct variable
     root.style.fontSize = (fontScale * 100) + '%';
+
+    // Synchronize Display Zoom & Text Scale
+    try {
+        const zoom = localStorage.getItem('display_zoom');
+        const textScale = localStorage.getItem('text_scale');
+        if (zoom) {
+            if (window.electronAPI && window.electronAPI.setZoomFactor) {
+                window.electronAPI.setZoomFactor(parseFloat(zoom));
+                root.style.setProperty('--display-zoom', 1);
+            } else {
+                root.style.setProperty('--display-zoom', zoom);
+            }
+        }
+        if (textScale) {
+            root.style.setProperty('--text-scale', textScale);
+        }
+    } catch (_) {}
 };
 
 export const SettingsProvider = ({ children }) => {

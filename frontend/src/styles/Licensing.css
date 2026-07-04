@@ -528,3 +528,64 @@
   color: var(--text-secondary);
   opacity: 0.85;
 }
+
+/* ─── Light Theme Overrides ─────────────────────────────────────────── */
+[data-theme="light"] .licensing-container {
+  background: radial-gradient(circle at top left, #F1F5F9, #F8FAFC 50%, #FFF7ED);
+  color: #111827;
+}
+
+[data-theme="light"] .licensing-container::before {
+  opacity: 0.15;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1px, transparent 1px);
+}
+
+[data-theme="light"] .licensing-card {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 30px 80px rgba(17, 24, 39, 0.06);
+}
+
+[data-theme="light"] .licensing-logo-sub {
+  color: rgba(17, 24, 39, 0.5);
+}
+
+[data-theme="light"] .licensing-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .licensing-desc {
+  color: rgba(17, 24, 39, 0.7);
+}
+
+[data-theme="light"] .licensing-step-dot {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .licensing-step-dot.active {
+  background: var(--primary-500, #f97316);
+}
+
+[data-theme="light"] .licensing-step-line {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .licensing-label {
+  color: rgba(17, 24, 39, 0.6);
+}
+
+[data-theme="light"] .licensing-input {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #111827;
+}
+
+[data-theme="light"] .licensing-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .licensing-input:focus {
+  background: #FFFFFF;
+  border-color: var(--primary-500, #f97316);
+  box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.12);
+}
