@@ -358,32 +358,13 @@ const GroupManagement = () => {
           </div>
           
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div className="glass-card" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '0 16px',
-              height: '42px',
-              borderRadius: '10px',
-              minWidth: '300px',
-              border: '1px solid var(--glass-border)',
-              background: 'rgba(255, 255, 255, 0.03)'
-            }}>
-              <IoSearchOutline size={18} color="var(--text-secondary)" style={{ opacity: 0.7 }} />
+            <div className="gm-search-container">
+              <IoSearchOutline className="gm-search-icon" size={18} />
               <input
-                className="pmInput"
+                className="gm-search-input"
                 placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  background: 'transparent',
-                  padding: 0,
-                  fontSize: '14px',
-                  color: 'var(--text-primary)',
-                  outline: 'none'
-                }}
               />
             </div>
             <Button
@@ -867,32 +848,13 @@ const GroupManagement = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <div className="glass-card" style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '0 16px',
-                  height: '42px',
-                  borderRadius: '10px',
-                  minWidth: '280px',
-                  border: '1px solid var(--glass-border)',
-                  background: 'rgba(255, 255, 255, 0.03)'
-                }}>
-                  <IoSearchOutline size={18} color="var(--text-secondary)" style={{ opacity: 0.7 }} />
+                <div className="gm-search-container" style={{ minWidth: '280px' }}>
+                  <IoSearchOutline className="gm-search-icon" size={18} />
                   <input
-                    className="pmInput"
+                    className="gm-search-input"
                     placeholder="Search categories..."
                     value={categorySearchTerm}
                     onChange={(e) => setCategorySearchTerm(e.target.value)}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      background: 'transparent',
-                      padding: 0,
-                      fontSize: '14px',
-                      color: 'var(--text-primary)',
-                      outline: 'none'
-                    }}
                   />
                 </div>
                 <Button

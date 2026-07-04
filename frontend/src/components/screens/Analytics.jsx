@@ -1526,7 +1526,6 @@ const Analytics = () => {
                                         fontWeight: 600,
                                         cursor: 'pointer',
                                         transition: 'all 200ms ease',
-                                        display: 'flex',
                                         alignItems: 'center',
                                         gap: '6px'
                                     }}
@@ -1545,167 +1544,167 @@ const Analytics = () => {
                                 </button>
                             </div>
 
-                            {/* Responsive Two-Column Layout */}
+                            {/* Full-width Responsive Grid Layout */}
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'minmax(0, 5.5fr) minmax(0, 4.5fr)',
-                                gap: '20px'
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+                                gap: '16px',
+                                width: '100%'
                             }}>
-                                {/* LEFT COLUMN: REPORT CARDS */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {[
-                                        {
-                                            id: 'excel',
-                                            title: 'Daily Sales Report',
-                                            badge: 'Sales',
-                                            desc: 'Detailed breakdown of items sold, summaries, and profits for a specific date.',
-                                            color: '#3B82F6',
-                                            icon: <IoTodayOutline size={16} />,
-                                            control: <GlobalDatePicker value={dailyReportDate} onChange={setDailyReportDate} />,
-                                            actionText: downloading.excel ? 'Generating...' : 'Download Excel',
-                                            action: () => handleDownload('excel', '', `Daily_Sales_${dailyReportDate}.xlsx`, dailyReportDate),
-                                            disabled: downloading.excel
-                                        },
-                                        {
-                                            id: 'weekly',
-                                            title: 'Weekly Sales Summary',
-                                            badge: 'Sales',
-                                            desc: 'Aggregated product overview and revenues from Monday to Sunday.',
-                                            color: '#F59E0B',
-                                            icon: <IoCalendarOutline size={16} />,
-                                            control: <GlobalDatePicker value={exportWeekDate} onChange={setExportWeekDate} />,
-                                            actionText: downloading.weekly ? 'Generating...' : 'Download Excel',
-                                            action: handleWeeklyExport,
-                                            disabled: downloading.weekly
-                                        },
-                                        {
-                                            id: 'monthly',
-                                            title: 'Monthly Sales Summary',
-                                            badge: 'Sales',
-                                            desc: 'Monthly product-wise totals and overall gross sales report.',
-                                            color: '#10B981',
-                                            icon: <IoBarChartOutline size={16} />,
-                                            control: <input type="month" className="transactions-date-input" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} style={{ width: '130px', padding: '6px 10px', height: '34px', background: 'var(--bg-primary)', border: '1px solid var(--border-secondary)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }} />,
-                                            actionText: downloading.monthly ? 'Generating...' : 'Download Excel',
-                                            action: handleMonthlyExport,
-                                            disabled: downloading.monthly
-                                        },
-                                        {
-                                            id: 'expense_weekly',
-                                            title: 'Weekly Expense Report',
-                                            badge: 'Expenses',
-                                            desc: 'Categorized business outflows and details recorded for the current week.',
-                                            color: '#FF8C42',
-                                            icon: <IoWalletOutline size={16} />,
-                                            actionText: 'Download',
-                                            action: () => handleDownload('expense_excel', '', 'Weekly_Expenses.xlsx', 'week')
-                                        },
-                                        {
-                                            id: 'expense_monthly',
-                                            title: 'Monthly Expense Report',
-                                            badge: 'Expenses',
-                                            desc: 'Detailed monthly accounting report for utility, supplier and operational costs.',
-                                            color: '#06B6D4',
-                                            icon: <IoStatsChartOutline size={16} />,
-                                            actionText: 'Download',
-                                            action: () => handleDownload('expense_excel', '', 'Monthly_Expenses.xlsx', 'month')
-                                        },
-                                        {
-                                            id: 'expense_yearly',
-                                            title: 'Yearly Expense Audit',
-                                            badge: 'Audit',
-                                            desc: 'Year-to-date business expenses breakdown and category summaries.',
-                                            color: '#8B5CF6',
-                                            icon: <IoBusinessOutline size={16} />,
-                                            actionText: 'Download',
-                                            action: () => handleDownload('expense_excel', '', 'Yearly_Expenses.xlsx', 'year')
-                                        }
-                                    ].map((report) => (
-                                        <div
-                                            key={report.id}
-                                            style={{
-                                                background: 'var(--surface-primary)',
-                                                border: '1px solid var(--border-secondary)',
-                                                borderRadius: '12px',
-                                                padding: '12px 16px',
+                                {[
+                                    {
+                                        id: 'excel',
+                                        title: 'Daily Sales Report',
+                                        badge: 'Sales',
+                                        desc: 'Detailed breakdown of items sold, summaries, and profits for a specific date.',
+                                        color: '#3B82F6',
+                                        icon: <IoTodayOutline size={16} />,
+                                        control: <GlobalDatePicker value={dailyReportDate} onChange={setDailyReportDate} />,
+                                        actionText: downloading.excel ? 'Generating...' : 'Download Excel',
+                                        action: () => handleDownload('excel', '', `Daily_Sales_${dailyReportDate}.xlsx`, dailyReportDate),
+                                        disabled: downloading.excel
+                                    },
+                                    {
+                                        id: 'weekly',
+                                        title: 'Weekly Sales Summary',
+                                        badge: 'Sales',
+                                        desc: 'Aggregated product overview and revenues from Monday to Sunday.',
+                                        color: '#F59E0B',
+                                        icon: <IoCalendarOutline size={16} />,
+                                        control: <GlobalDatePicker value={exportWeekDate} onChange={setExportWeekDate} />,
+                                        actionText: downloading.weekly ? 'Generating...' : 'Download Excel',
+                                        action: handleWeeklyExport,
+                                        disabled: downloading.weekly
+                                    },
+                                    {
+                                        id: 'monthly',
+                                        title: 'Monthly Sales Summary',
+                                        badge: 'Sales',
+                                        desc: 'Monthly product-wise totals and overall gross sales report.',
+                                        color: '#10B981',
+                                        icon: <IoBarChartOutline size={16} />,
+                                        control: <input type="month" className="transactions-date-input" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} style={{ width: '130px', padding: '6px 10px', height: '34px', background: 'var(--bg-primary)', border: '1px solid var(--border-secondary)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }} />,
+                                        actionText: downloading.monthly ? 'Generating...' : 'Download Excel',
+                                        action: handleMonthlyExport,
+                                        disabled: downloading.monthly
+                                    },
+                                    {
+                                        id: 'expense_weekly',
+                                        title: 'Weekly Expense Report',
+                                        badge: 'Expenses',
+                                        desc: 'Categorized business outflows and details recorded for the current week.',
+                                        color: '#FF8C42',
+                                        icon: <IoWalletOutline size={16} />,
+                                        actionText: 'Download',
+                                        action: () => handleDownload('expense_excel', '', 'Weekly_Expenses.xlsx', 'week')
+                                    },
+                                    {
+                                        id: 'expense_monthly',
+                                        title: 'Monthly Expense Report',
+                                        badge: 'Expenses',
+                                        desc: 'Detailed monthly accounting report for utility, supplier and operational costs.',
+                                        color: '#06B6D4',
+                                        icon: <IoStatsChartOutline size={16} />,
+                                        actionText: 'Download',
+                                        action: () => handleDownload('expense_excel', '', 'Monthly_Expenses.xlsx', 'month')
+                                    },
+                                    {
+                                        id: 'expense_yearly',
+                                        title: 'Yearly Expense Audit',
+                                        badge: 'Audit',
+                                        desc: 'Year-to-date business expenses breakdown and category summaries.',
+                                        color: '#8B5CF6',
+                                        icon: <IoBusinessOutline size={16} />,
+                                        actionText: 'Download',
+                                        action: () => handleDownload('expense_excel', '', 'Yearly_Expenses.xlsx', 'year')
+                                    }
+                                ].map((report) => (
+                                    <div
+                                        key={report.id}
+                                        style={{
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '12px',
+                                            padding: '12px 16px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '16px',
+                                            transition: 'all 200ms ease'
+                                        }}
+                                        className="report-item-hover-border"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                            <div style={{
+                                                width: '34px',
+                                                height: '34px',
+                                                borderRadius: '8px',
+                                                background: `${report.color}15`,
+                                                color: report.color,
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                gap: '16px',
-                                                transition: 'all 200ms ease'
-                                            }}
-                                            className="report-item-hover-border"
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                                <div style={{
-                                                    width: '34px',
-                                                    height: '34px',
-                                                    borderRadius: '8px',
-                                                    background: `${report.color}15`,
-                                                    color: report.color,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {report.icon}
-                                                </div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <span style={{ fontWeight: 650, fontSize: '0.92rem', color: 'var(--text-primary)' }}>{report.title}</span>
-                                                        <span style={{
-                                                            fontSize: '0.68rem',
-                                                            fontWeight: 700,
-                                                            padding: '2px 6px',
-                                                            borderRadius: '4px',
-                                                            background: 'rgba(255,255,255,0.05)',
-                                                            border: '1px solid var(--border-secondary)',
-                                                            color: 'var(--text-secondary)',
-                                                            textTransform: 'uppercase',
-                                                            letterSpacing: '0.02em'
-                                                        }}>{report.badge}</span>
-                                                    </div>
-                                                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.3, maxWidth: '340px' }}>{report.desc}</p>
-                                                </div>
+                                                justifyContent: 'center',
+                                                flexShrink: 0
+                                            }}>
+                                                {report.icon}
                                             </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                                                {report.control && <div style={{ transform: 'scale(0.9)', transformOrigin: 'right' }}>{report.control}</div>}
-                                                <button
-                                                    onClick={report.action}
-                                                    disabled={report.disabled}
-                                                    style={{
-                                                        height: '32px',
-                                                        padding: '0 14px',
-                                                        borderRadius: '6px',
-                                                        background: 'transparent',
-                                                        border: '1px solid var(--primary-500)',
-                                                        color: 'var(--primary-500)',
-                                                        fontSize: '0.8rem',
-                                                        fontWeight: 650,
-                                                        cursor: 'pointer',
-                                                        transition: 'all 200ms ease',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.background = 'var(--primary-500)';
-                                                        e.currentTarget.style.color = '#ffffff';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.background = 'transparent';
-                                                        e.currentTarget.style.color = 'var(--primary-500)';
-                                                    }}
-                                                >
-                                                    <IoDownloadOutline size={13} />
-                                                    {report.actionText}
-                                                </button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontWeight: 650, fontSize: '0.92rem', color: 'var(--text-primary)' }}>{report.title}</span>
+                                                    <span style={{
+                                                        fontSize: '0.68rem',
+                                                        fontWeight: 700,
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        background: 'rgba(255,255,255,0.05)',
+                                                        border: '1px solid var(--border-secondary)',
+                                                        color: 'var(--text-secondary)',
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.02em'
+                                                    }}>{report.badge}</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.3, maxWidth: '340px' }}>{report.desc}</p>
                                             </div>
                                         </div>
-                                    ))}
 
-                                    {/* MASTER FINANCIAL SHEET FEATURED CARD */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                                            {report.control && <div style={{ transform: 'scale(0.9)', transformOrigin: 'right' }}>{report.control}</div>}
+                                            <button
+                                                onClick={report.action}
+                                                disabled={report.disabled}
+                                                style={{
+                                                    height: '32px',
+                                                    padding: '0 14px',
+                                                    borderRadius: '6px',
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--primary-500)',
+                                                    color: 'var(--primary-500)',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 650,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 200ms ease',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = 'var(--primary-500)';
+                                                    e.currentTarget.style.color = '#ffffff';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = 'transparent';
+                                                    e.currentTarget.style.color = 'var(--primary-500)';
+                                                }}
+                                            >
+                                                <IoDownloadOutline size={13} />
+                                                {report.actionText}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* MASTER FINANCIAL SHEET FEATURED CARD */}
+                                <div style={{ gridColumn: '1 / -1' }}>
                                     <div style={{
                                         background: 'rgba(255, 140, 66, 0.04)',
                                         border: '1.5px solid var(--primary-500)',
@@ -1746,7 +1745,7 @@ const Analytics = () => {
                                                         letterSpacing: '0.04em'
                                                     }}>Most Used</span>
                                                 </div>
-                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.3 }}>Combined Sales & Expense Audit (Yearly summary format).</p>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.35 }}>Combined Sales & Expense Audit (Yearly summary format).</p>
                                             </div>
                                         </div>
                                         <button
@@ -1778,127 +1777,6 @@ const Analytics = () => {
                                             <IoDownloadOutline size={15} />
                                             Generate Report
                                         </button>
-                                    </div>
-                                </div>
-
-                                {/* RIGHT COLUMN: SUMMARY, DOWNLOADS, INTEGRITY */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    
-                                    {/* SECTION 1: RECENT DOWNLOADS */}
-                                    <div style={{
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '12px',
-                                        padding: '16px'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>Recent Downloads</span>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--primary-500)', fontWeight: 600, cursor: 'pointer' }}>View All</span>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {[
-                                                { name: `Daily_Sales_Report_${getLocalDateString()}.xlsx`, type: 'Sales Report', time: 'Just now' },
-                                                { name: 'Monthly_Sales_Report_06_2026.xlsx', type: 'Sales Summary', time: '2 hours ago' },
-                                                { name: 'Weekly_Expenses_Audit_W26.xlsx', type: 'Expense List', time: 'Yesterday' },
-                                                { name: 'sample_sales_report.xlsx', type: 'Sample format', time: '3 days ago' },
-                                                { name: 'bills_export_today.csv', type: 'Raw CSV', time: '4 days ago' }
-                                            ].map((file, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        padding: '8px 10px',
-                                                        background: 'var(--bg-primary)',
-                                                        borderRadius: '8px',
-                                                        border: '1px solid var(--border-secondary)'
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                                        <div style={{ color: 'var(--primary-500)', flexShrink: 0 }}>📄</div>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{file.name}</span>
-                                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>{file.type}</span>
-                                                        </div>
-                                                    </div>
-                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>{file.time}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* SECTION 2: REPORT STATISTICS */}
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr',
-                                        gap: '10px'
-                                    }}>
-                                        {[
-                                            { label: 'Reports Generated', val: '24', color: 'var(--primary-500)' },
-                                            { label: 'Total Downloads', val: '142', color: '#10B981' },
-                                            { label: 'Storage Used', val: '2.4 MB', color: '#3B82F6' },
-                                            { label: 'Last Backup', val: '10m ago', color: '#FF8C42' }
-                                        ].map((stat, idx) => (
-                                            <div
-                                                key={idx}
-                                                style={{
-                                                    background: 'var(--surface-primary)',
-                                                    border: '1px solid var(--border-secondary)',
-                                                    borderRadius: '10px',
-                                                    padding: '10px 12px',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '4px'
-                                                }}
-                                            >
-                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{stat.label}</span>
-                                                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>{stat.val}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* SECTION 3: SYSTEM INFORMATION */}
-                                    <div style={{
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '12px',
-                                        padding: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px'
-                                    }}>
-                                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>System Information</span>
-                                        
-                                        {/* Storage Status */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Storage Status</span>
-                                                <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>12% used (2.4 MB of 20MB local limit)</span>
-                                            </div>
-                                            <div style={{ width: '100%', height: '5px', background: 'var(--bg-primary)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{ width: '12%', height: '100%', background: 'var(--primary-500)', borderRadius: '3px' }} />
-                                            </div>
-                                        </div>
-
-                                        {/* Meta Indicators */}
-                                        {[
-                                            { label: 'Backup Status', val: 'Synchronized', color: '#10B981' },
-                                            { label: 'Data Integrity', val: 'Healthy', color: '#10B981' }
-                                        ].map((info, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                                                <span style={{ color: 'var(--text-secondary)' }}>{info.label}</span>
-                                                <span style={{
-                                                    fontSize: '0.68rem',
-                                                    fontWeight: 750,
-                                                    padding: '2px 8px',
-                                                    borderRadius: '4px',
-                                                    background: `${info.color}15`,
-                                                    color: info.color,
-                                                    border: `1px solid ${info.color}30`
-                                                }}>{info.val}</span>
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
                             </div>

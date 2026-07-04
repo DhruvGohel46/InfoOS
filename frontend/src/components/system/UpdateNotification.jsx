@@ -40,42 +40,53 @@ const UpdateNotification = () => {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
+        initial={{ opacity: 0, x: '-50%', y: 50 }}
+        animate={{ opacity: 1, x: '-50%', y: 0 }}
+        exit={{ opacity: 0, x: '-50%', y: 50 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 250 }}
         style={{
           position: 'fixed',
           bottom: '24px',
-          right: '24px',
-          backgroundColor: 'var(--surface-color, #1e1e1e)',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          border: '1px solid var(--border-color, #333)',
+          left: '50%',
+          width: '360px',
+          background: 'var(--glass-modal, rgba(18, 22, 30, 0.88))',
+          backdropFilter: 'var(--glass-blur-strong, blur(20px))',
+          WebkitBackdropFilter: 'var(--glass-blur-strong, blur(20px))',
+          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+          borderRadius: '16px',
+          boxShadow: 'var(--shadow-modal, 0 20px 40px rgba(0, 0, 0, 0.4))',
+          padding: '16px 20px',
           zIndex: 9999,
-          width: '320px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px'
+          gap: '14px',
+          boxSizing: 'border-box'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
             width: '40px', height: '40px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--primary-color, #3b82f6)',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(249, 115, 22, 0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontSize: '20px'
+            color: 'var(--primary-500, #F97316)', 
+            fontSize: '20px',
+            flexShrink: 0,
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05)'
           }}>
-            ↓
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
           </div>
-          <div>
-            <h4 style={{ margin: 0, color: 'var(--text-primary, #fff)' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h4 style={{ margin: 0, color: 'var(--text-primary, #fff)', fontSize: '14px', fontWeight: 700 }}>
               {updateStatus === 'available' && 'Update Available'}
               {updateStatus === 'downloading' && 'Downloading Update...'}
               {updateStatus === 'downloaded' && 'Update Ready!'}
             </h4>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary, #aaa)' }}>
+            <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: 'var(--text-secondary, #a1a1aa)', lineHeight: 1.35, whiteSpace: 'normal' }}>
               {updateStatus === 'downloading' 
                 ? `${progress}% completed. Please wait.` 
                 : updateStatus === 'downloaded'
@@ -86,11 +97,12 @@ const UpdateNotification = () => {
         </div>
 
         {updateStatus === 'downloading' && (
-          <div style={{ width: '100%', height: '6px', backgroundColor: '#333', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              style={{ height: '100%', backgroundColor: 'var(--primary-color, #3b82f6)' }}
+              transition={{ ease: 'easeOut', duration: 0.1 }}
+              style={{ height: '100%', background: 'linear-gradient(90deg, var(--primary-500, #F97316), #FB923C)' }}
             />
           </div>
         )}
@@ -98,7 +110,15 @@ const UpdateNotification = () => {
         {updateStatus === 'downloaded' && (
           <Button 
             variant="primary" 
-            style={{ width: '100%', marginTop: '8px' }}
+            style={{ 
+              width: '100%', 
+              height: '38px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+              boxShadow: '0 4px 12px rgba(249, 115, 22, 0.25)'
+            }}
             onClick={() => window.electronAPI.installUpdate()}
           >
             Restart & Install

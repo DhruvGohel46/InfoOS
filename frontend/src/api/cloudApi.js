@@ -17,6 +17,19 @@ export const cloudApi = axios.create({
 // Request interceptor to dynamically attach the cloud JWT
 let _cloudToken = localStorage.getItem('cloud_auth_token') || null;
 
+cloudApi.interceptors.request.use(
+  (config) => {
+    const token = _cloudToken || localStorage.getItem('cloud_auth_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export const setCloudAuthToken = (token) => {
   _cloudToken = token;
   if (token) {

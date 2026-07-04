@@ -108,6 +108,7 @@ const AttendanceModal = ({
                 addToast('✅ Check-in successful', 
                     `${attendanceData[workerId]?.worker?.name} checked in successfully`);
                 onAttendanceUpdate?.();
+                window.dispatchEvent(new CustomEvent('worker-attendance-updated'));
             } else {
                 throw new Error(response.message || 'Check-in failed');
             }
@@ -147,6 +148,7 @@ const AttendanceModal = ({
                 addToast('✅ Check-out successful', 
                     `${attendanceData[workerId]?.worker?.name} checked out successfully`);
                 onAttendanceUpdate?.();
+                window.dispatchEvent(new CustomEvent('worker-attendance-updated'));
             } else {
                 throw new Error(response.message || 'Check-out failed');
             }
@@ -187,6 +189,7 @@ const AttendanceModal = ({
                 addToast('📝 Marked absent', 
                     `${attendanceData[workerId]?.worker?.name} marked as absent`);
                 onAttendanceUpdate?.();
+                window.dispatchEvent(new CustomEvent('worker-attendance-updated'));
             } else {
                 throw new Error(response.message || 'Failed to mark absent');
             }
@@ -239,6 +242,7 @@ const AttendanceModal = ({
                 showSuccess('✅ Bulk attendance marked', 
                     `${successful} workers marked as present${failed > 0 ? `, ${failed} failed` : ''}`);
                 onAttendanceUpdate?.();
+                window.dispatchEvent(new CustomEvent('worker-attendance-updated'));
             }
             
             if (failed > 0) {

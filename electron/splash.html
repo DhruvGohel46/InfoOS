@@ -4,58 +4,137 @@
     <meta charset="UTF-8">
     <title>InfoOS POS Loading</title>
     <style>
-        body {
-            background-color: #0d1117;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&display=swap');
+
+        html, body {
+            background: transparent;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-app-region: drag; /* Allows dragging the frameless window */
+        }
+
+        .splash-card {
+            width: 380px;
+            height: 280px;
+            background: rgba(12, 16, 22, 0.85);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            box-shadow: 
+                0 20px 50px rgba(0, 0, 0, 0.45),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            user-select: none;
-            overflow: hidden;
-            -webkit-app-region: drag; /* Allows moving the window */
+            gap: 24px;
+            position: relative;
+            box-sizing: border-box;
+            padding: 32px;
         }
+
+        /* Subtle glowing background circles inside the splash window */
+        .glow {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(249, 115, 22, 0.08) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
         .logo-container {
-            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 1;
         }
+
         .logo {
-            font-size: 3rem;
-            font-weight: bold;
-            background: linear-gradient(90deg, #58a6ff, #3fb950);
+            font-family: 'Outfit', sans-serif;
+            font-size: 38px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 12px rgba(249, 115, 22, 0.2));
         }
+
+        .subtitle {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.35);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
         .spinner {
             width: 40px;
             height: 40px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-left-color: #58a6ff;
+            border: 3.5px solid rgba(255, 255, 255, 0.04);
+            border-left-color: #F97316;
+            border-top-color: #F97316;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            animation: spin 1s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+            filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.35));
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         .status {
-            font-size: 1rem;
-            color: #8b949e;
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: -0.01em;
+            z-index: 1;
+            height: 20px;
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
 <body>
-    <div class="logo-container">
-        <div class="logo">InfoOS</div>
+    <div class="splash-card">
+        <div class="glow"></div>
+        <div class="logo-container">
+            <div class="logo">InfoOS</div>
+            <div class="subtitle">BILLING SYSTEM</div>
+        </div>
+        <div class="spinner-container">
+            <div class="spinner"></div>
+        </div>
+        <div class="status" id="status-text">Starting POS system</div>
     </div>
-    <div class="spinner"></div>
-    <div class="status" id="status-text">Starting backend server...</div>
 
     <script>
-        // Simple client-side text updates if needed.
         let dots = 0;
         const baseText = "Starting POS system";
         const textElement = document.getElementById("status-text");
@@ -63,7 +142,7 @@
         setInterval(() => {
             dots = (dots + 1) % 4;
             textElement.textContent = baseText + ".".repeat(dots);
-        }, 500);
+        }, 400);
     </script>
 </body>
 </html>

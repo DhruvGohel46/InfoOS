@@ -14,12 +14,13 @@ import {
     IoWalletOutline,
     IoCashOutline,
     IoCalendarOutline,
-    IoDocumentTextOutline
+    IoDocumentTextOutline,
+    IoCheckmarkCircle
 } from 'react-icons/io5';
 import { formatCurrency } from '../../utils/api';
 
 /* ─── Action Menu ─── */
-const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
+const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setOpen }) => {
     return (
         <div style={{ position: 'relative' }}>
             <motion.button
@@ -70,7 +71,11 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, open, setOpen }) => {
                                 height: 1, margin: '6px 8px',
                                 background: 'rgba(255,255,255,0.06)',
                             }} />
-                            <MenuItem icon={IoTrash} label="Delete Worker" onClick={() => { onDelete(worker); setOpen(false); }} color="#EF4444" />
+                            {worker.status === 'inactive' ? (
+                                <MenuItem icon={IoCheckmarkCircle} label="Reactivate" onClick={() => { onReactivate(worker); setOpen(false); }} color="#10B981" />
+                            ) : (
+                                <MenuItem icon={IoTrash} label="Deactivate" onClick={() => { onDelete(worker); setOpen(false); }} color="#EF4444" />
+                            )}
                         </motion.div>
                     </>
                 )}
@@ -99,7 +104,7 @@ const MenuItem = ({ icon: Icon, label, onClick, color }) => {
 };
 
 /* ─── Worker Card (Square Design) ─── */
-const WorkerCard = ({ worker, onView, onEdit, onDelete, index }) => {
+const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     
     return (
@@ -137,6 +142,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, index }) => {
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onReactivate={onReactivate}
                     open={menuOpen}
                     setOpen={setMenuOpen}
                 />
@@ -326,7 +332,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, index }) => {
 };
 
 /* ─── Responsive Grid Container ─── */
-const WorkerTable = ({ workers, onView, onEdit, onDelete }) => {
+const WorkerTable = ({ workers, onView, onEdit, onDelete, onReactivate }) => {
     return (
         <div style={{
             display: 'grid',
@@ -342,6 +348,7 @@ const WorkerTable = ({ workers, onView, onEdit, onDelete }) => {
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onReactivate={onReactivate}
                     index={i}
                 />
             ))}

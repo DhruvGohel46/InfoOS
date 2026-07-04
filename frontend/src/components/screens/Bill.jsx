@@ -194,8 +194,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
   const [savingLayout, setSavingLayout] = useState(false);
 
   const startEditMode = () => {
-    // Categories: filter out favorites
-    const activeCats = bootstrapCategories.filter(c => c.id !== 'favorites');
+    // Categories: filter out favorites, and filter by selected group if not 'all'
+    let activeCats = bootstrapCategories.filter(c => c.id !== 'favorites');
+    if (selectedGroupId !== 'all') {
+      activeCats = activeCats.filter(c => c.group_id === parseInt(selectedGroupId));
+    }
     setEditableCategories(activeCats);
 
     // Products: filter products for the current selected category
@@ -2070,7 +2073,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               style={{
 
-                padding: 'calc(8px * var(--display-zoom, 1))',
+                padding: 'calc(5px * var(--display-zoom, 1))',
 
                 borderRadius: '8px',
 
@@ -2082,7 +2085,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 fontWeight: 600,
 
-                fontSize: '14px',
+                fontSize: '12.5px',
 
                 cursor: 'pointer',
 
@@ -2110,7 +2113,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               style={{
 
-                padding: 'calc(8px * var(--display-zoom, 1))',
+                padding: 'calc(5px * var(--display-zoom, 1))',
 
                 borderRadius: '8px',
 
@@ -2122,7 +2125,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 fontWeight: 600,
 
-                fontSize: '14px',
+                fontSize: '12.5px',
 
                 cursor: 'pointer',
 
@@ -2158,11 +2161,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               alignItems: 'center',
 
-              gap: '10px',
+              gap: '6px',
 
-              marginBottom: 'calc(12px * var(--display-zoom, 1))',
+              marginBottom: 'calc(8px * var(--display-zoom, 1))',
 
-              padding: 'calc(8px * var(--display-zoom, 1))',
+              padding: 'calc(5px * var(--display-zoom, 1))',
 
               borderRadius: '8px',
 
@@ -2172,7 +2175,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             }}>
 
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Table Number:</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Table Number:</span>
 
               <input
 
@@ -2188,7 +2191,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                   flex: 1,
 
-                  padding: '4px 8px',
+                  padding: '3px 6px',
 
                   borderRadius: '6px',
 
@@ -2198,7 +2201,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                   color: 'var(--text-primary)',
 
-                  fontSize: '13px',
+                  fontSize: '12px',
 
                   fontWeight: 600,
 
@@ -2288,15 +2291,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 gridTemplateColumns: '2fr 1fr 1fr',
 
-                fontSize: currentTheme.typography.fontSize.xs,
+                fontSize: '11px',
 
                 fontWeight: currentTheme.typography.fontWeight.semibold,
 
                 color: currentTheme.colors.text.secondary,
 
-                marginBottom: currentTheme.spacing[3],
+                marginBottom: '6px',
 
-                paddingBottom: currentTheme.spacing[2],
+                paddingBottom: '4px',
 
                 borderBottom: `1px solid ${currentTheme.colors.border}`,
 
@@ -2328,7 +2331,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                   alignItems: 'center',
 
-                  padding: `${currentTheme.spacing[2]} 0`,
+                  padding: '3px 0',
 
                   borderBottom: `1px solid ${currentTheme.colors.border}`,
 
@@ -2338,7 +2341,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                     <div style={{
 
-                      fontSize: currentTheme.typography.fontSize.sm,
+                      fontSize: '12.5px',
 
                       fontWeight: currentTheme.typography.fontWeight.medium,
 
@@ -2352,7 +2355,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                     <div style={{
 
-                      fontSize: currentTheme.typography.fontSize.xs,
+                      fontSize: '10.5px',
 
                       color: currentTheme.colors.text.secondary,
 
@@ -2376,7 +2379,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                       justifyContent: 'center',
 
-                      gap: currentTheme.spacing[1],
+                      gap: '2px',
 
                     }}>
 
@@ -2388,7 +2391,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                         onClick={() => updateQuantity(lineKey, item.quantity - 1)}
 
-                        style={{ minWidth: '28px', padding: '0' }}
+                        style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
 
                       >
 
@@ -2396,7 +2399,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                       </Button>
 
-                      <span style={{ minWidth: '30px', textAlign: 'center' }}>
+                      <span style={{ minWidth: '24px', textAlign: 'center', fontSize: '12px' }}>
 
                         {item.quantity}
 
@@ -2410,7 +2413,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                         onClick={() => updateQuantity(lineKey, item.quantity + 1)}
 
-                        style={{ minWidth: '28px', padding: '0' }}
+                        style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
 
                       >
 
@@ -2424,7 +2427,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', fontSize: '12.5px', fontFamily: 'monospace' }}>
 
                     {formatCurrency(item.price * item.quantity)}
 
@@ -2446,7 +2449,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           borderTop: `1px solid ${currentTheme.colors.border}`,
 
-          padding: '20px',
+          padding: '12px 16px',
 
           backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8F9FA'
 
@@ -2464,29 +2467,29 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             alignItems: 'center',
 
-            marginBottom: '20px',
+            marginBottom: '12px',
 
-            padding: '20px 24px',
+            padding: '12px 16px',
 
             backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
 
-            borderRadius: '16px',
+            borderRadius: '12px',
 
             border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E5E7EB',
 
-            boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.3)' : '0 4px 20px rgba(0,0,0,0.08)'
+            boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.2)' : '0 2px 10px rgba(0,0,0,0.04)'
 
           }}>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
               <div style={{
 
-                width: '40px',
+                width: '30px',
 
-                height: '40px',
+                height: '30px',
 
-                borderRadius: '10px',
+                borderRadius: '8px',
 
                 background: 'rgba(249, 115, 22, 0.1)',
 
@@ -2494,17 +2497,19 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 alignItems: 'center',
 
-                justifyContent: 'center'
+                justifyContent: 'center',
+
+                flexShrink: 0
 
               }}>
 
-                <IoReceiptOutline size={20} color="#F97316" />
+                <IoReceiptOutline size={16} color="#F97316" />
 
               </div>
 
               <span style={{
 
-                fontSize: '13px',
+                fontSize: '11px',
 
                 color: currentTheme.colors.text.secondary,
 
@@ -2520,7 +2525,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             <span style={{
 
-              fontSize: '32px',
+              fontSize: '24px',
 
               fontFamily: 'monospace',
 
@@ -2548,7 +2553,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             gridTemplateColumns: '1fr 1fr',
 
-            gap: '12px'
+            gap: '8px'
 
           }}>
 
@@ -2564,15 +2569,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               disabled={isPrinting}
 
-              icon={<IoSaveOutline size={18} />}
+              icon={<IoSaveOutline size={16} />}
 
               style={{
 
-                height: '56px',
+                height: '42px',
 
-                borderRadius: '14px',
+                borderRadius: '10px',
 
-                fontSize: '15px',
+                fontSize: '13px',
 
                 fontWeight: 600,
 
@@ -2582,7 +2587,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 justifyContent: 'center',
 
-                gap: '8px',
+                gap: '6px',
 
                 transition: 'all 0.2s ease'
 
@@ -2604,15 +2609,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               disabled={isPrinting}
 
-              icon={<IoPrintOutline size={18} />}
+              icon={<IoPrintOutline size={16} />}
 
               style={{
 
-                height: '56px',
+                height: '42px',
 
-                borderRadius: '14px',
+                borderRadius: '10px',
 
-                fontSize: '15px',
+                fontSize: '13px',
 
                 fontWeight: 600,
 
@@ -2622,7 +2627,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 justifyContent: 'center',
 
-                gap: '8px',
+                gap: '6px',
 
                 transition: 'all 0.2s ease'
 
@@ -2648,15 +2653,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               disabled={isPrinting}
 
-              icon={<IoDocumentTextOutline size={18} />}
+              icon={<IoDocumentTextOutline size={16} />}
 
               style={{
 
-                height: '56px',
+                height: '42px',
 
-                borderRadius: '14px',
+                borderRadius: '10px',
 
-                fontSize: '15px',
+                fontSize: '13px',
 
                 fontWeight: 600,
 
@@ -2666,7 +2671,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 justifyContent: 'center',
 
-                gap: '8px',
+                gap: '6px',
 
                 transition: 'all 0.2s ease'
 
@@ -2690,11 +2695,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               style={{
 
-                height: '56px',
+                height: '42px',
 
-                borderRadius: '14px',
+                borderRadius: '10px',
 
-                fontSize: '15px',
+                fontSize: '13px',
 
                 fontWeight: 700,
 
@@ -2704,11 +2709,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 justifyContent: 'center',
 
-                gap: '8px',
+                gap: '6px',
 
                 background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
 
-                boxShadow: '0 4px 20px rgba(249, 115, 22, 0.4)',
+                boxShadow: '0 2px 10px rgba(249, 115, 22, 0.3)',
 
                 transition: 'all 0.2s ease'
 
@@ -2716,9 +2721,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
               onMouseEnter={(e) => {
 
-                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
 
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(249, 115, 22, 0.5)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(249, 115, 22, 0.4)';
 
               }}
 
@@ -2726,7 +2731,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 e.currentTarget.style.transform = 'translateY(0)';
 
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(249, 115, 22, 0.4)';
+                e.currentTarget.style.boxShadow = '0 2px 10px rgba(249, 115, 22, 0.3)';
 
               }}
 
@@ -2736,7 +2741,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-                  <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                  <div className="animate-spin" style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
 
                   Printing...
 
@@ -2746,7 +2751,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 <>
 
-                  <IoReceiptOutline size={18} />
+                  <IoReceiptOutline size={16} />
 
                   BILL & KOT
 

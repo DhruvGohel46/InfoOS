@@ -65,33 +65,57 @@ class PrinterManager {
           try {
             resolve(JSON.parse(data));
           } catch (e) {
-            reject(new Error('Invalid JSON response from server'));
+            reject(new Error('Invalid response from print server'));
           }
         });
       });
 
-      req.on('error', (e) => reject(e));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Print server is not responding. Please check if the backend is running.'));
+      });
+
+      req.on('error', (e) => {
+        if (e.code === 'ECONNREFUSED') {
+          reject(new Error('Cannot connect to print server. Please restart the application.'));
+        } else {
+          reject(new Error(`Printer connection error: ${e.message}`));
+        }
+      });
+
       req.end();
     });
   }
 
   setupHandlers() {
+    // All handlers return {success, error} instead of throwing,
+    // which prevents Electron's "Error invoking remote method" wrapper.
     ipcMain.handle('print:bill', async (event, billNo) => {
-      return this.addJob('bill', billNo);
+      try {
+        return await this.addJob('bill', billNo);
+      } catch (error) {
+        console.error('[PrinterManager] IPC print:bill error:', error.message);
+        return { success: false, error: error.message };
+      }
     });
 
     ipcMain.handle('print:kot', async (event, billNo) => {
-      return this.addJob('kot', billNo);
+      try {
+        return await this.addJob('kot', billNo);
+      } catch (error) {
+        console.error('[PrinterManager] IPC print:kot error:', error.message);
+        return { success: false, error: error.message };
+      }
     });
 
     ipcMain.handle('print:billAndKOT', async (event, billNo) => {
       try {
         const billResult = await this.addJob('bill', billNo);
-        // Sequential wait is handled inside addJob's processQueue buffer
         const kotResult = await this.addJob('kot', billNo);
         return { success: true, billResult, kotResult };
       } catch (error) {
-        throw error;
+        console.error('[PrinterManager] IPC print:billAndKOT error:', error.message);
+        return { success: false, error: error.message };
       }
     });
 

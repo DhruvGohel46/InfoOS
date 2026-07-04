@@ -1259,3 +1259,59 @@
   background: var(--surface-hover);
   color: var(--text-primary);
 }
+
+/* Group Management Custom Search Redesign */
+.gm-search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 300px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-search-icon {
+  position: absolute;
+  left: 16px;
+  color: var(--text-tertiary) !important;
+  pointer-events: none;
+  transition: color 0.25s ease, transform 0.25s ease;
+  z-index: 5;
+}
+
+.gm-search-input {
+  width: 100% !important;
+  height: 42px !important;
+  padding: 10px 16px 10px 44px !important;
+  border-radius: var(--radius-xl) !important;
+  background: color-mix(in srgb, var(--glass-card) 75%, transparent) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+.gm-search-input::placeholder {
+  color: var(--text-tertiary) !important;
+  opacity: 0.8;
+}
+
+.gm-search-container:hover .gm-search-input {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: color-mix(in srgb, var(--glass-card) 85%, transparent) !important;
+}
+
+.gm-search-container:focus-within .gm-search-input {
+  border-color: var(--primary-500) !important;
+  background: color-mix(in srgb, var(--glass-card) 95%, transparent) !important;
+  box-shadow: 
+    0 0 0 3px color-mix(in srgb, var(--primary-500) 15%, transparent),
+    0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.gm-search-container:focus-within .gm-search-icon {
+  color: var(--primary-500) !important;
+  transform: translateY(-50%) scale(1.05);
+}

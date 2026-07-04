@@ -320,14 +320,27 @@ export const handleAPIError = (error) => {
 
 // Utility function to download files from blob responses
 export const downloadFile = (blob, filename) => {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+  if (window.electronAPI && window.electronAPI.saveFile) {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result.split(',')[1];
+        await window.electronAPI.saveFile(filename, base64Data);
+      } catch (err) {
+        console.error('Failed to save file via Electron IPC:', err);
+      }
+    };
+    reader.readAsDataURL(blob);
+  } else {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 };
 
 // Utility function to format currency

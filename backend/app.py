@@ -250,6 +250,75 @@ def db_health_check(app, db):
         _log.error("Database health check FAILED: %s", e)
 
 
+def migrate_worker_ids_to_sequential(app, db):
+    """Migrate any UUID-based worker IDs to shorter, sequential, human-readable IDs (e.g. W001, W002)."""
+    from models import Worker
+    from sqlalchemy import text
+
+    with app.app_context():
+        try:
+            # 1. Fetch all workers
+            workers = Worker.query.all()
+
+            # Find the highest existing sequential ID number
+            max_num = 0
+            uuid_workers = []
+            for w in workers:
+                if w.worker_id.startswith("W"):
+                    try:
+                        num = int(w.worker_id[1:])
+                        if num > max_num:
+                            max_num = num
+                    except ValueError:
+                        pass
+                else:
+                    # Treat as UUID worker to be migrated
+                    uuid_workers.append(w)
+
+            if not uuid_workers:
+                _log.info("No UUID worker IDs need migration.")
+                return
+
+            _log.info("Found %d workers with UUID IDs to migrate.", len(uuid_workers))
+
+            # 2. Migrate each UUID worker
+            for w in uuid_workers:
+                max_num += 1
+                new_id = f"W{max_num:03d}"
+                old_id = w.worker_id
+                _log.info("Migrating worker %s: %s -> %s", w.name, old_id, new_id)
+
+                # Update related tables directly via raw SQL to prevent foreign key conflicts during transition
+                db.session.execute(
+                    text("UPDATE advances SET worker_id = :new_id WHERE worker_id = :old_id"),
+                    {"new_id": new_id, "old_id": old_id},
+                )
+                db.session.execute(
+                    text(
+                        "UPDATE salary_payments SET worker_id = :new_id WHERE worker_id = :old_id"
+                    ),
+                    {"new_id": new_id, "old_id": old_id},
+                )
+                db.session.execute(
+                    text("UPDATE attendance SET worker_id = :new_id WHERE worker_id = :old_id"),
+                    {"new_id": new_id, "old_id": old_id},
+                )
+                db.session.execute(
+                    text("UPDATE expenses SET worker_id = :new_id WHERE worker_id = :old_id"),
+                    {"new_id": new_id, "old_id": old_id},
+                )
+                db.session.execute(
+                    text("UPDATE workers SET worker_id = :new_id WHERE worker_id = :old_id"),
+                    {"new_id": new_id, "old_id": old_id},
+                )
+
+            db.session.commit()
+            _log.info("Worker ID migration completed successfully.")
+        except Exception as e:
+            _log.error("Error during Worker ID migration: %s", e)
+            db.session.rollback()
+
+
 def run_programmatic_sqlite_migrations(app, db):
     """Execute dynamic alter statements for SQLite database columns that db.create_all() won't add."""
     from sqlalchemy import text
@@ -371,6 +440,7 @@ if __name__ == "__main__":
 
     # Perform Database Health Check
     db_health_check(app, db)
+    migrate_worker_ids_to_sequential(app, db)
 
     # Ensure data directory exists
     try:

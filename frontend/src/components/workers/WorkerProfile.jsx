@@ -58,6 +58,16 @@ const WorkerProfile = () => {
         loadData();
     }, [id, loadData]);
 
+    useEffect(() => {
+        const handleAttendanceUpdated = () => {
+            loadData();
+        };
+        window.addEventListener('worker-attendance-updated', handleAttendanceUpdated);
+        return () => {
+            window.removeEventListener('worker-attendance-updated', handleAttendanceUpdated);
+        };
+    }, [loadData]);
+
     const handleAddAdvance = async (e) => {
         e.preventDefault();
         setSubmittingAdvance(true);

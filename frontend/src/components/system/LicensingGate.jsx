@@ -200,9 +200,9 @@ export default function LicensingGate({ children }) {
               }
             } catch (e) {
               console.error('Background license refresh failed:', e);
-              // In production, if refresh fails, require re-login
-              setLicensingState({ status: 'login', errorMessage: 'License verification failed. Please log in again.' });
-              return;
+              // Do NOT force re-login if the cache is still within the offline grace period.
+              // Just fall through to allow offline/cached activation within the grace period.
+              console.log('Allowing access via cached activation due to background refresh failure.');
             }
           }
         }

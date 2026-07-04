@@ -430,3 +430,30 @@ ipcMain.handle('write-log', (event, payload) => {
   }
 });
 
+// File Save IPC — renderer → main (shows OS Save Dialog and writes file)
+ipcMain.handle('file:save', async (event, filename, base64Data) => {
+  try {
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: filename,
+      title: 'Save Report',
+      buttonLabel: 'Save',
+      filters: [
+        { name: 'Excel Files', extensions: ['xlsx'] },
+        { name: 'CSV Files', extensions: ['csv'] },
+        { name: 'XML Files', extensions: ['xml'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (filePath) {
+      const buffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      return { success: true };
+    }
+    return { success: false, cancelled: true };
+  } catch (err) {
+    console.error('[main] file:save error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+

@@ -170,7 +170,7 @@ const Settings = () => {
 
     // Listen for updater changes
     useEffect(() => {
-        if (activeTab === 'about') {
+        if (activeTab === 'cloud') {
             loadSystemInfo();
         }
     }, [activeTab]);

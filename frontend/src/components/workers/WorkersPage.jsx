@@ -23,15 +23,26 @@ const WorkersPage = () => {
     const [editingWorker, setEditingWorker] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('active');
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { 
+        loadData(); 
+
+        const handleAttendanceUpdated = () => {
+            loadData();
+        };
+        window.addEventListener('worker-attendance-updated', handleAttendanceUpdated);
+        return () => {
+            window.removeEventListener('worker-attendance-updated', handleAttendanceUpdated);
+        };
+    }, []);
 
     const loadData = async () => {
         setLoading(true);
         try {
             const [statsData, workersData] = await Promise.all([
                 workerService.getStats(),
-                workerService.getWorkers()
+                workerService.getWorkers('all') // Fetch both active and inactive workers
             ]);
             setStats(statsData || {});
             setWorkers(workersData || []);
@@ -49,9 +60,9 @@ const WorkersPage = () => {
 
     const handleDeleteClick = async (worker) => {
         const confirmed = await showConfirm({
-            title: `Delete ${worker.name}?`,
-            description: 'This worker will be permanently removed. This action cannot be undone.',
-            confirmLabel: 'Delete',
+            title: `Deactivate ${worker.name}?`,
+            description: 'This worker will be marked as inactive and will not appear in daily attendance, payroll, or statistics.',
+            confirmLabel: 'Deactivate',
             cancelLabel: 'Cancel',
             variant: 'danger',
         });
@@ -60,17 +71,27 @@ const WorkersPage = () => {
                 await workerService.deleteWorker(worker.worker_id);
                 await loadData();
             } catch (err) {
-                showError('Failed to delete worker');
+                showError('Failed to deactivate worker');
             }
+        }
+    };
+
+    const handleReactivateClick = async (worker) => {
+        try {
+            await workerService.updateWorker(worker.worker_id, { status: 'active' });
+            await loadData();
+        } catch (err) {
+            showError('Failed to reactivate worker');
         }
     };
 
     const handleModalSave = async () => { await loadData(); setShowAddModal(false); };
 
     const filteredWorkers = workers.filter(w =>
-        w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        w.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (w.phone && w.phone.includes(searchQuery))
+        w.status === statusFilter &&
+        (w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         w.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         (w.phone && w.phone.includes(searchQuery)))
     );
 
     // Skeleton loader
@@ -175,20 +196,66 @@ const WorkersPage = () => {
                 <WorkerStats stats={stats} />
             </div>
 
-            {/* ── Search + Count ── */}
+            {/* ── Search + Toggle + Count ── */}
             <div className="workers-controls" style={{
                 padding: '0 var(--spacing-8) var(--spacing-6) var(--spacing-8)',
                 display: 'flex', gap: 'var(--spacing-4)', alignItems: 'center',
+                justifyContent: 'space-between'
             }}>
-                <div className="workers-search">
-                    <IoSearch className="workers-search-icon" />
-                    <input
-                        className="workers-search-input"
-                        type="text"
-                        placeholder="Search by name, role or phone..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div style={{ display: 'flex', gap: 'var(--spacing-4)', alignItems: 'center', flex: 1 }}>
+                    <div className="workers-search">
+                        <IoSearch className="workers-search-icon" />
+                        <input
+                            className="workers-search-input"
+                            type="text"
+                            placeholder="Search by name, role or phone..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    {/* Status Toggles */}
+                    <div style={{
+                        display: 'flex',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: '10px',
+                        padding: '3px',
+                        gap: '2px',
+                        alignItems: 'center'
+                    }}>
+                        <button
+                            onClick={() => setStatusFilter('active')}
+                            style={{
+                                padding: '6px 14px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                background: statusFilter === 'active' ? 'var(--primary-500)' : 'transparent',
+                                color: statusFilter === 'active' ? '#ffffff' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Active
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('inactive')}
+                            style={{
+                                padding: '6px 14px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                background: statusFilter === 'inactive' ? 'var(--primary-500)' : 'transparent',
+                                color: statusFilter === 'inactive' ? '#ffffff' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Inactive
+                        </button>
+                    </div>
                 </div>
                 <span style={{
                     fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)',
@@ -217,9 +284,11 @@ const WorkersPage = () => {
                 ) : (
                     <WorkerTable
                         workers={filteredWorkers}
+                        statusFilter={statusFilter}
                         onView={handleViewClick}
                         onEdit={handleEditClick}
                         onDelete={handleDeleteClick}
+                        onReactivate={handleReactivateClick}
                     />
                 )}
             </div>
@@ -235,7 +304,7 @@ const WorkersPage = () => {
             {/* Attendance Modal */}
             <AttendanceModal
                 isOpen={showAttendanceModal}
-                workers={workers}
+                workers={workers.filter(w => w.status === 'active')}
                 onClose={() => setShowAttendanceModal(false)}
                 onAttendanceUpdate={() => loadData()}
             />

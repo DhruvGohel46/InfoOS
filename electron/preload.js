@@ -65,7 +65,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printBill: (billNo) => ipcRenderer.invoke('print:bill', billNo),
   printKOT: (billNo) => ipcRenderer.invoke('print:kot', billNo),
   printBillAndKOT: (billNo) => ipcRenderer.invoke('print:billAndKOT', billNo),
-  isPrinting: () => ipcRenderer.invoke('print:isPrinting')
+  isPrinting: () => ipcRenderer.invoke('print:isPrinting'),
+
+  // File Operations
+  saveFile: (filename, base64Data) => ipcRenderer.invoke('file:save', filename, base64Data)
 });
 
 // Disable features for security

@@ -15,13 +15,45 @@ export const ReminderProvider = ({ children }) => {
     // Sound management
     useEffect(() => {
         const soundFile = settings?.reminder_sound || "reminder.mp3";
-        // Use backend API URL for sounds with timestamp to prevent caching
         const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
-        audioRef.current = new Audio(`${apiUrl}/api/sounds/${soundFile}?v=${new Date().getTime()}`);
-        audioRef.current.loop = true;
-        audioRef.current.playbackRate = 1.0;
+        
+        // Stop currently playing audio before creating a new one
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
 
-    }, [settings?.reminder_sound]);
+        const audioUrl = `${apiUrl}/api/sounds/${soundFile}?v=${new Date().getTime()}`;
+        const audio = new Audio(audioUrl);
+        audio.loop = true;
+        audio.playbackRate = 1.0;
+
+        // Fallback to default sound if custom sound fails to load
+        if (soundFile !== "reminder.mp3") {
+            audio.addEventListener('error', () => {
+                console.warn(`Custom sound ${soundFile} failed to load, falling back to default.`);
+                const defaultUrl = `${apiUrl}/api/sounds/reminder.mp3?v=${new Date().getTime()}`;
+                if (audioRef.current) {
+                    audioRef.current.src = defaultUrl;
+                    audioRef.current.load();
+                    if (activeAlerts.length > 0) {
+                        audioRef.current.play().catch(() => {});
+                    }
+                }
+            });
+        }
+
+        audioRef.current = audio;
+
+        // If alerts are already active, start playing the new audio immediately
+        if (activeAlerts.length > 0) {
+            audio.play().catch(() => {});
+        }
+
+        return () => {
+            audio.pause();
+        };
+    }, [settings?.reminder_sound, activeAlerts.length]);
 
     const playAlertSound = useCallback(() => {
         if (audioRef.current && activeAlerts.length > 0) {

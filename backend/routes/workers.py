@@ -296,7 +296,7 @@ def get_worker_stats():
 
     total_salary = sum(w.salary for w in workers if w.status == "active" and w.salary)
 
-    active_worker_ids = {w.worker_id for w in workers}
+    active_worker_ids = {w.worker_id for w in workers if w.status == "active"}
 
     start_date, inclusive_end_date = WorkerService._get_finance_cycle_dates()
 

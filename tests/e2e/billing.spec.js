@@ -13,6 +13,7 @@ const { test, expect } = require("@playwright/test");
 
 /**
  * Navigate to the POS billing screen and wait for it to load.
+ * @param {import('@playwright/test').Page} page
  */
 async function goToBillingScreen(page) {
   await page.goto("/");
@@ -33,6 +34,7 @@ test.describe("Billing Screen", () => {
     /**
      * Smoke test: the React app should load with no uncaught JS errors.
      */
+    /** @type {string[]} */
     const errors = [];
     page.on("pageerror", (err) => errors.push(err.message));
 
@@ -145,6 +147,7 @@ test.describe("Navigation", () => {
     /**
      * Click through main navigation items and verify no JS errors occur.
      */
+    /** @type {string[]} */
     const errors = [];
     page.on("pageerror", (err) => errors.push(err.message));
 

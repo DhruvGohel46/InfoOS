@@ -47,12 +47,12 @@ def verify_admin_pin(pin: str) -> bool:
 
 
 def generate_token(user_id="admin", role="admin") -> str:
-    """Generate a JWT token valid for 8 hours (typical shift)."""
+    """Generate a JWT token valid for 365 days to allow persistent, one-time login."""
     payload = {
         "sub": user_id,
         "role": role,
         "iat": datetime.datetime.utcnow(),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365),
     }
     secret = current_app.config.get("SECRET_KEY", "fallback-secret-key-do-not-use-in-prod")
     return jwt.encode(payload, secret, algorithm="HS256")

@@ -7,7 +7,26 @@ from sqlalchemy import func, extract, and_
 class WorkerService:
     @staticmethod
     def create_worker(data):
+        # Generate sequential worker ID: W001, W002...
+        max_num = 0
+        try:
+            # Query all worker IDs
+            all_ids = db.session.query(Worker.worker_id).all()
+            for (w_id,) in all_ids:
+                if w_id and w_id.startswith("W"):
+                    try:
+                        num = int(w_id[1:])
+                        if num > max_num:
+                            max_num = num
+                    except ValueError:
+                        pass
+        except Exception as e:
+            print(f"Error generating sequential worker ID: {e}")
+
+        new_id = f"W{max_num + 1:03d}"
+
         new_worker = Worker(
+            worker_id=new_id,
             name=data.get("name"),
             phone=data.get("phone"),
             email=data.get("email"),
