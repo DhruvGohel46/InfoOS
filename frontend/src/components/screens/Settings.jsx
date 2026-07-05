@@ -28,7 +28,7 @@ import {
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
-import { cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
+import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI } from '../../api/cloudApi';
 import api, { summaryAPI } from '../../api/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
@@ -273,11 +273,27 @@ const Settings = () => {
         let role = 'standalone';
 
         try {
-            const sub = await cloudSyncAPI.getSubscriptionStatus();
-            subStatus = sub.subscriptionStatus || 'inactive';
-            subExpiry = sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null;
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const userId = payload.sub;
+            
+            // Use cloudLicenseAPI for more robust subscription checking
+            const subscription = await cloudLicenseAPI.getSubscription(userId, token);
+            if (subscription) {
+                subStatus = subscription.status || 'inactive';
+                if (subscription.expiry_date) {
+                    subExpiry = new Date(subscription.expiry_date).toLocaleDateString();
+                }
+            }
         } catch (err) {
             console.error('Failed to load subscription status:', err);
+            // Fallback to cloudSyncAPI if cloudLicenseAPI fails
+            try {
+                const sub = await cloudSyncAPI.getSubscriptionStatus();
+                subStatus = sub.subscriptionStatus || 'inactive';
+                subExpiry = sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null;
+            } catch (fallbackErr) {
+                console.error('Fallback subscription check also failed:', fallbackErr);
+            }
         }
 
         try {

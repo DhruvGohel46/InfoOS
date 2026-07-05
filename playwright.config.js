@@ -52,8 +52,8 @@ module.exports = defineConfig({
   // Start a production build server automatically before tests
   webServer: {
     command: process.platform === "win32"
-      ? 'cmd /c "cd frontend && npm run build && npx --yes serve -s build -l 3050"'
-      : 'cd frontend && npm run build && npx --yes serve -s build -l 3050',
+      ? 'cmd /c "cd frontend && npm run build && npm run serve-build"'
+      : 'cd frontend && npm run build && npm run serve-build',
     url: "http://127.0.0.1:3050",
     reuseExistingServer: !process.env.CI,
     timeout: 300_000, // 5 min to build and start production serve

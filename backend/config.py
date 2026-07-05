@@ -21,10 +21,9 @@ class Config:
         "data",
     )
 
-    # Use environment variable for DB URI, fallback to SQLite in DATA_DIR
-    SQLALCHEMY_DATABASE_URI = (
-        os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(DATA_DIR, 'pos.db')}"
-    )
+    # Always use SQLite for offline Windows devices
+    # SQLite provides reliable local storage without requiring external database servers
+    SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(DATA_DIR, 'pos.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # XML file paths

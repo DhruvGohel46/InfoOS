@@ -407,6 +407,79 @@ def run_programmatic_sqlite_migrations(app, db):
                     conn.execute(
                         text("ALTER TABLE products ADD COLUMN display_order INTEGER DEFAULT 0")
                     )
+
+                # 6. Create worker_types and expense_types tables if they don't exist
+                res = conn.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='worker_types'"
+                    )
+                )
+                if not res.fetchone():
+                    _log.info("Migrating SQLite: Creating worker_types table")
+                    conn.execute(text("""
+                        CREATE TABLE worker_types (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name VARCHAR(100) NOT NULL UNIQUE,
+                            description TEXT,
+                            is_active BOOLEAN DEFAULT 1,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    # Insert default worker types
+                    conn.execute(text("""
+                        INSERT INTO worker_types (name, description, is_active, created_at, updated_at)
+                        VALUES 
+                        ('Chef', 'Kitchen staff responsible for food preparation', 1, datetime('now'), datetime('now')),
+                        ('Waiter', 'Front-of-house staff serving customers', 1, datetime('now'), datetime('now')),
+                        ('Manager', 'Supervisory staff managing operations', 1, datetime('now'), datetime('now')),
+                        ('Cleaner', 'Staff responsible for cleaning and maintenance', 1, datetime('now'), datetime('now')),
+                        ('Delivery', 'Staff handling food delivery', 1, datetime('now'), datetime('now'))
+                    """))
+
+                res = conn.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='expense_types'"
+                    )
+                )
+                if not res.fetchone():
+                    _log.info("Migrating SQLite: Creating expense_types table")
+                    conn.execute(text("""
+                        CREATE TABLE expense_types (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name VARCHAR(100) NOT NULL UNIQUE,
+                            description TEXT,
+                            is_active BOOLEAN DEFAULT 1,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    # Insert default expense types
+                    conn.execute(text("""
+                        INSERT INTO expense_types (name, description, is_active, created_at, updated_at)
+                        VALUES 
+                        ('Utilities', 'Electricity, water, gas bills', 1, datetime('now'), datetime('now')),
+                        ('Rent', 'Monthly rent or lease payments', 1, datetime('now'), datetime('now')),
+                        ('Supplies', 'Food ingredients and consumables', 1, datetime('now'), datetime('now')),
+                        ('Equipment', 'Kitchen equipment and tools', 1, datetime('now'), datetime('now')),
+                        ('Maintenance', 'Repair and maintenance costs', 1, datetime('now'), datetime('now')),
+                        ('Marketing', 'Advertising and promotional expenses', 1, datetime('now'), datetime('now')),
+                        ('Insurance', 'Business insurance premiums', 1, datetime('now'), datetime('now')),
+                        ('Transportation', 'Vehicle and fuel costs', 1, datetime('now'), datetime('now'))
+                    """))
+
+                # 7. Add worker_type_id column to workers table if it doesn't exist
+                res = conn.execute(text("PRAGMA table_info(workers)"))
+                worker_cols = [row[1] for row in res.fetchall()]
+                if "worker_type_id" not in worker_cols:
+                    _log.info("Migrating SQLite: Adding worker_type_id column to workers table")
+                    conn.execute(text("ALTER TABLE workers ADD COLUMN worker_type_id INTEGER"))
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS fk_workers_worker_type_id ON workers(worker_type_id)"
+                        )
+                    )
+
             _log.info("Programmatic SQLite migrations completed successfully")
     except Exception as e:
         _log.error("Error during programmatic SQLite migrations: %s", e)
@@ -462,6 +535,79 @@ def run_programmatic_postgres_migrations(app, db):
                         "ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0"
                     )
                 )
+
+                # 4. Create worker_types and expense_types tables if they don't exist
+                res = conn.execute(text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'worker_types'
+                    )
+                """))
+                if not res.scalar():
+                    _log.info("Migrating PostgreSQL: Creating worker_types table")
+                    conn.execute(text("""
+                        CREATE TABLE worker_types (
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR(100) NOT NULL UNIQUE,
+                            description TEXT,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    # Insert default worker types
+                    conn.execute(text("""
+                        INSERT INTO worker_types (name, description, is_active, created_at, updated_at)
+                        VALUES 
+                        ('Chef', 'Kitchen staff responsible for food preparation', TRUE, NOW(), NOW()),
+                        ('Waiter', 'Front-of-house staff serving customers', TRUE, NOW(), NOW()),
+                        ('Manager', 'Supervisory staff managing operations', TRUE, NOW(), NOW()),
+                        ('Cleaner', 'Staff responsible for cleaning and maintenance', TRUE, NOW(), NOW()),
+                        ('Delivery', 'Staff handling food delivery', TRUE, NOW(), NOW())
+                    """))
+
+                res = conn.execute(text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'expense_types'
+                    )
+                """))
+                if not res.scalar():
+                    _log.info("Migrating PostgreSQL: Creating expense_types table")
+                    conn.execute(text("""
+                        CREATE TABLE expense_types (
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR(100) NOT NULL UNIQUE,
+                            description TEXT,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    # Insert default expense types
+                    conn.execute(text("""
+                        INSERT INTO expense_types (name, description, is_active, created_at, updated_at)
+                        VALUES 
+                        ('Utilities', 'Electricity, water, gas bills', TRUE, NOW(), NOW()),
+                        ('Rent', 'Monthly rent or lease payments', TRUE, NOW(), NOW()),
+                        ('Supplies', 'Food ingredients and consumables', TRUE, NOW(), NOW()),
+                        ('Equipment', 'Kitchen equipment and tools', TRUE, NOW(), NOW()),
+                        ('Maintenance', 'Repair and maintenance costs', TRUE, NOW(), NOW()),
+                        ('Marketing', 'Advertising and promotional expenses', TRUE, NOW(), NOW()),
+                        ('Insurance', 'Business insurance premiums', TRUE, NOW(), NOW()),
+                        ('Transportation', 'Vehicle and fuel costs', TRUE, NOW(), NOW())
+                    """))
+
+                # 5. Add worker_type_id column to workers table if it doesn't exist
+                conn.execute(
+                    text("ALTER TABLE workers ADD COLUMN IF NOT EXISTS worker_type_id INTEGER")
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS fk_workers_worker_type_id ON workers(worker_type_id)"
+                    )
+                )
+
             _log.info("Programmatic PostgreSQL migrations completed successfully")
     except Exception as e:
         _log.error("Error during programmatic PostgreSQL migrations: %s", e)
