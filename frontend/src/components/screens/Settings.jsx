@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useAlert as useToast } from '../../context/AlertContext';
@@ -42,7 +42,7 @@ const Settings = () => {
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('shop');
     const [workerSubTab, setWorkerSubTab] = useState('salary');
-    const [expenseSubTab, setExpenseSubTab] = useState('types');
+    const [expenseSubTab] = useState('types');
 
     // Worker Types State
     const [workerTypes, setWorkerTypes] = useState([]);
@@ -464,21 +464,7 @@ const Settings = () => {
             .catch(() => setPinStatus({ enabled: false, is_setup: false, loading: false }));
     }, []);
 
-    // Load worker types when workers tab is active
-    useEffect(() => {
-        if (activeTab === 'workers' && workerSubTab === 'types') {
-            loadWorkerTypes();
-        }
-    }, [activeTab, workerSubTab]);
-
-    // Load expense types when expenses tab is active
-    useEffect(() => {
-        if (activeTab === 'expenses' && expenseSubTab === 'types') {
-            loadExpenseTypes();
-        }
-    }, [activeTab, expenseSubTab]);
-
-    const loadWorkerTypes = async () => {
+    const loadWorkerTypes = useCallback(async () => {
         setWorkerTypesLoading(true);
         try {
             const response = await workerAPI.getWorkerTypes();
@@ -489,9 +475,9 @@ const Settings = () => {
         } finally {
             setWorkerTypesLoading(false);
         }
-    };
+    }, [showError]);
 
-    const loadExpenseTypes = async () => {
+    const loadExpenseTypes = useCallback(async () => {
         setExpenseTypesLoading(true);
         try {
             const response = await expensesAPI.getExpenseTypes();
@@ -502,7 +488,21 @@ const Settings = () => {
         } finally {
             setExpenseTypesLoading(false);
         }
-    };
+    }, [showError]);
+
+    // Load worker types when workers tab is active
+    useEffect(() => {
+        if (activeTab === 'workers' && workerSubTab === 'types') {
+            loadWorkerTypes();
+        }
+    }, [activeTab, workerSubTab, loadWorkerTypes]);
+
+    // Load expense types when expenses tab is active
+    useEffect(() => {
+        if (activeTab === 'expenses' && expenseSubTab === 'types') {
+            loadExpenseTypes();
+        }
+    }, [activeTab, expenseSubTab, loadExpenseTypes]);
 
     const handleCreateWorkerType = async () => {
         if (!workerTypeForm.name.trim()) {
