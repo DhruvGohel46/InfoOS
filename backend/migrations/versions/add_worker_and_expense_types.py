@@ -46,29 +46,33 @@ def upgrade():
     op.add_column('workers', sa.Column('worker_type_id', sa.Integer(), nullable=True))
     op.create_foreign_key('fk_workers_worker_type_id', 'workers', 'worker_types', ['worker_type_id'], ['id'])
     
-    # Insert default worker types
+    # Insert default worker types (only if table is empty)
     op.execute("""
         INSERT INTO worker_types (name, description, is_active, created_at, updated_at)
-        VALUES 
-        ('Chef', 'Kitchen staff responsible for food preparation', 1, datetime('now'), datetime('now')),
-        ('Waiter', 'Front-of-house staff serving customers', 1, datetime('now'), datetime('now')),
-        ('Manager', 'Supervisory staff managing operations', 1, datetime('now'), datetime('now')),
-        ('Cleaner', 'Staff responsible for cleaning and maintenance', 1, datetime('now'), datetime('now')),
-        ('Delivery', 'Staff handling food delivery', 1, datetime('now'), datetime('now'))
+        SELECT * FROM (VALUES
+            ('Chef', 'Kitchen staff responsible for food preparation', 1, datetime('now'), datetime('now')),
+            ('Waiter', 'Front-of-house staff serving customers', 1, datetime('now'), datetime('now')),
+            ('Manager', 'Supervisory staff managing operations', 1, datetime('now'), datetime('now')),
+            ('Cleaner', 'Staff responsible for cleaning and maintenance', 1, datetime('now'), datetime('now')),
+            ('Delivery', 'Staff handling food delivery', 1, datetime('now'), datetime('now'))
+        ) AS temp(name, description, is_active, created_at, updated_at)
+        WHERE NOT EXISTS (SELECT 1 FROM worker_types LIMIT 1)
     """)
     
-    # Insert default expense types
+    # Insert default expense types (only if table is empty)
     op.execute("""
         INSERT INTO expense_types (name, description, is_active, created_at, updated_at)
-        VALUES 
-        ('Utilities', 'Electricity, water, gas bills', 1, datetime('now'), datetime('now')),
-        ('Rent', 'Monthly rent or lease payments', 1, datetime('now'), datetime('now')),
-        ('Supplies', 'Food ingredients and consumables', 1, datetime('now'), datetime('now')),
-        ('Equipment', 'Kitchen equipment and tools', 1, datetime('now'), datetime('now')),
-        ('Maintenance', 'Repair and maintenance costs', 1, datetime('now'), datetime('now')),
-        ('Marketing', 'Advertising and promotional expenses', 1, datetime('now'), datetime('now')),
-        ('Insurance', 'Business insurance premiums', 1, datetime('now'), datetime('now')),
-        ('Transportation', 'Vehicle and fuel costs', 1, datetime('now'), datetime('now'))
+        SELECT * FROM (VALUES
+            ('Utilities', 'Electricity, water, gas bills', 1, datetime('now'), datetime('now')),
+            ('Rent', 'Monthly rent or lease payments', 1, datetime('now'), datetime('now')),
+            ('Supplies', 'Food ingredients and consumables', 1, datetime('now'), datetime('now')),
+            ('Equipment', 'Kitchen equipment and tools', 1, datetime('now'), datetime('now')),
+            ('Maintenance', 'Repair and maintenance costs', 1, datetime('now'), datetime('now')),
+            ('Marketing', 'Advertising and promotional expenses', 1, datetime('now'), datetime('now')),
+            ('Insurance', 'Business insurance premiums', 1, datetime('now'), datetime('now')),
+            ('Transportation', 'Vehicle and fuel costs', 1, datetime('now'), datetime('now'))
+        ) AS temp(name, description, is_active, created_at, updated_at)
+        WHERE NOT EXISTS (SELECT 1 FROM expense_types LIMIT 1)
     """)
     
     # ### end Alembic commands ###
