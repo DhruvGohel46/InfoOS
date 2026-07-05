@@ -355,6 +355,7 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
 
     # Table Number - Only printed if Dine-In and table number is provided
     is_dine_in = order_type.lower() in ["dine-in", "dine in"]
+    table_no = order.get("table_no") or order.get("tableNumber") or order.get("table") or ""
     table_part = ""
     if is_dine_in and table_no:
         table_no_str = str(table_no).strip()
@@ -411,10 +412,18 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
             product.get("specification") or product.get("spec") or product.get("specs") or ""
         )
 
+        # Check for product variation
+        variation_name = product.get("variation_name") or ""
+
         # Print: Item Name (left) and Qty (right) - space-between
         formatter.bold_on()
         formatter.line_with_margin(f"{name:<{item_w}}{qty:>{qty_w}}", margin_w)
         formatter.bold_off()
+
+        # Variation - attached to item, indented
+        if variation_name:
+            for wrapped_var in textwrap.wrap(f"  ({variation_name})", usable_chars):
+                formatter.line_with_margin(wrapped_var, margin_w)
 
         # Modifiers - attached to item, indented
         if specification:
@@ -570,6 +579,8 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
         specification = (
             product.get("specification") or product.get("spec") or product.get("specs") or ""
         )
+        # Check for product variation
+        variation_name = product.get("variation_name") or ""
         total_qty += qty
         calculated_subtotal += amt
 
@@ -582,6 +593,10 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
         formatter.bold_off()
         for chunk in chunks[1:]:
             formatter.line(f"{chunk:<{item_w}}")
+        if variation_name:
+            formatter.bold_on()
+            formatter.line(f"  ({variation_name})")
+            formatter.bold_off()
         if specification:
             formatter.bold_on()
             formatter.line(f"({specification})")

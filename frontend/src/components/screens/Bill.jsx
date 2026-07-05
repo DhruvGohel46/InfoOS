@@ -422,9 +422,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       setTableNumber(bill.table_no || '');
 
+      // Clear location state so that it doesn't reload on subsequent clicks/refreshes
+      navigate(location.pathname, { replace: true, state: {} });
+
     }
 
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate]);
 
 
 
@@ -1685,7 +1688,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 display: 'grid',
 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(calc(160px * var(--display-zoom)), 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(calc(135px * var(--display-zoom)), 1fr))',
 
                 gap: '16px',
 
@@ -1718,7 +1721,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       }}
                       style={{
                         padding: '16px 10px 10px 10px',
-                        maxWidth: 'calc(250px * var(--display-zoom))',
+                        maxWidth: 'calc(170px * var(--display-zoom))',
+                        width: '100%',
+                        margin: '0 auto',
                         display: 'flex',
                         flexDirection: 'column',
                         cursor: isEditMode ? 'grab' : (product.stock_status === 'Out of Stock' ? 'not-allowed' : (hasTwoVariations ? 'default' : 'pointer')),
@@ -1811,10 +1816,10 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       {/* Product Name */}
                       <h4 style={{
                         fontFamily: 'Inter, system-ui',
-                        fontSize: '16px',
+                        fontSize: '14px',
                         fontWeight: 700,
                         color: isDark ? '#F2F2F2' : '#111827',
-                        margin: '12px 0 10px 0',
+                        margin: '10px 0 8px 0',
                         textAlign: 'left',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -1825,7 +1830,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                       {/* Options or Single Price */}
                       {hasTwoVariations ? (
-                        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {productVariations.map((variation) => {
                             const nameParts = variation.name.split(' ');
                             return (
@@ -1838,11 +1843,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                 }}
                                 style={{
                                   width: '100%',
-                                  height: '64px',
+                                  height: '52px',
                                   display: 'flex',
                                   justifyContent: 'space-between',
                                   alignItems: 'center',
-                                  padding: '0 12px',
+                                  padding: '0 8px',
                                   borderRadius: '12px',
                                   border: isDark ? '1px solid #555' : '1px solid #e2e8f0',
                                   background: isDark ? '#2d2d2d' : '#f8fafc',
@@ -1864,7 +1869,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                   alignItems: 'flex-start',
                                   textAlign: 'left',
                                   fontWeight: 700,
-                                  fontSize: '15px',
+                                  fontSize: '12px',
                                   color: isDark ? '#ECECEC' : '#111827',
                                   lineHeight: '1.2'
                                 }}>
@@ -1874,7 +1879,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                 </div>
                                 <div style={{
                                   fontWeight: 700,
-                                  fontSize: '18px',
+                                  fontSize: '14px',
                                   color: '#ff6b00',
                                   textAlign: 'right'
                                 }}>
@@ -1888,7 +1893,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 6px 4px' }}>
                           <span style={{
                             fontWeight: 700,
-                            fontSize: '16px',
+                            fontSize: '14px',
                             color: '#ff6b00',
                             fontFamily: 'Inter, system-ui'
                           }}>
@@ -1897,8 +1902,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                           <div
                             style={{
-                              width: '28px', 
-                              height: '28px',
+                              width: '26px', 
+                              height: '26px',
                               backgroundColor: '#ff6b00',
                               borderRadius: '50%',
                               display: 'flex', 
@@ -1908,7 +1913,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                               cursor: isEditMode ? 'default' : 'pointer'
                             }}
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                               <path d="M12 5V19M5 12H19" />
                             </svg>
                           </div>
@@ -2005,7 +2010,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             }}>
 
-              {editingBill ? `Editing #${editingBill.bill_no}` : 'Current Bill'}
+              {editingBill ? `Editing ${editingBill.bill_no}` : 'Current Bill'}
 
               <span style={{ fontSize: '13px', color: currentTheme.colors.text.tertiary, fontWeight: 500, marginLeft: '8px' }}>
 

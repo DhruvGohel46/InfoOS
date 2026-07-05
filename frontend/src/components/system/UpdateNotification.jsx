@@ -81,12 +81,20 @@ const UpdateNotification = () => {
     };
   }, [isPaused]);
 
-  // Auto disappear for completed state
+  // Auto disappear for completed/failed/checking states
   useEffect(() => {
-    if (status === 'completed') {
+    if (status === 'completed' || status === 'failed') {
       const timer = setTimeout(() => {
         setStatus('idle');
       }, 5000);
+      return () => clearTimeout(timer);
+    }
+
+    if (status === 'checking') {
+      // Auto-hide checking state after 15s to prevent getting stuck
+      const timer = setTimeout(() => {
+        setStatus('idle');
+      }, 15000);
       return () => clearTimeout(timer);
     }
   }, [status]);
@@ -173,31 +181,40 @@ const UpdateNotification = () => {
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 50, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 30, scale: 0.95 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-        style={{
+      {status !== 'idle' && (
+        <div style={{
           position: 'fixed',
           bottom: '24px',
-          right: '24px',
-          width: '380px',
-          background: themeStyles.bg,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: `1px solid ${themeStyles.border}`,
-          borderRadius: '24px',
-          boxShadow: themeStyles.shadow,
-          padding: '20px',
-          zIndex: 9999,
+          left: 0,
+          right: 0,
           display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-          boxSizing: 'border-box',
-          fontFamily: "'Outfit', sans-serif"
-        }}
-      >
+          justifyContent: 'center',
+          alignItems: 'center',
+          pointerEvents: 'none',
+          zIndex: 9999
+        }}>
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+            style={{
+              width: '380px',
+              pointerEvents: 'auto',
+              background: themeStyles.bg,
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: `1px solid ${themeStyles.border}`,
+              borderRadius: '24px',
+              boxShadow: themeStyles.shadow,
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxSizing: 'border-box',
+              fontFamily: "'Outfit', sans-serif"
+            }}
+          >
         {/* Top Section */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           {/* Status Icon */}
@@ -354,7 +371,9 @@ const UpdateNotification = () => {
             )}
           </div>
         </div>
-      </motion.div>
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };

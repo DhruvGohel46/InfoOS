@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
+import { useSettings } from '../../context/SettingsContext';
 import { workerAPI } from '../../api/workers';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import { formatCurrency } from '../../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime } from 'react-icons/io5';
+import { IoArrowBack, IoTrash, IoCall, IoCash, IoBriefcase, IoCalendar, IoCheckmarkCircle, IoWarning, IoTime, IoCreateOutline } from 'react-icons/io5';
+import AddWorkerModal from './AddWorkerModal';
 import '../../styles/Workers.css';
 
 const WorkerProfile = () => {
@@ -16,10 +18,12 @@ const WorkerProfile = () => {
     const navigate = useNavigate();
     const { currentTheme, isDark } = useTheme();
     const { showSuccess, showError, showConfirm } = useAlert();
+    const { settings } = useSettings();
 
     const [worker, setWorker] = useState(null);
     const [advances, setAdvances] = useState([]);
     const [salaryHistory, setSalaryHistory] = useState([]);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [attendance, setAttendance] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [totalPaid, setTotalPaid] = useState(0);
@@ -30,6 +34,58 @@ const WorkerProfile = () => {
     const [advanceAmount, setAdvanceAmount] = useState('');
     const [advanceReason, setAdvanceReason] = useState('');
     const [submittingAdvance, setSubmittingAdvance] = useState(false);
+
+    // Group advances by their month cycles based on settings.salary_day
+    const groupedAdvances = useMemo(() => {
+        const groups = {};
+        const salaryDay = settings?.salary_day ? parseInt(settings.salary_day) : 1;
+
+        advances.forEach(adv => {
+            const d = new Date(adv.date);
+            let cycleMonth, cycleYear;
+            
+            if (d.getDate() >= salaryDay) {
+                cycleMonth = d.getMonth() + 1;
+                cycleYear = d.getFullYear();
+            } else {
+                cycleMonth = d.getMonth();
+                cycleYear = d.getFullYear();
+                if (cycleMonth === 0) {
+                    cycleMonth = 12;
+                    cycleYear -= 1;
+                }
+            }
+
+            const key = `${cycleYear}-${cycleMonth}`;
+            if (!groups[key]) {
+                const nextM = cycleMonth + 1 <= 12 ? cycleMonth + 1 : 1;
+                const nextY = cycleMonth + 1 <= 12 ? cycleYear : cycleYear + 1;
+                
+                const start = new Date(cycleYear, cycleMonth - 1, salaryDay);
+                const end = new Date(nextY, nextM - 1, salaryDay - 1);
+                
+                const rangeStr = `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+                const name = new Date(cycleYear, cycleMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+                groups[key] = {
+                    key,
+                    name,
+                    range: rangeStr,
+                    year: cycleYear,
+                    month: cycleMonth,
+                    items: [],
+                    total: 0
+                };
+            }
+            groups[key].items.push(adv);
+            groups[key].total += adv.amount;
+        });
+
+        return Object.values(groups).sort((a, b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+        });
+    }, [advances, settings?.salary_day]);
 
     const loadData = React.useCallback(async () => {
         setLoading(true);
@@ -129,9 +185,9 @@ const WorkerProfile = () => {
         const missing = [];
         if (!worker || !worker.current_cycle) return missing;
         
-        const currentEnd = new Date(worker.current_cycle.end);
-        const currentMonth = currentEnd.getMonth() + 1;
-        const currentYear = currentEnd.getFullYear();
+        const currentStart = new Date(worker.current_cycle.start);
+        const currentMonth = currentStart.getMonth() + 1;
+        const currentYear = currentStart.getFullYear();
         
         let latestYear = 0;
         let latestMonth = 0;
@@ -284,105 +340,227 @@ const WorkerProfile = () => {
             <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-6) var(--spacing-8) var(--spacing-8)' }}>
 
             {/* Profile Header Card */}
-            <div className="wpHeader">
-                {/* Avatar */}
-                <div className="wpAvatar">
+            <motion.div 
+                className="wpHeader" 
+                whileHover={{ y: -4, boxShadow: isDark ? '0 20px 50px rgba(255, 122, 0, 0.15)' : '0 20px 50px rgba(0, 0, 0, 0.08)' }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: '130px 1.2fr 1.3fr 1.8fr',
+                    gap: '24px',
+                    alignItems: 'center',
+                    padding: '30px',
+                    background: isDark 
+                        ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%)' 
+                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '28px',
+                    marginBottom: '28px',
+                    boxShadow: isDark 
+                        ? '0 12px 36px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.06)' 
+                        : '0 12px 36px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255,255,255,0.8)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+            >
+                {/* 1st Section: Square Curved border rectangular photo frame */}
+                <div style={{
+                    width: '130px',
+                    height: '130px',
+                    borderRadius: '20px',
+                    background: 'linear-gradient(135deg, var(--primary-500) 0%, #FF8A00 100%)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '3rem',
+                    fontWeight: 800,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 25px rgba(255, 122, 0, 0.25)',
+                    border: '2px solid rgba(255, 255, 255, 0.15)',
+                    flexShrink: 0,
+                    cursor: 'pointer'
+                }}>
                     {worker.photo ? (
-                        <img src={worker.photo} alt={worker.name} />
+                        <motion.img 
+                            src={worker.photo} 
+                            alt={worker.name} 
+                            whileHover={{ scale: 1.1 }}
+                            transition={{ duration: 0.4, ease: 'easeOut' }}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
                     ) : (
-                        worker.name.charAt(0).toUpperCase()
+                        <motion.span
+                            whileHover={{ scale: 1.1 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            {worker.name.charAt(0).toUpperCase()}
+                        </motion.span>
                     )}
-                    {/* Gradient Overlay */}
                     <div style={{
                         position: 'absolute',
                         inset: 0,
-                        backgroundImage: 'linear-gradient(145deg, transparent, rgba(0,0,0,0.2))',
+                        backgroundImage: 'linear-gradient(145deg, transparent, rgba(0,0,0,0.15))',
                         pointerEvents: 'none'
                     }} />
                 </div>
 
-                {/* Info */}
-                <div className="wpInfo">
-                    <h1 className="wpName">{worker.name}</h1>
-                    <div className="wpRoleRow">
-                        <IoBriefcase style={{ color: 'var(--accent)' }} />
-                        <span className="wpRole">{worker.role}</span>
+                {/* 2nd Section: Name & type/role */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    minWidth: 0
+                }}>
+                    <h1 style={{
+                        fontSize: '1.9rem',
+                        fontWeight: 900,
+                        margin: 0,
+                        color: 'var(--text-primary)',
+                        letterSpacing: '-0.75px',
+                        lineHeight: 1.1
+                    }}>
+                        {worker.name}
+                    </h1>
+                    
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 500
+                    }}>
+                        <IoBriefcase style={{ color: 'var(--primary-500)', flexShrink: 0 }} size={16} />
+                        <span>{worker.role}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span className={`wpStatusBadge ${worker.status === 'active' ? 'wpStatusActive' : 'wpStatusInactive'}`}>
                             {worker.status.toUpperCase()}
                         </span>
+                        
+                        <Button
+                            size="sm"
+                            onClick={() => setShowEditModal(true)}
+                            variant="secondary"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                height: 'auto',
+                                borderRadius: '8px',
+                                background: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)',
+                                border: '1px solid var(--glass-border)',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <IoCreateOutline size={13} />
+                            Edit Details
+                        </Button>
                     </div>
-
-                    <div className="wpMetaGrid">
-                        <div className="wpMetaItem">
-                            <IoCall style={{ color: 'var(--text-tertiary)' }} />
-                            {worker.phone || 'No Phone'}
-                        </div>
-                        <div className="wpMetaItem">
-                            <IoCash style={{ color: 'var(--text-tertiary)' }} />
-                            {formatCurrency(worker.salary)}/mo
-                        </div>
-                        <div className="wpMetaItem">
-                            <IoCalendar style={{ color: 'var(--text-tertiary)' }} />
-                            Joined {new Date(worker.join_date || worker.joinDate).toLocaleDateString()}
-                        </div>
-                    </div>
-
-                    {/* Stats Info Bar — merged from Overview tab */}
-                    {(() => {
-                        const presentDays = attendance.filter(a => a.status === 'Present').length;
-                        const currentCycleAdvance = worker.current_cycle?.advance || 0;
-                        const hasAdvance = currentCycleAdvance > 0;
-                        const items = [
-                            { label: 'Attendance', value: `${presentDays} Days`, color: '#3B82F6' },
-                            { label: 'Daily Wage', value: formatCurrency(worker.salary / 30), color: '#10B981' },
-                            { label: 'Advances', value: formatCurrency(currentCycleAdvance), color: hasAdvance ? '#EF4444' : '#71717A' },
-                            { label: 'Lifetime Paid', value: formatCurrency(totalPaid), color: '#F97316' },
-                        ];
-                        return (
-                            <div style={{
-                                display: 'flex', alignItems: 'center', gap: 0,
-                                padding: '0 4px', height: 38, marginTop: 16,
-                                background: 'transparent',
-                                borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-                            }}>
-                                {items.map((item, i) => (
-                                    <React.Fragment key={item.label}>
-                                        {i > 0 && (
-                                            <div style={{
-                                                width: 1, height: 18, flexShrink: 0,
-                                                background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
-                                            }} />
-                                        )}
-                                        <div style={{
-                                            flex: 1, display: 'flex', alignItems: 'center',
-                                            justifyContent: 'center', gap: 6, padding: '0 10px', minWidth: 0,
-                                        }}>
-                                            <span style={{
-                                                width: 5, height: 5, borderRadius: '50%',
-                                                background: item.color, display: 'inline-block', flexShrink: 0,
-                                            }} />
-                                            <span style={{
-                                                fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
-                                                color: isDark ? '#71717A' : '#6B7280',
-                                            }}>
-                                                {item.label}
-                                            </span>
-                                            <span style={{
-                                                fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                                                fontVariantNumeric: 'tabular-nums',
-                                                color: item.label === 'Advances' && hasAdvance
-                                                    ? '#EF4444' : (isDark ? '#FAFAFA' : '#111827'),
-                                            }}>
-                                                {item.value}
-                                            </span>
-                                        </div>
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        );
-                    })()}
                 </div>
-            </div>
+
+                {/* 3rd Section: Phone, Salary, Joined */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    justifyContent: 'center',
+                    gap: '14px',
+                    borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                    paddingLeft: '32px',
+                    height: '80%'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        <IoCall style={{ color: 'var(--primary-500)', flexShrink: 0 }} size={16} />
+                        <span style={{ fontWeight: 600 }}>{worker.phone || 'No Phone'}</span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        <IoCash style={{ color: 'var(--primary-500)', flexShrink: 0 }} size={16} />
+                        <span style={{ fontWeight: 700, color: 'var(--primary-500)' }}>
+                            {formatCurrency(worker.salary)}/mo
+                        </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        <IoCalendar style={{ color: 'var(--primary-500)', flexShrink: 0 }} size={16} />
+                        <span style={{ fontWeight: 600 }}>
+                            Joined {new Date(worker.join_date || worker.joinDate).toLocaleDateString()}
+                        </span>
+                    </div>
+                </div>
+
+                {/* 4th Section: Stats Info capsules */}
+                {(() => {
+                    const presentDays = attendance.filter(a => a.status === 'Present').length;
+                    const currentCycleAdvance = worker.current_cycle?.advance || 0;
+                    const hasAdvance = currentCycleAdvance > 0;
+                    const items = [
+                        { label: 'Attendance', value: `${presentDays} Days`, color: '#3B82F6' },
+                        { label: 'Daily Wage', value: formatCurrency(worker.salary / 30), color: '#10B981' },
+                        { label: 'Advances', value: formatCurrency(currentCycleAdvance), color: hasAdvance ? '#EF4444' : '#71717A', isRed: hasAdvance },
+                        { label: 'Lifetime Paid', value: formatCurrency(totalPaid), color: '#F97316' },
+                    ];
+                    return (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                            paddingLeft: '32px',
+                            height: '80%'
+                        }}>
+                            {items.map((item) => (
+                                <motion.div 
+                                    key={item.label} 
+                                    whileHover={{ x: 4, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)' }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        fontSize: '12px',
+                                        padding: '6px 12px',
+                                        borderRadius: '10px',
+                                        background: isDark ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+                                        border: '1px solid rgba(255, 255, 255, 0.02)',
+                                        boxSizing: 'border-box',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{
+                                            width: '6px', height: '6px', borderRadius: '50%',
+                                            background: item.color, display: 'inline-block', flexShrink: 0
+                                        }} />
+                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                    <span style={{
+                                        fontWeight: 750,
+                                        color: item.isRed ? '#EF4444' : (isDark ? '#FAFAFA' : '#111827'),
+                                        fontVariantNumeric: 'tabular-nums'
+                                    }}>
+                                        {item.value}
+                                    </span>
+                                </motion.div>
+                            ))}
+                        </div>
+                    );
+                })()}
+            </motion.div>
 
             {/* Navigation Tabs */}
             <div style={{
@@ -458,14 +636,32 @@ const WorkerProfile = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {advances.map((adv, i) => (
-                                            <tr key={i} style={{ borderBottom: `1px solid ${currentTheme.colors.border}` }}>
-                                                <td style={{ padding: '16px', fontWeight: 500 }}>{new Date(adv.date).toLocaleDateString()}</td>
-                                                <td style={{ padding: '16px', color: currentTheme.colors.text.secondary }}>{adv.reason}</td>
-                                                <td style={{ padding: '16px', textAlign: 'right', fontWeight: 600, color: '#EF4444' }}>
-                                                    {formatCurrency(adv.amount)}
-                                                </td>
-                                            </tr>
+                                        {groupedAdvances.map((group) => (
+                                            <React.Fragment key={group.key}>
+                                                {/* Cycle Month Group Header Row */}
+                                                <tr style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F3F4F6', borderBottom: `1px solid ${currentTheme.colors.border}` }}>
+                                                    <td colSpan="2" style={{ padding: '12px 16px', fontWeight: 700, color: currentTheme.colors.text.primary }}>
+                                                        {group.name} <span style={{ fontWeight: 500, fontSize: '0.85rem', color: currentTheme.colors.text.tertiary, marginLeft: '8px' }}>({group.range})</span>
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#EF4444' }}>
+                                                        Total: {formatCurrency(group.total)}
+                                                    </td>
+                                                </tr>
+                                                {/* Group Items */}
+                                                {group.items.map((adv, idx) => (
+                                                    <tr key={`${group.key}-${idx}`} style={{ borderBottom: `1px solid ${currentTheme.colors.border}` }}>
+                                                        <td style={{ padding: '16px 16px 16px 28px', fontWeight: 500 }}>
+                                                            {new Date(adv.date).toLocaleDateString()}
+                                                        </td>
+                                                        <td style={{ padding: '16px', color: currentTheme.colors.text.secondary }}>
+                                                            {adv.reason || '—'}
+                                                        </td>
+                                                        <td style={{ padding: '16px', textAlign: 'right', fontWeight: 600, color: currentTheme.colors.text.primary }}>
+                                                            {formatCurrency(adv.amount)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
                                         ))}
                                         {advances.length === 0 && (
                                             <tr>
@@ -657,6 +853,17 @@ const WorkerProfile = () => {
             </AnimatePresence>
 
             </div>{/* end scrollable body */}
+
+            {/* Edit Worker Details Modal */}
+            <AddWorkerModal
+                open={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                onSaved={() => {
+                    setShowEditModal(false);
+                    loadData(); // Reload profile details
+                }}
+                initialData={worker}
+            />
         </motion.div>
     );
 };

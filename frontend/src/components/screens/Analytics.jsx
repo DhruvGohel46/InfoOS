@@ -21,7 +21,7 @@ import {
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString, groupsAPI, categoriesAPI } from '../../utils/api';
+import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString, groupsAPI, categoriesAPI, productsAPI } from '../../utils/api';
 import { formatCurrency, handleAPIError, downloadFile } from '../../utils/api';
 import { usePOSData } from '../../context/POSDataContext';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -49,7 +49,6 @@ import {
     IoFlashOutline,
     IoHomeOutline,
     IoBusOutline,
-    IoTrendingUpOutline,
     IoStatsChartOutline
 } from 'react-icons/io5';
 import { FiDollarSign } from 'react-icons/fi';
@@ -121,18 +120,16 @@ const Analytics = () => {
     const { isDark } = useTheme();
     const { isAdmin } = useAuth();
     const {
-        refreshAll: refreshPOSData,
-        cachedAnalytics,
-        preloadAnalytics
+        cachedAnalytics
     } = usePOSData();
 
     // ─── Tabs ───
     const [activeTab, setActiveTab] = useState('transactions');
     const tabs = [
-        { id: 'transactions', label: 'Transactions', icon: IoReceiptOutline },
-        { id: 'sales_history', label: 'Sales History', icon: IoBarChartOutline },
-        { id: 'expenses_history', label: 'Expenses History', icon: IoWalletOutline },
-        { id: 'reports_hub', label: 'Reports Hub', icon: IoDownloadOutline },
+        { id: 'transactions', label: 'Bills', icon: IoReceiptOutline },
+        { id: 'sales_history', label: 'Sales', icon: IoBarChartOutline },
+        { id: 'expenses_history', label: 'Expenses', icon: IoWalletOutline },
+        { id: 'reports_hub', label: 'Reports', icon: IoDownloadOutline },
     ];
     const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id === 'transactions');
 
@@ -182,16 +179,18 @@ const Analytics = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate, cachedAnalytics, isAdmin]);
 
-    // ─── Load groups and categories on mount ───
+    // ─── Load groups, categories, and products on mount ───
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [groupsRes, catsRes] = await Promise.all([
+                const [groupsRes, catsRes, productsRes] = await Promise.all([
                     groupsAPI.getAllGroups(false),
-                    categoriesAPI.getAllCategories(false)
+                    categoriesAPI.getAllCategories(false),
+                    productsAPI.getAllProductsWithInactive()
                 ]);
                 setGroups(groupsRes.data.groups || []);
                 setCategories(catsRes.data.categories || []);
+                setProductsList(productsRes.data.products || []);
             } catch (err) {
                 console.error('Failed to load data:', err);
             }
@@ -233,6 +232,12 @@ const Analytics = () => {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [selectedBill, setSelectedBill] = useState(null);
 
+    // ─── Bill Preview Modal ───
+    const [previewBill, setPreviewBill] = useState(null);
+
+    // ─── Products List (for category mapping) ───
+    const [productsList, setProductsList] = useState([]);
+
     // ─── Expenses Tab ───
     const [expenseRange, setExpenseRange] = useState('week'); // 'week' | 'month' | 'year'
     const [rangeExpenses, setRangeExpenses] = useState([]);
@@ -243,7 +248,46 @@ const Analytics = () => {
     // ─── Pie chart active sector ───
     const [activePieIndex, setActivePieIndex] = useState(-1);
 
-    const safeSummary = summary || {};
+    const safeSummary = useMemo(() => summary || {}, [summary]);
+
+    // ─── Lookup mapping for category_id ───
+    const productCategoryMap = useMemo(() => {
+        const map = {};
+        productsList.forEach(p => {
+            map[p.product_id] = p.category_id;
+        });
+        return map;
+    }, [productsList]);
+
+    // ─── Dynamic group-wise total sales KPI ───
+    const displayTotalSales = useMemo(() => {
+        const chartSummary = viewRange === 'day' ? safeSummary : (rangeSummary || safeSummary);
+        if (selectedGroupId === 'all') {
+            return chartSummary.total_sales || 0;
+        }
+        const salesSource = viewRange === 'day' ? productSales : viewRangeProductSales;
+        return salesSource.reduce((acc, curr) => acc + (curr.total_amount || curr.total || 0), 0);
+    }, [selectedGroupId, viewRange, productSales, viewRangeProductSales, safeSummary, rangeSummary]);
+
+    // ─── Dynamic group-wise category share totals ───
+    const displayCategoryTotals = useMemo(() => {
+        const chartSummary = viewRange === 'day' ? safeSummary : (rangeSummary || safeSummary);
+        const rawTotals = chartSummary.category_totals || {};
+        if (selectedGroupId === 'all') {
+            return rawTotals;
+        }
+        const groupCategoryNames = categories
+            .filter(cat => cat.group_id === parseInt(selectedGroupId))
+            .map(cat => cat.name.toLowerCase());
+            
+        const filtered = {};
+        Object.entries(rawTotals).forEach(([name, val]) => {
+            if (groupCategoryNames.includes(name.toLowerCase())) {
+                filtered[name] = val;
+            }
+        });
+        return filtered;
+    }, [viewRange, safeSummary, rangeSummary, selectedGroupId, categories]);
 
     // ═══════════════ DATA LOADING ═══════════════
 
@@ -305,11 +349,8 @@ const Analytics = () => {
                         .filter(cat => cat.group_id === parseInt(selectedGroupId))
                         .map(cat => cat.id);
                     sales = sales.filter(item => {
-                        // Filter by category_id if available in the data
-                        if (item.category_id) {
-                            return groupCategories.includes(item.category_id);
-                        }
-                        return true; // If no category_id, include it (fallback)
+                        const categoryId = item.category_id || productCategoryMap[item.product_id];
+                        return groupCategories.includes(categoryId);
                     });
                 }
                 setProductSales(sales);
@@ -372,11 +413,8 @@ const Analytics = () => {
                         .filter(cat => cat.group_id === parseInt(selectedGroupId))
                         .map(cat => cat.id);
                     rawProducts = rawProducts.filter(item => {
-                        if (item.category_id) {
-                            return groupCategories.includes(item.category_id);
-                        }
-                        // Fallback filter by normalizing category comparison if needed
-                        return true;
+                        const categoryId = item.category_id || productCategoryMap[item.product_id];
+                        return groupCategories.includes(categoryId);
                     });
                 }
 
@@ -761,32 +799,7 @@ const Analytics = () => {
                                 </Button>
                             </motion.div>
                         )}
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                            <Button
-                                onClick={() => {
-                                    refreshPOSData(); // Context refresh (boostrap + cache invalidation)
-                                    if (isAdmin) {
-                                        loadSummary(selectedDate);
-                                        loadProductSales(selectedDate);
-                                        loadRangeData();
-                                        preloadAnalytics();
-                                    }
-                                    loadBills(selectedBillDate);
-                                }}
-                                variant="secondary"
-                                size="lg"
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    background: 'var(--primary-500)',
-                                    color: '#fff'
-                                }}
-                            >
-                                <IoRefreshOutline size={18} />
-                                Refresh
-                            </Button>
-                        </motion.div>
+
                     </div>
                 </div>
             </motion.div>
@@ -855,9 +868,9 @@ const Analytics = () => {
                                         <FiDollarSign />
                                     </div>
                                     <div className="kpi-card-info">
-                                        <span className="kpi-card-title">Revenue</span>
-                                        <span className="kpi-card-value">{formatCurrency(chartSummary.total_sales || 0)}</span>
-                                        <span className="kpi-card-trend"><IoTrendingUpOutline style={{ marginRight: 2 }} /> Gross sales</span>
+                                        <span className="kpi-card-title">Total Revenue</span>
+                                        <span className="kpi-card-value">{formatCurrency(displayTotalSales)}</span>
+                                        <span className="kpi-card-trend">Net earnings</span>
                                     </div>
                                 </motion.div>
 
@@ -880,8 +893,8 @@ const Analytics = () => {
                                         <span className="kpi-card-title">Items Sold</span>
                                         <span className="kpi-card-value">
                                             {viewRange === 'day' 
-                                                ? (productSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0))
-                                                : (rangeProductSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0) || '—')
+                                                 ? (productSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0))
+                                                 : (viewRangeProductSales.reduce((acc, curr) => acc + (curr.quantity || 0), 0))
                                             }
                                         </span>
                                         <span className="kpi-card-trend">Units sold</span>
@@ -896,8 +909,8 @@ const Analytics = () => {
                                         <span className="kpi-card-title">Avg Bill</span>
                                         <span className="kpi-card-value">
                                             {chartSummary.total_bills > 0 
-                                                ? formatCurrency(Math.round((chartSummary.total_sales || 0) / chartSummary.total_bills)) 
-                                                : formatCurrency(0)
+                                                 ? formatCurrency(Math.round((displayTotalSales) / chartSummary.total_bills)) 
+                                                 : formatCurrency(0)
                                             }
                                         </span>
                                         <span className="kpi-card-trend">Per transaction</span>
@@ -950,15 +963,15 @@ const Analytics = () => {
                                                         dataKey="total_amount" 
                                                         radius={[4, 4, 0, 0]} 
                                                         animationDuration={800}
-                                                        fill="#3B82F6" 
+                                                        fill="#ffa15b" 
                                                     >
                                                         {chartProductSales.slice(0, 10).map((entry, index) => (
                                                             <Cell 
                                                                 key={`cell-${index}`} 
-                                                                fill="#3B82F6"
+                                                                fill="#ffa15b"
                                                                 style={{ transition: 'fill 0.2s ease' }}
-                                                                onMouseEnter={(e) => { e.target.setAttribute('fill', '#FF7A00'); }}
-                                                                onMouseLeave={(e) => { e.target.setAttribute('fill', '#3B82F6'); }}
+                                                                onMouseEnter={(e) => { e.target.setAttribute('fill', '#eb942b'); }}
+                                                                onMouseLeave={(e) => { e.target.setAttribute('fill', '#ffa15b'); }}
                                                             />
                                                         ))}
                                                     </Bar>
@@ -978,7 +991,7 @@ const Analytics = () => {
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Revenue contribution by category</span>
                                             </div>
                                             <div style={{ width: '100%', height: '290px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {Object.keys(chartSummary.category_totals || {}).length > 0 ? (
+                                                {Object.keys(displayCategoryTotals).length > 0 ? (
                                                     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <PieChart>
@@ -987,13 +1000,13 @@ const Analytics = () => {
                                                                     activeShape={renderActiveShape}
                                                                     onMouseEnter={(_, index) => setActivePieIndex(index)}
                                                                     onMouseLeave={() => setActivePieIndex(-1)}
-                                                                    data={Object.entries(chartSummary.category_totals || {}).map(([name, val]) => ({ name, total_amount: val }))}
+                                                                    data={Object.entries(displayCategoryTotals).map(([name, val]) => ({ name, total_amount: val }))}
                                                                     dataKey="total_amount"
                                                                     nameKey="name"
                                                                     cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4}
                                                                     isAnimationActive={false}
                                                                 >
-                                                                    {Object.entries(chartSummary.category_totals || {}).map((_, i) => (
+                                                                    {Object.entries(displayCategoryTotals).map((_, i) => (
                                                                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                                                     ))}
                                                                 </Pie>
@@ -1035,7 +1048,7 @@ const Analytics = () => {
                                                 <tbody>
                                                     {(viewRange === 'day' ? productSales : viewRangeProductSales).slice(0, 5).map((item, idx) => (
                                                         <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: idx === 0 ? '#FF7A00' : 'var(--text-secondary)' }}>#{idx + 1}</td>
+                                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: idx === 0 ? '#FF7A00' : 'var(--text-secondary)' }}>{idx + 1}</td>
                                                             <td style={{ padding: '12px 16px', fontWeight: 600 }}>{item.name}</td>
                                                             <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
                                                             <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary-500)' }}>{formatCurrency(item.total_amount)}</td>
@@ -1186,7 +1199,7 @@ const Analytics = () => {
                                                     e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
                                                     e.currentTarget.style.boxShadow = isDark ? '0 15px 40px rgba(0,0,0,0.35)' : '0 10px 25px rgba(0,0,0,0.05)';
                                                 }}
-                                                onClick={() => !isCancelled && handleEditBill(bill)}
+                                                onClick={() => !isCancelled && setPreviewBill(bill)}
                                             >
                                                 {/* Top Section */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -1202,7 +1215,7 @@ const Analytics = () => {
                                                         </div>
                                                         <div>
                                                             <div style={{ fontSize: '18px', fontWeight: 700, color: accentColor, marginBottom: '2px' }}>
-                                                                #{bill.bill_no}
+                                                                {bill.bill_no}
                                                             </div>
                                                             <div style={{ fontSize: '13px', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
                                                                 {formatDate(bill.created_at)}
@@ -1263,7 +1276,7 @@ const Analytics = () => {
                                                 {/* Action Buttons */}
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleEditBill(bill); }}
+                                                        onClick={(e) => { e.stopPropagation(); setPreviewBill(bill); }}
                                                         disabled={isCancelled}
                                                         style={{
                                                             flex: 1,
@@ -1903,7 +1916,7 @@ const Analytics = () => {
 
                                 <div style={{ marginBottom: '24px' }}>
                                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                        Are you sure you want to cancel <strong>Bill #{selectedBill?.bill_no}</strong>?
+                                        Are you sure you want to cancel <strong>Bill {selectedBill?.bill_no}</strong>?
                                     </p>
                                     <ul style={{ margin: '12px 0 0 12px', paddingLeft: '16px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                                         <li>Bill amount will be deducted from sales totals.</li>
@@ -1947,6 +1960,224 @@ const Analytics = () => {
                                 </div>
                             </motion.div>
                         </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
+            {/* ════════════════ BILL PREVIEW MODAL ════════════════ */}
+            {createPortal(
+                <AnimatePresence>
+                    {previewBill && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'rgba(0, 0, 0, 0.6)',
+                                backdropFilter: 'blur(10px)',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                zIndex: 999999,
+                                padding: '20px'
+                            }}
+                            onClick={() => setPreviewBill(null)}
+                        >
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    width: '100%',
+                                    maxWidth: '550px',
+                                    background: isDark ? 'var(--surface-primary, #1e1f22)' : '#FFFFFF',
+                                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                    borderRadius: '24px',
+                                    boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.5)' : '0 20px 50px rgba(0,0,0,0.1)',
+                                    padding: '30px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '20px',
+                                    maxHeight: '85vh',
+                                    overflowY: 'auto',
+                                    fontFamily: "'Outfit', sans-serif"
+                                }}
+                            >
+                                {/* Header */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <span style={{ fontSize: '13px', color: '#FF7A00', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                            Bill Preview
+                                        </span>
+                                        <h2 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                            Bill No: {previewBill.bill_no}
+                                        </h2>
+                                    </div>
+                                    <button
+                                        onClick={() => setPreviewBill(null)}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: isDark ? '#9CA3AF' : '#6B7280',
+                                            cursor: 'pointer',
+                                            fontSize: '24px',
+                                            padding: '4px',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+
+                                {/* Metadata Grid */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
+                                    gap: '16px',
+                                    padding: '16px',
+                                    background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                    borderRadius: '16px',
+                                    fontSize: '14px'
+                                }}>
+                                    <div>
+                                        <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>Date & Time</div>
+                                        <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                            {formatDate(previewBill.created_at)} {formatTime(previewBill.created_at)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>Order Type</div>
+                                        <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827', textTransform: 'capitalize' }}>
+                                            {previewBill.order_type || 'Dine In'} {previewBill.table_no ? `(Table: ${previewBill.table_no})` : ''}
+                                        </div>
+                                    </div>
+                                    {previewBill.customer_name && (
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>Customer Name</div>
+                                            <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                {previewBill.customer_name}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Items Table */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#111827' }}>Items</h3>
+                                    <div style={{
+                                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                        borderRadius: '16px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                                            <thead>
+                                                <tr style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0,0,0,0.08)' }}>
+                                                    <th style={{ padding: '12px 16px', color: isDark ? '#9CA3AF' : '#6B7280' }}>Item Name</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'center', color: isDark ? '#9CA3AF' : '#6B7280' }}>Qty</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: isDark ? '#9CA3AF' : '#6B7280' }}>Price</th>
+                                                    <th style={{ padding: '12px 16px', textAlign: 'right', color: isDark ? '#9CA3AF' : '#6B7280' }}>Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(previewBill.items || []).map((item, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: idx === (previewBill.items?.length - 1) ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)') }}>
+                                                        <td style={{ padding: '12px 16px', color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                            <div style={{ fontWeight: 600 }}>{item.product_name || item.name || 'Item'}</div>
+                                                            {(item.variation_name || item.variation) && (
+                                                                <div style={{ fontSize: '12px', color: '#FF7A00', marginTop: '2px' }}>
+                                                                    {item.variation_name || item.variation}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: isDark ? '#FFFFFF' : '#111827', fontWeight: 600 }}>
+                                                            {item.quantity || item.qty || 1}
+                                                        </td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'right', color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                            {formatCurrency(item.price || item.rate || 0)}
+                                                        </td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                            {formatCurrency((item.quantity || item.qty || 1) * (item.price || item.rate || 0))}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Total Summary */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginTop: '10px',
+                                    paddingTop: '20px',
+                                    borderTop: isDark ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'
+                                }}>
+                                    <span style={{ fontSize: '15px', fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}>Total Amount</span>
+                                    <span style={{ fontSize: '26px', fontWeight: 800, color: '#FF7A00' }}>
+                                        {formatCurrency(previewBill.total_amount)}
+                                    </span>
+                                </div>
+
+                                {/* Action Row */}
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                                    {previewBill.status !== 'CANCELLED' && (
+                                        <button
+                                            onClick={() => {
+                                                setPreviewBill(null);
+                                                handleEditBill(previewBill);
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                background: '#FF7A00',
+                                                color: '#FFFFFF',
+                                                border: 'none',
+                                                borderRadius: '14px',
+                                                padding: '14px',
+                                                fontSize: '15px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                transition: 'background 0.2s',
+                                                boxShadow: '0 8px 20px rgba(255,122,0,0.2)'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.background = '#E06B00'}
+                                            onMouseOut={(e) => e.target.style.background = '#FF7A00'}
+                                        >
+                                            <IoCreateOutline size={18} />
+                                            Edit Bill
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setPreviewBill(null)}
+                                        style={{
+                                            flex: previewBill.status === 'CANCELLED' ? 1 : 0.6,
+                                            background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                                            color: isDark ? '#FFFFFF' : '#111827',
+                                            border: 'none',
+                                            borderRadius: '14px',
+                                            padding: '14px',
+                                            fontSize: '15px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}
+                                        onMouseOut={(e) => e.target.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
                     )}
                 </AnimatePresence>,
                 document.body

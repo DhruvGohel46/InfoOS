@@ -93,5 +93,31 @@ export const workerAPI = {
     getWorkerExpenses: async (id) => {
         const response = await api.get(`/api/workers/${id}/expenses`);
         return response.data;
+    },
+
+    // Worker Types
+    getWorkerTypes: async () => {
+        const response = await api.get('/api/worker-types');
+        return response.data;
+    },
+
+    getWorkerType: async (id) => {
+        const response = await api.get(`/api/worker-types/${id}`);
+        return response.data;
+    },
+
+    createWorkerType: async (data) => {
+        const response = await api.post('/api/worker-types', data);
+        return response.data;
+    },
+
+    updateWorkerType: async (id, data) => {
+        const response = await api.put(`/api/worker-types/${id}`, data);
+        return response.data;
+    },
+
+    deleteWorkerType: async (id) => {
+        const response = await api.delete(`/api/worker-types/${id}`);
+        return response.data;
     }
 };

@@ -6,6 +6,7 @@
   "private": true,
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.5.1",
+    "@imgly/background-removal": "^1.7.0",
     "axios": "^1.6.0",
     "framer-motion": "^10.18.0",
     "motion": "^12.29.2",

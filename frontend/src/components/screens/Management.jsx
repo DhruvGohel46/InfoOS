@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
+import { removeBackground } from '@imgly/background-removal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { FiSearch, FiPackage, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
@@ -83,6 +84,7 @@ const ProductManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [productViewTab, setProductViewTab] = useState('active'); // active | inactive
   const [imageUploading, setImageUploading] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -336,12 +338,30 @@ const ProductManagement = () => {
     setDeletePassword('');
     setError('');
   };
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setSelectedImage(file);
       setPreviewImage(URL.createObjectURL(file));
-      setImageToDelete(false);
+      setImageProcessing(true);
+      
+      // Determine public path for loading model assets locally
+      const base = window.location.origin === "null" || !window.location.origin
+        ? window.location.href.substring(0, window.location.href.lastIndexOf('/'))
+        : window.location.origin;
+      const publicPath = `${base}/assets/ai/`;
+
+      try {
+        const processedBlob = await removeBackground(file, { publicPath });
+        const processedFile = new File([processedBlob], file.name.replace(/\.[^/.]+$/, "") + ".png", { type: "image/png" });
+        setSelectedImage(processedFile);
+        setPreviewImage(URL.createObjectURL(processedFile));
+        setImageToDelete(false);
+      } catch (err) {
+        console.error("Client-side background removal failed:", err);
+        setSelectedImage(file);
+      } finally {
+        setImageProcessing(false);
+      }
     }
   };
 
@@ -742,29 +762,34 @@ const ProductManagement = () => {
                       backgroundColor: 'var(--bg-secondary)',
                       position: 'relative'
                     }}>
-                      {imageUploading && (
-                        <div style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          zIndex: 10
-                        }}>
-                          <div style={{
-                            width: 'calc(24px * var(--display-zoom))',
-                            height: 'calc(24px * var(--display-zoom))',
-                            border: '3px solid rgba(255, 255, 255, 0.3)',
-                            borderTop: '3px solid white',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                          }} />
-                        </div>
-                      )}
+                       {(imageUploading || imageProcessing) && (
+                         <div style={{
+                           position: 'absolute',
+                           top: 0,
+                           left: 0,
+                           right: 0,
+                           bottom: 0,
+                           backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                           display: 'flex',
+                           flexDirection: 'column',
+                           alignItems: 'center',
+                           justifyContent: 'center',
+                           gap: '8px',
+                           zIndex: 10
+                         }}>
+                           <div style={{
+                             width: 'calc(24px * var(--display-zoom))',
+                             height: 'calc(24px * var(--display-zoom))',
+                             border: '3px solid rgba(255, 255, 255, 0.3)',
+                             borderTop: '3px solid white',
+                             borderRadius: '50%',
+                             animation: 'spin 1s linear infinite'
+                           }} />
+                           {imageProcessing && (
+                             <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>Removing BG...</span>
+                           )}
+                         </div>
+                       )}
                       {previewImage ? (
                         <img src={previewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (

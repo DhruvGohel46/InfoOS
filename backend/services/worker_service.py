@@ -158,12 +158,9 @@ class WorkerService:
         # If month/year not provided, use current cycle
         if not month or not year:
             start_date, end_date = WorkerService._get_finance_cycle_dates()
-            # For saving in payment record, we use the end month as the 'period' month
-            # (e.g., if cycle is May 15 - June 14, it's considered June's salary or May's salary?)
-            # Usually it's the month the cycle ends in or starts in.
-            # We use month/year from end_date for naming consistency.
-            month = end_date.month
-            year = end_date.year
+            # Use the start month as the 'period' month
+            month = start_date.month
+            year = start_date.year
         else:
             # If explicit month/year provided (e.g. from history generator), calculate cycle for that month
             from models import Settings
@@ -175,11 +172,11 @@ class WorkerService:
                 else 1
             )
 
-            # For explicit month, cycle starts at salary_day of month-1 and ends at salary_day-1 of month
-            prev_m = month - 1 if month > 1 else 12
-            prev_y = year if month > 1 else year - 1
-            start_date = date(prev_y, prev_m, salary_day)
-            end_date = date(year, month, salary_day)
+            # For explicit month, cycle starts at salary_day of month and ends at salary_day-1 of next month
+            next_m = month + 1 if month < 12 else 1
+            next_y = year if month < 12 else year + 1
+            start_date = date(year, month, salary_day)
+            end_date = date(next_y, next_m, salary_day)
             from datetime import timedelta
 
             end_date = end_date - timedelta(days=1)

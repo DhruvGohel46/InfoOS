@@ -31,6 +31,7 @@ import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 import { cloudSyncAPI, setCloudAuthToken } from '../../api/cloudApi';
 import api, { summaryAPI } from '../../api/api';
 import { expensesAPI } from '../../api/expenses';
+import { workerAPI } from '../../api/workers';
 
 
 const Settings = () => {
@@ -40,6 +41,24 @@ const Settings = () => {
 
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('shop');
+    const [workerSubTab, setWorkerSubTab] = useState('salary');
+    const [expenseSubTab, setExpenseSubTab] = useState('types');
+
+    // Worker Types State
+    const [workerTypes, setWorkerTypes] = useState([]);
+    const [workerTypesLoading, setWorkerTypesLoading] = useState(false);
+    const [showWorkerTypeModal, setShowWorkerTypeModal] = useState(false);
+    const [workerEditMode, setWorkerEditMode] = useState(false);
+    const [editingWorkerType, setEditingWorkerType] = useState(null);
+    const [workerTypeForm, setWorkerTypeForm] = useState({ name: '', description: '', is_active: true });
+
+    // Expense Types State
+    const [expenseTypes, setExpenseTypes] = useState([]);
+    const [expenseTypesLoading, setExpenseTypesLoading] = useState(false);
+    const [showExpenseTypeModal, setShowExpenseTypeModal] = useState(false);
+    const [expenseEditMode, setExpenseEditMode] = useState(false);
+    const [editingExpenseType, setEditingExpenseType] = useState(null);
+    const [expenseTypeForm, setExpenseTypeForm] = useState({ name: '', description: '', is_active: true });
     
     // Text scale state
     const [textScale, setTextScale] = useState(() => {
@@ -445,6 +464,240 @@ const Settings = () => {
             .catch(() => setPinStatus({ enabled: false, is_setup: false, loading: false }));
     }, []);
 
+    // Load worker types when workers tab is active
+    useEffect(() => {
+        if (activeTab === 'workers' && workerSubTab === 'types') {
+            loadWorkerTypes();
+        }
+    }, [activeTab, workerSubTab]);
+
+    // Load expense types when expenses tab is active
+    useEffect(() => {
+        if (activeTab === 'expenses' && expenseSubTab === 'types') {
+            loadExpenseTypes();
+        }
+    }, [activeTab, expenseSubTab]);
+
+    const loadWorkerTypes = async () => {
+        setWorkerTypesLoading(true);
+        try {
+            const response = await workerAPI.getWorkerTypes();
+            setWorkerTypes(response.worker_types || []);
+        } catch (err) {
+            console.error('Failed to load worker types:', err);
+            showError('Failed to load worker types');
+        } finally {
+            setWorkerTypesLoading(false);
+        }
+    };
+
+    const loadExpenseTypes = async () => {
+        setExpenseTypesLoading(true);
+        try {
+            const response = await expensesAPI.getExpenseTypes();
+            setExpenseTypes(response.expense_types || []);
+        } catch (err) {
+            console.error('Failed to load expense types:', err);
+            showError('Failed to load expense types');
+        } finally {
+            setExpenseTypesLoading(false);
+        }
+    };
+
+    const handleCreateWorkerType = async () => {
+        if (!workerTypeForm.name.trim()) {
+            showError('Worker type name is required');
+            return;
+        }
+        try {
+            await workerAPI.createWorkerType(workerTypeForm);
+            showSuccess('Worker type created successfully');
+            setShowWorkerTypeModal(false);
+            setWorkerTypeForm({ name: '', description: '', is_active: true });
+            setEditingWorkerType(null);
+            loadWorkerTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to create worker type');
+        }
+    };
+
+    const handleUpdateWorkerType = async () => {
+        if (!workerTypeForm.name.trim()) {
+            showError('Worker type name is required');
+            return;
+        }
+        try {
+            await workerAPI.updateWorkerType(editingWorkerType.id, workerTypeForm);
+            showSuccess('Worker type updated successfully');
+            setShowWorkerTypeModal(false);
+            setWorkerTypeForm({ name: '', description: '', is_active: true });
+            setEditingWorkerType(null);
+            loadWorkerTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to update worker type');
+        }
+    };
+
+    const handleDeleteWorkerType = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this worker type?')) {
+            return;
+        }
+        try {
+            await workerAPI.deleteWorkerType(id);
+            showSuccess('Worker type deleted successfully');
+            loadWorkerTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to delete worker type');
+        }
+    };
+
+    const handleCreateExpenseType = async () => {
+        if (!expenseTypeForm.name.trim()) {
+            showError('Expense type name is required');
+            return;
+        }
+        try {
+            await expensesAPI.createExpenseType(expenseTypeForm);
+            showSuccess('Expense type created successfully');
+            setShowExpenseTypeModal(false);
+            setExpenseTypeForm({ name: '', description: '', is_active: true });
+            setEditingExpenseType(null);
+            loadExpenseTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to create expense type');
+        }
+    };
+
+    const handleUpdateExpenseType = async () => {
+        if (!expenseTypeForm.name.trim()) {
+            showError('Expense type name is required');
+            return;
+        }
+        try {
+            await expensesAPI.updateExpenseType(editingExpenseType.id, expenseTypeForm);
+            showSuccess('Expense type updated successfully');
+            setShowExpenseTypeModal(false);
+            setExpenseTypeForm({ name: '', description: '', is_active: true });
+            setEditingExpenseType(null);
+            loadExpenseTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to update expense type');
+        }
+    };
+
+    const handleDeleteExpenseType = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this expense type?')) {
+            return;
+        }
+        try {
+            await expensesAPI.deleteExpenseType(id);
+            showSuccess('Expense type deleted successfully');
+            loadExpenseTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to delete expense type');
+        }
+    };
+
+    const openWorkerTypeModal = (type = null) => {
+        if (type) {
+            setEditingWorkerType(type);
+            setWorkerTypeForm({
+                name: type.name,
+                description: type.description || '',
+                is_active: type.is_active
+            });
+        } else {
+            setEditingWorkerType(null);
+            setWorkerTypeForm({ name: '', description: '', is_active: true });
+        }
+        setShowWorkerTypeModal(true);
+    };
+
+    const openExpenseTypeModal = (type = null) => {
+        if (type) {
+            setEditingExpenseType(type);
+            setExpenseTypeForm({
+                name: type.name,
+                description: type.description || '',
+                is_active: type.is_active
+            });
+        } else {
+            setEditingExpenseType(null);
+            setExpenseTypeForm({ name: '', description: '', is_active: true });
+        }
+        setShowExpenseTypeModal(true);
+    };
+
+    const startWorkerEditMode = () => {
+        setWorkerEditMode(true);
+    };
+
+    const cancelWorkerEditMode = () => {
+        setWorkerEditMode(false);
+        setEditingWorkerType(null);
+        setWorkerTypeForm({ name: '', description: '', is_active: true });
+    };
+
+    const startExpenseEditMode = () => {
+        setExpenseEditMode(true);
+    };
+
+    const cancelExpenseEditMode = () => {
+        setExpenseEditMode(false);
+        setEditingExpenseType(null);
+        setExpenseTypeForm({ name: '', description: '', is_active: true });
+    };
+
+    const handleInlineWorkerTypeEdit = (type) => {
+        setEditingWorkerType(type);
+        setWorkerTypeForm({
+            name: type.name,
+            description: type.description || '',
+            is_active: type.is_active
+        });
+    };
+
+    const handleInlineExpenseTypeEdit = (type) => {
+        setEditingExpenseType(type);
+        setExpenseTypeForm({
+            name: type.name,
+            description: type.description || '',
+            is_active: type.is_active
+        });
+    };
+
+    const saveInlineWorkerType = async () => {
+        if (!workerTypeForm.name.trim()) {
+            showError('Worker type name is required');
+            return;
+        }
+        try {
+            await workerAPI.updateWorkerType(editingWorkerType.id, workerTypeForm);
+            showSuccess('Worker type updated successfully');
+            setEditingWorkerType(null);
+            setWorkerTypeForm({ name: '', description: '', is_active: true });
+            loadWorkerTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to update worker type');
+        }
+    };
+
+    const saveInlineExpenseType = async () => {
+        if (!expenseTypeForm.name.trim()) {
+            showError('Expense type name is required');
+            return;
+        }
+        try {
+            await expensesAPI.updateExpenseType(editingExpenseType.id, expenseTypeForm);
+            showSuccess('Expense type updated successfully');
+            setEditingExpenseType(null);
+            setExpenseTypeForm({ name: '', description: '', is_active: true });
+            loadExpenseTypes();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to update expense type');
+        }
+    };
+
     const handlePinChange = (field, value) =>
         setPinForm(prev => ({ ...prev, [field]: value }));
 
@@ -593,6 +846,7 @@ const Settings = () => {
         { id: 'printer', label: 'Printer Settings', icon: IoPrintOutline },
         { id: 'app', label: 'App Preferences', icon: IoAppsOutline },
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
+        { id: 'expenses', label: 'Expense Configuration', icon: IoReceiptOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
         { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline }
     ];
@@ -1151,7 +1405,290 @@ const Settings = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                 <div style={{ marginBottom: '24px' }}>
                                     <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Worker Configuration</h2>
-                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage salary and payroll settings</p>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage salary settings and worker types</p>
+                                </div>
+
+                                {/* Sub-tabs for Workers */}
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                                    <button
+                                        onClick={() => setWorkerSubTab('salary')}
+                                        style={{
+                                            padding: '10px 20px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-secondary)',
+                                            background: workerSubTab === 'salary' ? 'var(--primary-500)' : 'var(--surface-primary)',
+                                            color: workerSubTab === 'salary' ? 'white' : 'var(--text-primary)',
+                                            fontWeight: 500,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        Salary Settings
+                                    </button>
+                                    <button
+                                        onClick={() => setWorkerSubTab('types')}
+                                        style={{
+                                            padding: '10px 20px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-secondary)',
+                                            background: workerSubTab === 'types' ? 'var(--primary-500)' : 'var(--surface-primary)',
+                                            color: workerSubTab === 'types' ? 'white' : 'var(--text-primary)',
+                                            fontWeight: 500,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        Worker Types
+                                    </button>
+                                </div>
+
+                                {workerSubTab === 'salary' && (
+                                    <div style={{
+                                        padding: '24px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '16px'
+                                    }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
+                                            <div style={{ width: '100%' }}>
+                                                <GlobalDatePicker
+                                                    value={(() => {
+                                                        const day = parseInt(formSettings.salary_day) || 1;
+                                                        const now = new Date();
+                                                        return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
+                                                    })()}
+                                                    onChange={(dateStr) => {
+                                                        if (dateStr) {
+                                                            const parts = dateStr.split('-');
+                                                            if (parts.length === 3) {
+                                                                const day = parseInt(parts[2]);
+                                                                handleChange('salary_day', day.toString());
+                                                            }
+                                                        }
+                                                    }}
+                                                    placeholder="Select Salary Day"
+                                                />
+                                                <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                                    Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {workerSubTab === 'types' && (
+                                    <div style={{
+                                        padding: '24px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '16px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Worker Types</h3>
+                                                {workerEditMode && (
+                                                    <span style={{
+                                                        fontSize: '12px',
+                                                        fontWeight: '600',
+                                                        color: '#FF8A00',
+                                                        background: 'rgba(255,138,0,0.1)',
+                                                        padding: '4px 12px',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid rgba(255,138,0,0.2)'
+                                                    }}>
+                                                        Editing Mode
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                {!workerEditMode ? (
+                                                    <>
+                                                        <Button
+                                                            onClick={() => openWorkerTypeModal()}
+                                                            size="sm"
+                                                            style={{ height: '36px' }}
+                                                        >
+                                                            + Add Type
+                                                        </Button>
+                                                        <Button
+                                                            onClick={startWorkerEditMode}
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            style={{ height: '36px' }}
+                                                        >
+                                                            Edit
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Button
+                                                            onClick={cancelWorkerEditMode}
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            style={{ height: '36px' }}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {workerTypesLoading ? (
+                                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                                                Loading worker types...
+                                            </div>
+                                        ) : workerTypes.length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                                                No worker types found. Click "Add Type" to create one.
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {workerTypes.map((type) => (
+                                                    <motion.div
+                                                        layout
+                                                        key={type.id}
+                                                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                                    >
+                                                        {editingWorkerType?.id === type.id && workerEditMode ? (
+                                                            <div style={{
+                                                                padding: '16px',
+                                                                background: 'rgba(255,138,0,0.1)',
+                                                                border: '1.5px dashed #FF8A00',
+                                                                borderRadius: '8px',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                gap: '12px'
+                                                            }}>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                                        Name *
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={workerTypeForm.name}
+                                                                        onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, name: e.target.value })}
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            padding: '8px',
+                                                                            borderRadius: '4px',
+                                                                            border: '1px solid var(--border-secondary)',
+                                                                            background: 'var(--surface-secondary)',
+                                                                            color: 'var(--text-primary)',
+                                                                            fontSize: '14px'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                                        Description
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={workerTypeForm.description}
+                                                                        onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, description: e.target.value })}
+                                                                        rows={2}
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            padding: '8px',
+                                                                            borderRadius: '4px',
+                                                                            border: '1px solid var(--border-secondary)',
+                                                                            background: 'var(--surface-secondary)',
+                                                                            color: 'var(--text-primary)',
+                                                                            fontSize: '14px',
+                                                                            resize: 'vertical'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={workerTypeForm.is_active}
+                                                                        onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, is_active: e.target.checked })}
+                                                                        style={{ width: '16px', height: '16px' }}
+                                                                    />
+                                                                    <label style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Active</label>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                                    <Button
+                                                                        onClick={() => setEditingWorkerType(null)}
+                                                                        variant="secondary"
+                                                                        size="sm"
+                                                                        style={{ height: '32px', padding: '0 12px' }}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={saveInlineWorkerType}
+                                                                        size="sm"
+                                                                        style={{ height: '32px', padding: '0 12px' }}
+                                                                    >
+                                                                        Save
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                style={{
+                                                                    padding: '16px',
+                                                                    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                                    border: workerEditMode ? '1.5px dashed #FF8A00' : '1px solid var(--border-secondary)',
+                                                                    borderRadius: '8px',
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center',
+                                                                    cursor: workerEditMode ? 'pointer' : 'default',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                onClick={workerEditMode ? () => handleInlineWorkerTypeEdit(type) : undefined}
+                                                            >
+                                                                <div>
+                                                                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                        {type.name}
+                                                                    </div>
+                                                                    {type.description && (
+                                                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                                                            {type.description}
+                                                                        </div>
+                                                                    )}
+                                                                    <div style={{ fontSize: '12px', color: type.is_active ? 'var(--success-500)' : 'var(--error-500)', marginTop: '4px' }}>
+                                                                        {type.is_active ? 'Active' : 'Inactive'}
+                                                                    </div>
+                                                                </div>
+                                                                {!workerEditMode && (
+                                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                                        <Button
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteWorkerType(type.id); }}
+                                                                            variant="danger"
+                                                                            size="sm"
+                                                                            style={{ height: '32px', padding: '0 12px' }}
+                                                                        >
+                                                                            Delete
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'expenses' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Expense Configuration</h2>
+                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage expense types for categorization</p>
                                 </div>
 
                                 <div style={{
@@ -1163,35 +1700,199 @@ const Settings = () => {
                                     flexDirection: 'column',
                                     gap: '16px'
                                 }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
-                                        <div style={{ width: '100%' }}>
-                                            <GlobalDatePicker
-                                                value={(() => {
-                                                    const day = parseInt(formSettings.salary_day) || 1;
-                                                    const now = new Date();
-                                                    return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
-                                                })()}
-                                                onChange={(dateStr) => {
-                                                    if (dateStr) {
-                                                        const parts = dateStr.split('-');
-                                                        if (parts.length === 3) {
-                                                            const day = parseInt(parts[2]);
-                                                            handleChange('salary_day', day.toString());
-                                                        }
-                                                    }
-                                                }}
-                                                placeholder="Select Salary Day"
-                                            />
-                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                                                Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
-                                            </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Expense Types</h3>
+                                            {expenseEditMode && (
+                                                <span style={{
+                                                    fontSize: '12px',
+                                                    fontWeight: '600',
+                                                    color: '#FF8A00',
+                                                    background: 'rgba(255,138,0,0.1)',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid rgba(255,138,0,0.2)'
+                                                }}>
+                                                    Editing Mode
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {!expenseEditMode ? (
+                                                <>
+                                                    <Button
+                                                        onClick={() => openExpenseTypeModal()}
+                                                        size="sm"
+                                                        style={{ height: '36px' }}
+                                                    >
+                                                        + Add Type
+                                                    </Button>
+                                                    <Button
+                                                        onClick={startExpenseEditMode}
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        style={{ height: '36px' }}
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Button
+                                                        onClick={cancelExpenseEditMode}
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        style={{ height: '36px' }}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {expenseTypesLoading ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                                            Loading expense types...
+                                        </div>
+                                    ) : expenseTypes.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                                            No expense types found. Click "Add Type" to create one.
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {expenseTypes.map((type) => (
+                                                <motion.div
+                                                    layout
+                                                    key={type.id}
+                                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                                >
+                                                    {editingExpenseType?.id === type.id && expenseEditMode ? (
+                                                        <div style={{
+                                                            padding: '16px',
+                                                            background: 'rgba(255,138,0,0.1)',
+                                                            border: '1.5px dashed #FF8A00',
+                                                            borderRadius: '8px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '12px'
+                                                        }}>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                                    Name *
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={expenseTypeForm.name}
+                                                                    onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, name: e.target.value })}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '8px',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid var(--border-secondary)',
+                                                                        background: 'var(--surface-secondary)',
+                                                                        color: 'var(--text-primary)',
+                                                                        fontSize: '14px'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                                    Description
+                                                                </label>
+                                                                <textarea
+                                                                    value={expenseTypeForm.description}
+                                                                    onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, description: e.target.value })}
+                                                                    rows={2}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '8px',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid var(--border-secondary)',
+                                                                        background: 'var(--surface-secondary)',
+                                                                        color: 'var(--text-primary)',
+                                                                        fontSize: '14px',
+                                                                        resize: 'vertical'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={expenseTypeForm.is_active}
+                                                                    onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, is_active: e.target.checked })}
+                                                                    style={{ width: '16px', height: '16px' }}
+                                                                />
+                                                                <label style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Active</label>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                                <Button
+                                                                    onClick={() => setEditingExpenseType(null)}
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    style={{ height: '32px', padding: '0 12px' }}
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                                <Button
+                                                                    onClick={saveInlineExpenseType}
+                                                                    size="sm"
+                                                                    style={{ height: '32px', padding: '0 12px' }}
+                                                                >
+                                                                    Save
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            style={{
+                                                                padding: '16px',
+                                                                background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                                border: expenseEditMode ? '1.5px dashed #FF8A00' : '1px solid var(--border-secondary)',
+                                                                borderRadius: '8px',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center',
+                                                                cursor: expenseEditMode ? 'pointer' : 'default',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            onClick={expenseEditMode ? () => handleInlineExpenseTypeEdit(type) : undefined}
+                                                        >
+                                                            <div>
+                                                                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                    {type.name}
+                                                                </div>
+                                                                {type.description && (
+                                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                                                        {type.description}
+                                                                    </div>
+                                                                )}
+                                                                <div style={{ fontSize: '12px', color: type.is_active ? 'var(--success-500)' : 'var(--error-500)', marginTop: '4px' }}>
+                                                                    {type.is_active ? 'Active' : 'Inactive'}
+                                                                </div>
+                                                            </div>
+                                                            {!expenseEditMode && (
+                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                    <Button
+                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteExpenseType(type.id); }}
+                                                                        variant="danger"
+                                                                        size="sm"
+                                                                        style={{ height: '32px', padding: '0 12px' }}
+                                                                    >
+                                                                        Delete
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
-                        
+
                         {activeTab === 'security' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                                 {/* Page Header with Status Badge */}
@@ -1409,6 +2110,206 @@ const Settings = () => {
                                                     {item}
                                                 </span>
                                             ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Worker Type Modal */}
+                        {showWorkerTypeModal && (
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'rgba(0,0,0,0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 1000
+                            }}>
+                                <div style={{
+                                    background: 'var(--surface-primary)',
+                                    padding: '24px',
+                                    borderRadius: '12px',
+                                    width: '400px',
+                                    maxWidth: '90%',
+                                    border: '1px solid var(--border-secondary)'
+                                }}>
+                                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+                                        {editingWorkerType ? 'Edit Worker Type' : 'Add Worker Type'}
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={workerTypeForm.name}
+                                                onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, name: e.target.value })}
+                                                placeholder="e.g., Chef, Waiter, Manager"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--border-secondary)',
+                                                    background: 'var(--surface-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                Description
+                                            </label>
+                                            <textarea
+                                                value={workerTypeForm.description}
+                                                onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, description: e.target.value })}
+                                                placeholder="Optional description"
+                                                rows={3}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--border-secondary)',
+                                                    background: 'var(--surface-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '14px',
+                                                    resize: 'vertical'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={workerTypeForm.is_active}
+                                                onChange={(e) => setWorkerTypeForm({ ...workerTypeForm, is_active: e.target.checked })}
+                                                style={{ width: '16px', height: '16px' }}
+                                            />
+                                            <label style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Active</label>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                            <Button
+                                                onClick={() => {
+                                                    setShowWorkerTypeModal(false);
+                                                    setEditingWorkerType(null);
+                                                    setWorkerTypeForm({ name: '', description: '', is_active: true });
+                                                }}
+                                                variant="secondary"
+                                                style={{ flex: 1 }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                onClick={editingWorkerType ? handleUpdateWorkerType : handleCreateWorkerType}
+                                                style={{ flex: 1 }}
+                                            >
+                                                {editingWorkerType ? 'Update' : 'Create'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Expense Type Modal */}
+                        {showExpenseTypeModal && (
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'rgba(0,0,0,0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 1000
+                            }}>
+                                <div style={{
+                                    background: 'var(--surface-primary)',
+                                    padding: '24px',
+                                    borderRadius: '12px',
+                                    width: '400px',
+                                    maxWidth: '90%',
+                                    border: '1px solid var(--border-secondary)'
+                                }}>
+                                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+                                        {editingExpenseType ? 'Edit Expense Type' : 'Add Expense Type'}
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={expenseTypeForm.name}
+                                                onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, name: e.target.value })}
+                                                placeholder="e.g., Utilities, Supplies, Rent"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--border-secondary)',
+                                                    background: 'var(--surface-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                Description
+                                            </label>
+                                            <textarea
+                                                value={expenseTypeForm.description}
+                                                onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, description: e.target.value })}
+                                                placeholder="Optional description"
+                                                rows={3}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--border-secondary)',
+                                                    background: 'var(--surface-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '14px',
+                                                    resize: 'vertical'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={expenseTypeForm.is_active}
+                                                onChange={(e) => setExpenseTypeForm({ ...expenseTypeForm, is_active: e.target.checked })}
+                                                style={{ width: '16px', height: '16px' }}
+                                            />
+                                            <label style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Active</label>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                            <Button
+                                                onClick={() => {
+                                                    setShowExpenseTypeModal(false);
+                                                    setEditingExpenseType(null);
+                                                    setExpenseTypeForm({ name: '', description: '', is_active: true });
+                                                }}
+                                                variant="secondary"
+                                                style={{ flex: 1 }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                onClick={editingExpenseType ? handleUpdateExpenseType : handleCreateExpenseType}
+                                                style={{ flex: 1 }}
+                                            >
+                                                {editingExpenseType ? 'Update' : 'Create'}
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>

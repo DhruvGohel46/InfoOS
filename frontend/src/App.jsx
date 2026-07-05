@@ -397,7 +397,7 @@ function AppContent() {
     addToast({
       type: 'success',
       title: 'Bill Created Successfully!',
-      description: `Bill #${bill.bill_no} — Total: ${formatCurrency(bill.total)}`,
+      description: `Bill ${bill.bill_no} — Total: ${formatCurrency(bill.total)}`,
       duration: 5000,
     });
   };
@@ -456,7 +456,7 @@ function AppContent() {
             <button
               onClick={() => {
                 setPosKey(prev => prev + 1);
-                navigate('/');
+                navigate('/', { replace: true, state: {} });
               }}
               className="liquid-glass-button"
               style={{

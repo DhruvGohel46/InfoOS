@@ -443,30 +443,16 @@ def upload_product_image(product_id):
 
     file_path = os.path.join(images_dir, filename)
 
-    # ── Attempt background removal via lazy-loaded rembg ──────────────────
-    remove_fn, bg_session = get_rembg()
-
-    if remove_fn is not None:
-        try:
-            img = Image.open(file).convert("RGB")
-            output = remove_fn(img, session=bg_session)
-            output.save(file_path, format="PNG")
-            bg_removed = True
-            logger.info("Background removal successful for product %s", product_id)
-        except Exception as e:
-            logger.warning("Background removal failed, saving original: %s", e)
-            file.seek(0)
-            img = Image.open(file)
-            img.save(file_path, format="PNG")
-            bg_removed = False
-    else:
-        # rembg not installed — save original without background removal
-        current_app.logger.warning("rembg not installed — saving image without background removal")
-        logger.warning("Background removal unavailable - rembg library not loaded")
+    # ── Save original uploaded image directly (handled by frontend) ──────
+    try:
         file.seek(0)
         img = Image.open(file)
         img.save(file_path, format="PNG")
-        bg_removed = False
+        bg_removed = True
+        logger.info("Image saved successfully for product %s", product_id)
+    except Exception as e:
+        logger.error("Failed to save product image: %s", e)
+        raise Exception("Failed to save product image: " + str(e))
 
     success = db.update_product(product_id, {"image_filename": filename})
 

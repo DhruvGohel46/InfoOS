@@ -165,10 +165,17 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
             transition={{ duration: 0.2 }}
             style={{
               width: '100%',
-              maxWidth: '500px',
-              borderRadius: '16px',
-              background: isDark ? currentTheme.colors.surface : '#ffffff',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxWidth: '540px',
+              borderRadius: '24px',
+              background: isDark 
+                ? 'linear-gradient(135deg, rgba(20, 20, 20, 0.8) 0%, rgba(35, 35, 35, 0.8) 100%)' 
+                : 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              boxShadow: isDark 
+                ? '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05)' 
+                : '0 25px 60px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255,255,255,0.8)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
               zIndex: 10,
               overflow: 'hidden',
               display: 'flex',
@@ -179,13 +186,13 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
             {/* Header */}
             <div style={{
               padding: '20px 24px',
-              borderBottom: `1px solid ${currentTheme.colors.border}`,
+              borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+              background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)'
             }}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: currentTheme.colors.text.primary }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: currentTheme.colors.text.primary }}>
                 {initialData ? 'Edit Worker' : 'Add New Worker'}
               </h3>
               <button
@@ -206,82 +213,98 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
             </div>
 
             {/* Body */}
-            <div style={{ padding: '24px', overflowY: 'auto' }}>
+            <div style={{ padding: '24px 24px 40px 24px' }}>
               <form id="worker-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                 {/* Photo Upload */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                   <div style={{
-                    width: '100px',
-                    height: '100px',
-                    borderRadius: '50%',
+                    width: '110px',
+                    height: '110px',
+                    borderRadius: '16px',
                     overflow: 'hidden',
-                    background: isDark ? '#334155' : '#E2E8F0',
+                    background: isDark ? 'rgba(255,255,255,0.03)' : '#F1F5F9',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: `2px solid ${currentTheme.colors.border}`
+                    border: `2px dashed ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
                   }}>
                     {photoPreview ? (
                       <img src={photoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <IoPerson size={48} color={isDark ? '#94A3B8' : '#CBD5E1'} />
+                      <IoPerson size={40} color={isDark ? '#475569' : '#94A3B8'} />
                     )}
                   </div>
                   <label style={{
                     cursor: 'pointer',
                     color: '#F97316',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(249, 115, 22, 0.1)'
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    padding: '6px 16px',
+                    borderRadius: '8px',
+                    background: 'rgba(249, 115, 22, 0.08)',
+                    border: '1px solid rgba(249, 115, 22, 0.15)',
+                    transition: 'all 0.2s ease',
                   }}>
                     Upload Photo
                     <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
                   </label>
                 </div>
 
-                <Input
-                  label="Full Name"
-                  icon={<IoPerson />}
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                  required
-                  placeholder="e.g. Rahul Patel"
-                />
-
-                <Input
-                  label="Phone Number"
-                  icon={<IoCall />}
-                  value={form.phone}
-                  onChange={e => setForm({ ...form, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                />
-
-                <div>
-                  <GlobalSelect
-                    label="Role"
-                    icon={<IoBriefcase />}
-                    options={defaultRoles}
-                    value={form.role}
-                    onChange={val => setForm({ ...form, role: val })}
-                    placeholder="Select Role"
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <Input
+                    label="Full Name"
+                    leftIcon={<IoPerson />}
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    required
+                    placeholder="e.g. Rahul Patel"
                   />
-                  {form.role === 'Other' && (
-                    <Input
-                      placeholder="Specify Role"
-                      value={customRole}
-                      onChange={e => setCustomRole(e.target.value)}
-                      style={{ marginTop: '8px' }}
+
+                  <Input
+                    label="Phone Number"
+                    leftIcon={<IoCall />}
+                    value={form.phone}
+                    onChange={e => setForm({ ...form, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <GlobalSelect
+                      label="Role"
+                      icon={<IoBriefcase />}
+                      options={defaultRoles}
+                      value={form.role}
+                      onChange={val => setForm({ ...form, role: val })}
+                      placeholder="Select Role"
+                      direction="top"
                     />
-                  )}
+                    {form.role === 'Other' && (
+                      <Input
+                        placeholder="Specify Role"
+                        value={customRole}
+                        onChange={e => setCustomRole(e.target.value)}
+                        style={{ marginTop: '8px' }}
+                      />
+                    )}
+                  </div>
+
+                  <GlobalSelect
+                    label="Status"
+                    options={statusOptions}
+                    value={form.status}
+                    onChange={val => setForm({ ...form, status: val })}
+                    direction="top"
+                  />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <Input
                     label="Salary (₹)"
-                    icon={<IoCash />}
+                    leftIcon={<IoCash />}
                     type="number"
                     value={form.salary}
                     onChange={e => setForm({ ...form, salary: e.target.value })}
@@ -294,36 +317,31 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                   />
                 </div>
 
-                <GlobalSelect
-                  label="Status"
-                  options={statusOptions}
-                  value={form.status}
-                  onChange={val => setForm({ ...form, status: val })}
-                />
-
               </form>
             </div>
 
             {/* Footer */}
             <div style={{
               padding: '20px 24px',
-              borderTop: `1px solid ${currentTheme.colors.border}`,
+              borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
               display: 'flex',
               justifyContent: 'flex-end',
               gap: '12px',
-              background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+              background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)'
             }}>
               <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
               <Button
                 variant="primary"
-                onClick={handleSave} // Trigger form submit via ref or direct handler
+                onClick={handleSave}
                 loading={saving}
                 style={{
-                  background: '#F97316',
+                  background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
                   border: 'none',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(249, 115, 22, 0.25)',
+                  borderRadius: '10px'
                 }}
               >
                 <IoSave size={18} />

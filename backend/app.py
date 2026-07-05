@@ -86,6 +86,8 @@ def create_app(config_name="default"):
     from routes.inventory import inventory_bp
     from routes.workers import workers_bp
     from routes.expenses import expenses_bp
+    from routes.worker_types import worker_types_bp
+    from routes.expense_types import expense_types_bp
     from routes.reminders import reminders_bp
     from routes.pos import pos_bp
     from auth import auth_bp
@@ -145,6 +147,8 @@ def create_app(config_name="default"):
     app.register_blueprint(inventory_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(expenses_bp)
+    app.register_blueprint(worker_types_bp)
+    app.register_blueprint(expense_types_bp)
     app.register_blueprint(reminders_bp)
     app.register_blueprint(pos_bp)
     app.register_blueprint(auth_bp)

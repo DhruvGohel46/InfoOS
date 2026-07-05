@@ -114,6 +114,27 @@ class Bill(db.Model):
 # ==========================================
 
 
+class ExpenseType(db.Model):
+    __tablename__ = "expense_types"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class Expense(db.Model):
     __tablename__ = "expenses"
 
@@ -185,6 +206,27 @@ class ExpenseItem(db.Model):
 # ==========================================
 
 
+class WorkerType(db.Model):
+    __tablename__ = "worker_types"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class Worker(db.Model):
     __tablename__ = "workers"
 
@@ -193,6 +235,7 @@ class Worker(db.Model):
     phone = db.Column(db.String(15))
     email = db.Column(db.String(255))
     role = db.Column(db.String(100))  # e.g., 'Chef', 'Waiter', 'Manager'
+    worker_type_id = db.Column(db.Integer, db.ForeignKey("worker_types.id"), nullable=True)
     salary = db.Column(db.Float, default=0.0)
     join_date = db.Column(db.Date)
     status = db.Column(db.String(20), default="active")  # 'active', 'inactive'
@@ -201,6 +244,7 @@ class Worker(db.Model):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
+    worker_type = db.relationship("WorkerType", backref="workers")
     advances = db.relationship("Advance", backref="worker", lazy=True)
     salary_payments = db.relationship("SalaryPayment", backref="worker", lazy=True)
     attendance_records = db.relationship("Attendance", backref="worker", lazy=True)

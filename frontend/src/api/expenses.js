@@ -54,5 +54,56 @@ export const expensesAPI = {
             console.error(`Error deleting expense ${id}:`, error);
             throw error;
         }
+    },
+
+    // Expense Types
+    getExpenseTypes: async () => {
+        try {
+            const response = await api.get('/api/expense-types');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching expense types:', error);
+            throw error;
+        }
+    },
+
+    getExpenseType: async (id) => {
+        try {
+            const response = await api.get(`/api/expense-types/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching expense type ${id}:`, error);
+            throw error;
+        }
+    },
+
+    createExpenseType: async (data) => {
+        try {
+            const response = await api.post('/api/expense-types', data);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating expense type:', error);
+            throw error;
+        }
+    },
+
+    updateExpenseType: async (id, data) => {
+        try {
+            const response = await api.put(`/api/expense-types/${id}`, data);
+            return response.data;
+        } catch (error) {
+            console.error(`Error updating expense type ${id}:`, error);
+            throw error;
+        }
+    },
+
+    deleteExpenseType: async (id) => {
+        try {
+            const response = await api.delete(`/api/expense-types/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error deleting expense type ${id}:`, error);
+            throw error;
+        }
     }
 };
