@@ -91,6 +91,12 @@ const Inventory = () => {
         product_id: ''
     });
 
+    const getSafeNumberValue = (val, defaultVal = '') => {
+        if (val === null || val === undefined || val === '') return defaultVal;
+        const num = parseFloat(val);
+        return isNaN(num) ? defaultVal : num;
+    };
+
     useEffect(() => {
         loadInventory();
         loadProducts();
@@ -215,6 +221,9 @@ const Inventory = () => {
         e.preventDefault();
         try {
             let payload = { ...formData };
+            payload.stock = isNaN(parseFloat(payload.stock)) ? 0 : parseFloat(payload.stock);
+            payload.alert_threshold = isNaN(parseInt(payload.alert_threshold)) ? 0 : parseInt(payload.alert_threshold);
+
             if (payload.type === 'DIRECT_SALE' && payload.product_id) {
                 const p = products.find(x => x.product_id === payload.product_id);
                 if (p) payload.name = p.name;
@@ -371,7 +380,6 @@ const Inventory = () => {
                     <div className="inventory-list">
                         {/* Table Header */}
                         <div className="inventory-table-head">
-                            <div className="head-icon"></div>
                             <div className="head-name">Product Name</div>
                             <div className="head-stock">Stock Level</div>
                             <div className="head-health">Health</div>
@@ -387,10 +395,6 @@ const Inventory = () => {
                                 onClick={() => handleRowClick(item)}
                                 className={`inventory-row ${item.is_locked ? 'is-locked' : ''}`}
                             >
-                                {/* Icon */}
-                                <div className="inventory-icon">
-                                    <FiPackage />
-                                </div>
 
                                 {/* Name */}
                                 <div className="inventory-name">
@@ -598,8 +602,11 @@ const Inventory = () => {
                                     </label>
                                     <input
                                       type="number"
-                                      value={formData.stock}
-                                      onChange={e => setFormData({ ...formData, stock: parseFloat(e.target.value) })}
+                                      value={getSafeNumberValue(formData.stock)}
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        setFormData({ ...formData, stock: val === '' ? '' : parseFloat(val) });
+                                      }}
                                       required
                                       style={{
                                         width: '100%', padding: '16px',
@@ -645,15 +652,18 @@ const Inventory = () => {
                                       fontSize: 'var(--text-xs)',
                                       fontWeight: 600
                                     }}>
-                                      {formData.alert_threshold} units
+                                      {getSafeNumberValue(formData.alert_threshold, 1)} units
                                     </span>
                                   </label>
                                   <input
                                     type="range"
                                     min="1"
                                     max="100"
-                                    value={formData.alert_threshold}
-                                    onChange={e => setFormData({ ...formData, alert_threshold: parseInt(e.target.value) })}
+                                    value={getSafeNumberValue(formData.alert_threshold, 1)}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setFormData({ ...formData, alert_threshold: val === '' ? 1 : parseInt(val) });
+                                    }}
                                     style={{
                                       width: '100%',
                                       height: '6px',

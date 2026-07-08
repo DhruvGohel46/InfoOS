@@ -84,6 +84,9 @@ export function mapBillPayloadItems(orderItems) {
   return orderItems.map((item) => ({
     product_id: item.product_id,
     quantity: item.quantity,
+    name: item.name,
+    price: item.price,
     ...(item.variation_id ? { variation_id: item.variation_id } : {}),
+    ...(item.variation_name ? { variation_name: item.variation_name } : {}),
   }));
 }

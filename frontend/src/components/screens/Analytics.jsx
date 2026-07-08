@@ -2085,7 +2085,15 @@ const Analytics = () => {
                                                 {(previewBill.items || []).map((item, idx) => (
                                                     <tr key={idx} style={{ borderBottom: idx === (previewBill.items?.length - 1) ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)') }}>
                                                         <td style={{ padding: '12px 16px', color: isDark ? '#FFFFFF' : '#111827' }}>
-                                                            <div style={{ fontWeight: 600 }}>{item.product_name || item.name || 'Item'}</div>
+                                                            <div style={{ fontWeight: 600 }}>
+                                                                {(() => {
+                                                                    const varName = item.variation_name || item.variation;
+                                                                    if (varName && item.name?.endsWith(` (${varName})`)) {
+                                                                        return item.name.slice(0, -` (${varName})`.length);
+                                                                    }
+                                                                    return item.product_name || item.name || 'Item';
+                                                                })()}
+                                                            </div>
                                                             {(item.variation_name || item.variation) && (
                                                                 <div style={{ fontSize: '12px', color: '#FF7A00', marginTop: '2px' }}>
                                                                     {item.variation_name || item.variation}

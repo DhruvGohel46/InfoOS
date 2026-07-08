@@ -80,6 +80,7 @@ def resolve_bill_line_item(product: Dict[str, Any], item_data: Dict[str, Any]) -
         return {
             "product_id": product["product_id"],
             "variation_id": variation_id,
+            "variation_name": variation["name"],
             "name": f'{product["name"]} ({variation["name"]})',
             "price": float(variation["price"]),
             "quantity": quantity,

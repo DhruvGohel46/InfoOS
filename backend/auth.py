@@ -146,8 +146,9 @@ def setup_pin():
 
     settings = db.get_all_settings()
 
-    # Allow overriding only if not set, OR if they authenticate
-    if settings.get("admin_pin_hash"):
+    # Allow overriding only if not set, OR if they authenticate, OR if PIN requirement is currently disabled
+    is_pin_req = settings.get("require_pin_login") == "true"
+    if settings.get("admin_pin_hash") and is_pin_req:
         # Requires current PIN to change
         old_pin = str(data.get("current_pin", ""))
         if not verify_pin(old_pin, settings["admin_pin_hash"]):

@@ -752,7 +752,7 @@ const Settings = () => {
         }
         setPinSaving(true);
         try {
-            await setupPin(newPin, pinStatus.is_setup ? currentPin : null);
+            await setupPin(newPin, (pinStatus.is_setup && pinStatus.enabled) ? currentPin : null);
             showSuccess('PIN updated successfully');
             setPinForm({ currentPin: '', newPin: '', confirmPin: '' });
             setPinStatus(s => ({ ...s, is_setup: true, enabled: true }));
@@ -862,9 +862,14 @@ const Settings = () => {
     const handleSave = async () => {
         try {
             setSaving(true);
-            await updateSettings(formSettings);
+            let finalSettings = { ...formSettings };
+            if (finalSettings.require_pin_login === 'true' && !pinStatus.is_setup) {
+                finalSettings.require_pin_login = 'false';
+                setFormSettings(prev => ({ ...prev, require_pin_login: 'false' }));
+            }
+            await updateSettings(finalSettings);
             showSuccess('Settings saved successfully');
-            if (formSettings.require_pin_login === 'false') {
+            if (finalSettings.require_pin_login === 'false') {
                 setPinStatus({ enabled: false, is_setup: false, loading: false });
                 setPinForm({ currentPin: '', newPin: '', confirmPin: '' });
             }
@@ -913,7 +918,12 @@ const Settings = () => {
                                 <button
                                     key={tab.id}
                                     className={`stTabButton ${activeTab === tab.id ? 'stTabActive' : ''}`}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => {
+                                        if (activeTab === 'security' && formSettings.require_pin_login === 'true' && !pinStatus.is_setup) {
+                                            handleChange('require_pin_login', 'false');
+                                        }
+                                        setActiveTab(tab.id);
+                                    }}
                                 >
                                     <tab.icon size={20} className="stTabIcon" />
                                     <span className="stTabLabel">{tab.label}</span>
@@ -2025,113 +2035,115 @@ const Settings = () => {
                                     </div>
 
                                     {/* Authentication Card */}
-                                    <div style={{
-                                        padding: '24px',
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '8px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '24px'
-                                    }}>
-                                        <div>
-                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Authentication PIN</div>
-                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Set or change your 4-6 digit security PIN</div>
-                                        </div>
-
-                                        {pinStatus.is_setup && formSettings.require_pin_login === 'true' && (
+                                    {formSettings.require_pin_login === 'true' && (
+                                        <div style={{
+                                            padding: '24px',
+                                            background: 'var(--surface-primary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '24px'
+                                        }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Current PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    value={pinForm.currentPin}
-                                                    onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
-                                                    placeholder="Enter existing PIN"
-                                                    style={{
-                                                        width: '100%',
-                                                        maxWidth: '300px',
-                                                        padding: '10px 12px',
-                                                        background: 'var(--bg-primary)',
-                                                        border: '1px solid var(--border-secondary)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-primary)',
-                                                        fontSize: '14px',
-                                                        outline: 'none'
-                                                    }}
-                                                />
+                                                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Authentication PIN</div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Set or change your 4-6 digit security PIN</div>
                                             </div>
-                                        )}
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>New PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    value={pinForm.newPin}
-                                                    onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
-                                                    placeholder="4–6 digits"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '10px 12px',
-                                                        background: 'var(--bg-primary)',
-                                                        border: '1px solid var(--border-secondary)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-primary)',
-                                                        fontSize: '14px',
-                                                        outline: 'none'
-                                                    }}
-                                                />
+                                            {pinStatus.is_setup && pinStatus.enabled && formSettings.require_pin_login === 'true' && (
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Current PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        value={pinForm.currentPin}
+                                                        onChange={e => handlePinChange('currentPin', e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="Enter existing PIN"
+                                                        style={{
+                                                            width: '100%',
+                                                            maxWidth: '300px',
+                                                            padding: '10px 12px',
+                                                            background: 'var(--bg-primary)',
+                                                            border: '1px solid var(--border-secondary)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '14px',
+                                                            outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>New PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        value={pinForm.newPin}
+                                                        onChange={e => handlePinChange('newPin', e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="4–6 digits"
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px 12px',
+                                                            background: 'var(--bg-primary)',
+                                                            border: '1px solid var(--border-secondary)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '14px',
+                                                            outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Confirm PIN</label>
+                                                    <input
+                                                        type="password"
+                                                        inputMode="numeric"
+                                                        maxLength={6}
+                                                        value={pinForm.confirmPin}
+                                                        onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="Repeat PIN"
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px 12px',
+                                                            background: 'var(--bg-primary)',
+                                                            border: '1px solid var(--border-secondary)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '14px',
+                                                            outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Confirm PIN</label>
-                                                <input
-                                                    type="password"
-                                                    inputMode="numeric"
-                                                    maxLength={6}
-                                                    value={pinForm.confirmPin}
-                                                    onChange={e => handlePinChange('confirmPin', e.target.value.replace(/\D/g, ''))}
-                                                    placeholder="Repeat PIN"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '10px 12px',
-                                                        background: 'var(--bg-primary)',
-                                                        border: '1px solid var(--border-secondary)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-primary)',
-                                                        fontSize: '14px',
-                                                        outline: 'none'
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
 
-                                        <div style={{ display: 'flex', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-secondary)', marginTop: '8px' }}>
-                                            <Button
-                                                variant="primary"
-                                                onClick={handleSavePinChange}
-                                                loading={pinSaving}
-                                                disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
-                                                style={{ height: '36px' }}
-                                            >
-                                                {pinSaving ? 'Saving...' : pinStatus.is_setup ? 'Update PIN' : 'Set PIN'}
-                                            </Button>
-
-                                            {pinStatus.is_setup && (
+                                            <div style={{ display: 'flex', gap: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-secondary)', marginTop: '8px' }}>
                                                 <Button
-                                                    variant="secondary"
-                                                    onClick={handleResetPin}
-                                                    disabled={pinSaving}
+                                                    variant="primary"
+                                                    onClick={handleSavePinChange}
+                                                    loading={pinSaving}
+                                                    disabled={!pinForm.newPin || !pinForm.confirmPin || pinSaving}
                                                     style={{ height: '36px' }}
                                                 >
-                                                    Reset
+                                                    {pinSaving ? 'Saving...' : pinStatus.is_setup ? 'Update PIN' : 'Set PIN'}
                                                 </Button>
-                                            )}
+
+                                                {pinStatus.is_setup && (
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={handleResetPin}
+                                                        disabled={pinSaving}
+                                                        style={{ height: '36px' }}
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Protected Areas Info */}
                                     <div style={{
@@ -2546,14 +2558,25 @@ const Settings = () => {
                                             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Check for updates</div>
                                             <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Query the official release repository</div>
                                         </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={handleManualCheckForUpdates}
-                                            loading={checkingForUpdates}
-                                            style={{ height: '36px' }}
-                                        >
-                                            Check Now
-                                        </Button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <Button
+                                                variant="secondary"
+                                                onClick={handleManualCheckForUpdates}
+                                                loading={checkingForUpdates}
+                                                style={{ height: '36px' }}
+                                            >
+                                                Check Now
+                                            </Button>
+                                            {systemInfo.updateStatus === 'downloaded' && (
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={() => window.electronAPI.installUpdate()}
+                                                    style={{ height: '36px', background: 'var(--success-500, #10b981)', borderColor: 'var(--success-500, #10b981)' }}
+                                                >
+                                                    Install Update
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

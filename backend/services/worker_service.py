@@ -117,7 +117,7 @@ class WorkerService:
         expense = Expense(
             title=f"Worker Advance: {worker_name}",
             amount=amount,
-            category="Advance",
+            category="Salary",
             date=date.today(),
             worker_id=worker_id,
             payment_method="Cash",  # Default for advances

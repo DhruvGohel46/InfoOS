@@ -17,12 +17,31 @@ export default function Expenses() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('All');
+  const [expenseTypes, setExpenseTypes] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState(['All']);
 
   useEffect(() => {
     fetchExpenses();
+    fetchExpenseTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterCategory]);
+  }, []);
+
+  const fetchExpenseTypes = async () => {
+    try {
+      const res = await expensesAPI.getExpenseTypes();
+      if (res.success) {
+        const types = (res.expense_types || [])
+          .filter(t => t.is_active)
+          .map(t => t.name);
+        if (!types.includes('Salary')) {
+          types.push('Salary');
+        }
+        setExpenseTypes(types);
+      }
+    } catch (e) {
+      console.error('Error fetching expense types:', e);
+    }
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -108,7 +127,7 @@ export default function Expenses() {
     .filter(expense => {
       const matchesSearch = expense.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             (expense.worker_name && expense.worker_name.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesCategory = filterCategory === 'All' || expense.category === filterCategory;
+      const matchesCategory = selectedCategories.includes('All') || selectedCategories.includes(expense.category);
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -117,7 +136,23 @@ export default function Expenses() {
       return dateB - dateA || b.id - a.id;
     });
 
-  const categories = ['All', 'Salary', 'Utilities', 'Rent', 'Maintenance', 'Supplies', 'Equipment', 'Transport', 'Other'];
+  const categories = ['All', ...expenseTypes];
+
+  const handleFilterClick = (cat) => {
+    if (cat === 'All') {
+      setSelectedCategories(['All']);
+    } else {
+      setSelectedCategories(prev => {
+        let next;
+        if (prev.includes(cat)) {
+          next = prev.filter(c => c !== cat);
+        } else {
+          next = [...prev.filter(c => c !== 'All'), cat];
+        }
+        return next.length === 0 ? ['All'] : next;
+      });
+    }
+  };
 
   return (
     <motion.div
@@ -191,8 +226,8 @@ export default function Expenses() {
           {categories.map(cat => (
             <button
               key={cat}
-              onClick={() => setFilterCategory(cat)}
-              className={`expenses-filter-btn ${filterCategory === cat ? 'is-active' : ''}`}
+              onClick={() => handleFilterClick(cat)}
+              className={`expenses-filter-btn ${selectedCategories.includes(cat) ? 'is-active' : ''}`}
             >
               {cat}
             </button>
@@ -222,7 +257,6 @@ export default function Expenses() {
           <div className="expenses-list">
             {/* Table Header */}
             <div className="expenses-table-head">
-              <div className="head-spacer"></div>
               <div className="head-date">Date</div>
               <div className="head-title">Title</div>
               <div className="head-category">Category</div>
@@ -240,10 +274,6 @@ export default function Expenses() {
                 onClick={() => setSelectedExpense(expense)}
                 className="expense-row"
               >
-                {/* Icon */}
-                <div className="expense-icon">
-                  {getCategoryIcon(expense.category)}
-                </div>
 
                 {/* Date */}
                 <div className="expense-date">

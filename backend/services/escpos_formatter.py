@@ -414,10 +414,13 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
 
         # Check for product variation
         variation_name = product.get("variation_name") or ""
+        base_name = name
+        if variation_name and name.endswith(f" ({variation_name})"):
+            base_name = name[: -len(f" ({variation_name})")]
 
         # Print: Item Name (left) and Qty (right) - space-between
         formatter.bold_on()
-        formatter.line_with_margin(f"{name:<{item_w}}{qty:>{qty_w}}", margin_w)
+        formatter.line_with_margin(f"{base_name:<{item_w}}{qty:>{qty_w}}", margin_w)
         formatter.bold_off()
 
         # Variation - attached to item, indented
@@ -581,11 +584,14 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
         )
         # Check for product variation
         variation_name = product.get("variation_name") or ""
+        base_name = name
+        if variation_name and name.endswith(f" ({variation_name})"):
+            base_name = name[: -len(f" ({variation_name})")]
         total_qty += qty
         calculated_subtotal += amt
 
         # Wrap long item names
-        chunks = textwrap.wrap(name, item_w) or [""]
+        chunks = textwrap.wrap(base_name, item_w) or [""]
         chunks = [c[:item_w] for c in chunks]
 
         formatter.bold_on()

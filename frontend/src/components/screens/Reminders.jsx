@@ -19,7 +19,7 @@ const Reminders = () => {
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [time, setTime] = useState('10:00');
-    const [repeat, setRepeat] = useState('Once');
+    const [repeat, setRepeat] = useState('none');
     const [filter, setFilter] = useState('all');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -152,7 +152,7 @@ const Reminders = () => {
                                 ]}
                                 value={repeat}
                                 onChange={(val) => setRepeat(val)}
-                                placeholder="daily"
+                                placeholder="Once"
                                 className="barRepeatDropdown"
                                 zIndex={100}
                             />

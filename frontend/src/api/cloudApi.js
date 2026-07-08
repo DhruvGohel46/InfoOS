@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // Load variables from React process.env with default placeholders
-const CLOUD_API_URL = process.env.REACT_APP_CLOUD_API_URL || 'https://your-cloud-backend.onrender.com/api';
+const CLOUD_API_URL = process.env.REACT_APP_CLOUD_API_URL || 
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3000/api'
+    : 'https://your-cloud-backend.onrender.com/api');
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://dummy-project.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'dummy-anon-key-content-for-compilation';
 

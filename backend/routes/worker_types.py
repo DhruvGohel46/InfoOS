@@ -15,6 +15,34 @@ worker_types_bp = Blueprint("worker_types", __name__, url_prefix="/api/worker-ty
 def get_worker_types():
     """Get all worker types."""
     worker_types = WorkerType.query.order_by(WorkerType.name).all()
+    if not worker_types:
+        default_worker_types = [
+            {
+                "name": "Chef",
+                "description": "Kitchen staff responsible for food preparation",
+                "is_active": True,
+            },
+            {
+                "name": "Waiter",
+                "description": "Front-of-house staff serving customers",
+                "is_active": True,
+            },
+            {
+                "name": "Manager",
+                "description": "Supervisory staff managing operations",
+                "is_active": True,
+            },
+            {
+                "name": "Cleaner",
+                "description": "Staff responsible for cleaning and maintenance",
+                "is_active": True,
+            },
+            {"name": "Delivery", "description": "Staff handling food delivery", "is_active": True},
+        ]
+        for wt in default_worker_types:
+            db.session.add(WorkerType(**wt))
+        db.session.commit()
+        worker_types = WorkerType.query.order_by(WorkerType.name).all()
     return jsonify({"success": True, "worker_types": [wt.to_dict() for wt in worker_types]}), 200
 
 

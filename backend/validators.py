@@ -41,6 +41,7 @@ class BillItemSchema(Schema):
     product_id = fields.String(required=True)
     quantity = fields.Integer(required=True, validate=validate.Range(min=1))
     variation_id = fields.String(load_default=None)
+    variation_name = fields.String(load_default=None)
     name = fields.String(load_default=None)
     price = fields.Float(load_default=None)
 

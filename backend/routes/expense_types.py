@@ -15,6 +15,38 @@ expense_types_bp = Blueprint("expense_types", __name__, url_prefix="/api/expense
 def get_expense_types():
     """Get all expense types."""
     expense_types = ExpenseType.query.order_by(ExpenseType.name).all()
+    if not expense_types:
+        default_expense_types = [
+            {
+                "name": "Utilities",
+                "description": "Electricity, water, gas bills",
+                "is_active": True,
+            },
+            {"name": "Rent", "description": "Monthly rent or lease payments", "is_active": True},
+            {
+                "name": "Supplies",
+                "description": "Food ingredients and consumables",
+                "is_active": True,
+            },
+            {"name": "Equipment", "description": "Kitchen equipment and tools", "is_active": True},
+            {
+                "name": "Maintenance",
+                "description": "Repair and maintenance costs",
+                "is_active": True,
+            },
+            {
+                "name": "Marketing",
+                "description": "Advertising and promotional expenses",
+                "is_active": True,
+            },
+            {"name": "Insurance", "description": "Business insurance premiums", "is_active": True},
+            {"name": "Transportation", "description": "Vehicle and fuel costs", "is_active": True},
+            {"name": "Salary", "description": "Worker salaries and advances", "is_active": True},
+        ]
+        for et in default_expense_types:
+            db.session.add(ExpenseType(**et))
+        db.session.commit()
+        expense_types = ExpenseType.query.order_by(ExpenseType.name).all()
     return jsonify({"success": True, "expense_types": [et.to_dict() for et in expense_types]}), 200
 
 
