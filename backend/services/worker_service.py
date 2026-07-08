@@ -1,4 +1,4 @@
-from models import db, Worker, Advance, SalaryPayment, Attendance, Expense
+from models import db, Worker, Advance, SalaryPayment, Attendance, Expense, WorkerType
 from datetime import datetime, date
 import uuid
 from sqlalchemy import func, extract, and_
@@ -25,12 +25,20 @@ class WorkerService:
 
         new_id = f"W{max_num + 1:03d}"
 
+        worker_type_id = data.get("worker_type_id")
+        role = data.get("role")
+        if worker_type_id and not role:
+            wt = WorkerType.query.get(worker_type_id)
+            if wt:
+                role = wt.name
+
         new_worker = Worker(
             worker_id=new_id,
             name=data.get("name"),
             phone=data.get("phone"),
             email=data.get("email"),
-            role=data.get("role"),
+            role=role,
+            worker_type_id=worker_type_id,
             salary=(float(data.get("salary")) if data.get("salary") not in (None, "") else 0.0),
             join_date=(
                 datetime.strptime(data.get("join_date"), "%Y-%m-%d").date()
@@ -58,6 +66,12 @@ class WorkerService:
             worker.email = data["email"]
         if "role" in data:
             worker.role = data["role"]
+        if "worker_type_id" in data:
+            worker.worker_type_id = data["worker_type_id"]
+            if worker.worker_type_id:
+                wt = WorkerType.query.get(worker.worker_type_id)
+                if wt:
+                    worker.role = wt.name
         if "salary" in data:
             val = data.get("salary")
             worker.salary = float(val) if val not in (None, "") else 0.0

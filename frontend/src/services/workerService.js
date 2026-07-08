@@ -19,6 +19,7 @@ export const workerService = {
   updateAttendance: (id, data) => workerAPI.updateAttendance(id, data),
   bulkMarkPresent: () => workerAPI.bulkMarkPresent(),
   checkAttendanceStatus: () => workerAPI.checkAttendanceStatus(),
+  getWorkerTypes: () => workerAPI.getWorkerTypes(),
 };
 
 export default workerService;

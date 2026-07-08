@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useAlert as useToast } from '../../context/AlertContext';
@@ -29,20 +30,33 @@ import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI } from '../../api/cloudApi';
-import api, { summaryAPI } from '../../api/api';
+import api, { summaryAPI } from '../../utils/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
 
 
 const Settings = () => {
-    const { showSuccess, showError } = useToast();
+    const { showSuccess, showError, showConfirm } = useToast();
     const { isDark } = useTheme();
     const { settings: globalSettings, loading, updateSettings } = useSettings();
+    const location = useLocation();
 
     const [saving, setSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState('shop');
-    const [workerSubTab, setWorkerSubTab] = useState('salary');
-    const [expenseSubTab] = useState('types');
+    const [activeTab, setActiveTab] = useState(() => {
+        if (location.state?.tab) return location.state.tab;
+        const params = new URLSearchParams(location.search);
+        return params.get('tab') || 'shop';
+    });
+    const [workerSubTab, setWorkerSubTab] = useState(() => {
+        if (location.state?.workerSubTab) return location.state.workerSubTab;
+        const params = new URLSearchParams(location.search);
+        return params.get('workerSubTab') || 'salary';
+    });
+    const [expenseSubTab, setExpenseSubTab] = useState(() => {
+        if (location.state?.expenseSubTab) return location.state.expenseSubTab;
+        const params = new URLSearchParams(location.search);
+        return params.get('expenseSubTab') || 'types';
+    });
 
     // Worker Types State
     const [workerTypes, setWorkerTypes] = useState([]);
@@ -555,9 +569,13 @@ const Settings = () => {
     };
 
     const handleDeleteWorkerType = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this worker type?')) {
-            return;
-        }
+        const confirmed = await showConfirm({
+            title: 'Delete Worker Type',
+            description: 'Are you sure you want to delete this worker type? Workers using this type will keep their current role text.',
+            confirmLabel: 'Delete',
+            variant: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await workerAPI.deleteWorkerType(id);
             showSuccess('Worker type deleted successfully');
@@ -602,9 +620,13 @@ const Settings = () => {
     };
 
     const handleDeleteExpenseType = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this expense type?')) {
-            return;
-        }
+        const confirmed = await showConfirm({
+            title: 'Delete Expense Type',
+            description: 'Are you sure you want to delete this expense type? Existing expenses will keep their current category text.',
+            confirmLabel: 'Delete',
+            variant: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await expensesAPI.deleteExpenseType(id);
             showSuccess('Expense type deleted successfully');
@@ -841,6 +863,10 @@ const Settings = () => {
             setSaving(true);
             await updateSettings(formSettings);
             showSuccess('Settings saved successfully');
+            if (formSettings.require_pin_login === 'false') {
+                setPinStatus({ enabled: false, is_setup: false, loading: false });
+                setPinForm({ currentPin: '', newPin: '', confirmPin: '' });
+            }
         } catch (error) {
             showError('Failed to save settings');
             console.error(error);
@@ -1959,8 +1985,8 @@ const Settings = () => {
                                         alignItems: 'center'
                                     }}>
                                         <div>
-                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Require PIN on Launch</div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Request authentication on every launch</div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Require PIN for Owner Role</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Request PIN when switching to Owner role</div>
                                         </div>
                                         <label style={{
                                             position: 'relative',
@@ -2012,7 +2038,7 @@ const Settings = () => {
                                             <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Set or change your 4-6 digit security PIN</div>
                                         </div>
 
-                                        {pinStatus.is_setup && (
+                                        {pinStatus.is_setup && formSettings.require_pin_login === 'true' && (
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Current PIN</label>
                                                 <input

@@ -8,7 +8,7 @@
  * =============================================================================
  */
 import axios from 'axios';
-import { setAuthToken } from './api';
+import { setAuthToken } from '../utils/api';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
 

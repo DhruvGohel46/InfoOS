@@ -232,10 +232,11 @@ const GroupManagement = () => {
   const loadCategories = async (groupId) => {
     try {
       setLoadingCategories(true);
-      const response = await categoriesAPI.getCategoriesByGroup(groupId);
+      const response = await groupsAPI.getGroupCategories(groupId);
       setCategories(response.data.categories || []);
     } catch (err) {
-      console.error(err);
+      const apiError = handleAPIError(err);
+      setError(apiError.message);
     } finally {
       setLoadingCategories(false);
     }

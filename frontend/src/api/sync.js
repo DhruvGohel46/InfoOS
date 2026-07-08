@@ -1,4 +1,4 @@
-import { billingAPI, summaryAPI } from './api';
+import { billingAPI, summaryAPI } from '../utils/api';
 import { expensesAPI } from './expenses';
 import { cloudSyncAPI } from './cloudApi';
 

@@ -378,10 +378,10 @@ function AppContent() {
   ];
 
   const workerNavItems = adminNavItems.filter((item) =>
-    ['pos', 'summary', 'settings', 'reminders'].includes(item.id)
+    ['pos', 'summary', 'reminders'].includes(item.id)
   );
 
-  const workerAllowedPaths = new Set(['/', '/analytics', '/settings', '/reminders']);
+  const workerAllowedPaths = new Set(['/', '/analytics', '/reminders']);
 
   const navItems = isAdmin ? adminNavItems : workerNavItems;
 

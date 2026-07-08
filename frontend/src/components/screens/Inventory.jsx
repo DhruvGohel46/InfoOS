@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { inventoryAPI, productsAPI } from '../../api/api';
+import { inventoryAPI, productsAPI } from '../../utils/api';
 import { useAlert } from '../../context/AlertContext';
 import Button from '../ui/Button';
 import GlobalSelect from '../ui/GlobalSelect';

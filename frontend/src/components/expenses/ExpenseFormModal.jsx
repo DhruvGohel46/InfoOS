@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import { GlobalSelect, GlobalDatePicker } from '../ui';
 import { formatCurrency } from '../../utils/api';
 import { workerAPI } from '../../api/workers';
+import { expensesAPI } from '../../api/expenses';
 import { FiX, FiInfo, FiDollarSign, FiTag, FiUser, FiCreditCard, FiCalendar, FiMessageSquare } from 'react-icons/fi';
 
 export default function ExpenseFormModal({ onClose, onSubmit, initialData = null }) {
@@ -18,11 +19,14 @@ export default function ExpenseFormModal({ onClose, onSubmit, initialData = null
   });
 
   const [workers, setWorkers] = useState([]);
+  const [expenseTypes, setExpenseTypes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingWorkers, setLoadingWorkers] = useState(false);
+  const [loadingExpenseTypes, setLoadingExpenseTypes] = useState(false);
 
   useEffect(() => {
     fetchWorkers();
+    fetchExpenseTypes();
     if (initialData) {
       setFormData({
         title: initialData.title || '',
@@ -50,16 +54,33 @@ export default function ExpenseFormModal({ onClose, onSubmit, initialData = null
     }
   };
 
-  const categoryOptions = [
-    { value: 'Salary', label: 'Salary' },
-    { value: 'Utilities', label: 'Utilities' },
-    { value: 'Rent', label: 'Rent' },
-    { value: 'Maintenance', label: 'Maintenance' },
-    { value: 'Supplies', label: 'Supplies' },
-    { value: 'Equipment', label: 'Equipment' },
-    { value: 'Transport', label: 'Transport' },
-    { value: 'Other', label: 'Other' }
-  ];
+  const fetchExpenseTypes = async () => {
+    try {
+      setLoadingExpenseTypes(true);
+      const res = await expensesAPI.getExpenseTypes();
+      const types = res.expense_types || [];
+      setExpenseTypes(types);
+    } catch (e) {
+      console.error('Failed to fetch expense types', e);
+    } finally {
+      setLoadingExpenseTypes(false);
+    }
+  };
+
+  const categoryOptions = expenseTypes.length > 0 
+    ? expenseTypes
+        .filter(t => t.is_active || (initialData && t.name === initialData.category))
+        .map(t => ({ value: t.name, label: t.name }))
+    : [
+        { value: 'Salary', label: 'Salary' },
+        { value: 'Utilities', label: 'Utilities' },
+        { value: 'Rent', label: 'Rent' },
+        { value: 'Maintenance', label: 'Maintenance' },
+        { value: 'Supplies', label: 'Supplies' },
+        { value: 'Equipment', label: 'Equipment' },
+        { value: 'Transport', label: 'Transport' },
+        { value: 'Other', label: 'Other' }
+      ];
 
   const paymentOptions = [
     { value: 'Cash', label: 'Cash' },

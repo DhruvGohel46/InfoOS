@@ -7,7 +7,7 @@
  * =============================================================================
  */
 
-import { apiRequest } from './api';
+import { apiRequest } from '../utils/api';
 
 export const reminderAPI = {
     // ─── Basic CRUD Operations ───────────────────────────────────────────────

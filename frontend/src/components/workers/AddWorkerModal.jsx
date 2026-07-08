@@ -41,12 +41,13 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [customRole, setCustomRole] = useState('');
+  const [workerTypes, setWorkerTypes] = useState([]);
 
   const [form, setForm] = useState({
     name: '',
     phone: '',
     role: '',
+    worker_type_id: '',
     salary: '',
     join_date: getLocalDateString(),
     status: 'active',
@@ -60,29 +61,51 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           name: initialData.name || '',
           phone: initialData.phone || '',
           role: initialData.role || '',
+          worker_type_id: initialData.worker_type_id || '',
           salary: initialData.salary || '',
           join_date: initialData.join_date || initialData.joinDate || getLocalDateString(),
           status: initialData.status || 'active',
           photo: initialData.photo || null
         });
         setPhotoPreview(initialData.photo);
-        setCustomRole(defaultRoles.some(r => r.value === initialData.role) ? '' : initialData.role);
       } else {
         setForm({
           name: '',
           phone: '',
           role: '',
+          worker_type_id: '',
           salary: '',
           join_date: getLocalDateString(),
           status: 'active',
           photo: null
         });
         setPhotoPreview(null);
-        setCustomRole('');
       }
       setPhotoFile(null);
     }
   }, [initialData, open]);
+
+  useEffect(() => {
+    if (open) {
+      const fetchTypes = async () => {
+        try {
+          const res = await workerService.getWorkerTypes();
+          const types = res.worker_types || [];
+          setWorkerTypes(types);
+          
+          if (initialData && !initialData.worker_type_id && initialData.role) {
+            const matched = types.find(t => t.name.toLowerCase() === initialData.role.toLowerCase());
+            if (matched) {
+              setForm(f => ({ ...f, worker_type_id: matched.id }));
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch worker types:', err);
+        }
+      };
+      fetchTypes();
+    }
+  }, [open, initialData]);
 
   const handleFileChange = async (e) => {
     const f = e.target.files && e.target.files[0];
@@ -96,13 +119,18 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const handleSave = async (e) => {
     if (e) e.preventDefault();
 
-    const targetRole = form.role === 'Other' && customRole ? customRole : form.role;
+    const selectedType = workerTypes.find(t => t.id === form.worker_type_id);
+    const targetRole = selectedType ? selectedType.name : form.role;
 
     const saveWorkerDetails = async () => {
       setSaving(true);
       try {
         const payload = { ...form };
-        if (payload.role === 'Other' && customRole) payload.role = customRole;
+        
+        if (selectedType) {
+          payload.role = selectedType.name;
+        }
+
         if (photoFile) {
           payload.photo = await fileToBase64(photoFile);
         }
@@ -274,22 +302,14 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <GlobalSelect
-                      label="Role"
+                      label="Worker Type"
                       icon={<IoBriefcase />}
-                      options={defaultRoles}
-                      value={form.role}
-                      onChange={val => setForm({ ...form, role: val })}
-                      placeholder="Select Role"
+                      options={workerTypes.filter(t => t.is_active || (initialData && t.id === initialData.worker_type_id)).map(t => ({ label: t.name, value: t.id }))}
+                      value={form.worker_type_id}
+                      onChange={val => setForm({ ...form, worker_type_id: val })}
+                      placeholder="Select Worker Type"
                       direction="top"
                     />
-                    {form.role === 'Other' && (
-                      <Input
-                        placeholder="Specify Role"
-                        value={customRole}
-                        onChange={e => setCustomRole(e.target.value)}
-                        style={{ marginTop: '8px' }}
-                      />
-                    )}
                   </div>
 
                   <GlobalSelect

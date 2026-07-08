@@ -68,3 +68,41 @@ def test_get_worker_not_found(client, init_database):
     assert response.status_code == 404
     data = json.loads(response.data)
     assert data["success"] is False
+
+
+def test_create_worker_with_type(client, init_database):
+    """POST /api/workers with worker_type_id should set it and sync role."""
+    # First, create a WorkerType
+    wt_payload = {"name": "Assistant", "description": "Helper role"}
+    wt_response = client.post(
+        "/api/worker-types",
+        data=json.dumps(wt_payload),
+        content_type="application/json",
+    )
+    assert wt_response.status_code == 201
+    wt_data = json.loads(wt_response.data)
+    wt_id = wt_data["worker_type"]["id"]
+
+    # Now create a worker using this worker_type_id
+    worker_payload = {
+        "name": "Amit Sharma",
+        "worker_type_id": wt_id,
+        "phone": "9876543211",
+        "salary": 12000.0,
+        "status": "active",
+    }
+    response = client.post(
+        "/api/workers",
+        data=json.dumps(worker_payload),
+        content_type="application/json",
+    )
+    assert response.status_code in (200, 201)
+    data = json.loads(response.data)
+
+    # Verify worker got worker_type_id and synced role
+    worker_id = data["worker_id"]
+    get_response = client.get(f"/api/workers/{worker_id}")
+    assert get_response.status_code == 200
+    get_data = json.loads(get_response.data)
+    assert get_data["worker_type_id"] == wt_id
+    assert get_data["role"] == "Assistant"

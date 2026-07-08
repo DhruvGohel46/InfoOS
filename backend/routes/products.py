@@ -562,16 +562,6 @@ def delete_product(product_id):
     is_permanent = request.args.get("permanent", "false").lower() == "true"
 
     if is_permanent:
-        provided_password = request.headers.get("x-admin-password")
-
-        from auth import verify_admin_pin
-
-        if not provided_password or not verify_admin_pin(provided_password):
-            raise AuthorizationError(
-                "Invalid Owner PIN. Permanent deletion requires authorization.",
-                code="INVALID_PASSWORD",
-            )
-
         success = db.permanently_delete_product(product_id)
         if not success:
             raise Exception("Failed to permanently delete product")

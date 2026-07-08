@@ -14,7 +14,7 @@ const api = axios.create({
   timeout: 30000, // Increased from 10s to 30s to handle slower backend startup
 });
 
-// Request interceptor for logging
+// Request interceptor for logging & auth
 api.interceptors.request.use(
   (config) => {
     // Keep compatibility with auth module: prefer in-memory token, fallback to session.
@@ -34,13 +34,84 @@ api.interceptors.request.use(
 export const setAuthToken = (token) => {
   _authToken = token;
 };
-// Response interceptor for error handling
+
+// RETRY INTERCEPTOR (For GET requests)
+api.interceptors.response.use(undefined, (err) => {
+  const { config } = err;
+  if (!config || config.method !== 'get') return Promise.reject(err);
+  
+  // Only retry network errors or 5xx
+  const status = err.response?.status;
+  if (status && status < 500 && status !== 408) return Promise.reject(err);
+
+  config.__retryCount = config.__retryCount || 0;
+  if (config.__retryCount >= 3) return Promise.reject(err);
+  
+  config.__retryCount += 1;
+  const backoff = new Promise(resolve => setTimeout(resolve, 1000 * config.__retryCount));
+  return backoff.then(() => api(config));
+});
+
+// RESPONSE INTERCEPTOR (Error handling, event dispatch, & Electron logging)
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response, // Pass through successful responses
   (error) => {
-    console.error('API Response Error:', error);
+    const isNetworkError = !error.response;
+    const status = error.response?.status || 0;
+    const serverMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      '';
+
+    let message;
+    if (isNetworkError) {
+      message = 'Unable to connect to the server. Please check if the backend is running.';
+    } else if (status === 400) {
+      message = serverMessage || 'The request was invalid. Please check your input and try again.';
+    } else if (status === 401) {
+      message = serverMessage || 'Your session has expired. Please log in again.';
+    } else if (status === 403) {
+      message = serverMessage || 'You do not have permission to perform this action.';
+    } else if (status === 404) {
+      message = serverMessage || 'The requested item was not found.';
+    } else if (status === 408) {
+      message = 'The request timed out. Please try again.';
+    } else if (status === 409) {
+      message = serverMessage || 'A conflict occurred. The item may have been modified by someone else.';
+    } else if (status === 422) {
+      message = serverMessage || 'The provided data is invalid. Please check your input.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please wait a moment and try again.';
+    } else if (status >= 500) {
+      message = serverMessage || 'Something went wrong on the server. Please try again later.';
+    } else {
+      message = serverMessage || error.message || 'An unexpected error occurred. Please try again.';
+    }
+
+    // Dispatch custom event for ApiErrorListener
+    window.dispatchEvent(
+      new CustomEvent('api-error', {
+        detail: { message, status, isNetworkError },
+      })
+    );
+
+    // Log to Electron IPC if available
+    if (window.electronAPI?.writeLog) {
+      try {
+        window.electronAPI.writeLog({
+          level: 'error',
+          source: 'Axios',
+          message,
+          url: error.config?.url,
+          method: error.config?.method,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (_) {
+        // IPC not available
+      }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -436,6 +507,58 @@ export const workerAPI = {
   markAttendance: (id, data) => api.post(`/api/workers/${id}/attendance`, data),
   bulkMarkPresent: () => api.post('/api/workers/attendance/bulk'),
   checkAttendanceStatus: () => api.get('/api/workers/attendance/status'),
+};
+
+export const logsAPI = {
+  getRecentLogs: (lines = 200, level = '') =>
+    api.get(`/api/logs/recent?lines=${lines}${level ? `&level=${level}` : ''}`),
+  writeFrontendLog: (level, source, message) =>
+    api.post('/api/logs/write', { level, source, message }),
+};
+
+const _ipc = () => window.electronAPI?.writeLog;
+
+export const flog = {
+  _send(level, source, message) {
+    const payload = { level, source, message, timestamp: new Date().toISOString() };
+    if (_ipc()) {
+      try { _ipc()(payload); return; } catch (_) {}
+    }
+    // HTTP fallback (fire and forget)
+    logsAPI.writeFrontendLog(level, source, message).catch(() => {});
+  },
+  debug:    (source, msg) => flog._send('debug',    source, msg),
+  info:     (source, msg) => flog._send('info',     source, msg),
+  warn:     (source, msg) => flog._send('warning',  source, msg),
+  error:    (source, msg) => flog._send('error',    source, msg),
+};
+
+export const apiRequest = async (method, url, data = null) => {
+  try {
+    const config = {
+      method,
+      url,
+    };
+    
+    if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      config.data = data;
+    }
+    
+    const response = await api(config);
+    
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error(`API ${method} ${url} failed:`, error);
+    
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message || 'Request failed',
+      status: error.response?.status || 0,
+    };
+  }
 };
 
 export default api;

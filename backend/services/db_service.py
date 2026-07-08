@@ -1071,6 +1071,25 @@ class DatabaseService:
     def update_settings_bulk(self, settings_list: List[Dict[str, Any]]) -> bool:
         """Update multiple settings"""
         try:
+            # Check for require_pin_login toggle logic transition (disable PIN completely and delete from storage)
+            pin_login_toggle = next(
+                (item for item in settings_list if item.get("key") == "require_pin_login"), None
+            )
+            if pin_login_toggle and str(pin_login_toggle.get("value", "false")).lower() in [
+                "false",
+                "0",
+                "no",
+            ]:
+                # Clear PIN hash and length
+                pin_hash_setting = Settings.query.get("admin_pin_hash")
+                if pin_hash_setting:
+                    pin_hash_setting.value = ""
+                    pin_hash_setting.updated_at = datetime.now()
+                pin_len_setting = Settings.query.get("admin_pin_length")
+                if pin_len_setting:
+                    pin_len_setting.value = "0"
+                    pin_len_setting.updated_at = datetime.now()
+
             # Check for favorites toggle logic transition
             show_all_toggle = next(
                 (item for item in settings_list if item.get("key") == "show_all_as_favorite"), None
