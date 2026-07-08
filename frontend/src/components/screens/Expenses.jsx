@@ -289,8 +289,9 @@ export default function Expenses() {
 
                 {/* Category */}
                 <div className="expense-category">
-                  <span className="expense-category-pill">
-                    {expense.category}
+                  <span className="expense-category-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    {getCategoryIcon(expense.category)}
+                    <span>{expense.category}</span>
                   </span>
                 </div>
 
