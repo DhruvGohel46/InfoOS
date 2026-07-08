@@ -22,6 +22,7 @@ export default function ExpenseFormModal({ onClose, onSubmit, initialData = null
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingWorkers, setLoadingWorkers] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [loadingExpenseTypes, setLoadingExpenseTypes] = useState(false);
 
   useEffect(() => {

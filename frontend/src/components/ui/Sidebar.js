@@ -101,11 +101,6 @@ const Sidebar = ({
         localStorage.setItem('infoos_sidebar_layout', JSON.stringify({ order, visibility }));
     };
 
-    const resetSidebarLayout = () => {
-        localStorage.removeItem('infoos_sidebar_layout');
-        setCustomizedNavItems(navItems.map(item => ({ ...item, visible: true })));
-    };
-
     const expandedW = Math.round(260 * zoom);
     const collapsedW = Math.round(80 * zoom);
     const logoH = Math.round(80 * zoom);

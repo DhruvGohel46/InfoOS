@@ -19,6 +19,7 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+// eslint-disable-next-line no-unused-vars
 const defaultRoles = [
   { label: 'Owner', value: 'Owner' },
   { label: 'Manager', value: 'Manager' },

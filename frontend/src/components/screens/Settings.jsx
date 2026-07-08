@@ -52,6 +52,7 @@ const Settings = () => {
         const params = new URLSearchParams(location.search);
         return params.get('workerSubTab') || 'salary';
     });
+    // eslint-disable-next-line no-unused-vars
     const [expenseSubTab, setExpenseSubTab] = useState(() => {
         if (location.state?.expenseSubTab) return location.state.expenseSubTab;
         const params = new URLSearchParams(location.search);
