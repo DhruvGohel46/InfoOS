@@ -415,8 +415,12 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
         # Check for product variation
         variation_name = product.get("variation_name") or ""
         base_name = name
-        if variation_name and name.endswith(f" ({variation_name})"):
-            base_name = name[: -len(f" ({variation_name})")]
+        if variation_name:
+            v_suffix = f"({variation_name})"
+            cleaned_name = name.strip()
+            if cleaned_name.lower().endswith(v_suffix.lower()):
+                idx = cleaned_name.lower().rfind(v_suffix.lower())
+                base_name = cleaned_name[:idx].strip()
 
         # Print: Item Name (left) and Qty (right) - space-between
         formatter.bold_on()
@@ -585,8 +589,12 @@ def build_bill(order: Dict, settings: Dict) -> bytes:
         # Check for product variation
         variation_name = product.get("variation_name") or ""
         base_name = name
-        if variation_name and name.endswith(f" ({variation_name})"):
-            base_name = name[: -len(f" ({variation_name})")]
+        if variation_name:
+            v_suffix = f"({variation_name})"
+            cleaned_name = name.strip()
+            if cleaned_name.lower().endswith(v_suffix.lower()):
+                idx = cleaned_name.lower().rfind(v_suffix.lower())
+                base_name = cleaned_name[:idx].strip()
         total_qty += qty
         calculated_subtotal += amt
 

@@ -36,6 +36,7 @@ const GroupManagement = () => {
 
   // ----- Category management inside a selected group -----
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [isShowingAllCategories, setIsShowingAllCategories] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
@@ -44,6 +45,7 @@ const GroupManagement = () => {
     name: '',
     description: '',
     active: true,
+    group_id: '',
   });
 
   // ----- Load groups -----
@@ -218,6 +220,7 @@ const GroupManagement = () => {
   // ----- Category Operations -----
   const selectGroup = async (group) => {
     setSelectedGroup(group);
+    setIsShowingAllCategories(false);
     setCategorySearchTerm('');
     setShowAddCategoryForm(false);
     setEditingCategory(null);
@@ -226,7 +229,30 @@ const GroupManagement = () => {
 
   const deselectGroup = () => {
     setSelectedGroup(null);
+    setIsShowingAllCategories(false);
     setCategories([]);
+  };
+
+  const handleShowAllCategories = async () => {
+    setSelectedGroup(null);
+    setIsShowingAllCategories(true);
+    setCategorySearchTerm('');
+    setShowAddCategoryForm(false);
+    setEditingCategory(null);
+    await loadAllCategories();
+  };
+
+  const loadAllCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const response = await categoriesAPI.getAllCategories(true);
+      setCategories(response.data.categories || []);
+    } catch (err) {
+      const apiError = handleAPIError(err);
+      setError(apiError.message);
+    } finally {
+      setLoadingCategories(false);
+    }
   };
 
   const loadCategories = async (groupId) => {
@@ -249,27 +275,35 @@ const GroupManagement = () => {
   const resetCategoryForm = () => {
     setEditingCategory(null);
     setShowAddCategoryForm(false);
-    setCategoryFormData({ name: '', description: '', active: true });
+    setCategoryFormData({ name: '', description: '', active: true, group_id: '' });
   };
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
-    if (!selectedGroup) return;
+    const gId = selectedGroup ? selectedGroup.id : categoryFormData.group_id;
+    if (!gId) {
+      setError('Please select a group to assign this category.');
+      return;
+    }
     try {
       setError('');
+      const payload = {
+        name: categoryFormData.name,
+        description: categoryFormData.description,
+        active: categoryFormData.active,
+        group_id: gId
+      };
       if (editingCategory) {
-        await categoriesAPI.updateCategory(editingCategory.id, {
-          ...categoryFormData,
-          item_group_id: selectedGroup.id
-        });
+        await categoriesAPI.updateCategory(editingCategory.id, payload);
       } else {
-        await categoriesAPI.createCategory({
-          ...categoryFormData,
-          item_group_id: selectedGroup.id
-        });
+        await categoriesAPI.createCategory(payload);
       }
       resetCategoryForm();
-      loadCategories(selectedGroup.id);
+      if (isShowingAllCategories) {
+        await loadAllCategories();
+      } else {
+        await loadCategories(selectedGroup.id);
+      }
       loadGroups();
     } catch (err) {
       const apiError = handleAPIError(err);
@@ -283,6 +317,7 @@ const GroupManagement = () => {
       name: cat.name,
       description: cat.description || '',
       active: cat.active,
+      group_id: cat.group_id || '',
     });
     setShowAddCategoryForm(true);
   };
@@ -292,7 +327,11 @@ const GroupManagement = () => {
     try {
       setError('');
       await categoriesAPI.deleteCategory(cat.id);
-      loadCategories(selectedGroup.id);
+      if (isShowingAllCategories) {
+        await loadAllCategories();
+      } else {
+        await loadCategories(selectedGroup.id);
+      }
       loadGroups();
     } catch (err) {
       const apiError = handleAPIError(err);
@@ -368,6 +407,22 @@ const GroupManagement = () => {
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
+            <Button
+              variant="secondary"
+              onClick={handleShowAllCategories}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '42px',
+                padding: '0 20px',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 600,
+              }}
+            >
+              Show All Categories
+            </Button>
             <Button
               variant="primary"
               onClick={() => setShowAddForm(true)}
@@ -791,7 +846,7 @@ const GroupManagement = () => {
 
       {/* Category Management Section */}
       <AnimatePresence>
-        {selectedGroup && (
+        {(selectedGroup || isShowingAllCategories) && (
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -841,7 +896,7 @@ const GroupManagement = () => {
                     letterSpacing: '-0.01em'
                   }}>
                     <IoFolderOpenOutline size={24} color="#F97316" />
-                    Categories in "{selectedGroup.name}"
+                    {isShowingAllCategories ? 'All Categories' : `Categories in "${selectedGroup?.name}"`}
                   </h2>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', opacity: 0.7 }}>
                     ({loadingCategories ? 'Loading...' : `${categories.length} Categories`})
@@ -962,6 +1017,31 @@ const GroupManagement = () => {
                           }}
                         />
                       </div>
+                      {isShowingAllCategories && (
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Assign to Group *</div>
+                          <select
+                            value={categoryFormData.group_id || ''}
+                            onChange={(e) => handleCategoryInputChange('group_id', e.target.value ? parseInt(e.target.value) : '')}
+                            required
+                            style={{
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              border: '1px solid var(--glass-border)',
+                              background: 'var(--bg-secondary)',
+                              color: 'var(--text-primary)',
+                              fontSize: '14px',
+                              width: '100%',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>-- Select Group --</option>
+                            {groups.map(g => (
+                              <option key={g.id} value={g.id} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>{g.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)' }}>
                         <input 
                           type="checkbox" 
@@ -1072,6 +1152,11 @@ const GroupManagement = () => {
                             {cat.active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
+                        {isShowingAllCategories && (
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#F97316', marginBottom: '12px', background: 'rgba(249, 115, 22, 0.08)', padding: '4px 8px', borderRadius: '6px', alignSelf: 'flex-start' }}>
+                            Group: {cat.group_name || 'Unassigned'}
+                          </div>
+                        )}
                         <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px', opacity: 0.8, flex: 1 }}>
                           {cat.description || 'No description available.'}
                         </div>

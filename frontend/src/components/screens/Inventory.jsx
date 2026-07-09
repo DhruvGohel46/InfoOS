@@ -542,7 +542,6 @@ const Inventory = () => {
 
                             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                               <div style={{ padding: 'var(--spacing-8)', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
-                                
                                 {/* Form Group: Type */}
                                 <div className="form-group">
                                   <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-3)' }}>
@@ -555,6 +554,7 @@ const Inventory = () => {
                                       { label: 'Direct Sale Product', value: 'DIRECT_SALE' },
                                       { label: 'Raw Material', value: 'RAW_MATERIAL' }
                                     ]}
+                                    disabled={selectedItem !== null}
                                   />
                                 </div>
 
@@ -567,8 +567,11 @@ const Inventory = () => {
                                     <GlobalSelect
                                       value={formData.product_id}
                                       onChange={(val) => setFormData({ ...formData, product_id: val })}
-                                      options={products.filter(p => p.active).map(p => ({ label: p.name, value: p.product_id }))}
+                                      options={products
+                                        .filter(p => p.active && (!items.some(item => item.product_id === p.product_id) || (selectedItem && selectedItem.product_id === p.product_id)))
+                                        .map(p => ({ label: p.name, value: p.product_id }))}
                                       placeholder="-- Select Product --"
+                                      disabled={selectedItem !== null}
                                     />
                                   </div>
                                 ) : (

@@ -507,10 +507,14 @@ class DatabaseService:
                 p = Product.query.get(item["product_id"])
                 enriched_item = {
                     "product_id": item["product_id"],
-                    "name": p.name if p else "Unknown Product",
+                    "name": item.get("name") or (p.name if p else "Unknown Product"),
                     "price": item["price"],
                     "quantity": item["quantity"],
                 }
+                if "variation_id" in item:
+                    enriched_item["variation_id"] = item["variation_id"]
+                if "variation_name" in item:
+                    enriched_item["variation_name"] = item["variation_name"]
                 enriched_items.append(enriched_item)
 
             # Adjust inventory stock

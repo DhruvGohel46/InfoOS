@@ -644,10 +644,14 @@ class SQLiteDatabaseService:
                 product = self.get_product(item["product_id"])
                 enriched_item = {
                     "product_id": item["product_id"],
-                    "name": product["name"] if product else "Unknown Product",
+                    "name": item.get("name") or (product["name"] if product else "Unknown Product"),
                     "price": item["price"],
                     "quantity": item["quantity"],
                 }
+                if "variation_id" in item:
+                    enriched_item["variation_id"] = item["variation_id"]
+                if "variation_name" in item:
+                    enriched_item["variation_name"] = item["variation_name"]
                 enriched_items.append(enriched_item)
 
             with self.get_connection() as conn:
@@ -723,8 +727,10 @@ class SQLiteDatabaseService:
             query = """
                 SELECT 
                     c.*,
+                    ig.name as group_name,
                     (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id) as product_count
                 FROM categories c
+                LEFT JOIN item_groups ig ON c.group_id = ig.id
             """
 
             if not include_inactive:
@@ -779,13 +785,14 @@ class SQLiteDatabaseService:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO categories (name, description, active)
-                    VALUES (?, ?, ?)
+                    INSERT INTO categories (name, description, active, group_id)
+                    VALUES (?, ?, ?, ?)
                 """,
                     (
                         data["name"],
                         data.get("description", ""),
                         bool(data.get("active", True)),
+                        data.get("group_id"),
                     ),
                 )
                 conn.commit()
@@ -802,7 +809,7 @@ class SQLiteDatabaseService:
                 fields = []
                 values = []
 
-                for field in ["name", "description", "active"]:
+                for field in ["name", "description", "active", "group_id"]:
                     if field in data:
                         fields.append(f"{field} = ?")
                         if field == "active":
