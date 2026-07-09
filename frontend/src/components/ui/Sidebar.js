@@ -158,12 +158,13 @@ const Sidebar = ({
         >
             {/* Header / Logo Area */}
             <div style={{
-                height: `${logoH}px`,
+                minHeight: `${logoH}px`,
+                height: 'auto',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'center' : 'flex-start',
-                padding: isCollapsed ? '0' : '0 var(--spacing-6)',
-                marginBottom: 'var(--spacing-2)'
+                padding: isCollapsed ? '0' : 'var(--spacing-4) var(--spacing-6)',
+                marginBottom: 'var(--spacing-6)'
             }}>
                 <AnimatePresence mode="wait">
                     {!isCollapsed ? (

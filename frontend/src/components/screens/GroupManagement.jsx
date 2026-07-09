@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { groupsAPI, categoriesAPI, handleAPIError } from '../../utils/api';
 import '../../styles/Management.css';
+import { useAlert } from '../../context/AlertContext';
 import Button from '../ui/Button';
+import GlobalSelect from '../ui/GlobalSelect';
 import PageContainer from '../layout/PageContainer';
 import {
   IoAddOutline,
@@ -12,12 +14,12 @@ import {
   IoTrashOutline,
   IoSearchOutline,
   IoChevronBackOutline,
-  IoCheckmarkCircle,
-  IoFolderOpenOutline
+  IoCheckmarkCircle
 } from 'react-icons/io5';
 
 const GroupManagement = () => {
   const { staggerContainer, staggerItem } = useAnimation();
+  const { showConfirm } = useAlert();
 
   // Groups state
   const [groups, setGroups] = useState([]);
@@ -201,7 +203,13 @@ const GroupManagement = () => {
 
   const handleBulkDelete = async () => {
     if (selectedGroupIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete the ${selectedGroupIds.length} selected groups?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Selected Groups',
+      message: `Are you sure you want to delete the ${selectedGroupIds.length} selected groups?`,
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!confirmed) return;
     try {
       setError('');
       setLoading(true);
@@ -323,7 +331,13 @@ const GroupManagement = () => {
   };
 
   const handleCategoryDelete = async (cat) => {
-    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete category "${cat.name}"?`,
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!confirmed) return;
     try {
       setError('');
       await categoriesAPI.deleteCategory(cat.id);
@@ -362,20 +376,32 @@ const GroupManagement = () => {
 
   return (
     <PageContainer>
-      {/* Header Section */}
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        style={{ marginBottom: '32px' }}
+        className="glass-panel group-management-panel"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          padding: 'var(--spacing-8)',
+          borderRadius: 'var(--radius-3xl)',
+          background: 'var(--glass-panel)',
+          border: '1px solid var(--glass-border)',
+          boxShadow: 'var(--shadow-xl)',
+          gap: '24px',
+          overflowY: 'auto'
+        }}
       >
+        {/* Header Section */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-end',
           gap: '24px',
           paddingBottom: '20px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          marginBottom: '8px'
         }}>
           <div>
             <h1 style={{
@@ -444,7 +470,6 @@ const GroupManagement = () => {
             </Button>
           </div>
         </div>
-      </motion.div>
 
       {/* Selection Action Bar */}
       <AnimatePresence>
@@ -895,12 +920,8 @@ const GroupManagement = () => {
                     gap: '8px',
                     letterSpacing: '-0.01em'
                   }}>
-                    <IoFolderOpenOutline size={24} color="#F97316" />
-                    {isShowingAllCategories ? 'All Categories' : `Categories in "${selectedGroup?.name}"`}
+                    {isShowingAllCategories ? 'All Categories' : `Categories in ${selectedGroup?.name}`}
                   </h2>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', opacity: 0.7 }}>
-                    ({loadingCategories ? 'Loading...' : `${categories.length} Categories`})
-                  </span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1020,26 +1041,13 @@ const GroupManagement = () => {
                       {isShowingAllCategories && (
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Assign to Group *</div>
-                          <select
+                          <GlobalSelect
+                            options={groups.map(g => ({ label: g.name, value: g.id }))}
                             value={categoryFormData.group_id || ''}
-                            onChange={(e) => handleCategoryInputChange('group_id', e.target.value ? parseInt(e.target.value) : '')}
-                            required
-                            style={{
-                              padding: '12px 16px',
-                              borderRadius: '12px',
-                              border: '1px solid var(--glass-border)',
-                              background: 'var(--bg-secondary)',
-                              color: 'var(--text-primary)',
-                              fontSize: '14px',
-                              width: '100%',
-                              outline: 'none'
-                            }}
-                          >
-                            <option value="" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>-- Select Group --</option>
-                            {groups.map(g => (
-                              <option key={g.id} value={g.id} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>{g.name}</option>
-                            ))}
-                          </select>
+                            onChange={(val) => handleCategoryInputChange('group_id', val ? parseInt(val) : '')}
+                            placeholder="-- Select Group --"
+                            direction="top"
+                          />
                         </div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)' }}>
@@ -1086,7 +1094,6 @@ const GroupManagement = () => {
                 background: 'rgba(255, 255, 255, 0.01)',
                 borderRadius: '16px'
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📂</div>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>No Categories Yet</div>
                 <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
                   {categorySearchTerm ? 'No categories match your search.' : 'Create your first category inside this group.'}
@@ -1272,6 +1279,7 @@ const GroupManagement = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      </motion.div>
     </PageContainer>
   );
 };

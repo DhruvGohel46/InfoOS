@@ -2,6 +2,7 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'rea
 // removed framer-motion
 import { inventoryAPI } from '../../utils/api';
 import { useSettings } from '../../context/SettingsContext';
+import { useReminders } from '../../context/ReminderContext';
 
 // Icons
 const AlertIcon = () => (
@@ -22,6 +23,27 @@ const XIcon = () => (
 const NotificationSystem = forwardRef((props, ref) => {
     const [notifications, setNotifications] = useState([]);
     const { settings } = useSettings();
+    const { activeAlerts, snoozeReminder, dismissReminder } = useReminders();
+
+    // Sync activeAlerts with notifications state
+    useEffect(() => {
+        setNotifications(prev => {
+            // Keep all active non-reminder notifications
+            const nonReminders = prev.filter(n => !n.isReminder);
+            
+            // Map activeAlerts to reminder notifications
+            const reminderNotifs = activeAlerts.map(alert => ({
+                id: alert.id,
+                title: alert.title || 'Reminder Alert',
+                message: alert.description || 'Time to complete your task',
+                type: 'warning',
+                isReminder: true,
+                persist: true
+            }));
+            
+            return [...reminderNotifs, ...nonReminders];
+        });
+    }, [activeAlerts]);
 
     // Expose methods to parent via ref
     useImperativeHandle(ref, () => ({
@@ -29,10 +51,12 @@ const NotificationSystem = forwardRef((props, ref) => {
             const id = Date.now() + Math.random();
             setNotifications(prev => [{ ...notification, id }, ...prev]);
 
-            // Auto dismiss after 6 seconds
-            setTimeout(() => {
-                removeNotification(id);
-            }, 6000);
+            // Auto dismiss after 6 seconds if not persisted
+            if (!notification.persist) {
+                setTimeout(() => {
+                    removeNotification(id);
+                }, 6000);
+            }
         },
         checkStock: () => checkLowStock()
     }));
@@ -86,7 +110,9 @@ const NotificationSystem = forwardRef((props, ref) => {
     const addSystemNotification = (notif) => {
         const id = Date.now() + Math.random();
         setNotifications(prev => [{ ...notif, id }, ...prev]);
-        setTimeout(() => removeNotification(id), 6000);
+        if (!notif.persist) {
+            setTimeout(() => removeNotification(id), 6000);
+        }
     };
 
     // --- AUTOMATED CHECKS ---
@@ -169,15 +195,17 @@ const NotificationSystem = forwardRef((props, ref) => {
                         }}
                     >
                         {/* Auto-dismiss progress bar (visual only) */}
-                        <div
-                            style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                height: '3px',
-                                background: n.type === 'critical' ? '#EF4444' : (n.type === 'warning' ? '#F59E0B' : '#3B82F6')
-                            }}
-                        />
+                        {!n.persist && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    height: '3px',
+                                    background: n.type === 'critical' ? '#EF4444' : (n.type === 'warning' ? '#F59E0B' : '#3B82F6')
+                                }}
+                            />
+                        )}
 
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                             <div style={{
@@ -196,6 +224,56 @@ const NotificationSystem = forwardRef((props, ref) => {
                                 {n.items && (
                                     <div style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
                                         {n.items.join(', ')} ...
+                                    </div>
+                                )}
+                                {n.isReminder && (
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                                        <button
+                                            onClick={() => snoozeReminder(n.id, 5)}
+                                            style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                color: '#fff',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Snooze 5m
+                                        </button>
+                                        <button
+                                            onClick={() => snoozeReminder(n.id, 15)}
+                                            style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                color: '#fff',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Snooze 15m
+                                        </button>
+                                        <button
+                                            onClick={() => dismissReminder(n.id)}
+                                            style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                background: 'rgba(16, 185, 129, 0.2)',
+                                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                color: '#10b981',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                marginLeft: 'auto'
+                                            }}
+                                        >
+                                            Dismiss
+                                        </button>
                                     </div>
                                 )}
                             </div>

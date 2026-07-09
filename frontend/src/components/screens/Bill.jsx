@@ -202,9 +202,10 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     setEditableCategories(activeCats);
 
     // Products: filter products for the current selected category
+    const showAllAsFavorite = settings?.show_all_as_favorite === 'true';
     const activeProds = products.filter(product => 
       selectedCategory === 'favorites' 
-        ? !!product.favorite 
+        ? (showAllAsFavorite ? true : !!product.favorite)
         : (product.category_id === selectedCategory || product.category === selectedCategory)
     );
     setEditableProducts(activeProds);
@@ -493,7 +494,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     if (selectedCategory === 'favorites') {
 
-      categoryMatch = !!product.favorite;
+      const showAllAsFavorite = settings?.show_all_as_favorite === 'true';
+
+      categoryMatch = showAllAsFavorite ? true : !!product.favorite;
 
     } else {
 
@@ -1763,55 +1766,73 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         </div>
                       )}
 
-                      {/* Image Container */}
-                      <div style={{
-                        height: '100px',
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        background: isDark ? '#2d2d2d' : '#f3f4f6',
-                        borderRadius: '14px',
-                        border: isDark ? '1px solid #5a5a5a' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        zIndex: 2
-                      }}>
-                        {product.stock_status === 'Out of Stock' && (
-                          <div style={{
-                            position: 'absolute',
-                            backgroundColor: 'var(--error-500)',
-                            color: 'white',
-                            fontSize: '9px',
-                            fontWeight: 800,
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            zIndex: 10
-                          }}>OUT</div>
-                        )}
+                      {/* Out of stock indicator if images are hidden */}
+                      {product.stock_status === 'Out of Stock' && settings?.show_product_images === 'false' && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: 'var(--error-500)',
+                          color: 'white',
+                          fontSize: '9px',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          zIndex: 10
+                        }}>OUT</div>
+                      )}
 
-                        {product.image_filename ? (
-                          <img
-                            src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
-                            alt={product.name}
-                            style={{ 
-                              maxWidth: '72%',
-                              maxHeight: '72%',
-                              objectFit: 'contain',
-                            }}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                              <circle cx="8.5" cy="8.5" r="1.5" />
-                              <path d="M21 15l-5-5L5 21" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
+                      {/* Image Container */}
+                      {settings?.show_product_images !== 'false' && (
+                        <div style={{
+                          height: '100px',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          background: isDark ? '#2d2d2d' : '#f3f4f6',
+                          borderRadius: '14px',
+                          border: isDark ? '1px solid #5a5a5a' : '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          zIndex: 2
+                        }}>
+                          {product.stock_status === 'Out of Stock' && (
+                            <div style={{
+                              position: 'absolute',
+                              backgroundColor: 'var(--error-500)',
+                              color: 'white',
+                              fontSize: '9px',
+                              fontWeight: 800,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              zIndex: 10
+                            }}>OUT</div>
+                          )}
+
+                          {product.image_filename ? (
+                            <img
+                              src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
+                              alt={product.name}
+                              style={{ 
+                                maxWidth: '72%',
+                                maxHeight: '72%',
+                                objectFit: 'contain',
+                              }}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <path d="M21 15l-5-5L5 21" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Product Name */}
                       <h4 style={{

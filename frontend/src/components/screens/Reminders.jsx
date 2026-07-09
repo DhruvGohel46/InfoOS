@@ -97,151 +97,168 @@ const Reminders = () => {
 
     return (
         <PageContainer>
-            <div className="remindersHeader">
-                <div className="headerTitle">
-                    <IoAlarmOutline size={40} color="var(--primary-500)" />
-                    <div>
-                        <h1>Reminder Hub</h1>
-                        <p className="headerSubtitle">Manage business alerts and important tasks with ease</p>
-                    </div>
-                </div>
-                <Button 
-                    variant="ghost" 
-                    onClick={fetchReminders}
-                    className="refreshBtn"
-                >
-                    <IoSyncOutline className={isSubmitting ? 'spinning' : ''} /> Refresh Sync
-                </Button>
-            </div>
-
-            {/* ─── ZONE 2: Global Action Bar ────────────────────────────── */}
-            <div className="actionBar">
-                <form onSubmit={handleSubmit} className="barForm">
-                    <div className="barFormMain">
-                        <div className="barField title">
-                            <input
-                                placeholder="What's the task?"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="barField date">
-                            <GlobalDatePicker
-                                value={date}
-                                onChange={(val) => setDate(val)}
-                                placeholder="Execution Date"
-                                className="barDatePicker"
-                            />
-                        </div>
-                        <div className="barField time">
-                            <GlobalTimePicker
-                                value={time}
-                                onChange={(val) => setTime(val)}
-                                placeholder="Execution Time"
-                                className="barTimePicker"
-                            />
-                        </div>
-                        <div className="barField repeat">
-                            <Dropdown
-                                options={[
-                                    { label: 'Once', value: 'none' },
-                                    { label: 'Daily', value: 'daily' },
-                                    { label: 'Weekly', value: 'weekly' },
-                                    { label: 'Monthly', value: 'monthly' }
-                                ]}
-                                value={repeat}
-                                onChange={(val) => setRepeat(val)}
-                                placeholder="Once"
-                                className="barRepeatDropdown"
-                                zIndex={100}
-                            />
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-panel reminders-panel"
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    padding: 'var(--spacing-8)',
+                    borderRadius: 'var(--radius-3xl)',
+                    background: 'var(--glass-panel)',
+                    border: '1px solid var(--glass-border)',
+                    boxShadow: 'var(--shadow-xl)',
+                    gap: '24px',
+                    overflowY: 'auto'
+                }}
+            >
+                <div className="remindersHeader" style={{ margin: 0 }}>
+                    <div className="headerTitle">
+                        <IoAlarmOutline size={40} color="var(--primary-500)" />
+                        <div>
+                            <h1>Reminder Hub</h1>
+                            <p className="headerSubtitle" style={{ margin: '4px 0 0 0' }}>Manage business alerts and important tasks with ease</p>
                         </div>
                     </div>
                     <Button 
-                        variant="primary" 
-                        type="submit" 
-                        loading={isSubmitting}
-                        className="barSubmitBtn"
+                        variant="ghost" 
+                        onClick={fetchReminders}
+                        className="refreshBtn"
                     >
-                        SCHEDULE
+                        <IoSyncOutline className={isSubmitting ? 'spinning' : ''} /> Refresh Sync
                     </Button>
-                </form>
-            </div>
-
-            {/* ─── ZONE 3: Management Queue ─────────────────────────────── */}
-            <div className="queueZone">
-                <div className="queueHeader">
-                    <div className="queueTitle">
-                        <IoAlarmOutline /> 
-                        <h3>Active Queue</h3>
-                    </div>
-                    <div className="listFilters">
-                        {['all', 'today', 'upcoming', 'completed'].map(f => (
-                            <button
-                                key={f}
-                                className={`filterTab ${filter === f ? 'active' : ''}`}
-                                onClick={() => setFilter(f)}
-                            >
-                                {f.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
                 </div>
 
-                <div className="longBarQueue">
-                    <AnimatePresence mode="popLayout">
-                        {filteredReminders.map((rem) => (
-                            <motion.div 
-                                key={rem.id}
-                                layout
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                className={`longBarItem ${rem.status}`}
-                            >
-                                <div className="barStatusIndicator" />
-                                <div className="barLabel">
-                                    <h4>{rem.title}</h4>
-                                    {rem.description ? <p>{rem.description}</p> : null}
-                                </div>
-                                <div className="barTime">
-                                    <div className="barTimeRow">
-                                        <IoCalendarOutline />
-                                        <span>{new Date(rem.reminder_time).toDateString()}</span>
-                                    </div>
-                                    <span className="barTimeSep">•</span>
-                                    <div className="barTimeRow">
-                                        <IoAlarmOutline />
-                                        <span>{new Date(rem.reminder_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    </div>
-                                </div>
-                                <div className="barType">
-                                    {rem.repeat_type !== 'none' ? <IoSyncOutline className="spinning" /> : null}
-                                    {rem.repeat_type !== 'none' ? <span>{rem.repeat_type}</span> : null}
-                                </div>
-                                <div className="barActions">
-                                    {rem.status === 'pending' && (
-                                        <button className="iconAction check" onClick={() => dismissReminder(rem.id)}>
-                                            <IoSyncOutline />
-                                        </button>
-                                    )}
-                                    <button className="iconAction delete" onClick={() => handleDelete(rem.id, rem.title)}>
-                                        <IoTrashOutline />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-
-                    {filteredReminders.length === 0 && (
-                        <div className="emptyQueueBar">
-                            <p>No task entries found for the selected filter.</p>
+                {/* ─── ZONE 2: Global Action Bar ────────────────────────────── */}
+                <div className="actionBar">
+                    <form onSubmit={handleSubmit} className="barForm">
+                        <div className="barFormMain">
+                            <div className="barField title">
+                                <input
+                                    placeholder="What's the task?"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="barField date">
+                                <GlobalDatePicker
+                                    value={date}
+                                    onChange={(val) => setDate(val)}
+                                    placeholder="Execution Date"
+                                    className="barDatePicker"
+                                />
+                            </div>
+                            <div className="barField time">
+                                <GlobalTimePicker
+                                    value={time}
+                                    onChange={(val) => setTime(val)}
+                                    placeholder="Execution Time"
+                                    className="barTimePicker"
+                                />
+                            </div>
+                            <div className="barField repeat">
+                                <Dropdown
+                                    options={[
+                                        { label: 'Once', value: 'none' },
+                                        { label: 'Daily', value: 'daily' },
+                                        { label: 'Weekly', value: 'weekly' },
+                                        { label: 'Monthly', value: 'monthly' }
+                                    ]}
+                                    value={repeat}
+                                    onChange={(val) => setRepeat(val)}
+                                    placeholder="Once"
+                                    className="barRepeatDropdown"
+                                    zIndex={100}
+                                />
+                            </div>
                         </div>
-                    )}
+                        <Button 
+                            variant="primary" 
+                            type="submit" 
+                            loading={isSubmitting}
+                            className="barSubmitBtn"
+                        >
+                            SCHEDULE
+                        </Button>
+                    </form>
                 </div>
-            </div>
 
+                {/* ─── ZONE 3: Management Queue ─────────────────────────────── */}
+                <div className="queueZone">
+                    <div className="queueHeader">
+                        <div className="queueTitle">
+                            <IoAlarmOutline /> 
+                            <h3>Active Queue</h3>
+                        </div>
+                        <div className="listFilters">
+                            {['all', 'today', 'upcoming', 'completed'].map(f => (
+                                <button
+                                    key={f}
+                                    className={`filterTab ${filter === f ? 'active' : ''}`}
+                                    onClick={() => setFilter(f)}
+                                >
+                                    {f.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="longBarQueue">
+                        <AnimatePresence mode="popLayout">
+                            {filteredReminders.map((rem) => (
+                                <motion.div 
+                                    key={rem.id}
+                                    layout
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 20 }}
+                                    className={`longBarItem ${rem.status}`}
+                                >
+                                    <div className="barStatusIndicator" />
+                                    <div className="barLabel">
+                                        <h4>{rem.title}</h4>
+                                        {rem.description ? <p>{rem.description}</p> : null}
+                                    </div>
+                                    <div className="barTime">
+                                        <div className="barTimeRow">
+                                            <IoCalendarOutline />
+                                            <span>{new Date(rem.reminder_time).toDateString()}</span>
+                                        </div>
+                                        <span className="barTimeSep">•</span>
+                                        <div className="barTimeRow">
+                                            <IoAlarmOutline />
+                                            <span>{new Date(rem.reminder_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                    </div>
+                                    <div className="barType">
+                                        {rem.repeat_type !== 'none' ? <IoSyncOutline className="spinning" /> : null}
+                                        {rem.repeat_type !== 'none' ? <span>{rem.repeat_type}</span> : null}
+                                    </div>
+                                    <div className="barActions">
+                                        {rem.status === 'pending' && (
+                                            <button className="iconAction check" onClick={() => dismissReminder(rem.id)}>
+                                                <IoSyncOutline />
+                                            </button>
+                                        )}
+                                        <button className="iconAction delete" onClick={() => handleDelete(rem.id, rem.title)}>
+                                            <IoTrashOutline />
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+
+                        {filteredReminders.length === 0 && (
+                            <div className="emptyQueueBar">
+                                <p>No task entries found for the selected filter.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
         </PageContainer>
     );
 };

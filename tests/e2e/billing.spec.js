@@ -175,6 +175,15 @@ test.describe("Navigation", () => {
 
 test.describe("POS Layout Reordering", () => {
   test("allows entering, reordering categories/products, cancelling and saving", async ({ page }) => {
+    // Clear localStorage to avoid contamination from other tests
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+    });
+
+    // Capture page errors to ensure no console/runtime crashes occur
+    const pageErrors = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+
     // 1. Mock products and categories API responses
     await page.route("**/api/products**", async (route) => {
       await route.fulfill({
@@ -271,6 +280,9 @@ test.describe("POS Layout Reordering", () => {
 
     await goToBillingScreen(page);
 
+    // Wait for the product cards to render, guaranteeing state synchronization
+    await expect(page.locator('text=Burger A').first()).toBeVisible();
+
     // 2. Locate and click "Edit Layout" button
     const editLayoutBtn = page.locator('button:has-text("Edit Layout")');
     await expect(editLayoutBtn).toBeVisible();
@@ -294,5 +306,8 @@ test.describe("POS Layout Reordering", () => {
     // Verify the APIs were triggered on Done click
     expect(categoriesReordered).toBe(true);
     expect(productsReordered).toBe(true);
+
+    // Assert that no uncaught runtime exceptions occurred during test execution
+    expect(pageErrors).toHaveLength(0);
   });
 });

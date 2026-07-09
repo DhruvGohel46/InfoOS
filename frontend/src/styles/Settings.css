@@ -16,9 +16,10 @@
     padding: 16px 0;
     margin-bottom: 24px;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
     width: 100%;
 }
 
@@ -41,11 +42,11 @@
 /* Tabs - Segmented Pill Navigation */
 .stTabs {
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-end;
     padding: 0;
     background: transparent;
     border: none;
-    width: 100%;
+    width: auto;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none; /* Firefox */

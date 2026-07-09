@@ -20,6 +20,16 @@ const WorkerProfile = () => {
     const { showSuccess, showError, showConfirm } = useAlert();
     const { settings } = useSettings();
 
+    const formatDate = (dateInput) => {
+        if (!dateInput) return '';
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return '';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+
     const [worker, setWorker] = useState(null);
     const [advances, setAdvances] = useState([]);
     const [salaryHistory, setSalaryHistory] = useState([]);
@@ -496,7 +506,7 @@ const WorkerProfile = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                         <IoCalendar style={{ color: 'var(--primary-500)', flexShrink: 0 }} size={16} />
                         <span style={{ fontWeight: 600 }}>
-                            Joined {new Date(worker.join_date || worker.joinDate).toLocaleDateString()}
+                            Joined {formatDate(worker.join_date || worker.joinDate)}
                         </span>
                     </div>
                 </div>
@@ -598,7 +608,7 @@ const WorkerProfile = () => {
                                 <tbody>
                                     {attendance.map((a, i) => (
                                         <tr key={i} style={{ borderBottom: `1px solid ${currentTheme.colors.border}` }}>
-                                            <td style={{ padding: '16px', fontWeight: 500 }}>{new Date(a.date).toLocaleDateString()}</td>
+                                            <td style={{ padding: '16px', fontWeight: 500 }}>{formatDate(a.date)}</td>
                                             <td style={{ padding: '16px' }}>
                                                 <span style={{
                                                     padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600,
@@ -651,7 +661,7 @@ const WorkerProfile = () => {
                                                 {group.items.map((adv, idx) => (
                                                     <tr key={`${group.key}-${idx}`} style={{ borderBottom: `1px solid ${currentTheme.colors.border}` }}>
                                                         <td style={{ padding: '16px 16px 16px 28px', fontWeight: 500 }}>
-                                                            {new Date(adv.date).toLocaleDateString()}
+                                                            {formatDate(adv.date)}
                                                         </td>
                                                         <td style={{ padding: '16px', color: currentTheme.colors.text.secondary }}>
                                                             {adv.reason || '—'}

@@ -77,7 +77,6 @@ import { workerAPI } from './api/workers';
 
 // Reminders
 import { ReminderProvider, useReminders } from './context/ReminderContext';
-import ReminderAlert from './components/ui/ReminderAlert';
 import Reminders from './components/screens/Reminders';
 import { IoAlarmOutline, IoSyncOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline } from 'react-icons/io5';
 
@@ -87,7 +86,7 @@ import OfflineBadge from './components/ui/OfflineBadge';
 import { syncService } from './api/sync';
 
 // POS Data Bootstrap (load-once pattern)
-import { POSDataProvider } from './context/POSDataContext';
+import { POSDataProvider, usePOSData } from './context/POSDataContext';
 
 // Import UI components
 import Button from './components/ui/Button';
@@ -125,6 +124,7 @@ function AppContent() {
   const { isOnline } = useNetwork();
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const { checkCatalogVersion } = usePOSData();
 
   const { addToast, showWarning, showSuccess: alertSuccess } = useAlert();
 
@@ -148,12 +148,35 @@ function AppContent() {
       if (scale) {
         document.documentElement.style.setProperty('--text-scale', scale);
       }
+      checkCatalogVersion();
     } catch (_) {}
-  }, [_location]);
+  }, [_location, checkCatalogVersion]);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [posKey, setPosKey] = useState(0);
   const notificationRef = React.useRef(null);
+  const notificationPanelRef = React.useRef(null);
+  const notificationToggleRef = React.useRef(null);
+
+  // Collapse notification panel when clicking outside of it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        showNotificationPanel &&
+        notificationPanelRef.current &&
+        !notificationPanelRef.current.contains(event.target) &&
+        notificationToggleRef.current &&
+        !notificationToggleRef.current.contains(event.target)
+      ) {
+        setShowNotificationPanel(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotificationPanel]);
+
   const [showAttendancePrompt, setShowAttendancePrompt] = useState(false);
 
   // Check Attendance & Salary on Mount
@@ -635,6 +658,7 @@ function AppContent() {
               </div>
 
               <button
+                ref={notificationToggleRef}
                 onClick={() => setShowNotificationPanel(!showNotificationPanel)}
                 className="rounded-lg"
                 style={{
@@ -675,7 +699,9 @@ function AppContent() {
               </button>
 
               {showNotificationPanel && (
-                <div style={{
+                <div 
+                  ref={notificationPanelRef}
+                  style={{
                   position: 'absolute',
                   top: '120%',
                   right: '0',
@@ -1044,8 +1070,7 @@ function AppContent() {
           </div>
         )}
 
-        {/* Global Reminders */}
-        <ReminderAlert />
+        {/* Global Reminders are now integrated into NotificationSystem */}
         
         {/* Offline Badge */}
         <OfflineBadge />

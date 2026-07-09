@@ -10,6 +10,7 @@ from validators import (
 )
 import cache
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,12 @@ db = DatabaseService()
 
 _create_schema = CategoryCreateSchema()
 _update_schema = CategoryUpdateSchema()
+
+
+def _update_catalog_version():
+    """Update catalog version and invalidate settings cache."""
+    db.update_settings_bulk([{"key": "catalog_version", "value": str(int(time.time()))}])
+    cache.invalidate("settings")
 
 
 @categories_bp.route("", methods=["GET"])
@@ -69,6 +76,7 @@ def create_category():
         raise Exception("Failed to create category")
 
     cache.invalidate("categories")
+    _update_catalog_version()
     return (
         jsonify(
             {
@@ -110,6 +118,7 @@ def update_category(category_id):
         raise NotFoundError("Category not found or no changes made", code="CATEGORY_NOT_FOUND")
 
     cache.invalidate("categories")
+    _update_catalog_version()
     return jsonify({"success": True, "message": "Category updated successfully"}), 200
 
 
@@ -122,6 +131,8 @@ def delete_category(category_id):
 
     if usage["used"]:
         db.update_category(category_id, {"active": False})
+        cache.invalidate("categories")
+        _update_catalog_version()
         return (
             jsonify(
                 {
@@ -137,6 +148,8 @@ def delete_category(category_id):
         if not success:
             raise NotFoundError("Category not found", code="CATEGORY_NOT_FOUND")
 
+        cache.invalidate("categories")
+        _update_catalog_version()
         return (
             jsonify(
                 {
@@ -172,4 +185,5 @@ def reorder_categories():
         raise Exception("Failed to update categories order")
 
     cache.invalidate("categories")
+    _update_catalog_version()
     return jsonify({"success": True, "message": "Categories reordered successfully"}), 200

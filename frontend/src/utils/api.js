@@ -465,15 +465,18 @@ export const inventoryAPI = {
   getAllInventory: () => api.get('/api/inventory'),
 
   // Create item
+  createInventory: (data) => api.post('/api/inventory/create', data),
   createInventoryItem: (data) => api.post('/api/inventory/create', data),
 
   // Update item
+  updateInventory: (id, data) => api.put(`/api/inventory/${id}`, data),
   updateInventoryItem: (id, data) => api.put(`/api/inventory/${id}`, data),
 
   // Adjust stock
-  adjustStock: (data) => api.post('/api/inventory/adjust', data),
+  adjustStock: (id, adjustment) => api.post('/api/inventory/adjust', { id, adjustment }),
 
   // Delete item
+  deleteInventory: (id) => api.delete(`/api/inventory/${id}`),
   deleteInventoryItem: (id) => api.delete(`/api/inventory/${id}`),
 
   // Get Low Stock Items
@@ -559,6 +562,18 @@ export const apiRequest = async (method, url, data = null) => {
       status: error.response?.status || 0,
     };
   }
+};
+
+export const formatDate = (dateInput) => {
+  if (!dateInput) return '';
+  const date = typeof dateInput === 'string' && dateInput.includes(' ')
+    ? new Date(dateInput.replace(' ', 'T'))
+    : new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
 export default api;

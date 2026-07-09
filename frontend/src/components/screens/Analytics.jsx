@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
     ResponsiveContainer, PieChart, Pie, Cell, Sector
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
@@ -638,7 +638,12 @@ const Analytics = () => {
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
         try {
-            return new Date(timestamp.replace(' ', 'T')).toLocaleDateString();
+            const date = new Date(timestamp.replace(' ', 'T'));
+            if (isNaN(date.getTime())) return timestamp;
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
         } catch { return timestamp.split(' ')[0]; }
     };
 
@@ -1420,7 +1425,6 @@ const Analytics = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(v) => formatCurrency(v)} />
-                                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '16px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         ) : (
@@ -1432,18 +1436,24 @@ const Analytics = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'center', marginTop: '20px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start', margin: '20px auto 0 auto', maxWidth: '320px' }}>
                                         {Object.entries(
                                             filteredRangeExpenses.reduce((acc, curr) => {
                                                 acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
                                                 return acc;
                                             }, {})
-                                        ).slice(0, 4).map(([name, value], i) => (
-                                            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                                <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>{name}: <b>{formatCurrency(value)}</b></span>
-                                            </div>
-                                        ))}
+                                        ).map(([name, value], i) => {
+                                            const total = filteredRangeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+                                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                                        {name}: <b>{formatCurrency(value)}</b> ({percent}%)
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -1733,7 +1743,7 @@ const Analytics = () => {
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ fontWeight: 750, fontSize: '1.05rem', color: '#ffffff' }}>Master Financial Sheet</span>
+                                                    <span style={{ fontWeight: 750, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Master Financial Sheet</span>
                                                     <span style={{
                                                         fontSize: '0.65rem',
                                                         fontWeight: 800,

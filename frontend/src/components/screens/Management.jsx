@@ -15,6 +15,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { createEmptyVariation, sanitizeVariationsForSave } from '../../utils/productVariations';
 import { usePOSData } from '../../context/POSDataContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const IconPlus = (props) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -345,7 +346,8 @@ const ProductManagement = () => {
       setImageProcessing(true);
       
       // Determine public path for loading model assets locally
-      const base = window.location.origin === "null" || !window.location.origin
+      const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+      const base = !isWeb
         ? window.location.href.substring(0, window.location.href.lastIndexOf('/'))
         : window.location.origin;
       const publicPath = `${base}/assets/ai/`;
@@ -847,11 +849,6 @@ const ProductManagement = () => {
         {/* Error */}
         {error && <div className="pmError" style={{ marginBottom: 'var(--spacing-4)' }}>{error}</div>}
 
-        {/* Product count hint */}
-        <div style={{ marginBottom: 'var(--spacing-4)', color: 'var(--text-tertiary)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>
-          {loading ? 'Refreshing…' : `${filteredProducts.length} products shown`}
-        </div>
-
         {/* Products Grid */}
         {loading ? (
           <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 'var(--spacing-12)' }}>
@@ -1262,50 +1259,65 @@ const ProductManagement = () => {
 };
 
 const Management = () => {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('products');
 
   return (
     <PageContainer>
       <div className="pmPage">
-        {/* Header - Simple Tab Navigation */}
+        {/* Header - Centered Toggle Button / Pill Navigation */}
         <div style={{
           display: 'flex',
-          marginBottom: 'calc(20px * var(--display-zoom))',
-          borderBottom: '1px solid var(--border-primary)',
-          gap: 'calc(24px * var(--display-zoom))'
+          justifyContent: 'center',
+          marginBottom: 'calc(24px * var(--display-zoom))',
+          width: '100%'
         }}>
-          <button
-            onClick={() => setActiveTab('products')}
-            style={{
-              padding: 'calc(12px * var(--display-zoom)) calc(4px * var(--display-zoom))',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'products' ? '2px solid #F97316' : '2px solid transparent',
-              color: activeTab === 'products' ? '#F97316' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'products' ? 600 : 500,
-              fontSize: 'calc(16px * var(--text-scale))',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            Products
-          </button>
-          <button
-            onClick={() => setActiveTab('groups')}
-            style={{
-              padding: 'calc(12px * var(--display-zoom)) calc(4px * var(--display-zoom))',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'groups' ? '2px solid #F97316' : '2px solid transparent',
-              color: activeTab === 'groups' ? '#F97316' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'groups' ? 600 : 500,
-              fontSize: 'calc(16px * var(--text-scale))',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            Groups
-          </button>
+          <div style={{
+            display: 'inline-flex',
+            background: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+            borderRadius: '999px',
+            padding: '4px',
+            border: '1px solid var(--glass-border)',
+            gap: '2px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+          }}>
+            <button
+              onClick={() => setActiveTab('products')}
+              style={{
+                padding: '8px 24px',
+                background: activeTab === 'products' ? '#F97316' : 'transparent',
+                border: 'none',
+                borderRadius: '999px',
+                color: activeTab === 'products' ? 'white' : 'var(--text-secondary)',
+                fontWeight: activeTab === 'products' ? 600 : 500,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                outline: 'none',
+                boxShadow: activeTab === 'products' ? '0 2px 8px rgba(249, 115, 22, 0.3)' : 'none'
+              }}
+            >
+              Products
+            </button>
+            <button
+              onClick={() => setActiveTab('groups')}
+              style={{
+                padding: '8px 24px',
+                background: activeTab === 'groups' ? '#F97316' : 'transparent',
+                border: 'none',
+                borderRadius: '999px',
+                color: activeTab === 'groups' ? 'white' : 'var(--text-secondary)',
+                fontWeight: activeTab === 'groups' ? 600 : 500,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                outline: 'none',
+                boxShadow: activeTab === 'groups' ? '0 2px 8px rgba(249, 115, 22, 0.3)' : 'none'
+              }}
+            >
+              Groups
+            </button>
+          </div>
         </div>
 
         {/* Content */}

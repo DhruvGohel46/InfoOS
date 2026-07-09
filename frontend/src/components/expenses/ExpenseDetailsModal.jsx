@@ -10,13 +10,14 @@ export default function ExpenseDetailsModal({ expense, onClose, onEdit, onDelete
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: 'long', 
-      year: 'numeric' 
-    });
+    if (isNaN(date.getTime())) return 'N/A';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
+  // eslint-disable-next-line no-unused-vars
   const formatTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -98,7 +99,6 @@ export default function ExpenseDetailsModal({ expense, onClose, onEdit, onDelete
               <div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '2px' }}>Date</div>
                 <div style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{formatDate(expense.date)}</div>
-                <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--text-xs)' }}>{formatTime(expense.date)}</div>
               </div>
             </div>
 

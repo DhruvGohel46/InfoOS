@@ -107,9 +107,14 @@ export default function Expenses() {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    if (isNaN(date.getTime())) return 'N/A';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getCategoryIcon = (category) => {
     switch (category) {
       case 'Salary': return <FiUser />;
@@ -289,8 +294,7 @@ export default function Expenses() {
 
                 {/* Category */}
                 <div className="expense-category">
-                  <span className="expense-category-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    {getCategoryIcon(expense.category)}
+                  <span className="expense-category-pill" style={{ display: 'inline-flex', alignItems: 'center' }}>
                     <span>{expense.category}</span>
                   </span>
                 </div>

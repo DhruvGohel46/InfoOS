@@ -47,6 +47,7 @@ const Settings = () => {
         const params = new URLSearchParams(location.search);
         return params.get('tab') || 'shop';
     });
+    // eslint-disable-next-line no-unused-vars
     const [workerSubTab, setWorkerSubTab] = useState(() => {
         if (location.state?.workerSubTab) return location.state.workerSubTab;
         const params = new URLSearchParams(location.search);
@@ -523,10 +524,10 @@ const Settings = () => {
 
     // Load worker types when workers tab is active
     useEffect(() => {
-        if (activeTab === 'workers' && workerSubTab === 'types') {
+        if (activeTab === 'workers') {
             loadWorkerTypes();
         }
-    }, [activeTab, workerSubTab, loadWorkerTypes]);
+    }, [activeTab, loadWorkerTypes]);
 
     // Load expense types when expenses tab is active
     useEffect(() => {
@@ -1456,93 +1457,57 @@ const Settings = () => {
 
                         {activeTab === 'workers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                <div style={{ marginBottom: '24px' }}>
+                                <div style={{ marginBottom: '12px' }}>
                                     <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Worker Configuration</h2>
                                     <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Manage salary settings and worker types</p>
                                 </div>
 
-                                {/* Sub-tabs for Workers */}
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                                    <button
-                                        onClick={() => setWorkerSubTab('salary')}
-                                        style={{
-                                            padding: '10px 20px',
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border-secondary)',
-                                            background: workerSubTab === 'salary' ? 'var(--primary-500)' : 'var(--surface-primary)',
-                                            color: workerSubTab === 'salary' ? 'white' : 'var(--text-primary)',
-                                            fontWeight: 500,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        Salary Settings
-                                    </button>
-                                    <button
-                                        onClick={() => setWorkerSubTab('types')}
-                                        style={{
-                                            padding: '10px 20px',
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border-secondary)',
-                                            background: workerSubTab === 'types' ? 'var(--primary-500)' : 'var(--surface-primary)',
-                                            color: workerSubTab === 'types' ? 'white' : 'var(--text-primary)',
-                                            fontWeight: 500,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        Worker Types
-                                    </button>
-                                </div>
-
-                                {workerSubTab === 'salary' && (
-                                    <div style={{
-                                        padding: '24px',
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '16px'
-                                    }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
-                                            <div style={{ width: '100%' }}>
-                                                <GlobalDatePicker
-                                                    value={(() => {
-                                                        const day = parseInt(formSettings.salary_day) || 1;
-                                                        const now = new Date();
-                                                        return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
-                                                    })()}
-                                                    onChange={(dateStr) => {
-                                                        if (dateStr) {
-                                                            const parts = dateStr.split('-');
-                                                            if (parts.length === 3) {
-                                                                const day = parseInt(parts[2]);
-                                                                handleChange('salary_day', day.toString());
-                                                            }
+                                <div style={{
+                                    padding: '24px',
+                                    background: 'var(--surface-primary)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Salary Settings</h3>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
+                                        <div style={{ width: '100%' }}>
+                                            <GlobalDatePicker
+                                                value={(() => {
+                                                    const day = parseInt(formSettings.salary_day) || 1;
+                                                    const now = new Date();
+                                                    return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
+                                                })()}
+                                                onChange={(dateStr) => {
+                                                    if (dateStr) {
+                                                        const parts = dateStr.split('-');
+                                                        if (parts.length === 3) {
+                                                            const day = parseInt(parts[2]);
+                                                            handleChange('salary_day', day.toString());
                                                         }
-                                                    }}
-                                                    placeholder="Select Salary Day"
-                                                />
-                                                <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                                                    Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
-                                                </div>
+                                                    }
+                                                }}
+                                                placeholder="Select Salary Day"
+                                            />
+                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                                Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
                                             </div>
                                         </div>
                                     </div>
-                                )}
+                                </div>
 
-                                {workerSubTab === 'types' && (
-                                    <div style={{
-                                        padding: '24px',
-                                        background: 'var(--surface-primary)',
-                                        border: '1px solid var(--border-secondary)',
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '16px'
-                                    }}>
+                                <div style={{
+                                    padding: '24px',
+                                    background: 'var(--surface-primary)',
+                                    border: '1px solid var(--border-secondary)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Worker Types</h3>
@@ -1733,7 +1698,6 @@ const Settings = () => {
                                             </div>
                                         )}
                                     </div>
-                                )}
                             </div>
                         )}
 

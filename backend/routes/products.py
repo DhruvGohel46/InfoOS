@@ -443,12 +443,31 @@ def upload_product_image(product_id):
 
     file_path = os.path.join(images_dir, filename)
 
-    # ── Save original uploaded image directly (handled by frontend) ──────
+    # ── Save original uploaded image (with backend background removal fallback) ──────
     try:
         file.seek(0)
         img = Image.open(file)
+
+        # Check if rembg is available on the backend
+        remove_fn, bg_session = get_rembg()
+        if remove_fn is not None:
+            try:
+                logger.info("Starting backend background removal for product %s", product_id)
+                # Convert to RGB to discard alpha channel before processing if needed, or pass directly
+                img_rgb = img.convert("RGB")
+                img = remove_fn(img_rgb, session=bg_session)
+                bg_removed = True
+                logger.info("Backend background removal completed for product %s", product_id)
+            except Exception as bg_err:
+                logger.error(
+                    "Backend background removal failed for product %s: %s", product_id, bg_err
+                )
+                bg_removed = False
+        else:
+            logger.info("Backend background removal not available; saving image as-is")
+            bg_removed = False
+
         img.save(file_path, format="PNG")
-        bg_removed = True
         logger.info("Image saved successfully for product %s", product_id)
     except Exception as e:
         logger.error("Failed to save product image: %s", e)

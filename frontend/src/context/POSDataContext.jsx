@@ -123,6 +123,12 @@ export const POSDataProvider = ({ children }) => {
                     if (data.products) {
                         setProducts(data.products);
                     }
+                    
+                    // Fetch updated categories list
+                    const catRes = await api.get('/api/categories?include_inactive=false');
+                    if (catRes.data?.success) {
+                        setCategories(catRes.data.categories || []);
+                    }
                 }
             }
         } catch (err) {
