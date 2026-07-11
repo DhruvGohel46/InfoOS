@@ -2,9 +2,11 @@ import os
 import sys
 import subprocess
 
+
 def log(msg):
     print(f"[UpdateScript]: {msg}")
     sys.stdout.flush()
+
 
 def main():
     log("Starting post-install updater script...")
@@ -14,10 +16,15 @@ def main():
         log("Checking python library dependencies...")
         try:
             import openpyxl
+
             log(f"Current openpyxl version installed: {openpyxl.__version__}")
             # If version is older than 3.1.5, upgrade it programmatically
-            ver_parts = [int(x) for x in openpyxl.__version__.split('.') if x.isdigit()]
-            if len(ver_parts) >= 3 and (ver_parts[0] < 3 or (ver_parts[0] == 3 and ver_parts[1] < 1) or (ver_parts[0] == 3 and ver_parts[1] == 1 and ver_parts[2] < 5)):
+            ver_parts = [int(x) for x in openpyxl.__version__.split(".") if x.isdigit()]
+            if len(ver_parts) >= 3 and (
+                ver_parts[0] < 3
+                or (ver_parts[0] == 3 and ver_parts[1] < 1)
+                or (ver_parts[0] == 3 and ver_parts[1] == 1 and ver_parts[2] < 5)
+            ):
                 log("Upgrading openpyxl library dynamically...")
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl>=3.1.5"])
                 log("openpyxl upgraded successfully.")
@@ -31,6 +38,7 @@ def main():
         log(f"Error checking dependencies: {e}")
 
     log("Updater script completed successfully.")
+
 
 if __name__ == "__main__":
     main()

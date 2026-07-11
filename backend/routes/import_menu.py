@@ -47,6 +47,7 @@ OPTIONAL_COLS = {COL_VAR1, COL_VAR1_PRICE, COL_VAR2, COL_VAR2_PRICE, COL_TAKEAWA
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _strip_currency(value) -> float:
     """
     Extract a bare numeric float from a potentially currency-decorated string.
@@ -86,6 +87,7 @@ def _update_catalog_version():
 
 # ── Ingestion logic ───────────────────────────────────────────────────────────
 
+
 def _get_or_create_group(group_name: str, group_cache: dict) -> int | None:
     """Return group id, creating if needed. Uses a local dict to avoid repeated DB hits."""
     key = group_name.lower()
@@ -98,15 +100,17 @@ def _get_or_create_group(group_name: str, group_cache: dict) -> int | None:
         return existing["id"]
 
     # Create new group
-    new_id = db.create_group({
-        "organization_id": "default",
-        "name": group_name,
-        "description": "",
-        "display_order": 0,
-        "color": "",
-        "icon": "",
-        "is_active": True,
-    })
+    new_id = db.create_group(
+        {
+            "organization_id": "default",
+            "name": group_name,
+            "description": "",
+            "display_order": 0,
+            "color": "",
+            "icon": "",
+            "is_active": True,
+        }
+    )
     if new_id:
         cache.invalidate("groups")
         group_cache[key] = new_id
@@ -128,12 +132,14 @@ def _get_or_create_category(cat_name: str, group_id: int | None, cat_cache: dict
         cat_cache[key] = existing["id"]
         return existing["id"]
 
-    new_id = db.create_category({
-        "name": cat_name,
-        "description": "",
-        "active": True,
-        "group_id": group_id,
-    })
+    new_id = db.create_category(
+        {
+            "name": cat_name,
+            "description": "",
+            "active": True,
+            "group_id": group_id,
+        }
+    )
     if new_id:
         cache.invalidate("categories")
         cat_cache[key] = new_id
@@ -165,17 +171,13 @@ def _build_variations(row: dict, col_map: dict) -> list:
 
     var1_price = _strip_currency(row.get(var1_price_col)) if var1_price_col else 0.0
 
-    variations = [
-        {"id": str(uuid.uuid4()), "name": var1_name, "price": var1_price}
-    ]
+    variations = [{"id": str(uuid.uuid4()), "name": var1_name, "price": var1_price}]
 
     if var2_col:
         var2_name = _safe_str(row.get(var2_col))
         if var2_name and var2_name.lower() != "none":
             var2_price = _strip_currency(row.get(var2_price_col)) if var2_price_col else var1_price
-            variations.append(
-                {"id": str(uuid.uuid4()), "name": var2_name, "price": var2_price}
-            )
+            variations.append({"id": str(uuid.uuid4()), "name": var2_name, "price": var2_price})
 
     return variations
 
@@ -226,11 +228,13 @@ def _process_rows(rows: list, col_map: dict) -> dict:
 
         # ── Duplicate check ───────────────────────────────────────────────────
         if item_name.lower() in existing_names:
-            skipped.append({
-                "row": row_label,
-                "name": item_name,
-                "reason": "Product already exists (skipped to prevent duplicate)"
-            })
+            skipped.append(
+                {
+                    "row": row_label,
+                    "name": item_name,
+                    "reason": "Product already exists (skipped to prevent duplicate)",
+                }
+            )
             continue
 
         # ── Group & Category resolution ───────────────────────────────────────
@@ -245,7 +249,9 @@ def _process_rows(rows: list, col_map: dict) -> dict:
         try:
             variations = _build_variations(row, col_map)
         except Exception as exc:
-            errors.append({"row": row_label, "name": item_name, "reason": f"Variation parse error: {exc}"})
+            errors.append(
+                {"row": row_label, "name": item_name, "reason": f"Variation parse error: {exc}"}
+            )
             continue
 
         # ── Takeaway surcharge ────────────────────────────────────────────────
@@ -255,6 +261,7 @@ def _process_rows(rows: list, col_map: dict) -> dict:
 
         # ── Build & persist product ───────────────────────────────────────────
         import json as _json
+
         product_id = str(uuid.uuid4())[:20].replace("-", "")
         product_data = {
             "product_id": product_id,
@@ -274,11 +281,13 @@ def _process_rows(rows: list, col_map: dict) -> dict:
                 created.append({"row": row_label, "name": item_name})
                 logger.info("Import: created product '%s'", item_name)
             else:
-                errors.append({
-                    "row": row_label,
-                    "name": item_name,
-                    "reason": "DB create_product returned False (possible duplicate ID)"
-                })
+                errors.append(
+                    {
+                        "row": row_label,
+                        "name": item_name,
+                        "reason": "DB create_product returned False (possible duplicate ID)",
+                    }
+                )
         except Exception as exc:
             errors.append({"row": row_label, "name": item_name, "reason": str(exc)})
 
@@ -293,6 +302,7 @@ def _process_rows(rows: list, col_map: dict) -> dict:
 
 # ── Flask route ───────────────────────────────────────────────────────────────
 
+
 @import_menu_bp.route("", methods=["POST"])
 @require_admin
 @safe_route
@@ -306,7 +316,10 @@ def import_menu():
       { success, message, stats: { created, skipped, errors }, details: {...} }
     """
     if "file" not in request.files:
-        raise ValidationError("No file provided. Send a multipart/form-data request with a 'file' field.", code="MISSING_FILE")
+        raise ValidationError(
+            "No file provided. Send a multipart/form-data request with a 'file' field.",
+            code="MISSING_FILE",
+        )
 
     upload = request.files["file"]
     filename = upload.filename or ""
@@ -318,7 +331,7 @@ def import_menu():
     if ext not in ("csv", "xlsx", "xls"):
         raise ValidationError(
             f"Unsupported file type '.{ext}'. Please upload a .csv or .xlsx file.",
-            code="UNSUPPORTED_FORMAT"
+            code="UNSUPPORTED_FORMAT",
         )
 
     # ── Read file into pandas DataFrame ──────────────────────────────────────
@@ -360,7 +373,7 @@ def import_menu():
         raise ValidationError(
             f"Missing mandatory column(s): {', '.join(missing_mandatory)}. "
             "Please check the format guide and re-upload.",
-            code="MISSING_MANDATORY_COLUMNS"
+            code="MISSING_MANDATORY_COLUMNS",
         )
 
     # ── Process rows ──────────────────────────────────────────────────────────
@@ -379,17 +392,22 @@ def import_menu():
 
     logger.info("Import summary for '%s': %s", filename, message)
 
-    return jsonify({
-        "success": True,
-        "message": message,
-        "stats": {
-            "total_rows": total_rows,
-            "created": n_created,
-            "skipped": n_skipped,
-            "errors": n_errors,
-        },
-        "details": result,
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": message,
+                "stats": {
+                    "total_rows": total_rows,
+                    "created": n_created,
+                    "skipped": n_skipped,
+                    "errors": n_errors,
+                },
+                "details": result,
+            }
+        ),
+        200,
+    )
 
 
 @import_menu_bp.route("/sample-csv", methods=["GET"])
@@ -398,9 +416,15 @@ def download_sample_csv():
     """Send the format guide sample CSV file."""
     from flask import send_from_directory
     import os
+
     # Serve from the 'guide' directory in root
     guide_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "guide"))
-    return send_from_directory(guide_dir, "menu_multi_group_format_guide.csv", as_attachment=True, download_name="menu_sample_format.csv")
+    return send_from_directory(
+        guide_dir,
+        "menu_multi_group_format_guide.csv",
+        as_attachment=True,
+        download_name="menu_sample_format.csv",
+    )
 
 
 @import_menu_bp.route("/sample-xlsx", methods=["GET"])
@@ -409,7 +433,12 @@ def download_sample_xlsx():
     """Send the format guide sample Excel file."""
     from flask import send_from_directory
     import os
+
     # Serve from the 'guide' directory in root
     guide_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "guide"))
-    return send_from_directory(guide_dir, "menu_multi_group_format_guide.xlsx", as_attachment=True, download_name="menu_sample_format.xlsx")
-
+    return send_from_directory(
+        guide_dir,
+        "menu_multi_group_format_guide.xlsx",
+        as_attachment=True,
+        download_name="menu_sample_format.xlsx",
+    )
