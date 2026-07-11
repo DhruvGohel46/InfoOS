@@ -223,7 +223,28 @@ export const groupsAPI = {
   getGroupCategories: (id) => api.get(`/api/groups/${id}/categories`),
 };
 
-// Billing APIs
+// Menu Import API
+export const importMenuAPI = {
+  /**
+   * Upload a .csv or .xlsx menu file for bulk product import.
+   * @param {File} file - The file object from an <input type="file">
+   * @param {function} onUploadProgress - Optional axios progress callback
+   */
+  importFile: (file, onUploadProgress) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/import-menu', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 min — large files may take time
+      onUploadProgress,
+    });
+  },
+
+  getSampleCsvUrl: () => `${API_BASE_URL}/api/import-menu/sample-csv`,
+  getSampleXlsxUrl: () => `${API_BASE_URL}/api/import-menu/sample-xlsx`,
+};
+
+
 export const billingAPI = {
   // Create new bill with products
   createBill: (billData) => api.post('/api/bill/create', billData),

@@ -142,6 +142,37 @@ const Settings = () => {
         error: null
     });
     const [printerInfoLoading, setPrinterInfoLoading] = useState(false);
+    
+    // Auto start on boot state
+    const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+
+    useEffect(() => {
+        const checkAutoStart = async () => {
+            if (window.electronAPI && window.electronAPI.getAutoStart) {
+                try {
+                    const enabled = await window.electronAPI.getAutoStart();
+                    setAutoStartEnabled(enabled);
+                } catch (err) {
+                    console.error('Failed to read auto-start setting:', err);
+                }
+            }
+        };
+        checkAutoStart();
+    }, []);
+
+    const handleAutoStartToggle = async (e) => {
+        const val = e.target.checked;
+        setAutoStartEnabled(val);
+        if (window.electronAPI && window.electronAPI.setAutoStart) {
+            try {
+                await window.electronAPI.setAutoStart(val);
+                showSuccess(`Auto-start preference updated: ${val ? 'Enabled' : 'Disabled'}`);
+            } catch (err) {
+                showError('Failed to change auto-start preferences');
+                setAutoStartEnabled(!val); // revert
+            }
+        }
+    };
 
     const loadPrinterInfo = async () => {
         setPrinterInfoLoading(true);
@@ -1313,6 +1344,23 @@ const Settings = () => {
                                             <span className="stSlider"></span>
                                         </label>
                                     </div>
+
+                                    {window.electronAPI && (
+                                        <div className="stFormGroup">
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Start with PC</span>
+                                                <span className="stLabelDesc">Automatically launch InfoOS when the system boots up</span>
+                                            </div>
+                                            <label className="stToggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={autoStartEnabled}
+                                                    onChange={handleAutoStartToggle}
+                                                />
+                                                <span className="stSlider"></span>
+                                            </label>
+                                        </div>
+                                    )}
 
                                     {/* Reminder Sound Customization */}
                                     <div className="stFormGroup">

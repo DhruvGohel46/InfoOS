@@ -489,30 +489,31 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
   const filteredProducts = products.filter(product => {
-
     let categoryMatch;
+    
+    // Group filter match
+    let groupMatch = true;
+    if (selectedGroupId !== 'all') {
+      // Find category of the product to check if it belongs to selected group
+      const pCat = bootstrapCategories.find(c => c.id === product.category_id || c.name === product.category);
+      groupMatch = pCat ? pCat.group_id === parseInt(selectedGroupId) : false;
+    }
 
     if (selectedCategory === 'favorites') {
-
       const showAllAsFavorite = settings?.show_all_as_favorite === 'true';
-
       categoryMatch = showAllAsFavorite ? true : !!product.favorite;
-
+      // Filter favorites by group
+      categoryMatch = categoryMatch && groupMatch;
     } else {
-
       categoryMatch = product.category_id === selectedCategory ||
-
         product.category === selectedCategory;
-
+      // Normally group filter aligns with selectedCategory because categories are filtered, but check anyway
+      categoryMatch = categoryMatch && groupMatch;
     }
 
     const searchMatch = product.name.toLowerCase().includes(debouncedSearch.toLowerCase());
-
     return categoryMatch && searchMatch;
-
   });
-
-
 
   const displayedProducts = filteredProducts.slice(0, visibleCount);
 
@@ -1683,6 +1684,304 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             </div>
 
+          ) : (selectedCategory === 'favorites' && selectedGroupId === 'all') ? (
+            // Group the favorite products by category/section
+            (() => {
+              const favoritesByCategory = {};
+              // Gather favorite products
+              const favs = isEditMode ? editableProducts : displayedProducts;
+              favs.forEach(product => {
+                const categoryName = product.category || 'Other';
+                if (!favoritesByCategory[categoryName]) {
+                  favoritesByCategory[categoryName] = [];
+                }
+                favoritesByCategory[categoryName].push(product);
+              });
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', width: '100%' }}>
+                  {Object.entries(favoritesByCategory).map(([categoryName, prodList]) => (
+                    <div key={categoryName} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{
+                        borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                        paddingBottom: '8px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <h3 style={{
+                          margin: 0,
+                          fontSize: '16px',
+                          fontWeight: 700,
+                          color: '#ff6b00',
+                          letterSpacing: '0.3px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {categoryName}
+                        </h3>
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '12px',
+                          color: 'var(--text-muted)',
+                          fontWeight: 600
+                        }}>
+                          ({prodList.length})
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(calc(135px * var(--display-zoom)), 1fr))',
+                          gap: '16px',
+                          padding: '4px'
+                        }}
+                      >
+                        {prodList.map((product) => {
+                          const productVariations = getProductVariations(product);
+                          const hasTwoVariations = productVariations.length === 2;
+
+                          return (
+                            <motion.div
+                              layout
+                              key={product.product_id}
+                              draggable={isEditMode}
+                              onDragStart={isEditMode ? (e) => handleProductDragStart(e, product.product_id) : undefined}
+                              onDragOver={isEditMode ? (e) => handleProductDragOver(e, product.product_id) : undefined}
+                              onDragEnd={isEditMode ? handleProductDragEnd : undefined}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                              style={{ position: 'relative' }}
+                            >
+                              <div 
+                                onClick={isEditMode ? undefined : (e) => {
+                                  if (!hasTwoVariations) {
+                                    handleAddItem(product, e);
+                                  }
+                                }}
+                                style={{
+                                  padding: '16px 10px 10px 10px',
+                                  maxWidth: 'calc(170px * var(--display-zoom))',
+                                  width: '100%',
+                                  margin: '0 auto',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  cursor: isEditMode ? 'grab' : (product.stock_status === 'Out of Stock' ? 'not-allowed' : (hasTwoVariations ? 'default' : 'pointer')),
+                                  opacity: product.stock_status === 'Out of Stock' ? 0.6 : 1,
+                                  position: 'relative',
+                                  boxSizing: 'border-box',
+                                  borderRadius: '20px',
+                                  background: isDark ? '#212121b3' : '#FFFFFF',
+                                  border: isEditMode ? '1.5px dashed #FF8A00' : (isDark ? '1px solid #4a4a4a' : '1px solid #E2E8F0'),
+                                  boxShadow: isEditMode ? '0 8px 24px rgba(255,138,0,0.15)' : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                                  transition: 'border-color 150ms ease, transform 150ms ease',
+                                  transform: isEditMode ? 'scale(1.03)' : 'none'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#5a5a5a' : '#CBD5E1';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#4a4a4a' : '#E2E8F0';
+                                }}
+                              >
+                                {isEditMode && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '10px',
+                                    right: '10px',
+                                    backgroundColor: 'rgba(255, 138, 0, 0.2)',
+                                    color: '#FF8A00',
+                                    padding: '4px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    zIndex: 10
+                                  }}>
+                                    <IoMoveOutline size={16} />
+                                  </div>
+                                )}
+
+                                {product.stock_status === 'Out of Stock' && settings?.show_product_images === 'false' && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '12px',
+                                    right: '12px',
+                                    backgroundColor: 'var(--error-500)',
+                                    color: 'white',
+                                    fontSize: '9px',
+                                    fontWeight: 800,
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    zIndex: 10
+                                  }}>OUT</div>
+                                )}
+
+                                {settings?.show_product_images !== 'false' && (
+                                  <div style={{
+                                    height: '100px',
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    background: isDark ? '#2d2d2d' : '#f3f4f6',
+                                    borderRadius: '14px',
+                                    border: isDark ? '1px solid #5a5a5a' : '1px solid #e2e8f0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    zIndex: 2
+                                  }}>
+                                    {product.stock_status === 'Out of Stock' && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        backgroundColor: 'var(--error-500)',
+                                        color: 'white',
+                                        fontSize: '9px',
+                                        fontWeight: 800,
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        zIndex: 10
+                                      }}>OUT</div>
+                                    )}
+
+                                    {product.image_filename ? (
+                                      <img
+                                        src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
+                                        alt={product.name}
+                                        style={{ 
+                                          maxWidth: '72%',
+                                          maxHeight: '72%',
+                                          objectFit: 'contain',
+                                        }}
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
+                                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                          <circle cx="8.5" cy="8.5" r="1.5" />
+                                          <path d="M21 15l-5-5L5 21" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                <h4 style={{
+                                  fontFamily: 'Inter, system-ui',
+                                  fontSize: '14px',
+                                  fontWeight: 700,
+                                  color: isDark ? '#F2F2F2' : '#111827',
+                                  margin: '10px 0 8px 0',
+                                  textAlign: 'left',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}>
+                                  {product.name}
+                                </h4>
+
+                                {hasTwoVariations ? (
+                                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {productVariations.map((variation) => {
+                                      const nameParts = variation.name.split(' ');
+                                      return (
+                                        <button
+                                          key={variation.id}
+                                          type="button"
+                                          onClick={isEditMode ? undefined : (e) => {
+                                            e.stopPropagation();
+                                            handleVariationSelect(product, variation);
+                                          }}
+                                          style={{
+                                            width: '100%',
+                                            height: '52px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '0 8px',
+                                            borderRadius: '12px',
+                                            border: isDark ? '1px solid #555' : '1px solid #e2e8f0',
+                                            background: isDark ? '#2d2d2d' : '#f8fafc',
+                                            boxSizing: 'border-box',
+                                            cursor: isEditMode ? 'default' : 'pointer',
+                                            fontFamily: 'Inter, system-ui',
+                                            transition: 'border-color 150ms ease'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#777' : '#cbd5e1';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            if (!isEditMode) e.currentTarget.style.borderColor = isDark ? '#555' : '#e2e8f0';
+                                          }}
+                                        >
+                                          <div style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-start',
+                                            textAlign: 'left',
+                                            fontWeight: 700,
+                                            fontSize: '12px',
+                                            color: isDark ? '#ECECEC' : '#111827',
+                                            lineHeight: '1.2'
+                                          }}>
+                                            {nameParts.map((part, index) => (
+                                              <span key={index}>{part}</span>
+                                            ))}
+                                          </div>
+                                          <div style={{
+                                            fontWeight: 700,
+                                            fontSize: '14px',
+                                            color: '#ff6b00',
+                                            textAlign: 'right'
+                                          }}>
+                                            {formatCurrency(variation.price)}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 6px 4px' }}>
+                                    <span style={{
+                                      fontWeight: 700,
+                                      fontSize: '14px',
+                                      color: '#ff6b00',
+                                      fontFamily: 'Inter, system-ui'
+                                    }}>
+                                      {formatProductPriceLabel(product, formatCurrency, orderType)}
+                                    </span>
+
+                                    <div
+                                      style={{
+                                        width: '26px', 
+                                        height: '26px',
+                                        backgroundColor: '#ff6b00',
+                                        borderRadius: '50%',
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        cursor: isEditMode ? 'default' : 'pointer'
+                                      }}
+                                    >
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                        <path d="M12 5V19M5 12H19" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {visibleCount < filteredProducts.length && (
+                    <div ref={observerTarget} style={{ height: '20px', width: '100%' }}></div>
+                  )}
+                </div>
+              );
+            })()
           ) : (
 
             <div

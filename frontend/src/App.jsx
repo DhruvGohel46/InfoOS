@@ -723,7 +723,7 @@ function AppContent() {
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>Reminder Queue</h3>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>Notification Queue</h3>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{reminders.length} Active</span>
                   </div>
                   <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '10px' }}>
@@ -760,7 +760,7 @@ function AppContent() {
                     )) : (
                       <div style={{ padding: '30px 20px', textAlign: 'center' }}>
                         <IoSyncOutline size={32} style={{ opacity: 0.2, marginBottom: '10px' }} />
-                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>No reminders scheduled.</p>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>No notifications or active alerts.</p>
                       </div>
                     )}
                   </div>

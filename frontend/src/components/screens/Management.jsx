@@ -4,7 +4,7 @@ import { removeBackground } from '@imgly/background-removal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { FiSearch, FiPackage, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
-import { productsAPI, categoriesAPI, handleAPIError, formatCurrency } from '../../utils/api';
+import { productsAPI, categoriesAPI, importMenuAPI, handleAPIError, formatCurrency } from '../../utils/api';
 import { useAlert as useToast } from '../../context/AlertContext';
 import GroupManagement from './GroupManagement';
 import '../../styles/Management.css';
@@ -70,6 +70,7 @@ const ProductManagement = () => {
   const { showSuccess } = useToast();
   const { settings } = useSettings();
   const { checkCatalogVersion } = usePOSData();
+  const { isDark } = useTheme();
   const showImages = settings?.show_product_images !== 'false';
   const topRef = useRef(null);
 
@@ -99,6 +100,59 @@ const ProductManagement = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [imageToDelete, setImageToDelete] = useState(false);
   const [variations, setVariations] = useState([]);
+
+  // ── Import Modal State ──────────────────────────────────────────────────────
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importStep, setImportStep] = useState('guide'); // 'guide' | 'upload' | 'result'
+  const [importFile, setImportFile] = useState(null);
+  const [importDragging, setImportDragging] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const importFileInputRef = useRef(null);
+
+  // ── Import Handlers ─────────────────────────────────────────────────────────
+  const openImportModal = () => {
+    setImportStep('guide');
+    setImportFile(null);
+    setImportResult(null);
+    setShowImportModal(true);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    if (importResult?.stats?.created > 0) {
+      // Reload products if anything was created
+      loadProducts();
+      loadCategories();
+      checkCatalogVersion();
+    }
+  };
+
+  const handleImportFileDrop = (e) => {
+    e.preventDefault();
+    setImportDragging(false);
+    const file = e.dataTransfer?.files?.[0] || e.target?.files?.[0];
+    if (file) setImportFile(file);
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importFile) return;
+    setImportLoading(true);
+    try {
+      const res = await importMenuAPI.importFile(importFile);
+      setImportResult(res.data);
+      setImportStep('result');
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        'Import failed. Check the file format and try again.';
+      setImportResult({ success: false, message: msg, stats: null });
+      setImportStep('result');
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   // Favorite toggle handler
   const handleToggleFavorite = async (product) => {
@@ -344,7 +398,7 @@ const ProductManagement = () => {
       const file = e.target.files[0];
       setPreviewImage(URL.createObjectURL(file));
       setImageProcessing(true);
-      
+
       // Determine public path for loading model assets locally
       const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
       const base = !isWeb
@@ -513,24 +567,415 @@ const ProductManagement = () => {
             Manage your product catalog and pricing
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => setShowAddForm(true)}
-          disabled={showAddForm}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 'var(--spacing-2)',
-            padding: 'var(--spacing-3) var(--spacing-6)',
-            borderRadius: 'var(--radius-xl)',
-            fontSize: 'var(--text-base)',
-            fontWeight: '600',
-            boxShadow: '0 8px 18px rgba(249, 115, 22, 0.25)',
-          }}
-        >
-          <IconPlus aria-hidden="true" /> Add Product
-        </Button>
+        <div style={{ display: 'flex', gap: 'var(--spacing-3)', alignItems: 'center' }}>
+          <button
+            onClick={openImportModal}
+            title="Bulk import products from CSV / XLSX"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-2)',
+              padding: 'var(--spacing-3) var(--spacing-5)',
+              borderRadius: 'var(--radius-xl)',
+              fontSize: 'var(--text-sm)',
+              fontWeight: '600',
+              border: '1px solid rgba(99,179,237,0.35)',
+              background: 'rgba(99,179,237,0.08)',
+              color: '#63b3ed',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              letterSpacing: '0.01em',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,179,237,0.18)'; e.currentTarget.style.borderColor = 'rgba(99,179,237,0.6)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,179,237,0.08)'; e.currentTarget.style.borderColor = 'rgba(99,179,237,0.35)'; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Add Product in Bulk
+          </button>
+          <Button
+            variant="primary"
+            onClick={() => setShowAddForm(true)}
+            disabled={showAddForm}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-2)',
+              padding: 'var(--spacing-3) var(--spacing-6)',
+              borderRadius: 'var(--radius-xl)',
+              fontSize: 'var(--text-base)',
+              fontWeight: '600',
+              boxShadow: '0 8px 18px rgba(249, 115, 22, 0.25)',
+            }}
+          >
+            <IconPlus aria-hidden="true" /> Add Product
+          </Button>
+        </div>
       </div>
+
+      {/* ── Import Menu Modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showImportModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--spacing-4)'
+          }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{
+                width: '100%', maxWidth: '720px', maxHeight: '90vh',
+                display: 'flex', flexDirection: 'column',
+                borderRadius: '22px',
+                backgroundColor: isDark 
+                  ? 'rgba(22, 26, 32, 0.95)' 
+                  : 'rgba(255, 255, 255, 0.98)',
+                border: isDark 
+                  ? '1px solid rgba(255, 255, 255, 0.08)' 
+                  : '1px solid rgba(0, 0, 0, 0.08)',
+                boxShadow: isDark
+                  ? '0 30px 80px rgba(0, 0, 0, 0.55)'
+                  : '0 20px 60px rgba(0, 0, 0, 0.15)',
+                color: 'var(--text-primary)',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Modal Top Bar */}
+              <div style={{
+                padding: 'var(--spacing-6) var(--spacing-8)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                      {importStep === 'guide' ? 'Bulk Menu Ingestion' : importStep === 'upload' ? 'Upload Menu File' : 'Import Report'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                      {importStep === 'guide' ? 'Follow the column format guidelines below' : importStep === 'upload' ? 'Choose a .csv or .xlsx menu spreadsheet' : 'Ingestion complete. View stats below'}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={closeImportModal} style={{
+                  background: 'transparent', border: 'none',
+                  color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '24px',
+                  transition: 'opacity 0.2s', opacity: 0.7
+                }} onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.7}>
+                  ×
+                </button>
+              </div>
+
+              {/* Step Indicator */}
+              <div style={{
+                display: 'flex', gap: '8px', padding: '0 var(--spacing-8)', paddingTop: 'var(--spacing-6)',
+                flexShrink: 0,
+              }}>
+                {[{ key: 'guide', label: '1. Format Guide' }, { key: 'upload', label: '2. Upload' }, { key: 'result', label: '3. Status' }].map((step, i) => (
+                  <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      padding: '6px 14px', borderRadius: '30px',
+                      fontSize: '12px', fontWeight: '600',
+                      background: importStep === step.key ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.03)',
+                      color: importStep === step.key ? '#f97316' : 'var(--text-secondary)',
+                      border: importStep === step.key ? '1px solid rgba(249,115,22,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                      transition: 'all 0.2s',
+                    }}>{step.label}</div>
+                    {i < 2 && <div style={{ width: '24px', height: '1px', background: 'rgba(255,255,255,0.1)' }} />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-6) var(--spacing-8) var(--spacing-8)' }}>
+
+                {/* ── STEP 1: Format Guide ── */}
+                {importStep === 'guide' && (
+                  <div>
+                    {/* Downloads Section */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      borderRadius: 'var(--radius-xl)',
+                      padding: 'var(--spacing-5)',
+                      marginBottom: 'var(--spacing-6)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Need a Menu Template?</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Download the pre-formatted templates to start.</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a href={importMenuAPI.getSampleCsvUrl()} download style={{
+                          padding: '8px 16px', background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
+                          textDecoration: 'none', transition: 'all 0.2s'
+                        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                          CSV Template
+                        </a>
+                        <a href={importMenuAPI.getSampleXlsxUrl()} download style={{
+                          padding: '8px 16px', background: 'rgba(249,115,22,0.12)',
+                          border: '1px solid rgba(249,115,22,0.3)', borderRadius: '8px',
+                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
+                          textDecoration: 'none', transition: 'all 0.2s'
+                        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(249,115,22,0.2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(249,115,22,0.12)'}>
+                          Excel Template
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Guideline Rules */}
+                    <div style={{
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid rgba(255,255,255,0.04)',
+                      borderRadius: 'var(--radius-xl)',
+                      padding: 'var(--spacing-6)',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '1.7',
+                      fontSize: '13px'
+                    }}>
+                      <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '15px', marginBottom: '12px' }}>File Guidelines</div>
+                      <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <li>File must contain these exact headers: <strong style={{ color: 'var(--text-primary)' }}>Item Name</strong>, <strong style={{ color: 'var(--text-primary)' }}>Category</strong>, <strong style={{ color: 'var(--text-primary)' }}>Group</strong>, and <strong style={{ color: 'var(--text-primary)' }}>Price</strong>.</li>
+                        <li>New <strong style={{ color: '#f97316' }}>Groups</strong> and <strong style={{ color: '#f97316' }}>Categories</strong> are automatically created on import.</li>
+                        <li>Existing products with the same name are skipped to prevent duplicates.</li>
+                        <li>Variations (e.g. Regular/Large) can be added via <code style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>variation(1)</code>. Set as <strong style={{ color: '#f59e0b' }}>None</strong> for standalone items.</li>
+                        <li>Currency characters like ₹ and $ are auto-stripped during ingestion.</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 2: Upload ── */}
+                {importStep === 'upload' && (
+                  <div>
+                    <div
+                      onDragOver={e => { e.preventDefault(); setImportDragging(true); }}
+                      onDragLeave={() => setImportDragging(false)}
+                      onDrop={handleImportFileDrop}
+                      onClick={() => importFileInputRef.current?.click()}
+                      style={{
+                        border: `2px dashed ${importDragging ? '#f97316' : importFile ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        borderRadius: 'var(--radius-2xl)',
+                        padding: 'var(--spacing-5)',
+                        display: 'flex',
+                        justifyContent: "center",
+                        alignItems: 'center',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        background: importDragging ? 'rgba(249,115,22,0.04)' : importFile ? 'rgba(52,211,153,0.02)' : 'rgba(255,255,255,0.01)',
+                        transition: 'all 0.2s',
+                        marginBottom: 'var(--spacing-6)'
+                      }}
+                    >
+                      <input
+                        ref={importFileInputRef}
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        style={{ display: 'none' }}
+                        onChange={handleImportFileDrop}
+                      />
+                      {importFile ? (
+                        <>
+                          <div style={{ fontSize: '40px', marginBottom: '12px' }}></div>
+                          <div style={{ fontWeight: '700', color: '#34d399', fontSize: '16px', marginBottom: '4px' }}>{importFile.name}</div>
+                          <div style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>{(importFile.size / 1024).toFixed(1)} KB — click to choose another file</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '40px', marginBottom: '12px' }}></div>
+                          <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '16px', marginBottom: '4px' }}>Drag & Drop Menu File</div>
+                          <div style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>Supports <strong style={{ color: '#f97316' }}>.csv</strong> and <strong style={{ color: '#f97316' }}>.xlsx</strong> files</div>
+                        </>
+                      )}
+                    </div>
+
+                    {importFile && (
+                      <div style={{
+                        background: 'rgba(249,115,22,0.08)',
+                        border: '1px solid rgba(249,115,22,0.15)',
+                        borderRadius: 'var(--radius-xl)',
+                        padding: 'var(--spacing-4)',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)'
+                      }}>
+                        ⚠️ <strong style={{ color: 'var(--text-primary)' }}>Notice:</strong> Double check details inside the file before starting. Already existing item records will not be overwritten.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── STEP 3: Result ── */}
+                {importStep === 'result' && importResult && (
+                  <div>
+                    <div style={{
+                      padding: 'var(--spacing-5)',
+                      borderRadius: 'var(--radius-xl)',
+                      marginBottom: 'var(--spacing-6)',
+                      background: importResult.success ? 'rgba(52,211,153,0.08)' : 'rgba(239,68,68,0.08)',
+                      border: `1px solid ${importResult.success ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                      color: importResult.success ? '#34d399' : '#f87171',
+                      fontSize: '14px', fontWeight: '600',
+                    }}>
+                      {importResult.message}
+                    </div>
+
+                    {importResult.stats && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: 'var(--spacing-6)' }}>
+                        {[
+                          { label: 'Imported', value: importResult.stats.created, color: '#34d399' },
+                          { label: 'Skipped', value: importResult.stats.skipped, color: '#f59e0b' },
+                          { label: 'Failed', value: importResult.stats.errors, color: '#f87171' },
+                        ].map(s => (
+                          <div key={s.label} style={{
+                            textAlign: 'center', padding: '16px 8px',
+                            background: 'rgba(255,255,255,0.02)',
+                            borderRadius: 'var(--radius-xl)',
+                            border: '1px solid rgba(255,255,255,0.05)'
+                          }}>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: s.color }}>{s.value}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>{s.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {importResult.details && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {importResult.details.created?.length > 0 && (
+                          <details open style={{ borderRadius: 'var(--radius-lg)', border: '1px solid rgba(52,211,153,0.15)', background: 'rgba(52,211,153,0.02)' }}>
+                            <summary style={{ padding: '10px 14px', cursor: 'pointer', fontWeight: '700', color: '#34d399', fontSize: '12px' }}>✓ Created ({importResult.details.created.length})</summary>
+                            <div style={{ padding: '0 14px 10px', maxHeight: '120px', overflowY: 'auto' }}>
+                              {importResult.details.created.map((item, i) => (
+                                <div key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)', padding: '3px 0' }}>{item.row}: {item.name}</div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        {importResult.details.skipped?.length > 0 && (
+                          <details style={{ borderRadius: 'var(--radius-lg)', border: '1px solid rgba(245,158,11,0.15)', background: 'rgba(245,158,11,0.02)' }}>
+                            <summary style={{ padding: '10px 14px', cursor: 'pointer', fontWeight: '700', color: '#f59e0b', fontSize: '12px' }}>⏭ Skipped ({importResult.details.skipped.length})</summary>
+                            <div style={{ padding: '0 14px 10px', maxHeight: '120px', overflowY: 'auto' }}>
+                              {importResult.details.skipped.map((item, i) => (
+                                <div key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)', padding: '3px 0' }}>{item.row}: {item.name || '(Blank name)'} — {item.reason}</div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        {importResult.details.errors?.length > 0 && (
+                          <details style={{ borderRadius: 'var(--radius-lg)', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.02)' }}>
+                            <summary style={{ padding: '10px 14px', cursor: 'pointer', fontWeight: '700', color: '#f87171', fontSize: '12px' }}>✗ Errors ({importResult.details.errors.length})</summary>
+                            <div style={{ padding: '0 14px 10px', maxHeight: '120px', overflowY: 'auto' }}>
+                              {importResult.details.errors.map((item, i) => (
+                                <div key={i} style={{ fontSize: '11px', color: '#f87171', padding: '3px 0' }}>{item.row}: {item.name} — {item.reason}</div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Buttons */}
+              <div style={{
+                padding: 'var(--spacing-5) var(--spacing-8)',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.01)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                flexShrink: 0,
+              }}>
+                <button
+                  onClick={closeImportModal}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px', padding: '10px 20px', color: 'var(--text-secondary)',
+                    cursor: 'pointer', fontSize: '13px', fontWeight: '600', transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  {importStep === 'result' ? 'Close' : 'Cancel'}
+                </button>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {importStep === 'upload' && (
+                    <button
+                      onClick={() => setImportStep('guide')}
+                      style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '10px 20px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                    >
+                      Back
+                    </button>
+                  )}
+                  {importStep === 'result' && importResult?.stats?.created > 0 && (
+                    <button
+                      onClick={() => { setImportStep('guide'); setImportFile(null); setImportResult(null); }}
+                      style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '8px', padding: '10px 20px', color: '#f97316', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                    >
+                      Import Another
+                    </button>
+                  )}
+                  {importStep === 'guide' && (
+                    <button
+                      onClick={() => setImportStep('upload')}
+                      style={{ background: '#ff7300e7', border: 'none', borderRadius: '8px', padding: '10px 24px', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(255, 151, 54, 0.25)' }}
+                    >
+                      Continue
+                    </button>
+                  )}
+                  {importStep === 'upload' && (
+                    <button
+                      onClick={handleImportSubmit}
+                      disabled={!importFile || importLoading}
+                      style={{
+                        background: importFile && !importLoading ? 'linear-gradient(135deg, #FFB869 0%, #FF9736 100%)' : 'rgba(255,255,255,0.05)',
+                        border: 'none',
+                        borderRadius: '8px', padding: '10px 24px',
+                        color: importFile && !importLoading ? '#ffffff' : 'rgba(255,255,255,0.3)',
+                        cursor: importFile && !importLoading ? 'pointer' : 'not-allowed',
+                        fontSize: '13px', fontWeight: '700',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        transition: 'all 0.2s',
+                        boxShadow: importFile && !importLoading ? '0 4px 12px rgba(255, 151, 54, 0.25)' : 'none'
+                      }}
+                    >
+                      {importLoading ? (
+                        <>
+                          <div style={{ width: '14px', height: '14px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #ffffff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          Importing...
+                        </>
+                      ) : 'Start Import'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Controls: Search & Filters */}
       <div style={{
@@ -662,7 +1107,7 @@ const ProductManagement = () => {
                     <div className="pmLabel">Price (Dine-in)</div>
                     <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
                   </div>
-                   <div className="pmField">
+                  <div className="pmField">
                     <div className="pmLabel">Takeaway Add-on Charges (Optional)</div>
                     <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="0.00 if empty" />
                   </div>
@@ -764,34 +1209,34 @@ const ProductManagement = () => {
                       backgroundColor: 'var(--bg-secondary)',
                       position: 'relative'
                     }}>
-                       {(imageUploading || imageProcessing) && (
-                         <div style={{
-                           position: 'absolute',
-                           top: 0,
-                           left: 0,
-                           right: 0,
-                           bottom: 0,
-                           backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                           display: 'flex',
-                           flexDirection: 'column',
-                           alignItems: 'center',
-                           justifyContent: 'center',
-                           gap: '8px',
-                           zIndex: 10
-                         }}>
-                           <div style={{
-                             width: 'calc(24px * var(--display-zoom))',
-                             height: 'calc(24px * var(--display-zoom))',
-                             border: '3px solid rgba(255, 255, 255, 0.3)',
-                             borderTop: '3px solid white',
-                             borderRadius: '50%',
-                             animation: 'spin 1s linear infinite'
-                           }} />
-                           {imageProcessing && (
-                             <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>Removing BG...</span>
-                           )}
-                         </div>
-                       )}
+                      {(imageUploading || imageProcessing) && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          zIndex: 10
+                        }}>
+                          <div style={{
+                            width: 'calc(24px * var(--display-zoom))',
+                            height: 'calc(24px * var(--display-zoom))',
+                            border: '3px solid rgba(255, 255, 255, 0.3)',
+                            borderTop: '3px solid white',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                          }} />
+                          {imageProcessing && (
+                            <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>Removing BG...</span>
+                          )}
+                        </div>
+                      )}
                       {previewImage ? (
                         <img src={previewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
@@ -856,9 +1301,9 @@ const ProductManagement = () => {
             Loading products…
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            color: 'var(--text-tertiary)', 
+          <div style={{
+            textAlign: 'center',
+            color: 'var(--text-tertiary)',
             padding: 'var(--spacing-12)',
             background: 'var(--glass-card)',
             borderRadius: 'var(--radius-2xl)',
@@ -1032,7 +1477,7 @@ const ProductManagement = () => {
       {/* Password Confirmation Modal */}
       <AnimatePresence>
         {showPasswordModal && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1120,7 +1565,7 @@ const ProductManagement = () => {
                 }}>
                   You are about to <strong style={{ color: 'var(--error-500)' }}>permanently delete</strong> "{itemToDelete?.name}".
                 </p>
-                
+
                 <div style={{
                   background: 'rgba(239, 68, 68, 0.08)',
                   border: '1px solid rgba(239, 68, 68, 0.15)',

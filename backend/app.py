@@ -92,6 +92,7 @@ def create_app(config_name="default"):
     from routes.pos import pos_bp
     from auth import auth_bp
     from routes.logs import logs_bp
+    from routes.import_menu import import_menu_bp
     from limiter import limiter
 
     # Load configuration
@@ -153,6 +154,7 @@ def create_app(config_name="default"):
     app.register_blueprint(pos_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(logs_bp)
+    app.register_blueprint(import_menu_bp)
 
     # Serve product images
     @app.route("/api/images/<path:filename>")

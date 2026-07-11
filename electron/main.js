@@ -52,8 +52,84 @@ function getBackendPath() {
   }
 }
 
+// Run backend update script (update.py or update.exe)
+function runUpdateScript() {
+  const currentVersion = app.getVersion();
+  const userDataPath = app.getPath('userData');
+  const versionFilePath = path.join(userDataPath, '.last_migrated_version');
+
+  // Check if this version has already run the update migrations
+  if (fs.existsSync(versionFilePath)) {
+    try {
+      const lastMigratedVersion = fs.readFileSync(versionFilePath, 'utf8').trim();
+      if (lastMigratedVersion === currentVersion) {
+        log(`Backend update migration has already been executed for version ${currentVersion}. Skipping run.`);
+        return;
+      }
+    } catch (readErr) {
+      log(`Error reading migration version file: ${readErr.message}`);
+    }
+  }
+
+  log(`Running backend update script for version ${currentVersion}...`);
+  const dataDir = process.env.POS_DATA_DIR;
+
+  let command = 'python';
+  let args = [path.join(__dirname, '../backend/update.py')];
+
+  if (!isDev) {
+    // In production, update script is bundled inside backend directory or resources/backend/update.exe
+    const prodUpdatePath = path.join(process.resourcesPath, 'backend', 'update.exe');
+    if (fs.existsSync(prodUpdatePath)) {
+      command = prodUpdatePath;
+      args = [];
+    } else {
+      // Fallback if update is built inside backend.exe
+      const backendExeDir = path.dirname(path.join(process.resourcesPath, 'backend', 'backend.exe'));
+      const fallbackPath = path.join(backendExeDir, 'update.exe');
+      if (fs.existsSync(fallbackPath)) {
+        command = fallbackPath;
+        args = [];
+      } else {
+        log('WARNING: production update.exe not found. Skipping auto-migration.');
+        return;
+      }
+    }
+  }
+
+  try {
+    const result = spawnSync(command, args, {
+      cwd: isDev ? path.join(__dirname, '..') : path.dirname(command),
+      env: { ...process.env, POS_DATA_DIR: dataDir },
+      timeout: 30000 // 30 second limit
+    });
+    
+    if (result.error) {
+      log(`[UpdateScript Error]: ${result.error.message}`);
+    } else {
+      log(`[UpdateScript Output]: ${result.stdout ? result.stdout.toString() : ''}`);
+      if (result.status === 0) {
+        // Migration completed successfully, write version file to skip subsequent runs
+        try {
+          fs.writeFileSync(versionFilePath, currentVersion, 'utf8');
+          log(`Successfully marked version ${currentVersion} as migrated.`);
+        } catch (writeErr) {
+          log(`Failed to write migration version file: ${writeErr.message}`);
+        }
+      } else {
+        log(`[UpdateScript Warning]: script exited with non-zero code ${result.status}`);
+      }
+    }
+  } catch (err) {
+    log(`[UpdateScript Error]: failed to execute: ${err.message}`);
+  }
+}
+
 // Start backend
 function startBackend() {
+  // Execute updates and migrations first
+  runUpdateScript();
+
   log('Starting backend...');
 
   const { command, args } = getBackendPath();
@@ -480,5 +556,31 @@ ipcMain.handle('theme-changed', (event, theme) => {
     console.error('[main] Failed to save theme preference:', err.message);
   }
   return true;
+});
+
+// Auto-start on boot configuration
+ipcMain.handle('autostart:get', () => {
+  try {
+    const settings = app.getLoginItemSettings();
+    return settings.openAtLogin;
+  } catch (err) {
+    console.error('[main] Failed to read login item settings:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('autostart:set', (event, openAtLogin) => {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: openAtLogin,
+      path: app.getPath('exe'),
+      args: ['--hidden']
+    });
+    log(`Auto-start preference updated: ${openAtLogin}`);
+    return true;
+  } catch (err) {
+    console.error('[main] Failed to update login item settings:', err.message);
+    return false;
+  }
 });
 

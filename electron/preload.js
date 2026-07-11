@@ -72,7 +72,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isPrinting: () => ipcRenderer.invoke('print:isPrinting'),
 
   // File Operations
-  saveFile: (filename, base64Data) => ipcRenderer.invoke('file:save', filename, base64Data)
+  saveFile: (filename, base64Data) => ipcRenderer.invoke('file:save', filename, base64Data),
+
+  // Auto-Start
+  getAutoStart: () => ipcRenderer.invoke('autostart:get'),
+  setAutoStart: (value) => ipcRenderer.invoke('autostart:set', value)
 });
 
 // Disable features for security

@@ -1,0 +1,10 @@
+Item Name,Category,Group,Price,variation(1),variation(1) price,variation(2),variation(2) price,takeaway add-on
+Veg Club Sandwich,Sandwich,foods,60,Without Cheese,60,With Cheese,80,0
+Paneer Tikka Pizza (7 inch),Pizza,foods,160,None,,None,,10
+Cold Coffee,Drinks,beverages,50,Regular (250ml),50,Large (400ml),80,0
+Mango Shake,Drinks,beverages,70,Regular (250ml),70,Large (400ml),100,0
+Masala Chai,Drinks,beverages,20,None,,None,,0
+Sizzling Brownie,Sweets,desserts,120,Single Scoop,120,Double Scoop,150,0
+Gulab Jamun,Sweets,desserts,30,1 Piece,30,2 Pieces,50,5
+Pocket Friendly Combo,Deals,combos,99,Normal Fries,99,Peri Peri Fries,119,0
+Mega Feast,Deals,combos,249,Regular Pizza,249,Cheese Burst Pizza,299,15
