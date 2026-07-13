@@ -6,147 +6,225 @@
   justify-content: center;
   min-height: var(--viewport-height, 100vh);
   width: var(--viewport-width, 100vw);
-  background: radial-gradient(circle at top left, #1B2435, #14171F 50%, #20140F);
-  color: var(--text-primary);
-  font-family: var(--font-primary, 'Inter', 'Geist', 'SF Pro Display', 'Manrope', sans-serif);
-  padding: 24px;
+  /* Solid near-black base (#050608) matching the 3D terminal image background */
+  background-color: #050608;
+  color: #FFFFFF;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 0; /* Removed padding to allow full-screen split layout */
   overflow: hidden;
   position: fixed;
   inset: 0;
   z-index: 9999;
 }
 
-/* Faint grid overlay */
+/* Subtle, barely-visible fine grid overlay for depth */
 .licensing-container::before {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.03;
+  opacity: 0.02;
   background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
   background-size: 24px 24px;
   pointer-events: none;
   z-index: 0;
 }
 
-/* Background glow circles */
-.licensing-glow-1 {
-  position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.08), transparent 70%);
-  filter: blur(80px);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.licensing-glow-2 {
-  position: absolute;
-  bottom: -10%;
-  right: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, rgba(255, 122, 0, 0.08), transparent 70%);
-  filter: blur(80px);
-  pointer-events: none;
-  z-index: 0;
-}
-
+/* Translucent dark glass card */
 .licensing-card {
   width: 100%;
-  max-width: 460px;
-  background: #1C1D20;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
-  padding: 40px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  max-width: 460px; /* Centered card, ~440-480px wide */
+  margin: 24px; /* Ensure spacing on small viewports */
+  background: rgba(255, 255, 255, 0.03); /* Translucent dark glass fill */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* 1px solid border */
+  border-radius: 20px; /* 20px corner radius */
+  padding: 40px; /* Generous internal padding (~40px) */
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05); /* Soft drop shadow + inner highlight */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(20px);
   position: relative;
   z-index: 1;
 }
 
-.licensing-header {
+/* Split-Panel Glass Card (Full-Screen seamless viewport split) */
+.licensing-split-card {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: hidden;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Left side: Graphic Panel (fills the left half of the screen) */
+.licensing-left-panel {
+  flex: 1.25;
+  position: relative;
+  overflow: hidden;
+  border-right: none;
+  display: flex;
+  align-items: stretch;
+  background: #050608;
+}
+
+.licensing-showcase-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 1;
+  transition: transform 0.5s ease;
+}
+
+.licensing-left-panel:hover .licensing-showcase-img {
+  transform: scale(1.01);
+}
+
+/* Edge blur/fade overlay to blend the left and right panels seamlessly */
+.licensing-left-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 160px;
+  background: linear-gradient(to right, transparent, rgba(5, 6, 8, 0.5) 40%, #050608 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Overlay on top of the left image */
+.licensing-graphic-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(5, 6, 8, 0.95) 0%, rgba(5, 6, 8, 0.3) 60%, transparent 100%);
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.licensing-graphic-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FF9A3D; /* Muted orange */
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.licensing-graphic-text {
+  font-size: 13.5px;
+  color: #9BA1AC;
+  line-height: 1.6;
+  margin: 0;
+  text-align: left;
+}
+
+/* Right side: Form Panel (fills the right half of the screen, transparent for seamless bg blend) */
+.licensing-right-panel {
+  flex: 0.95;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+}
+
+.licensing-form-container {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Logo styling */
+.licensing-logo-area {
   text-align: center;
+  margin-bottom: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 24px;
+}
+
+.licensing-logo-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 8px;
 }
 
 .licensing-logo {
   font-size: 32px;
   font-weight: 800;
-  color: var(--primary-500, #f97316);
+  /* Orange gradient text (#FF6B0A -> #FF9A3D) */
+  background: linear-gradient(135deg, #FF6B0A 0%, #FF9A3D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   letter-spacing: -0.5px;
-  text-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
   margin-bottom: 2px;
 }
 
-.licensing-logo-sub {
+/* Eyebrow tag: "POINT OF SALE OS" */
+.licensing-eyebrow {
   font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  color: #6B7280; /* Muted gray */
   letter-spacing: 2px;
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-top: 4px;
 }
 
-.licensing-divider {
-  width: 60px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+/* Heading & Subheading styling */
+.licensing-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-bottom: 20px;
 }
 
 .licensing-title {
-  font-size: 24px;
+  font-size: 25px; /* bold, white, 24-26px */
   font-weight: 700;
-  color: var(--text-primary);
+  color: #FFFFFF;
   margin: 0 0 8px 0;
   letter-spacing: -0.5px;
 }
 
 .licensing-desc {
-  font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px; /* muted gray, 13px */
+  color: #9BA1AC;
   line-height: 1.5;
   margin: 0;
   font-weight: 400;
 }
 
-/* Stepper Component */
-.licensing-stepper {
+/* Minimal device line styling */
+.licensing-device-line {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #6B7280; /* muted gray, #6B7280 */
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 500;
 }
 
-.licensing-step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  transition: all 0.3s ease;
-}
-
-.licensing-step-dot.active {
-  background: var(--primary-500, #f97316);
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
-  width: 24px;
-  border-radius: 4px;
-}
-
-.licensing-step-line {
-  width: 32px;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
+/* Form layout */
 .licensing-form {
   display: flex;
   flex-direction: column;
@@ -159,23 +237,40 @@
   gap: 8px;
 }
 
+/* Input label: small uppercase bold, letter-spaced, muted gray */
 .licensing-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6B7280;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
+/* Input wrapper & icon */
+.licensing-input-wrapper {
+  position: relative;
+}
+
+.licensing-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* Inputs styling: dark translucent fill, thin border, 10-12px radius, orange glow on focus */
 .licensing-input {
   width: 100%;
-  height: 52px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.02); /* dark translucent fill */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* thin border */
+  border-radius: 11px; /* 10-12px radius */
   padding: 0 16px 0 44px;
-  font-size: 14.5px;
-  color: var(--text-primary);
+  font-size: 14px;
+  color: #FFFFFF;
   outline: none;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 400;
@@ -186,32 +281,34 @@
 }
 
 .licensing-input:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--primary-500, #f97316);
-  box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: #FF6B0A; /* Orange border */
+  box-shadow: 0 0 0 3px rgba(255, 107, 10, 0.2); /* Orange glow on focus */
 }
 
+/* Alert box (conditional error/status): translucent glass banner, thin colored left-accent bar */
 .licensing-error-box {
-  background: rgba(255, 80, 80, 0.08);
-  border-left: 3px solid #ff5050;
-  border-radius: 4px 12px 12px 4px;
+  background: rgba(241, 112, 122, 0.05);
+  border-left: 3px solid #F1707A; /* thin error accent bar */
+  border-radius: 4px;
   padding: 12px 16px;
-  font-size: 13.5px;
-  color: #ff8a8a;
+  font-size: 13px;
+  color: #F1707A; /* Error color */
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  line-height: 1.5;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
 }
 
+/* Primary CTA Button: fully rounded pill, orange gradient, shadow glow */
 .licensing-btn {
-  height: 52px;
+  height: 48px;
   width: 100%;
-  background: linear-gradient(180deg, #FF7A00 0%, #FF5A00 100%);
+  background: linear-gradient(135deg, #FF6B0A 0%, #FF9A3D 100%); /* Orange gradient fill */
   border: none;
-  border-radius: 12px;
-  color: white;
+  border-radius: 24px; /* Fully rounded pill shape */
+  color: #FFFFFF; /* bold white label */
   font-size: 14.5px;
   font-weight: 700;
   cursor: pointer;
@@ -221,104 +318,93 @@
   justify-content: center;
   gap: 8px;
   margin-top: 4px;
+  box-shadow: 0 4px 15px rgba(255, 107, 10, 0.3); /* Soft orange glow shadow beneath */
 }
 
 .licensing-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(255, 120, 0, 0.35);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 22px rgba(255, 107, 10, 0.45);
 }
 
 .licensing-btn:active:not(:disabled) {
-  transform: scale(0.98) translateY(0);
+  transform: scale(0.985) translateY(0);
 }
 
 .licensing-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.licensing-secondary-btn {
-  height: 46px;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  color: var(--text-primary);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+/* Secondary links row */
+.licensing-links-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.licensing-secondary-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.licensing-footer {
-  text-align: center;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.5);
-  line-height: 1.5;
-  margin-top: 24px;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-size: 13px;
 }
 
 .licensing-link {
-  color: rgba(255, 255, 255, 0.6);
+  color: #9BA1AC; /* muted gray */
   text-decoration: none;
   cursor: pointer;
   font-weight: 500;
-  font-size: 12.5px;
   transition: all 0.2s ease;
 }
 
 .licensing-link:hover {
-  color: #FF7A00;
+  color: #FF9A3D; /* orange on hover */
+}
+
+/* Help Line */
+.licensing-help-line {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: #9BA1AC;
+}
+
+.licensing-link-orange {
+  color: #FF6B0A; /* "Contact Administrator" in orange */
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  margin-left: 2px;
+}
+
+.licensing-link-orange:hover {
+  color: #FF9A3D;
   text-decoration: underline;
 }
 
-/* Stagger Animations */
-.stagger-in {
-  opacity: 0;
-  transform: translateY(10px);
-  animation: slide-up-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Footer: small, centered, very muted gray */
+.licensing-footer-minimal {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 11px;
+  color: #6B7280; /* very muted gray */
+  opacity: 0.6;
 }
 
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.1s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.2s; }
-.stagger-5 { animation-delay: 0.25s; }
-
-@keyframes slide-up-fade {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Plan details list styling */
+/* Plan details list styling for active / expired screens */
 .licensing-plan-details {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 16px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #9BA1AC;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 20px;
 }
 
-/* Premium Device Info Card */
+/* Premium Device Info Card for mismatch/limit state */
 .licensing-device-card {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-left: 3px solid var(--primary-500, #f97316);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid #FF6B0A;
   border-radius: 4px 12px 12px 4px;
   padding: 16px;
   margin-top: 12px;
@@ -330,7 +416,7 @@
   gap: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-tertiary, #9ca3af);
+  color: #6B7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -357,37 +443,30 @@
 }
 
 .licensing-device-value {
-  color: var(--text-secondary);
+  color: #9BA1AC;
 }
 
-.licensing-device-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.15);
-  padding: 4px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  color: #4ade80;
+/* Secondary Button (for retry / cancel) */
+.licensing-secondary-btn {
+  height: 44px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 22px; /* pill shape for consistency */
+  color: #FFFFFF;
+  font-size: 13px;
   font-weight: 600;
-  margin-top: 8px;
-  align-self: flex-start;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* Input icon wrapper */
-.licensing-input-wrapper {
-  position: relative;
-}
-
-.licensing-input-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 16px;
-  pointer-events: none;
+.licensing-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 /* Extra utility classes */
@@ -400,192 +479,58 @@
   to { transform: rotate(360deg); }
 }
 
-/* Premium Split Card Layout */
-.licensing-split-card {
-  display: flex;
-  width: 100%;
-  max-width: 900px;
-  min-height: 520px;
-  background: rgba(28, 29, 32, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(30px);
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
+/* Stagger Animations */
+.stagger-in {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: slide-up-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.licensing-left-panel {
-  flex: 1.1;
-  background: rgba(255, 255, 255, 0.015);
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
-  position: relative;
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+@keyframes slide-up-fade {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.licensing-right-panel {
-  flex: 0.9;
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.licensing-logo-area {
-  margin-bottom: 24px;
-}
-
-.licensing-tagline {
-  font-size: 13px;
+/* Offline warning bar style */
+.licensing-warning-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(249, 115, 22, 0.95);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
-  margin-top: 6px;
-  letter-spacing: 1px;
-}
-
-.licensing-pos-graphic {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -65%);
-  pointer-events: none;
-}
-
-/* Device Info Widget Styling */
-.licensing-device-widget {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.licensing-widget-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--primary-500, #f97316);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin-bottom: 12px;
-}
-
-.licensing-widget-row {
+  z-index: 10000;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  font-size: 13px;
+  gap: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
-.licensing-widget-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.licensing-widget-label {
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 500;
-}
-
-.licensing-widget-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* Status Badges */
-.licensing-status-badge {
-  padding: 3px 8px;
-  border-radius: 6px;
+.licensing-warning-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #FFFFFF;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 11px;
-  font-weight: 700;
+  cursor: pointer;
 }
 
-.licensing-status-badge.online {
-  background: rgba(34, 197, 94, 0.08);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.15);
+.licensing-warning-close:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
-.licensing-status-badge.offline {
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.15);
-}
-
-/* Right Panel Welcome Header */
-.licensing-welcome-header {
-  margin-bottom: 24px;
-}
-
-/* Footer Info */
-.licensing-footer {
-  margin-top: 24px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  opacity: 0.85;
-}
-
-/* ─── Light Theme Overrides ─────────────────────────────────────────── */
-[data-theme="light"] .licensing-container {
-  background: radial-gradient(circle at top left, #F1F5F9, #F8FAFC 50%, #FFF7ED);
-  color: #111827;
-}
-
-[data-theme="light"] .licensing-container::before {
-  opacity: 0.15;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1px, transparent 1px);
-}
-
-[data-theme="light"] .licensing-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
-  box-shadow: 0 30px 80px rgba(17, 24, 39, 0.06);
-}
-
-[data-theme="light"] .licensing-logo-sub {
-  color: rgba(17, 24, 39, 0.5);
-}
-
-[data-theme="light"] .licensing-divider {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .licensing-desc {
-  color: rgba(17, 24, 39, 0.7);
-}
-
-[data-theme="light"] .licensing-step-dot {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="light"] .licensing-step-dot.active {
-  background: var(--primary-500, #f97316);
-}
-
-[data-theme="light"] .licensing-step-line {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .licensing-label {
-  color: rgba(17, 24, 39, 0.6);
-}
-
-[data-theme="light"] .licensing-input {
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  color: #111827;
-}
-
-[data-theme="light"] .licensing-input::placeholder {
-  color: rgba(0, 0, 0, 0.4);
-}
-
-[data-theme="light"] .licensing-input:focus {
-  background: #FFFFFF;
-  border-color: var(--primary-500, #f97316);
-  box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.12);
-}
+/* Note: Removed light-theme overrides to keep the login screen dark and premium regardless of theme */

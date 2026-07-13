@@ -33,7 +33,7 @@ cloudApi.interceptors.request.use(
   }
 );
 
-export const setCloudAuthToken = (token) => {
+export const setCloudAuthToken = (token, refreshToken) => {
   _cloudToken = token;
   if (token) {
     localStorage.setItem('cloud_auth_token', token);
@@ -41,6 +41,12 @@ export const setCloudAuthToken = (token) => {
   } else {
     localStorage.removeItem('cloud_auth_token');
     delete cloudApi.defaults.headers.common['Authorization'];
+  }
+
+  if (refreshToken) {
+    localStorage.setItem('cloud_refresh_token', refreshToken);
+  } else if (token === null) {
+    localStorage.removeItem('cloud_refresh_token');
   }
 };
 
@@ -132,6 +138,46 @@ export const cloudAuthAPI = {
       };
     }
   },
+  
+  /**
+   * Refresh the access token using the stored refresh token
+   */
+  refreshSession: async () => {
+    const refreshToken = localStorage.getItem('cloud_refresh_token');
+    if (!refreshToken) {
+      return null;
+    }
+
+    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+      console.log('Using dummy Supabase URL. Bypassing token refresh.');
+      return localStorage.getItem('cloud_auth_token');
+    }
+
+    try {
+      const response = await axios.post(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        refresh_token: refreshToken
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        }
+      });
+
+      if (response.data?.access_token) {
+        const token = response.data.access_token;
+        const newRefreshToken = response.data.refresh_token;
+        setCloudAuthToken(token, newRefreshToken);
+        return token;
+      }
+    } catch (error) {
+      console.error('Failed to refresh Supabase session:', error.response?.data || error.message);
+      // Clean up invalid session
+      setCloudAuthToken(null, null);
+      localStorage.removeItem('cloud_user_email');
+      localStorage.removeItem('infoos_activation_cache');
+    }
+    return null;
+  }
 };
 
 // 4. Cloud Backend sync endpoints

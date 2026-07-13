@@ -29,7 +29,7 @@ import {
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
-import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI } from '../../api/cloudApi';
+import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI, cloudAuthAPI } from '../../api/cloudApi';
 import api, { summaryAPI } from '../../utils/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
@@ -303,8 +303,21 @@ const Settings = () => {
     };
 
     const loadCloudProfile = async () => {
-        const token = localStorage.getItem('cloud_auth_token');
+        let token = localStorage.getItem('cloud_auth_token');
         const email = localStorage.getItem('cloud_user_email') || '';
+
+        // Refresh cloud session if online before reading status to prevent stale token display
+        if (navigator.onLine && localStorage.getItem('cloud_refresh_token')) {
+            try {
+                const refreshedToken = await cloudAuthAPI.refreshSession();
+                if (refreshedToken) {
+                    token = refreshedToken;
+                }
+            } catch (refreshErr) {
+                console.warn('Settings session refresh failed:', refreshErr);
+            }
+        }
+
         if (!token) {
             setCloudStatus(prev => ({ ...prev, loggedIn: false, loading: false }));
             return;

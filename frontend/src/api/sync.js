@@ -1,6 +1,6 @@
 import { billingAPI, summaryAPI } from '../utils/api';
 import { expensesAPI } from './expenses';
-import { cloudSyncAPI } from './cloudApi';
+import { cloudSyncAPI, cloudAuthAPI } from './cloudApi';
 
 const QUEUE_KEY = 'offline_bills_queue';
 
@@ -72,6 +72,15 @@ export const syncService = {
    * if they do not already exist.
    */
   syncWeeklyAndMonthlyReports: async () => {
+    // Proactively refresh cloud session if online before starting report auto sync
+    if (navigator.onLine && localStorage.getItem('cloud_refresh_token')) {
+      try {
+        await cloudAuthAPI.refreshSession();
+      } catch (refreshErr) {
+        console.warn('Auto-sync session refresh failed:', refreshErr);
+      }
+    }
+
     const token = localStorage.getItem('cloud_auth_token');
     if (!token) return;
 

@@ -438,7 +438,8 @@ ipcMain.handle('license:getFingerprint', () => {
 
   const fingerprint = crypto.createHash('sha256').update(rawId).digest('hex');
   const deviceName = os.hostname() || 'Desktop-Device';
-  return { fingerprint, deviceName };
+  const operatingSystem = process.platform === 'win32' ? 'Windows 11 Pro' : (process.platform === 'darwin' ? 'macOS' : 'Linux');
+  return { fingerprint, deviceName, operatingSystem };
 });
 
 ipcMain.handle('secure:encrypt', (event, plainText) => {
