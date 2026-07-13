@@ -11,7 +11,9 @@ const updateManager = require('./services/updateManager');
 const BACKEND_PORT = process.env.BACKEND_PORT || 5050; // Use same port as backend default
 const BACKEND_HOST = process.env.BACKEND_HOST || '127.0.0.1';
 const HEALTH_ENDPOINT = `http://${BACKEND_HOST}:${BACKEND_PORT}/health`;
-const isDev = !app.isPackaged; // Better check for dev mode
+const hasDevArg = process.argv.includes('--dev') || process.argv.includes('--development');
+const isDev = !app.isPackaged || hasDevArg;
+const enableDebug = isDev || process.argv.includes('--debug') || process.argv.includes('--dev-tools') || process.env.ELECTRON_DEBUG === 'true';
 
 // Setup POS_DATA_DIR early so all main process modules share the correct folder
 const dataDir = isDev
@@ -261,9 +263,12 @@ function createWindow() {
   // Load the app
   if (isDev) {
     mainWindow.loadURL('http://localhost:3050');
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../frontend/build/index.html'));
+  }
+
+  if (enableDebug) {
+    mainWindow.webContents.openDevTools();
   }
 
   // Show window when ready to prevent visual flash
@@ -293,7 +298,81 @@ function createWindow() {
     mainWindow = null;
   });
 
+  // Handle keyboard shortcut (Ctrl+Shift+D or Ctrl+Alt+D) to toggle dev options dynamically
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    const isSecretDevShortcut = 
+      (input.control && input.shift && input.key.toLowerCase() === 'd') || 
+      (input.control && input.alt && input.key.toLowerCase() === 'd');
+      
+    // F12 or Ctrl+Shift+I (if enabled via debug flag or dynamically shown)
+    const isShortcutDevTools = 
+      (input.control && input.shift && input.key.toLowerCase() === 'i') || 
+      (input.meta && input.alt && input.key.toLowerCase() === 'i') || 
+      input.key === 'F12';
 
+    const isShortcutReload = 
+      (input.control && input.key.toLowerCase() === 'r') || 
+      input.key === 'F5';
+
+    if (isSecretDevShortcut) {
+      const currentMenu = Menu.getApplicationMenu();
+      if (currentMenu) {
+        // Hide menu
+        Menu.setApplicationMenu(null);
+        mainWindow.setMenuBarVisibility(false);
+        mainWindow.webContents.closeDevTools();
+        log('Dynamic developer options disabled.');
+      } else {
+        // Show menu and open devtools
+        const template = [
+          {
+            label: 'File',
+            submenu: [{ role: 'quit' }]
+          },
+          {
+            label: 'Edit',
+            submenu: [
+              { role: 'undo' },
+              { role: 'redo' },
+              { type: 'separator' },
+              { role: 'cut' },
+              { role: 'copy' },
+              { role: 'paste' },
+              { role: 'selectAll' }
+            ]
+          },
+          {
+            label: 'View',
+            submenu: [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+              { type: 'separator' },
+              { role: 'resetZoom' },
+              { role: 'zoomIn' },
+              { role: 'zoomOut' },
+              { type: 'separator' },
+              { role: 'togglefullscreen' }
+            ]
+          }
+        ];
+        const menu = Menu.buildFromTemplate(template);
+        Menu.setApplicationMenu(menu);
+        mainWindow.setMenuBarVisibility(true);
+        mainWindow.webContents.openDevTools();
+        log('Dynamic developer options enabled.');
+      }
+      event.preventDefault();
+    } else if (enableDebug || Menu.getApplicationMenu() !== null) {
+      if (isShortcutDevTools) {
+        mainWindow.webContents.toggleDevTools();
+        event.preventDefault();
+      } else if (isShortcutReload) {
+        mainWindow.webContents.reload();
+        event.preventDefault();
+      }
+    }
+  });
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -301,8 +380,48 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Disable system menu bar (File, View, Window)
-  Menu.setApplicationMenu(null);
+  // Set application menu based on debugging mode
+  if (enableDebug) {
+    const template = [
+      {
+        label: 'File',
+        submenu: [
+          { role: 'quit' }
+        ]
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' }
+        ]
+      },
+      {
+        label: 'View',
+        submenu: [
+          { role: 'reload' },
+          { role: 'forceReload' },
+          { role: 'toggleDevTools' },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' }
+        ]
+      }
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  } else {
+    // Disable system menu bar (File, View, Window)
+    Menu.setApplicationMenu(null);
+  }
 }
 
 // Quit when all windows are closed.
