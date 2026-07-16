@@ -531,7 +531,7 @@ app.on('web-contents-created', (event, contents) => {
     // Get Cloud Backend URL from environment variable for dynamic CSP
     // Only include in CSP if it's configured (not using placeholder)
     const cloudApiUrl = process.env.REACT_APP_CLOUD_API_URL;
-    let connectSrc = `'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost}`;
+    let connectSrc = `'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost} https://infoos-pos-backend.onrender.com https://*.onrender.com`;
     if (cloudApiUrl && !cloudApiUrl.includes('your-cloud-backend.onrender.com')) {
       const cloudApiHost = new URL(cloudApiUrl).hostname;
       connectSrc += ` https://${cloudApiHost}`;

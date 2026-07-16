@@ -1,8 +1,17 @@
 {
+  "//_installer_optimization_notes": [
+    "The following unnecessary files can be excluded from packaging to optimize installer size:",
+    "1. frontend/build/static/js/*.map - JS Source maps (debug only)",
+    "2. frontend/build/static/css/*.map - CSS Source maps (debug only)",
+    "3. electron/assets/generate_installer_assets.py - Python utility script used to generate assets",
+    "4. backend/build/ - PyInstaller intermediate files and caches",
+    "5. backend/.venv/ - Python virtual environment folder (the executable packages dependencies, so the venv itself is dev-only)",
+    "To automatically exclude them, add glob patterns to 'build.files' or 'build.extraResources' exclusions."
+  ],
   "name": "infoos",
   "version": "30.2.10",
   "description": "Product Sales Management Application",
-  "author": "Dhruv Gohel",
+  "author": "InfoOS Private Limited",
   "main": "electron/main.js",
   "repository": {
     "type": "git",
@@ -17,7 +26,7 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3050 && electron .\"",
     "electron-debug": "electron . --debug",
-    "build:backend": "cd backend && pyinstaller --noconfirm backend.spec",
+    "build:backend": "cd backend && call .venv\\Scripts\\pyinstaller --noconfirm backend.spec",
     "dist": "npm run build && npm run build:backend && electron-builder",
     "preelectron-pack": "npm run build",
     "backend": "cd backend && python app.py",
@@ -29,8 +38,7 @@
     "electron-updater": "^6.7.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "concurrently": "^8.2.2",
+    "concurrently": "^8.2.1",
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "wait-on": "^7.2.0",
@@ -40,7 +48,8 @@
   "build": {
     "appId": "com.burgerbhau.infoos",
     "productName": "InfoOS",
-    "copyright": "Copyright © 2026 Dhruv Gohel. All rights reserved.",
+    "copyright": "Copyright © 2026 InfoOS Private Limited. All rights reserved.",
+    "compression": "maximum",
     "artifactName": "${productName} Setup.${ext}",
     "directories": {
       "output": "dist",
@@ -67,7 +76,7 @@
         }
       ],
       "icon": "electron/assets/icon.ico",
-      "publisherName": "Dhruv Gohel"
+      "publisherName": "InfoOS Private Limited"
     },
     "nsis": {
       "oneClick": false,
@@ -84,7 +93,8 @@
       "uninstallerSidebar": "electron/assets/uninstallerSidebar.bmp",
       "license": "electron/assets/license.txt",
       "runAfterFinish": true,
-      "uninstallDisplayName": "InfoOS Uninstaller"
+      "uninstallDisplayName": "InfoOS Uninstaller",
+      "differentialPackage": true
     },
     "publish": [
       {

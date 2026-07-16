@@ -3,7 +3,7 @@ InfoOS End User License Agreement (EULA)
 Please read the following license agreement carefully before installation. By installing and using InfoOS, you agree to be bound by the terms and conditions of this agreement.
 
 1. LICENSE GRANT
-Dhruv Gohel grants you a non-exclusive, non-transferable, limited license to install and run the InfoOS desktop application on your local POS terminals solely for your internal business operations.
+InfoOS Private Limited grants you a non-exclusive, non-transferable, limited license to install and run the InfoOS desktop application on your local POS terminals solely for your internal business operations.
 
 2. PROPRIETARY RIGHTS
 InfoOS, including all source code, design systems, assets, icons, and backend modules, is protected by copyright laws and intellectual property treaties. All title and intellectual property rights in and to the software are owned by the publisher.
@@ -17,5 +17,5 @@ You may not:
 4. NO WARRANTY
 InfoOS is provided "AS IS" without warranty of any kind. The publisher does not guarantee uninterrupted operation or compatibility with all third-party printer drivers.
 
-Copyright © 2026 Dhruv Gohel. All rights reserved.
+Copyright © 2026 InfoOS Private Limited. All rights reserved.
 For support and cloud sync options, visit the official website.

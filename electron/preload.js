@@ -1,8 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('electronAPI', {
+// Raw protected API definitions
+const rawAPI = {
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
@@ -89,7 +88,96 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearCache: () => ipcRenderer.invoke('developer:clearCache'),
   readLogs: (lines) => ipcRenderer.invoke('developer:readLogs', lines),
   getDiagnosticInfo: () => ipcRenderer.invoke('developer:getDiagnosticInfo')
+};
+
+// Instrument rawAPI wrapper functions
+const instrumentedAPI = {};
+const now = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+Object.keys(rawAPI).forEach(key => {
+  if (typeof rawAPI[key] === 'function') {
+    if (key.startsWith('on')) {
+      // Synchronous subscription hook
+      instrumentedAPI[key] = (...args) => {
+        const startTime = now();
+        const timestamp = new Date().toISOString();
+        try {
+          const result = rawAPI[key](...args);
+          const duration = now() - startTime;
+          if (typeof window !== 'undefined' && window.dispatchEvent && window.CustomEvent) {
+            window.dispatchEvent(new window.CustomEvent('ipc-diagnostic', {
+              detail: {
+                method: key,
+                args: ['EventCallback'],
+                status: 'subscribed',
+                duration: parseFloat(duration.toFixed(1)),
+                timestamp
+              }
+            }));
+          }
+          return result;
+        } catch (err) {
+          const duration = now() - startTime;
+          if (typeof window !== 'undefined' && window.dispatchEvent && window.CustomEvent) {
+            window.dispatchEvent(new window.CustomEvent('ipc-diagnostic', {
+              detail: {
+                method: key,
+                args: ['EventCallback'],
+                status: 'error',
+                error: err.message,
+                duration: parseFloat(duration.toFixed(1)),
+                timestamp
+              }
+            }));
+          }
+          throw err;
+        }
+      };
+    } else {
+      // Asynchronous command hook
+      instrumentedAPI[key] = async (...args) => {
+        const startTime = now();
+        const timestamp = new Date().toISOString();
+        try {
+          const result = await rawAPI[key](...args);
+          const duration = now() - startTime;
+          if (typeof window !== 'undefined' && window.dispatchEvent && window.CustomEvent) {
+            window.dispatchEvent(new window.CustomEvent('ipc-diagnostic', {
+              detail: {
+                method: key,
+                args: args,
+                status: 'success',
+                duration: parseFloat(duration.toFixed(1)),
+                timestamp
+              }
+            }));
+          }
+          return result;
+        } catch (err) {
+          const duration = now() - startTime;
+          if (typeof window !== 'undefined' && window.dispatchEvent && window.CustomEvent) {
+            window.dispatchEvent(new window.CustomEvent('ipc-diagnostic', {
+              detail: {
+                method: key,
+                args: args,
+                status: 'error',
+                error: err.message,
+                duration: parseFloat(duration.toFixed(1)),
+                timestamp
+              }
+            }));
+          }
+          throw err;
+        }
+      };
+    }
+  } else {
+    instrumentedAPI[key] = rawAPI[key];
+  }
 });
+
+// Expose safe instrumented API
+contextBridge.exposeInMainWorld('electronAPI', instrumentedAPI);
 
 // Disable features for security
 window.addEventListener('DOMContentLoaded', () => {

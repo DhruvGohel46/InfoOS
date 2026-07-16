@@ -72,8 +72,13 @@ export const syncService = {
    * if they do not already exist.
    */
   syncWeeklyAndMonthlyReports: async () => {
+    // Return early if client is offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
     // Proactively refresh cloud session if online before starting report auto sync
-    if (navigator.onLine && localStorage.getItem('cloud_refresh_token')) {
+    if (localStorage.getItem('cloud_refresh_token')) {
       try {
         await cloudAuthAPI.refreshSession();
       } catch (refreshErr) {
@@ -92,7 +97,7 @@ export const syncService = {
         isSubscribed = true;
       }
     } catch (err) {
-      console.error('Failed to verify subscription during auto sync:', err);
+      console.warn('Failed to verify subscription during auto sync (cloud server unreachable):', err.message || err);
       return;
     }
 
