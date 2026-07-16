@@ -82,7 +82,9 @@ def setup_logging(app):
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, "app.log")
-    level = logging.DEBUG if app.config.get("DEBUG") else logging.INFO
+    
+    is_developer_mode = os.environ.get("DEVELOPER_MODE") == "true"
+    level = logging.DEBUG if (app.config.get("DEBUG") or is_developer_mode) else logging.INFO
 
     root = logging.getLogger()
 
@@ -104,11 +106,17 @@ def setup_logging(app):
     root.addHandler(fh)
     root.addHandler(ch)
 
-    # Suppress noisy third-party loggers
-    logging.getLogger("werkzeug").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
-    logging.getLogger("schedule").setLevel(logging.WARNING)
+    # Suppress noisy third-party loggers (unless developer mode is ON)
+    if is_developer_mode:
+        logging.getLogger("werkzeug").setLevel(logging.DEBUG)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        logging.getLogger("sqlalchemy.pool").setLevel(logging.INFO)
+        logging.getLogger("schedule").setLevel(logging.INFO)
+    else:
+        logging.getLogger("werkzeug").setLevel(logging.WARNING)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+        logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
+        logging.getLogger("schedule").setLevel(logging.WARNING)
 
     app.logger.info("Logging initialised → %s  (level=%s)", log_file, logging.getLevelName(level))
 

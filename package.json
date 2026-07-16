@@ -40,6 +40,7 @@
   "build": {
     "appId": "com.burgerbhau.infoos",
     "productName": "InfoOS",
+    "copyright": "Copyright © 2026 Dhruv Gohel. All rights reserved.",
     "artifactName": "${productName} Setup.${ext}",
     "directories": {
       "output": "dist",
@@ -65,7 +66,8 @@
           ]
         }
       ],
-      "icon": "electron/assets/icon.ico"
+      "icon": "electron/assets/icon.ico",
+      "publisherName": "Dhruv Gohel"
     },
     "nsis": {
       "oneClick": false,
@@ -73,7 +75,16 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "InfoOS"
+      "shortcutName": "InfoOS",
+      "installerIcon": "electron/assets/icon.ico",
+      "uninstallerIcon": "electron/assets/icon.ico",
+      "installerHeader": "electron/assets/installerHeader.bmp",
+      "installerHeaderIcon": "electron/assets/icon.ico",
+      "installerSidebar": "electron/assets/installerSidebar.bmp",
+      "uninstallerSidebar": "electron/assets/uninstallerSidebar.bmp",
+      "license": "electron/assets/license.txt",
+      "runAfterFinish": true,
+      "uninstallDisplayName": "InfoOS Uninstaller"
     },
     "publish": [
       {

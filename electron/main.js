@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn, spawnSync } = require('child_process');
 const http = require('http');
 const { autoUpdater } = require('electron-updater');
@@ -21,11 +22,22 @@ const dataDir = isDev
   : app.getPath('userData');
 process.env.POS_DATA_DIR = dataDir;
 
+// Read developer mode setting early
+let isDeveloperMode = false;
+try {
+  const devModeFilePath = path.join(app.getPath('userData'), 'dev_mode.json');
+  if (fs.existsSync(devModeFilePath)) {
+    const data = JSON.parse(fs.readFileSync(devModeFilePath, 'utf8'));
+    isDeveloperMode = !!data.devMode;
+  }
+} catch (err) {
+  console.error('[main] Error reading dev_mode.json:', err.message);
+}
+
 // Keep global references
 let mainWindow;
 let splashWindow;
 let backendProcess = null;
-const fs = require('fs');
 const printerManager = require('./services/printerManager');
 
 // Logger
@@ -142,10 +154,16 @@ function startBackend() {
 
   log(`Spawning: ${command} ${backendArgs.join(' ')}`);
 
+  const env = { ...process.env };
+  if (isDeveloperMode) {
+    env.DEVELOPER_MODE = 'true';
+    env.FLASK_DEBUG = '1';
+  }
+
   backendProcess = spawn(command, backendArgs, {
     cwd: isDev ? path.join(__dirname, '..') : path.dirname(command),
     stdio: 'pipe', // Change to 'inherit' for debugging in console, 'pipe' to capture
-    env: { ...process.env }
+    env: env
   });
 
   backendProcess.stdout.on('data', (data) => {
@@ -161,6 +179,31 @@ function startBackend() {
     backendProcess = null;
     // Optional: Quit app if backend crashes?
     // app.quit();
+  });
+}
+
+function restartBackend() {
+  return new Promise((resolve, reject) => {
+    log('Restarting backend...');
+    if (backendProcess) {
+      try {
+        backendProcess.kill('SIGKILL');
+      } catch (e) {
+        log('Error killing backend: ' + e.message);
+      }
+      backendProcess = null;
+    }
+    setTimeout(() => {
+      try {
+        startBackend();
+        waitForBackend(() => {
+          resolve(true);
+        });
+      } catch (err) {
+        log('Failed to restart backend: ' + err.message);
+        reject(err);
+      }
+    }, 1000);
   });
 }
 
@@ -267,7 +310,7 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../frontend/build/index.html'));
   }
 
-  if (enableDebug) {
+  if (enableDebug || isDeveloperMode) {
     mainWindow.webContents.openDevTools();
   }
 
@@ -363,7 +406,7 @@ function createWindow() {
         log('Dynamic developer options enabled.');
       }
       event.preventDefault();
-    } else if (enableDebug || Menu.getApplicationMenu() !== null) {
+    } else if (enableDebug || isDeveloperMode || Menu.getApplicationMenu() !== null) {
       if (isShortcutDevTools) {
         mainWindow.webContents.toggleDevTools();
         event.preventDefault();
@@ -381,7 +424,7 @@ function createWindow() {
   });
 
   // Set application menu based on debugging mode
-  if (enableDebug) {
+  if (enableDebug || isDeveloperMode) {
     const template = [
       {
         label: 'File',
@@ -701,6 +744,151 @@ ipcMain.handle('autostart:set', (event, openAtLogin) => {
   } catch (err) {
     console.error('[main] Failed to update login item settings:', err.message);
     return false;
+  }
+});
+
+// Developer Mode IPC handlers
+ipcMain.handle('developer:getMode', () => isDeveloperMode);
+
+ipcMain.handle('developer:setMode', (event, val) => {
+  try {
+    isDeveloperMode = !!val;
+    const devModeFilePath = path.join(app.getPath('userData'), 'dev_mode.json');
+    fs.writeFileSync(devModeFilePath, JSON.stringify({ devMode: isDeveloperMode }), 'utf8');
+    
+    // Dynamically apply DevTools state
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (isDeveloperMode) {
+        mainWindow.webContents.openDevTools();
+      } else {
+        mainWindow.webContents.closeDevTools();
+      }
+    }
+    
+    log(`Developer Mode updated: ${isDeveloperMode}`);
+    return true;
+  } catch (err) {
+    console.error('[main] Failed to save developer mode settings:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('developer:openDevTools', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.openDevTools();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('developer:reloadWindow', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.reload();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('developer:restartBackend', async () => {
+  try {
+    await restartBackend();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('developer:openLogsFolder', () => {
+  try {
+    const logsDir = path.join(process.env.POS_DATA_DIR, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    shell.openPath(logsDir);
+    return true;
+  } catch (err) {
+    console.error('[main] openLogsFolder error:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('developer:openUserDataFolder', () => {
+  try {
+    shell.openPath(app.getPath('userData'));
+    return true;
+  } catch (err) {
+    console.error('[main] openUserDataFolder error:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('developer:clearCache', async () => {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.webContents.session.clearCache();
+      mainWindow.webContents.reload();
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('[main] clearCache error:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('developer:readLogs', (event, linesCount = 200) => {
+  try {
+    const logsDir = path.join(process.env.POS_DATA_DIR, 'logs');
+    const logFile = path.join(logsDir, 'app.log');
+    if (!fs.existsSync(logFile)) {
+      return [];
+    }
+    const data = fs.readFileSync(logFile, 'utf8');
+    const lines = data.split('\n');
+    const cleanedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
+    return cleanedLines.slice(-linesCount);
+  } catch (err) {
+    console.error('[main] readLogs error:', err.message);
+    return [];
+  }
+});
+
+ipcMain.handle('developer:getDiagnosticInfo', () => {
+  try {
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    
+    // CPU usage calculation
+    let cpuPercent = 0;
+    if (process.getCPUUsage) {
+      cpuPercent = process.getCPUUsage().percentCPUUsage;
+    }
+    
+    // Memory usage info
+    const processMemory = process.memoryUsage();
+    
+    return {
+      appVersion: app.getVersion(),
+      electronVersion: process.versions.electron,
+      chromeVersion: process.versions.chrome,
+      nodeVersion: process.versions.node,
+      environment: isDev ? 'Development' : 'Production',
+      backendUrl: `http://${BACKEND_HOST}:${BACKEND_PORT}`,
+      backendStatus: backendProcess ? 'Running' : 'Stopped',
+      dbPath: path.join(process.env.POS_DATA_DIR, 'pos.db'),
+      dbStatus: fs.existsSync(path.join(process.env.POS_DATA_DIR, 'pos.db')) ? 'Connected' : 'Missing',
+      userDataPath: app.getPath('userData'),
+      logPath: path.join(process.env.POS_DATA_DIR, 'logs', 'app.log'),
+      osPlatform: process.platform,
+      osArch: process.arch,
+      cpuUsage: cpuPercent,
+      memoryProcess: processMemory.heapUsed, // heap used in bytes
+      memoryTotal: totalMem,
+      memoryFree: freeMem
+    };
+  } catch (err) {
+    console.error('[main] getDiagnosticInfo error:', err.message);
+    return null;
   }
 });
 

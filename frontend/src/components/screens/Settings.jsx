@@ -24,7 +24,8 @@ import {
     IoColorPaletteOutline,
     IoShieldCheckmarkOutline,
     IoVolumeHighOutline,
-    IoCloudUploadOutline
+    IoCloudUploadOutline,
+    IoConstructOutline
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
@@ -145,6 +146,245 @@ const Settings = () => {
     
     // Auto start on boot state
     const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+
+    // Developer Mode State
+    const [devModeEnabled, setDevModeEnabled] = useState(false);
+    const [diagnosticInfo, setDiagnosticInfo] = useState(null);
+    const [apiLogs, setApiLogs] = useState([]);
+    const [ipcLogs, setIpcLogs] = useState([]);
+    const [fileLogs, setFileLogs] = useState([]);
+    const [restartingBackend, setRestartingBackend] = useState(false);
+
+    useEffect(() => {
+        const fetchDevMode = async () => {
+            if (window.electronAPI && window.electronAPI.getDevMode) {
+                try {
+                    const enabled = await window.electronAPI.getDevMode();
+                    setDevModeEnabled(enabled);
+                } catch (err) {
+                    console.error('Failed to read dev-mode status:', err);
+                }
+            }
+        };
+        fetchDevMode();
+    }, []);
+
+    // Diagnostics & File Logs Polling
+    useEffect(() => {
+        if (!devModeEnabled || activeTab !== 'advanced') return;
+
+        const fetchDiagnosticsAndLogs = async () => {
+            if (!window.electronAPI) return;
+            
+            try {
+                if (window.electronAPI.getDiagnosticInfo) {
+                    const info = await window.electronAPI.getDiagnosticInfo();
+                    setDiagnosticInfo(info);
+                }
+                
+                if (window.electronAPI.readLogs) {
+                    const logs = await window.electronAPI.readLogs(100);
+                    setFileLogs(logs);
+                }
+            } catch (err) {
+                console.error('Error fetching developer diagnostics:', err);
+            }
+        };
+
+        fetchDiagnosticsAndLogs();
+        const interval = setInterval(fetchDiagnosticsAndLogs, 3000);
+
+        return () => clearInterval(interval);
+    }, [devModeEnabled, activeTab]);
+
+    // Live API & IPC Diagnostics Events Listener
+    useEffect(() => {
+        if (!devModeEnabled) return;
+
+        const handleApiDiagnostic = (e) => {
+            setApiLogs(prev => {
+                const updated = [e.detail, ...prev];
+                return updated.slice(0, 100);
+            });
+        };
+
+        const handleIpcDiagnostic = (e) => {
+            setIpcLogs(prev => {
+                const updated = [e.detail, ...prev];
+                return updated.slice(0, 100);
+            });
+        };
+
+        window.addEventListener('api-diagnostic', handleApiDiagnostic);
+        window.addEventListener('ipc-diagnostic', handleIpcDiagnostic);
+
+        return () => {
+            window.removeEventListener('api-diagnostic', handleApiDiagnostic);
+            window.removeEventListener('ipc-diagnostic', handleIpcDiagnostic);
+        };
+    }, [devModeEnabled]);
+
+    const handleDevModeToggle = async (e) => {
+        const val = e.target.checked;
+        setDevModeEnabled(val);
+        if (window.electronAPI && window.electronAPI.setDevMode) {
+            try {
+                const success = await window.electronAPI.setDevMode(val);
+                if (success) {
+                    showSuccess(`Developer Mode: ${val ? 'Enabled' : 'Disabled'}`);
+                    if (!val) {
+                        setDiagnosticInfo(null);
+                        setApiLogs([]);
+                        setIpcLogs([]);
+                        setFileLogs([]);
+                    }
+                } else {
+                    showError('Failed to save developer mode status');
+                    setDevModeEnabled(!val);
+                }
+            } catch (err) {
+                showError('Failed to toggle Developer Mode');
+                setDevModeEnabled(!val);
+            }
+        }
+    };
+
+    const handleOpenDevTools = async () => {
+        if (window.electronAPI?.openDevTools) {
+            await window.electronAPI.openDevTools();
+            showSuccess('DevTools opened');
+        } else {
+            showError('DevTools not available');
+        }
+    };
+
+    const handleReloadWindow = async () => {
+        if (window.electronAPI?.reloadWindow) {
+            await window.electronAPI.reloadWindow();
+        } else {
+            window.location.reload();
+        }
+    };
+
+    const handleRestartBackend = async () => {
+        const confirmed = await showConfirm({
+            title: 'Restart Backend',
+            description: 'Are you sure you want to restart the local POS backend? All active server connections will be temporarily closed.',
+            confirmLabel: 'Restart',
+            variant: 'warning',
+        });
+        if (!confirmed) return;
+
+        setRestartingBackend(true);
+        try {
+            if (window.electronAPI?.restartBackend) {
+                const res = await window.electronAPI.restartBackend();
+                if (res.success) {
+                    showSuccess('Backend restarted successfully');
+                } else {
+                    showError('Restart failed: ' + res.error);
+                }
+            } else {
+                showError('Backend control not supported on this platform');
+            }
+        } catch (err) {
+            showError('Restart failed: ' + err.message);
+        } finally {
+            setRestartingBackend(false);
+        }
+    };
+
+    const handleOpenLogsFolder = async () => {
+        if (window.electronAPI?.openLogsFolder) {
+            const ok = await window.electronAPI.openLogsFolder();
+            if (ok) showSuccess('Logs folder opened');
+            else showError('Could not open logs folder');
+        }
+    };
+
+    const handleOpenUserDataFolder = async () => {
+        if (window.electronAPI?.openUserDataFolder) {
+            const ok = await window.electronAPI.openUserDataFolder();
+            if (ok) showSuccess('User data folder opened');
+            else showError('Could not open user data folder');
+        }
+    };
+
+    const handleClearCache = async () => {
+        const confirmed = await showConfirm({
+            title: 'Clear Cache',
+            description: 'This will clear Electron HTTP caches and reload the application window. Continue?',
+            confirmLabel: 'Clear & Reload',
+            variant: 'danger',
+        });
+        if (!confirmed) return;
+
+        if (window.electronAPI?.clearCache) {
+            await window.electronAPI.clearCache();
+        } else {
+            showError('Clear cache not supported');
+        }
+    };
+
+    const handleCopyDebugInfo = () => {
+        if (!diagnosticInfo) {
+            showError('No diagnostics info available');
+            return;
+        }
+        const spec = {
+            Diagnostics: diagnosticInfo,
+            NetworkOnline: navigator.onLine,
+            BrowserUserAgent: navigator.userAgent,
+            Timestamp: new Date().toISOString()
+        };
+        navigator.clipboard.writeText(JSON.stringify(spec, null, 2));
+        showSuccess('Debug Info copied to clipboard');
+    };
+
+    const handleExportDebugReport = async () => {
+        if (!diagnosticInfo) {
+            showError('No diagnostics info available');
+            return;
+        }
+        
+        try {
+            const report = {
+                spec: {
+                    Diagnostics: diagnosticInfo,
+                    NetworkOnline: navigator.onLine,
+                    BrowserUserAgent: navigator.userAgent,
+                    Timestamp: new Date().toISOString()
+                },
+                logs: fileLogs,
+                apiHistory: apiLogs,
+                ipcHistory: ipcLogs
+            };
+            
+            const base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(report, null, 2))));
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = `infoos_debug_report_${dateStr}.json`;
+            
+            if (window.electronAPI?.saveFile) {
+                const res = await window.electronAPI.saveFile(filename, base64Data);
+                if (res.success) {
+                    showSuccess('Debug report exported successfully');
+                } else if (!res.cancelled) {
+                    showError('Failed to save report: ' + res.error);
+                }
+            } else {
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                showSuccess('Debug report downloaded');
+            }
+        } catch (err) {
+            showError('Export failed: ' + err.message);
+        }
+    };
 
     useEffect(() => {
         const checkAutoStart = async () => {
@@ -941,7 +1181,8 @@ const Settings = () => {
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
         { id: 'expenses', label: 'Expense Configuration', icon: IoReceiptOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
-        { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline }
+        { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline },
+        { id: 'advanced', label: 'Advanced', icon: IoConstructOutline }
     ];
 
     if (loading) {
@@ -2602,6 +2843,273 @@ const Settings = () => {
                                                 </Button>
                                             )}
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'advanced' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                <div>
+                                    <div className="stSectionTitle">
+                                        <IoConstructOutline size={22} color="var(--primary)" />
+                                        Advanced Configuration
+                                    </div>
+                                    <div className="stSectionContent" style={{ paddingTop: '20px' }}>
+                                        <div className="stFormGroup" style={{ borderBottom: devModeEnabled ? '1px solid var(--border-secondary)' : 'none' }}>
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Developer Mode</span>
+                                                <span className="stLabelDesc">Enable developer features, DevTools, verbose logging, and diagnostics</span>
+                                            </div>
+                                            <label className="stToggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={devModeEnabled}
+                                                    onChange={handleDevModeToggle}
+                                                />
+                                                <span className="stSlider"></span>
+                                            </label>
+                                        </div>
+
+                                        {devModeEnabled && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', marginTop: '24px' }}>
+                                                {/* Developer Actions */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Developer Actions</h3>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                                        <Button variant="secondary" onClick={handleOpenDevTools} style={{ height: '38px' }}>
+                                                            Open DevTools
+                                                        </Button>
+                                                        <Button variant="secondary" onClick={handleReloadWindow} style={{ height: '38px' }}>
+                                                            Reload Window
+                                                        </Button>
+                                                        <Button variant="secondary" onClick={handleRestartBackend} loading={restartingBackend} disabled={restartingBackend} style={{ height: '38px' }}>
+                                                            Restart Backend
+                                                        </Button>
+                                                        <Button variant="secondary" onClick={handleOpenLogsFolder} style={{ height: '38px' }}>
+                                                            Open Logs Folder
+                                                        </Button>
+                                                        <Button variant="secondary" onClick={handleOpenUserDataFolder} style={{ height: '38px' }}>
+                                                            Open User Data
+                                                        </Button>
+                                                        <Button variant="secondary" onClick={handleClearCache} style={{ height: '38px' }}>
+                                                            Clear Cache
+                                                        </Button>
+                                                        <Button variant="primary" onClick={handleCopyDebugInfo} style={{ height: '38px' }}>
+                                                            Copy Debug Info
+                                                        </Button>
+                                                        <Button variant="primary" onClick={handleExportDebugReport} style={{ height: '38px', backgroundImage: 'var(--primary-gradient)' }}>
+                                                            Export Debug Report
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* System Specifications */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>System Specifications</h3>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>App / Build Version</div>
+                                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>v{diagnosticInfo?.appVersion || 'Unknown'}</div>
+                                                        </div>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Electron / Chrome / Node</div>
+                                                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                                e: {diagnosticInfo?.electronVersion || '-'} | c: {diagnosticInfo?.chromeVersion || '-'} | n: {diagnosticInfo?.nodeVersion || '-'}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Environment</div>
+                                                            <div style={{ fontSize: '15px', fontWeight: 600, color: diagnosticInfo?.environment === 'Development' ? 'var(--warning-500, #f59e0b)' : 'var(--success-500, #10b981)', marginTop: '4px' }}>
+                                                                {diagnosticInfo?.environment || 'Unknown'}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OS / Architecture</div>
+                                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                                {diagnosticInfo?.osPlatform || '-'} ({diagnosticInfo?.osArch || '-'})
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Backend Connection</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 600, color: diagnosticInfo?.backendStatus === 'Running' ? 'var(--success-500, #10b981)' : 'var(--error-500, #ef4444)', marginTop: '4px' }}>
+                                                                {diagnosticInfo?.backendStatus || 'Stopped'} ({diagnosticInfo?.backendUrl})
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '16px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Database Status</div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 600, color: diagnosticInfo?.dbStatus === 'Connected' ? 'var(--success-500, #10b981)' : 'var(--error-500, #ef4444)', marginTop: '4px' }}>
+                                                                {diagnosticInfo?.dbStatus || 'Missing'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Paths Section */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>System Paths</h3>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px', padding: '16px', fontSize: '13px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <span style={{ fontWeight: 600, width: '120px', color: 'var(--text-secondary)' }}>Database Path:</span>
+                                                            <span style={{ fontFamily: 'monospace', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{diagnosticInfo?.dbPath}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <span style={{ fontWeight: 600, width: '120px', color: 'var(--text-secondary)' }}>User Data Path:</span>
+                                                            <span style={{ fontFamily: 'monospace', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{diagnosticInfo?.userDataPath}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <span style={{ fontWeight: 600, width: '120px', color: 'var(--text-secondary)' }}>Log File Path:</span>
+                                                            <span style={{ fontFamily: 'monospace', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{diagnosticInfo?.logPath}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Live Performance Stats */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Performance Diagnostics</h3>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                        <div style={{ padding: '20px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>CPU Usage</span>
+                                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{diagnosticInfo?.cpuUsage !== undefined ? diagnosticInfo.cpuUsage.toFixed(1) : '0.0'}%</span>
+                                                            </div>
+                                                            <div style={{ width: '100%', height: '8px', background: 'var(--border-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(diagnosticInfo?.cpuUsage || 0, 100)}%`, height: '100%', backgroundImage: 'var(--primary-gradient)', transition: 'width 1s ease' }} />
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ padding: '20px', background: 'var(--surface-primary)', border: '1px solid var(--border-secondary)', borderRadius: '12px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Process Memory (Heap)</span>
+                                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                    {diagnosticInfo?.memoryProcess ? (diagnosticInfo.memoryProcess / 1024 / 1024).toFixed(1) : '0'} MB
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ width: '100%', height: '8px', background: 'var(--border-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                <div style={{ 
+                                                                    width: `${Math.min((diagnosticInfo?.memoryProcess || 0) / (diagnosticInfo?.memoryTotal || 1) * 100 * 20, 100)}%`, 
+                                                                    height: '100%', 
+                                                                    backgroundImage: 'var(--primary-gradient)', 
+                                                                    transition: 'width 1s ease' 
+                                                                }} />
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+                                                                <span>Free RAM: {diagnosticInfo?.memoryFree ? (diagnosticInfo.memoryFree / 1024 / 1024 / 1024).toFixed(1) : '0'} GB</span>
+                                                                <span>Total RAM: {diagnosticInfo?.memoryTotal ? (diagnosticInfo.memoryTotal / 1024 / 1024 / 1024).toFixed(1) : '0'} GB</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Live Axios API Logs */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>Live API Transaction Logs ({apiLogs.length})</h3>
+                                                    <div style={{ 
+                                                        maxHeight: '220px', 
+                                                        overflowY: 'auto', 
+                                                        border: '1px solid var(--border-secondary)', 
+                                                        borderRadius: '12px',
+                                                        background: '#1e1e1e',
+                                                        padding: '12px',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {apiLogs.length === 0 ? (
+                                                            <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>No API traffic logged yet. Perform operations to trigger logs.</div>
+                                                        ) : (
+                                                            apiLogs.map((log, idx) => (
+                                                                <div key={idx} style={{ 
+                                                                    display: 'flex', 
+                                                                    justifyContent: 'space-between', 
+                                                                    padding: '4px 0', 
+                                                                    borderBottom: '1px solid #2d2d2d', 
+                                                                    color: log.error ? '#ff4d4d' : '#85e89d'
+                                                                }}>
+                                                                    <span>
+                                                                        [{new Date(log.timestamp).toLocaleTimeString()}] {log.method} {log.url}
+                                                                    </span>
+                                                                    <span>
+                                                                        {log.status} | {log.duration}ms
+                                                                    </span>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Live IPC Logs */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>Live IPC Command Logs ({ipcLogs.length})</h3>
+                                                    <div style={{ 
+                                                        maxHeight: '220px', 
+                                                        overflowY: 'auto', 
+                                                        border: '1px solid var(--border-secondary)', 
+                                                        borderRadius: '12px',
+                                                        background: '#1e1e1e',
+                                                        padding: '12px',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {ipcLogs.length === 0 ? (
+                                                            <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>No IPC communication logged yet.</div>
+                                                        ) : (
+                                                            ipcLogs.map((log, idx) => (
+                                                                <div key={idx} style={{ 
+                                                                    display: 'flex', 
+                                                                    justifyContent: 'space-between', 
+                                                                    padding: '4px 0', 
+                                                                    borderBottom: '1px solid #2d2d2d', 
+                                                                    color: log.status === 'error' ? '#ff4d4d' : '#79b8ff'
+                                                                }}>
+                                                                    <span>
+                                                                        [{new Date(log.timestamp).toLocaleTimeString()}] ipcRenderer.{log.method}(...)
+                                                                    </span>
+                                                                    <span>
+                                                                        {log.status === 'error' ? 'failed' : `${log.duration}ms`}
+                                                                    </span>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Real-time Log Stream */}
+                                                <div>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>Real-time Application Log Stream (`app.log`)</h3>
+                                                    <div style={{ 
+                                                        maxHeight: '350px', 
+                                                        overflowY: 'auto', 
+                                                        border: '1px solid var(--border-secondary)', 
+                                                        borderRadius: '12px',
+                                                        background: '#0c0c0c',
+                                                        padding: '16px',
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '11px',
+                                                        whiteSpace: 'pre-wrap',
+                                                        color: '#d4d4d4',
+                                                        lineHeight: '1.5'
+                                                    }}>
+                                                        {fileLogs.length === 0 ? (
+                                                            <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>Log file is empty or missing.</div>
+                                                        ) : (
+                                                            fileLogs.map((line, idx) => {
+                                                                let color = '#d4d4d4';
+                                                                if (line.includes('| ERROR')) color = '#ff4d4d';
+                                                                else if (line.includes('| WARNING')) color = '#ffb347';
+                                                                else if (line.includes('| DEBUG')) color = '#00ffff';
+                                                                else if (line.includes('| INFO')) color = '#85e89d';
+                                                                
+                                                                return (
+                                                                    <div key={idx} style={{ color, borderBottom: '1px solid #1a1a1a', padding: '2px 0' }}>
+                                                                        {line}
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

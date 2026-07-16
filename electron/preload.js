@@ -76,7 +76,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Auto-Start
   getAutoStart: () => ipcRenderer.invoke('autostart:get'),
-  setAutoStart: (value) => ipcRenderer.invoke('autostart:set', value)
+  setAutoStart: (value) => ipcRenderer.invoke('autostart:set', value),
+
+  // Developer APIs
+  getDevMode: () => ipcRenderer.invoke('developer:getMode'),
+  setDevMode: (val) => ipcRenderer.invoke('developer:setMode', val),
+  openDevTools: () => ipcRenderer.invoke('developer:openDevTools'),
+  reloadWindow: () => ipcRenderer.invoke('developer:reloadWindow'),
+  restartBackend: () => ipcRenderer.invoke('developer:restartBackend'),
+  openLogsFolder: () => ipcRenderer.invoke('developer:openLogsFolder'),
+  openUserDataFolder: () => ipcRenderer.invoke('developer:openUserDataFolder'),
+  clearCache: () => ipcRenderer.invoke('developer:clearCache'),
+  readLogs: (lines) => ipcRenderer.invoke('developer:readLogs', lines),
+  getDiagnosticInfo: () => ipcRenderer.invoke('developer:getDiagnosticInfo')
 });
 
 // Disable features for security

@@ -17,6 +17,7 @@ const api = axios.create({
 // Request interceptor for logging & auth
 api.interceptors.request.use(
   (config) => {
+    config.metadata = { startTime: performance.now() };
     // Keep compatibility with auth module: prefer in-memory token, fallback to session.
     const token = _authToken || sessionStorage.getItem(SESSION_KEY);
     if (token) {
@@ -54,7 +55,22 @@ api.interceptors.response.use(undefined, (err) => {
 
 // RESPONSE INTERCEPTOR (Error handling, event dispatch, & Electron logging)
 api.interceptors.response.use(
-  (response) => response, // Pass through successful responses
+  (response) => {
+    try {
+      const startTime = response.config?.metadata?.startTime;
+      const duration = startTime ? (performance.now() - startTime) : 0;
+      window.dispatchEvent(new CustomEvent('api-diagnostic', {
+        detail: {
+          method: response.config?.method?.toUpperCase() || 'GET',
+          url: response.config?.url || '',
+          status: response.status,
+          duration: parseFloat(duration.toFixed(1)),
+          timestamp: new Date().toISOString()
+        }
+      }));
+    } catch (_) {}
+    return response;
+  },
   (error) => {
     const isNetworkError = !error.response;
     const status = error.response?.status || 0;
@@ -111,6 +127,21 @@ api.interceptors.response.use(
         // IPC not available
       }
     }
+
+    try {
+      const startTime = error.config?.metadata?.startTime;
+      const duration = startTime ? (performance.now() - startTime) : 0;
+      window.dispatchEvent(new CustomEvent('api-diagnostic', {
+        detail: {
+          method: error.config?.method?.toUpperCase() || 'GET',
+          url: error.config?.url || '',
+          status: status || 'NETWORK_ERROR',
+          duration: parseFloat(duration.toFixed(1)),
+          timestamp: new Date().toISOString(),
+          error: message || error.message
+        }
+      }));
+    } catch (_) {}
 
     return Promise.reject(error);
   }
@@ -596,5 +627,85 @@ export const formatDate = (dateInput) => {
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 };
+
+// Instrument window.electronAPI to capture live IPC diagnostics
+try {
+  if (window.electronAPI) {
+    const originalAPI = { ...window.electronAPI };
+    Object.keys(originalAPI).forEach(key => {
+      if (typeof originalAPI[key] === 'function') {
+        if (key.startsWith('on')) {
+          // Keep event subscription listener synchronous and return original cleanup func
+          window.electronAPI[key] = (...args) => {
+            const startTime = performance.now();
+            const timestamp = new Date().toISOString();
+            try {
+              const result = originalAPI[key](...args);
+              const duration = performance.now() - startTime;
+              window.dispatchEvent(new CustomEvent('ipc-diagnostic', {
+                detail: {
+                  method: key,
+                  args: ['EventCallback'],
+                  status: 'subscribed',
+                  duration: parseFloat(duration.toFixed(1)),
+                  timestamp
+                }
+              }));
+              return result;
+            } catch (err) {
+              const duration = performance.now() - startTime;
+              window.dispatchEvent(new CustomEvent('ipc-diagnostic', {
+                detail: {
+                  method: key,
+                  args: ['EventCallback'],
+                  status: 'error',
+                  error: err.message,
+                  duration: parseFloat(duration.toFixed(1)),
+                  timestamp
+                }
+              }));
+              throw err;
+            }
+          };
+        } else {
+          // Wrap async invocations
+          window.electronAPI[key] = async (...args) => {
+            const startTime = performance.now();
+            const timestamp = new Date().toISOString();
+            try {
+              const result = await originalAPI[key](...args);
+              const duration = performance.now() - startTime;
+              window.dispatchEvent(new CustomEvent('ipc-diagnostic', {
+                detail: {
+                  method: key,
+                  args: args,
+                  status: 'success',
+                  duration: parseFloat(duration.toFixed(1)),
+                  timestamp
+                }
+              }));
+              return result;
+            } catch (err) {
+              const duration = performance.now() - startTime;
+              window.dispatchEvent(new CustomEvent('ipc-diagnostic', {
+                detail: {
+                  method: key,
+                  args: args,
+                  status: 'error',
+                  error: err.message,
+                  duration: parseFloat(duration.toFixed(1)),
+                  timestamp
+                }
+              }));
+              throw err;
+            }
+          };
+        }
+      }
+    });
+  }
+} catch (e) {
+  console.error('[API] Failed to instrument electronAPI:', e);
+}
 
 export default api;
