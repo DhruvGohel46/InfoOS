@@ -82,7 +82,7 @@ def setup_logging(app):
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, "app.log")
-    
+
     is_developer_mode = os.environ.get("DEVELOPER_MODE") == "true"
     level = logging.DEBUG if (app.config.get("DEBUG") or is_developer_mode) else logging.INFO
 
