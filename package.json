@@ -26,7 +26,7 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3050 && electron .\"",
     "electron-debug": "electron . --debug",
-    "build:backend": "cd backend && call .venv\\Scripts\\pyinstaller --noconfirm backend.spec",
+    "build:backend": "cd backend && (if exist .venv\\Scripts\\pyinstaller.exe (.venv\\Scripts\\pyinstaller --noconfirm backend.spec) else (pyinstaller --noconfirm backend.spec))",
     "dist": "npm run build && npm run build:backend && electron-builder",
     "preelectron-pack": "npm run build",
     "backend": "cd backend && python app.py",
