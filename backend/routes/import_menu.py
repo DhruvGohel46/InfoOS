@@ -462,7 +462,13 @@ def import_menu_json():
     from datetime import datetime
     import os
     import json
-    from models import db as sa_db, Product as SaProduct, Category as SaCategory, ItemGroup as SaItemGroup, ImportHistory as SaImportHistory
+    from models import (
+        db as sa_db,
+        Product as SaProduct,
+        Category as SaCategory,
+        ItemGroup as SaItemGroup,
+        ImportHistory as SaImportHistory,
+    )
 
     payload = request.get_json() or {}
     products_list = payload.get("products")
@@ -480,19 +486,19 @@ def import_menu_json():
         backup_data = {
             "backup_version": "1.0.0",
             "backed_up_at": datetime.now().isoformat(),
-            "products": all_products
+            "products": all_products,
         }
-        
+
         data_dir = current_app.config.get("DATA_DIR", "data")
         backup_dir = os.path.join(data_dir, "backups")
         os.makedirs(backup_dir, exist_ok=True)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = os.path.join(backup_dir, f"menu_backup_{timestamp}.json")
-        
+
         with open(backup_path, "w", encoding="utf-8") as f:
             json.dump(backup_data, f, indent=2)
-            
+
         logger.info("Local backup created successfully at: %s", backup_path)
     except Exception as exc:
         logger.error("Failed to create menu backup before import: %s", exc)
@@ -514,7 +520,7 @@ def import_menu_json():
     created_count = 0
     skipped_count = 0
     errors = []
-    
+
     group_cache = {}
     cat_cache = {}
 
@@ -526,15 +532,15 @@ def import_menu_json():
             product_code = p.get("product_code", p.get("sku", ""))
             description = p.get("description", "")
             image_filename = p.get("image", p.get("image_filename", ""))
-            
+
             if not name:
                 skipped_count += 1
                 continue
-                
+
             group_name = "Menu"
             group_id = _get_or_create_group(group_name, group_cache)
             cat_id = _get_or_create_category(category_name, group_id, cat_cache)
-            
+
             variations = p.get("variants", p.get("variations", []))
             if isinstance(variations, str):
                 try:
@@ -554,7 +560,7 @@ def import_menu_json():
                 "active": p.get("available", p.get("active", True)),
                 "variations": variations,
             }
-            
+
             success = db.create_product(product_data)
             if success:
                 created_count += 1
@@ -570,7 +576,7 @@ def import_menu_json():
             menu_version=menu_version,
             imported_at=datetime.now(),
             product_count=created_count,
-            status="SUCCESS" if not errors else "PARTIAL"
+            status="SUCCESS" if not errors else "PARTIAL",
         )
         sa_db.session.add(history)
         sa_db.session.commit()
@@ -584,14 +590,12 @@ def import_menu_json():
     cache.invalidate("groups")
     _update_catalog_version()
 
-    return jsonify({
-        "success": True,
-        "message": f"Successfully imported {created_count} products. Backup saved.",
-        "backup_path": backup_path,
-        "stats": {
-            "created": created_count,
-            "skipped": skipped_count,
-            "errors": len(errors)
-        },
-        "errors": errors
-    })
+    return jsonify(
+        {
+            "success": True,
+            "message": f"Successfully imported {created_count} products. Backup saved.",
+            "backup_path": backup_path,
+            "stats": {"created": created_count, "skipped": skipped_count, "errors": len(errors)},
+            "errors": errors,
+        }
+    )
