@@ -69,6 +69,22 @@ with app.app_context():
     else:
         print("Tables already exist")
 
+    # Create import_history table if not exists
+    if "import_history" not in tables:
+        print("Creating import_history table...")
+        db.session.execute(db.text(f"""
+            CREATE TABLE IF NOT EXISTS import_history (
+                id {id_syntax},
+                master_name VARCHAR(255) NOT NULL,
+                menu_version VARCHAR(100) NOT NULL,
+                imported_at {timestamp_syntax},
+                product_count INTEGER NOT NULL,
+                status VARCHAR(50) NOT NULL
+            )
+        """))
+        db.session.commit()
+        print("import_history table created successfully")
+
     # Insert default worker types (only if table is empty)
     worker_type_count = db.session.execute(db.text("SELECT COUNT(*) FROM worker_types")).scalar()
     if worker_type_count == 0:

@@ -442,3 +442,156 @@ def download_sample_xlsx():
         as_attachment=True,
         download_name="menu_sample_format.xlsx",
     )
+
+
+@import_menu_bp.route("/bulk-json", methods=["POST"])
+@require_admin
+@safe_route
+def import_menu_json():
+    """
+    POST /api/import-menu/bulk-json
+    Body: { "products": [...], "master_name": "...", "menu_version": "..." }
+
+    Performs:
+    1. Validation
+    2. Local Backup: Saves the current categories, groups, and products to backups/menu_backup_YYYYMMDD_HHMMSS.json
+    3. Import: Wipes existing local groups, categories, subcategories, products and replaces them with new data.
+    4. Save Import History: Inserts into import_history table.
+    """
+    from flask import current_app
+    from datetime import datetime
+    import os
+    import json
+    from models import db as sa_db, Product as SaProduct, Category as SaCategory, ItemGroup as SaItemGroup, ImportHistory as SaImportHistory
+
+    payload = request.get_json() or {}
+    products_list = payload.get("products")
+    master_name = payload.get("master_name", "Master Franchise")
+    menu_version = payload.get("menu_version", "1.0.0")
+
+    if not isinstance(products_list, list):
+        raise ValidationError("Payload must contain a 'products' array.", code="INVALID_PAYLOAD")
+
+    # 1. Backup local menu database
+    backup_path = ""
+    try:
+        # Build backup data
+        all_products = db.get_all_products(include_inactive=True)
+        backup_data = {
+            "backup_version": "1.0.0",
+            "backed_up_at": datetime.now().isoformat(),
+            "products": all_products
+        }
+        
+        data_dir = current_app.config.get("DATA_DIR", "data")
+        backup_dir = os.path.join(data_dir, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"menu_backup_{timestamp}.json")
+        
+        with open(backup_path, "w", encoding="utf-8") as f:
+            json.dump(backup_data, f, indent=2)
+            
+        logger.info("Local backup created successfully at: %s", backup_path)
+    except Exception as exc:
+        logger.error("Failed to create menu backup before import: %s", exc)
+        raise ValidationError(f"Failed to create local backup: {exc}", code="BACKUP_FAILED")
+
+    # 2. Wipe existing local products, categories, groups (Wipe & Replace)
+    try:
+        # SQLite raw SQL wipes
+        sa_db.session.query(SaProduct).delete()
+        sa_db.session.query(SaCategory).delete()
+        sa_db.session.query(SaItemGroup).delete()
+        sa_db.session.commit()
+    except Exception as exc:
+        logger.error("Wipe existing catalog failed: %s", exc)
+        sa_db.session.rollback()
+        raise ValidationError(f"Failed to wipe existing menu catalog: {exc}", code="WIPE_FAILED")
+
+    # 3. Re-create categories & products
+    created_count = 0
+    skipped_count = 0
+    errors = []
+    
+    group_cache = {}
+    cat_cache = {}
+
+    for idx, p in enumerate(products_list):
+        try:
+            name = p.get("name")
+            category_name = p.get("category", "General")
+            price = float(p.get("price", 0))
+            product_code = p.get("product_code", p.get("sku", ""))
+            description = p.get("description", "")
+            image_filename = p.get("image", p.get("image_filename", ""))
+            
+            if not name:
+                skipped_count += 1
+                continue
+                
+            group_name = "Menu"
+            group_id = _get_or_create_group(group_name, group_cache)
+            cat_id = _get_or_create_category(category_name, group_id, cat_cache)
+            
+            variations = p.get("variants", p.get("variations", []))
+            if isinstance(variations, str):
+                try:
+                    variations = json.loads(variations)
+                except:
+                    variations = []
+
+            product_id = product_code if product_code else str(uuid.uuid4())[:20].replace("-", "")
+            product_data = {
+                "product_id": product_id,
+                "name": name,
+                "price": price,
+                "takeaway_price": p.get("takeaway_price"),
+                "category_id": cat_id,
+                "category": category_name,
+                "image_filename": image_filename,
+                "active": p.get("available", p.get("active", True)),
+                "variations": variations,
+            }
+            
+            success = db.create_product(product_data)
+            if success:
+                created_count += 1
+            else:
+                errors.append(f"Failed to save product: {name}")
+        except Exception as exc:
+            errors.append(f"Error parsing product at index {idx}: {exc}")
+
+    # 4. Save import history
+    try:
+        history = SaImportHistory(
+            master_name=master_name,
+            menu_version=menu_version,
+            imported_at=datetime.now(),
+            product_count=created_count,
+            status="SUCCESS" if not errors else "PARTIAL"
+        )
+        sa_db.session.add(history)
+        sa_db.session.commit()
+    except Exception as exc:
+        logger.error("Failed to save import history: %s", exc)
+
+    # Invalidate caches
+    cache.invalidate("products")
+    cache.invalidate("products_with_stock")
+    cache.invalidate("categories")
+    cache.invalidate("groups")
+    _update_catalog_version()
+
+    return jsonify({
+        "success": True,
+        "message": f"Successfully imported {created_count} products. Backup saved.",
+        "backup_path": backup_path,
+        "stats": {
+            "created": created_count,
+            "skipped": skipped_count,
+            "errors": len(errors)
+        },
+        "errors": errors
+    })

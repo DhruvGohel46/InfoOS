@@ -17,6 +17,13 @@ import { createEmptyVariation, sanitizeVariationsForSave } from '../../utils/pro
 import { usePOSData } from '../../context/POSDataContext';
 import { useTheme } from '../../context/ThemeContext';
 
+// Centralised Product Services
+import { LocalProductService } from '../../services/LocalProductService';
+import { OnlineProductService } from '../../services/OnlineProductService';
+import { ExportService } from '../../services/ExportService';
+import { ImportService } from '../../services/ImportService';
+import { cloudSyncAPI } from '../../api/cloudApi';
+
 const IconPlus = (props) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
     <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -67,7 +74,7 @@ const IconHeart = ({ filled, ...props }) => (
 
 const ProductManagement = () => {
   const { staggerContainer, staggerItem } = useAnimation();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const { settings } = useSettings();
   const { checkCatalogVersion } = usePOSData();
   const { isDark } = useTheme();
@@ -100,6 +107,35 @@ const ProductManagement = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [imageToDelete, setImageToDelete] = useState(false);
   const [variations, setVariations] = useState([]);
+
+  // Franchise & Online Mode states
+  const [isOnlineMode, setIsOnlineMode] = useState(() => {
+    return localStorage.getItem('franchise_online_mode') === 'true';
+  });
+  const [cloudRole, setCloudRole] = useState('standalone');
+  const [importingFromFranchise, setImportingFromFranchise] = useState(false);
+  const [publishingMenu, setPublishingMenu] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('franchise_online_mode', isOnlineMode);
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnlineMode]);
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      const token = localStorage.getItem('cloud_auth_token');
+      if (token) {
+        try {
+          const prof = await cloudSyncAPI.getFranchiseProfile();
+          setCloudRole(prof.role || 'standalone');
+        } catch (e) {
+          console.error("Failed to load cloud role:", e);
+        }
+      }
+    };
+    fetchRole();
+  }, []);
 
   // ── Import Modal State ──────────────────────────────────────────────────────
   const [showImportModal, setShowImportModal] = useState(false);
@@ -187,9 +223,23 @@ const ProductManagement = () => {
     try {
       setError('');
       setLoading(true);
-      // Fetch with stock data
-      const response = await productsAPI.getAllProducts({ include_inactive: true, include_stock: true });
-      setProducts(response.data.products || []);
+      if (isOnlineMode) {
+        const cloudProducts = await OnlineProductService.fetchProducts();
+        const normalized = cloudProducts.map(p => ({
+          product_id: p.id,
+          name: p.name,
+          price: p.price,
+          category: p.category,
+          category_name: p.category,
+          image_filename: p.image,
+          active: p.available,
+          variations: p.variants || []
+        }));
+        setProducts(normalized);
+      } else {
+        const localProducts = await LocalProductService.fetchProducts();
+        setProducts(localProducts);
+      }
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -268,54 +318,74 @@ const ProductManagement = () => {
         variations: sanitizeVariationsForSave(variations),
       };
 
-      if (editingProduct) {
-        await productsAPI.updateProduct(editingProduct.product_id, productData);
+      if (isOnlineMode) {
+        const cloudProductData = {
+          name: productData.name,
+          price: productData.price,
+          category: productData.category || 'General',
+          description: productData.description || '',
+          image_url: productData.image_url || '',
+          variants: productData.variations || [],
+          addons: [],
+          is_available: productData.active !== undefined ? !!productData.active : true
+        };
 
-        // Handle Image Update
-        if (imageToDelete) {
-          await productsAPI.deleteImage(editingProduct.product_id);
-        }
-
-        if (selectedImage) {
-          setImageUploading(true);
-          try {
-            const formData = new FormData();
-            formData.append('image', selectedImage);
-            const res = await productsAPI.uploadImage(editingProduct.product_id, formData);
-            if (res && res.data && res.data.background_removed === false) {
-              showSuccess('Product updated, but background removal was unavailable. Original image saved.');
-            } else {
-              showSuccess('Product updated successfully with background-removed image!');
-            }
-          } finally {
-            setImageUploading(false);
-          }
+        if (editingProduct) {
+          await OnlineProductService.updateProduct(editingProduct.product_id, cloudProductData);
+          showSuccess('Cloud product updated successfully');
         } else {
-          showSuccess('Product updated successfully');
+          await OnlineProductService.createProduct(cloudProductData);
+          showSuccess('Cloud product created successfully');
         }
-
       } else {
-        // Auto-generate ID if name and category are present
-        const id = generateProductId(formData.name, formData.category);
-        const newProduct = { ...productData, product_id: id };
-        await productsAPI.createProduct(newProduct);
+        if (editingProduct) {
+          await LocalProductService.updateProduct(editingProduct.product_id, productData);
 
-        if (selectedImage) {
-          setImageUploading(true);
-          try {
-            const formData = new FormData();
-            formData.append('image', selectedImage);
-            const res = await productsAPI.uploadImage(id, formData);
-            if (res && res.data && res.data.background_removed === false) {
-              showSuccess('Product created, but background removal was unavailable. Original image saved.');
-            } else {
-              showSuccess('Product created successfully with background-removed image!');
-            }
-          } finally {
-            setImageUploading(false);
+          // Handle Image Update (offline local SQLite only)
+          if (imageToDelete) {
+            await productsAPI.deleteImage(editingProduct.product_id);
           }
+
+          if (selectedImage) {
+            setImageUploading(true);
+            try {
+              const formData = new FormData();
+              formData.append('image', selectedImage);
+              const res = await productsAPI.uploadImage(editingProduct.product_id, formData);
+              if (res && res.data && res.data.background_removed === false) {
+                showSuccess('Product updated, but background removal was unavailable. Original image saved.');
+              } else {
+                showSuccess('Product updated successfully with background-removed image!');
+              }
+            } finally {
+              setImageUploading(false);
+            }
+          } else {
+            showSuccess('Product updated successfully');
+          }
+
         } else {
-          showSuccess('Product created successfully');
+          const id = generateProductId(formData.name, formData.category);
+          const newProduct = { ...productData, product_id: id };
+          await LocalProductService.createProduct(newProduct);
+
+          if (selectedImage) {
+            setImageUploading(true);
+            try {
+              const formData = new FormData();
+              formData.append('image', selectedImage);
+              const res = await productsAPI.uploadImage(id, formData);
+              if (res && res.data && res.data.background_removed === false) {
+                showSuccess('Product created, but background removal was unavailable. Original image saved.');
+              } else {
+                showSuccess('Product created successfully with background-removed image!');
+              }
+            } finally {
+              setImageUploading(false);
+            }
+          } else {
+            showSuccess('Product created successfully');
+          }
         }
       }
       resetForm();
@@ -329,8 +399,13 @@ const ProductManagement = () => {
 
   const handleReactivate = async (product) => {
     try {
-      await productsAPI.updateProduct(product.product_id, { active: true });
-      showSuccess('Product reactivated successfully');
+      if (isOnlineMode) {
+        await OnlineProductService.updateProduct(product.product_id, { is_available: true });
+        showSuccess('Cloud product reactivated');
+      } else {
+        await LocalProductService.updateProduct(product.product_id, { active: true });
+        showSuccess('Product reactivated successfully');
+      }
       await loadProducts();
       checkCatalogVersion();
     } catch (err) {
@@ -342,8 +417,13 @@ const ProductManagement = () => {
 
   const handleDisable = async (product) => {
     try {
-      await productsAPI.updateProduct(product.product_id, { active: false });
-      showSuccess('Product disabled');
+      if (isOnlineMode) {
+        await OnlineProductService.updateProduct(product.product_id, { is_available: false });
+        showSuccess('Cloud product deactivated');
+      } else {
+        await LocalProductService.updateProduct(product.product_id, { active: false });
+        showSuccess('Product disabled');
+      }
       await loadProducts();
       checkCatalogVersion();
     } catch (err) {
@@ -354,8 +434,13 @@ const ProductManagement = () => {
 
   const handleDeleteDirect = async (product) => {
     try {
-      await productsAPI.deleteProductPermanently(product.product_id);
-      showSuccess('Product permanently deleted');
+      if (isOnlineMode) {
+        await OnlineProductService.deleteProduct(product.product_id);
+        showSuccess('Cloud product permanently deleted');
+      } else {
+        await productsAPI.deleteProductPermanently(product.product_id);
+        showSuccess('Product permanently deleted');
+      }
       await loadProducts();
       checkCatalogVersion();
     } catch (err) {
@@ -369,15 +454,19 @@ const ProductManagement = () => {
     if (!itemToDelete) return;
 
     try {
-      await productsAPI.deleteProductPermanently(itemToDelete.product_id, deletePassword);
-      showSuccess('Product permanently deleted');
+      if (isOnlineMode) {
+        await OnlineProductService.deleteProduct(itemToDelete.product_id);
+        showSuccess('Cloud product permanently deleted');
+      } else {
+        await productsAPI.deleteProductPermanently(itemToDelete.product_id, deletePassword);
+        showSuccess('Product permanently deleted');
+      }
       setShowPasswordModal(false);
       setItemToDelete(null);
       setDeletePassword('');
       await loadProducts();
       checkCatalogVersion();
     } catch (err) {
-      // If 401, it's invalid password
       if (err.response && err.response.status === 401) {
         setError("Invalid Password. Authorization failed.");
       } else {
@@ -393,6 +482,96 @@ const ProductManagement = () => {
     setDeletePassword('');
     setError('');
   };
+
+  const handleExportMenu = () => {
+    try {
+      ExportService.exportMenu(categories, products);
+      showSuccess("Menu exported successfully as JSON!");
+    } catch (err) {
+      setError(err.message || "Failed to export menu.");
+    }
+  };
+
+  const handleImportFromFranchise = async () => {
+    setImportingFromFranchise(true);
+    setError('');
+    try {
+      const response = await OnlineProductService.downloadMenu();
+      if (response.success) {
+        const importResult = await ImportService.importMenuFromFranchise(response);
+        showSuccess(`Menu imported successfully from master franchise: ${importResult.master_name}.`);
+        await loadProducts();
+        checkCatalogVersion();
+      } else {
+        if (response.error_code === 'STANDALONE_NOT_ALLOWED') {
+          showError('Menu Import Failed\nThis store is registered as a Standalone store and cannot import a Master Franchise menu.');
+        } else if (response.error_code === 'MASTER_MENU_NOT_FOUND') {
+          showError('No Menu Available\nYour Master Franchise has not uploaded a menu yet. Please contact the franchise administrator.');
+        } else {
+          showError(response.message || 'Import failed.');
+        }
+      }
+    } catch (err) {
+      if (err.response?.data?.error_code === 'STANDALONE_NOT_ALLOWED') {
+        showError('Menu Import Failed\nThis store is registered as a Standalone store and cannot import a Master Franchise menu.');
+      } else if (err.response?.data?.error_code === 'MASTER_MENU_NOT_FOUND') {
+        showError('No Menu Available\nYour Master Franchise has not uploaded a menu yet. Please contact the franchise administrator.');
+      } else {
+        showError(err.response?.data?.error || err.message || 'Franchise import failed');
+      }
+    } finally {
+      setImportingFromFranchise(false);
+    }
+  };
+
+  const handlePublishMenu = async () => {
+    setPublishingMenu(true);
+    setError('');
+    try {
+      const versionStr = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+      // Export current menu structure
+      const variants = [];
+      const addons = [];
+      products.forEach(p => {
+        const pId = p.product_id || '';
+        if (Array.isArray(p.variations)) {
+          p.variations.forEach(v => {
+            variants.push({ id: v.id || `${pId}_var_${v.name}`, product_id: pId, name: v.name, price: v.price });
+          });
+        }
+      });
+
+      const menuPackage = {
+        categories: categories.map(c => ({ id: c.id, name: c.name })),
+        subcategories: [],
+        products: products.map(p => ({
+          id: p.product_id || '',
+          product_code: p.product_code || p.sku || '',
+          name: p.name || '',
+          category: p.category || p.category_name || '',
+          description: p.description || '',
+          price: p.price,
+          image: p.image_filename || '',
+          variants: p.variations || [],
+          addons: [],
+          available: p.active !== undefined ? !!p.active : true
+        })),
+        variants,
+        addons
+      };
+
+      await OnlineProductService.uploadMenu({
+        menu_version: versionStr,
+        menu: menuPackage
+      });
+      showSuccess(`Menu snapshot version ${versionStr} published to outlets successfully.`);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Menu publication failed');
+    } finally {
+      setPublishingMenu(false);
+    }
+  };
+
   const handleImageChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -568,34 +747,154 @@ const ProductManagement = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--spacing-3)', alignItems: 'center' }}>
-          <button
-            onClick={openImportModal}
-            title="Bulk import products from CSV / XLSX"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--spacing-2)',
-              padding: 'var(--spacing-3) var(--spacing-5)',
-              borderRadius: 'var(--radius-xl)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: '600',
-              border: '1px solid rgba(99,179,237,0.35)',
-              background: 'rgba(99,179,237,0.08)',
-              color: '#63b3ed',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              letterSpacing: '0.01em',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,179,237,0.18)'; e.currentTarget.style.borderColor = 'rgba(99,179,237,0.6)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,179,237,0.08)'; e.currentTarget.style.borderColor = 'rgba(99,179,237,0.35)'; }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Add Product in Bulk
-          </button>
+          {/* Mode Switcher */}
+          <div style={{
+            display: 'flex',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.08)',
+            marginRight: 'var(--spacing-2)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setIsOnlineMode(false)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: '600',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: !isOnlineMode ? '#f97316' : 'transparent',
+                color: !isOnlineMode ? 'white' : 'var(--text-secondary)',
+                transition: 'all 0.2s'
+              }}
+            >
+              Offline
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!localStorage.getItem('cloud_auth_token')) {
+                  showError("Please authenticate in Settings first to enable Online mode.");
+                  return;
+                }
+                setIsOnlineMode(true);
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: '600',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: isOnlineMode ? '#f97316' : 'transparent',
+                color: isOnlineMode ? 'white' : 'var(--text-secondary)',
+                transition: 'all 0.2s'
+              }}
+            >
+              Online
+            </button>
+          </div>
+
+          {/* Action Buttons depending on Mode and Role */}
+          {!isOnlineMode ? (
+            <>
+              <button
+                type="button"
+                onClick={handleExportMenu}
+                title="Export entire SQLite menu to JSON package"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-2)',
+                  padding: 'var(--spacing-3) var(--spacing-5)',
+                  borderRadius: 'var(--radius-xl)',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: '600',
+                  border: '1px solid rgba(72,187,120,0.35)',
+                  background: 'rgba(72,187,120,0.08)',
+                  color: '#48bb78',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Export Menu
+              </button>
+              <button
+                type="button"
+                onClick={openImportModal}
+                title="Bulk import products from CSV / XLSX"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-2)',
+                  padding: 'var(--spacing-3) var(--spacing-5)',
+                  borderRadius: 'var(--radius-xl)',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: '600',
+                  border: '1px solid rgba(99,179,237,0.35)',
+                  background: 'rgba(99,179,237,0.08)',
+                  color: '#63b3ed',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Add in Bulk
+              </button>
+            </>
+          ) : (
+            <>
+              {cloudRole === 'franchise' && (
+                <button
+                  type="button"
+                  onClick={handleImportFromFranchise}
+                  disabled={importingFromFranchise}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--spacing-2)',
+                    padding: 'var(--spacing-3) var(--spacing-5)',
+                    borderRadius: 'var(--radius-xl)',
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: '600',
+                    border: '1px solid rgba(159,122,234,0.35)',
+                    background: 'rgba(159,122,234,0.08)',
+                    color: '#9f7aea',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {importingFromFranchise ? "Importing..." : "Import Master Menu"}
+                </button>
+              )}
+              {cloudRole === 'master' && (
+                <button
+                  type="button"
+                  onClick={handlePublishMenu}
+                  disabled={publishingMenu}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--spacing-2)',
+                    padding: 'var(--spacing-3) var(--spacing-5)',
+                    borderRadius: 'var(--radius-xl)',
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: '600',
+                    border: '1px solid rgba(246,173,85,0.35)',
+                    background: 'rgba(246,173,85,0.08)',
+                    color: '#f6ad55',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {publishingMenu ? "Publishing..." : "Publish Menu"}
+                </button>
+              )}
+            </>
+          )}
+
           <Button
             variant="primary"
             onClick={() => setShowAddForm(true)}

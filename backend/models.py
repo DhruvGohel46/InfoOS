@@ -47,6 +47,16 @@ class Category(db.Model):
     group = db.relationship("ItemGroup", backref="categories")
 
 
+class ImportHistory(db.Model):
+    __tablename__ = "import_history"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    master_name = db.Column(db.String(255), nullable=False)
+    menu_version = db.Column(db.String(100), nullable=False)
+    imported_at = db.Column(db.DateTime, default=func.now())
+    product_count = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+
+
 class Product(db.Model):
     __tablename__ = "products"
     product_id = db.Column(db.String(50), primary_key=True)
