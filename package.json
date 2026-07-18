@@ -77,7 +77,7 @@
         }
       ],
       "icon": "electron/assets/icon.ico",
-      "publisherName": "Dhruv Gohel",
+      "publisherName": "InfoOS Private Limited",
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
