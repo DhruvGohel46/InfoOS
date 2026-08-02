@@ -61,11 +61,16 @@ def enrich_product_dict(product: Dict[str, Any]) -> Dict[str, Any]:
     return product
 
 
-def resolve_bill_line_item(product: Dict[str, Any], item_data: Dict[str, Any]) -> Dict[str, Any]:
+def resolve_bill_line_item(
+    product: Dict[str, Any], item_data: Dict[str, Any], order_type: str = "dine-in"
+) -> Dict[str, Any]:
     quantity = int(item_data["quantity"])
     variation_id = item_data.get("variation_id")
     variations = product.get("variations") or []
     has_variations = len(variations) > 0
+
+    is_takeaway = order_type.lower() == "takeaway"
+    takeaway_addon = float(product.get("takeaway_price") or 0.0) if is_takeaway else 0.0
 
     if has_variations:
         if not variation_id:
@@ -82,7 +87,7 @@ def resolve_bill_line_item(product: Dict[str, Any], item_data: Dict[str, Any]) -
             "variation_id": variation_id,
             "variation_name": variation["name"],
             "name": f'{product["name"]} ({variation["name"]})',
-            "price": float(variation["price"]),
+            "price": float(variation["price"]) + takeaway_addon,
             "quantity": quantity,
         }
 
@@ -94,7 +99,7 @@ def resolve_bill_line_item(product: Dict[str, Any], item_data: Dict[str, Any]) -
     return {
         "product_id": product["product_id"],
         "name": product["name"],
-        "price": float(product["price"]),
+        "price": float(product["price"]) + takeaway_addon,
         "quantity": quantity,
     }
 

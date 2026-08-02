@@ -7,7 +7,7 @@ echo.
 
 echo Starting Development Backend Server...
 cd /d "%~dp0\backend"
-start "POS Dev Backend" cmd /k "python app.py --port 5049"
+start "POS Dev Backend" cmd /k ".venv\Scripts\python.exe app.py --port 5049"
 
 echo.
 echo Starting Development Frontend...

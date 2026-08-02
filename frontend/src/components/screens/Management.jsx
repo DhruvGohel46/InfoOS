@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
-import { removeBackground } from '@imgly/background-removal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { FiSearch, FiPackage, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
@@ -348,6 +347,7 @@ const ProductManagement = () => {
 
           if (selectedImage) {
             setImageUploading(true);
+            setImageProcessing(true);
             try {
               const formData = new FormData();
               formData.append('image', selectedImage);
@@ -359,6 +359,7 @@ const ProductManagement = () => {
               }
             } finally {
               setImageUploading(false);
+              setImageProcessing(false);
             }
           } else {
             showSuccess('Product updated successfully');
@@ -371,6 +372,7 @@ const ProductManagement = () => {
 
           if (selectedImage) {
             setImageUploading(true);
+            setImageProcessing(true);
             try {
               const formData = new FormData();
               formData.append('image', selectedImage);
@@ -382,6 +384,7 @@ const ProductManagement = () => {
               }
             } finally {
               setImageUploading(false);
+              setImageProcessing(false);
             }
           } else {
             showSuccess('Product created successfully');
@@ -572,31 +575,12 @@ const ProductManagement = () => {
     }
   };
 
-  const handleImageChange = async (e) => {
+  const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setSelectedImage(file);
       setPreviewImage(URL.createObjectURL(file));
-      setImageProcessing(true);
-
-      // Determine public path for loading model assets locally
-      const isWeb = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-      const base = !isWeb
-        ? window.location.href.substring(0, window.location.href.lastIndexOf('/'))
-        : window.location.origin;
-      const publicPath = `${base}/assets/ai/`;
-
-      try {
-        const processedBlob = await removeBackground(file, { publicPath });
-        const processedFile = new File([processedBlob], file.name.replace(/\.[^/.]+$/, "") + ".png", { type: "image/png" });
-        setSelectedImage(processedFile);
-        setPreviewImage(URL.createObjectURL(processedFile));
-        setImageToDelete(false);
-      } catch (err) {
-        console.error("Client-side background removal failed:", err);
-        setSelectedImage(file);
-      } finally {
-        setImageProcessing(false);
-      }
+      setImageToDelete(false);
     }
   };
 

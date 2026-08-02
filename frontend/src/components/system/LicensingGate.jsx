@@ -349,10 +349,10 @@ export default function LicensingGate({ children }) {
     setLicensingState({ status: 'login', errorMessage: 'Logged out successfully.' });
   };
 
-  const openWebsite = (path = '') => {
-    const baseUrl = 'https://infoos-web.vercel.app';
+  const openWebsite = () => {
+    const baseUrl = 'https://infoos-web.vercel.app/';
     if (window.open) {
-      window.open(baseUrl + path, '_blank');
+      window.open(baseUrl, '_blank');
     }
   };
 
@@ -462,8 +462,8 @@ export default function LicensingGate({ children }) {
 
               {/* Secondary Links Row */}
               <div className="licensing-links-row">
-                <span className="licensing-link" onClick={() => openWebsite('/auth?tab=signup')}>Create account</span>
-                <span className="licensing-link" onClick={() => openWebsite('/auth?tab=forgot')}>Forgot password</span>
+                <span className="licensing-link" onClick={() => openWebsite()}>Create account</span>
+                <span className="licensing-link" onClick={() => openWebsite()}>Forgot password</span>
               </div>
 
               {/* Help Line */}
@@ -509,7 +509,7 @@ export default function LicensingGate({ children }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button className="licensing-btn" onClick={() => openWebsite('/billing')}>
+            <button className="licensing-btn" onClick={() => openWebsite()}>
               Renew Subscription
             </button>
             <button className="licensing-secondary-btn" onClick={runStartupChecks}>

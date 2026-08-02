@@ -25,7 +25,7 @@ _bill_create_schema = BillCreateSchema()
 _bill_update_schema = BillUpdateSchema()
 
 
-def _validate_bill_products(products: list) -> tuple[list, float]:
+def _validate_bill_products(products: list, order_type: str = "dine-in") -> tuple[list, float]:
     """Validate bill line items and resolve variation pricing."""
     validated_products = []
     total = 0.0
@@ -44,7 +44,7 @@ def _validate_bill_products(products: list) -> tuple[list, float]:
             )
 
         try:
-            line_item = resolve_bill_line_item(product_found, product_data)
+            line_item = resolve_bill_line_item(product_found, product_data, order_type)
         except ValueError as exc:
             raise ValidationError(str(exc), code="VARIATION_REQUIRED")
 
@@ -93,8 +93,9 @@ def create_bill():
         raise ValidationError(f"Invalid bill data: {e.messages}", code="BILL_VALIDATION_FAILED")
 
     products = validated["products"]
+    order_type = validated.get("order_type", "dine-in")
 
-    validated_products, total = _validate_bill_products(products)
+    validated_products, total = _validate_bill_products(products, order_type)
 
     # Create bill in database (ACID — db_service handles transaction)
     bill_data = {
@@ -326,14 +327,19 @@ def update_bill(bill_no):
     validated_products = []
     total = 0.0
 
+    order_type = (data or {}).get("order_type")
+    if not order_type:
+        existing_bill = db.get_bill(bill_no)
+        order_type = existing_bill.get("order_type", "dine-in") if existing_bill else "dine-in"
+
     if products:
-        validated_products, total = _validate_bill_products(products)
+        validated_products, total = _validate_bill_products(products, order_type)
 
     bill_update_data = {
         "customer_name": validated.get("customer_name", ""),
         "total_amount": total if products else validated.get("total_amount", 0),
         "items": validated_products,
-        "order_type": validated.get("order_type", "dine-in"),
+        "order_type": order_type,
         "table_no": validated.get("table_no", ""),
     }
 

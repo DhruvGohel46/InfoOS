@@ -2,7 +2,7 @@
 :: 1. Start the Python Backend
 echo [1/2] Starting Python Backend...
 cd /d "%~dp0\backend"
-start /b "" python app.py > nul 2>&1
+start /b "" .venv\Scripts\python.exe app.py > nul 2>&1
 
 :: 2. Start the Frontend
 echo [2/2] Starting Frontend Server...

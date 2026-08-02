@@ -7,7 +7,7 @@ echo.
 
 echo Starting Backend Server (including Reminders)...
 cd backend
-start "POS Backend" cmd /k "python app.py"
+start "POS Backend" cmd /k ".venv\Scripts\python.exe app.py"
 
 echo.
 echo Starting Frontend...

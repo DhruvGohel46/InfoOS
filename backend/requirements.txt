@@ -39,6 +39,10 @@ waitress>=3.0.0
 # ── Core image handling (always required) ─────────────────────────────────────
 Pillow>=10.0.0
 
+# ── Printing & QR codes (always required) ──────────────────────────────────────
+qrcode>=8.0
+playwright>=1.40.0
+
 # ── Optional: AI background removal (production only) ─────────────────────────
 # Remove / exclude these in CI or lightweight environments.
 # Install separately via:  pip install -r requirements-ai.txt

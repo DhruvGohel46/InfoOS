@@ -181,6 +181,7 @@ test.describe("POS Layout Reordering", () => {
     });
 
     // Capture page errors to ensure no console/runtime crashes occur
+    /** @type {any[]} */
     const pageErrors = [];
     page.on("pageerror", (err) => pageErrors.push(err.message));
 

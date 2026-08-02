@@ -18,93 +18,24 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ─── rembg Lazy & Async Loader ───────────────────────────────────────────────
-# rembg / onnxruntime are heavy ML dependencies.
-# They are OPTIONAL: production installs include them for background removal,
-# but CI / lightweight deploys intentionally omit them.
-# The first call to new_session downloads the u2netp model (~100MB) from GitHub,
-# which can block the request thread and trigger client-side timeouts.
-# We perform this asynchronously in a background thread during module import.
+# ─── Backend AI Loader ────────────────────────────────────────────────────────
+from ai.background_removal import remove_background_from_file
+from ai.session_manager import AISessionManager
 
-_rembg_session = None
-_rembg_available = None
-_rembg_loading = False
+_rembg_available = False
+_rembg_loading = not os.environ.get("TESTING")
 
 
-def warmup_rembg():
-    """Warms up the rembg model session in a background thread."""
-    global _rembg_session, _rembg_available, _rembg_loading
-    if _rembg_available is not None or _rembg_loading:
-        return
-
-    _rembg_loading = True
-
-    def _load():
-        global _rembg_session, _rembg_available, _rembg_loading
-        try:
-            logger.info("Starting background loading/download of rembg ONNX model...")
-            from rembg import remove, new_session
-
-            session = new_session("u2netp")
-            _rembg_session = session
-            _rembg_available = True
-            logger.info("rembg loaded successfully — background removal enabled")
-        except ImportError:
-            _rembg_available = False
-            logger.warning("rembg dependency not installed — background removal disabled")
-        except Exception as exc:
-            _rembg_available = False
-            logger.error("rembg initialisation failed: %s", exc)
-        finally:
-            _rembg_loading = False
-
-    threading.Thread(target=_load, daemon=True).start()
+def _warmup_ai():
+    global _rembg_available, _rembg_loading
+    success = AISessionManager.initialize()
+    _rembg_available = success
+    _rembg_loading = False
 
 
-# Trigger warmup immediately on module load so the model starts downloading
-# in the background on server boot instead of the first user upload.
-# Skip during testing — the daemon thread outlives the test process and crashes
-# the interpreter on shutdown (numba JIT logging writes to closed stderr).
 if not os.environ.get("TESTING"):
-    warmup_rembg()
-
-
-def get_rembg():
-    """
-    Lazy-load rembg and return (remove_fn, session).
-
-    Returns (None, None) immediately if background removal is loading,
-    not installed, or failed, ensuring request threads never block on model downloads.
-    """
-    global _rembg_session, _rembg_available, _rembg_loading
-
-    if _rembg_available is False or _rembg_loading:
-        return None, None
-
-    if _rembg_available is True and _rembg_session is not None:
-        from rembg import remove
-
-        return remove, _rembg_session
-
-    if _rembg_available is None and not _rembg_loading:
-        warmup_rembg()
-
-    return None, None
-
-
-def _rembg_unavailable_response():
-    """Standard 503 response when rembg is absent."""
-    current_app.logger.warning("rembg dependency not installed — returning 503")
-    return (
-        jsonify(
-            {
-                "success": False,
-                "message": "Background removal service is unavailable",
-                "hint": "rembg / onnxruntime are not installed on this server",
-            }
-        ),
-        503,
-    )
+    # Warm up the AI session in a background thread to prevent blocking server boot
+    threading.Thread(target=_warmup_ai, daemon=True).start()
 
 
 # ─── Blueprint & Shared Instances ─────────────────────────────────────────────
@@ -403,12 +334,8 @@ def reset_database():
 @safe_route
 def upload_product_image(product_id):
     """
-    Upload a product image.
-
-    If rembg is installed the background is automatically removed (u2netp model).
-    If rembg is absent the original image is saved as-is — the endpoint still
-    succeeds rather than returning 503, because saving without background
-    removal is a valid degraded-mode operation.
+    Upload a product image, preserving the original, performing backend background
+    removal using the local ONNX model, and saving the transparent PNG.
     """
     if "image" not in request.files:
         raise ValidationError("No image file provided", code="MISSING_IMAGE")
@@ -426,57 +353,63 @@ def upload_product_image(product_id):
     if ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
         raise ValidationError("Invalid image format", code="INVALID_IMAGE_FORMAT")
 
-    safe_name = get_safe_filename(product["name"])
-    filename = f"{safe_name}.png"
+    import time
+
+    timestamp = int(time.time())
+    filename_png = f"{product_id}_{timestamp}.png"
+    filename_orig = f"{product_id}_{timestamp}_original{ext}"
 
     images_dir = os.path.join(config["default"].DATA_DIR, "images")
     os.makedirs(images_dir, exist_ok=True)
 
-    # Remove old image if a different one exists
-    if product.get("image_filename"):
-        old_path = os.path.join(images_dir, product["image_filename"])
-        if os.path.exists(old_path) and product["image_filename"] != filename:
+    # 1. Clean up any existing image files for this product to prevent clutter
+    for f_name in os.listdir(images_dir):
+        if f_name.startswith(f"{product_id}_"):
             try:
-                os.remove(old_path)
+                os.remove(os.path.join(images_dir, f_name))
             except Exception:
                 pass
 
-    file_path = os.path.join(images_dir, filename)
+    path_png = os.path.join(images_dir, filename_png)
+    path_orig = os.path.join(images_dir, filename_orig)
 
-    # ── Save original uploaded image (with backend background removal fallback) ──────
+    # 2. Save original uploaded image
     try:
+        logger.info("Saving original uploaded image to: %s", path_orig)
         file.seek(0)
-        img = Image.open(file)
-
-        # Check if rembg is available on the backend
-        remove_fn, bg_session = get_rembg()
-        if remove_fn is not None:
-            try:
-                logger.info("Starting backend background removal for product %s", product_id)
-                # Convert to RGB to discard alpha channel before processing if needed, or pass directly
-                img_rgb = img.convert("RGB")
-                img = remove_fn(img_rgb, session=bg_session)
-                bg_removed = True
-                logger.info("Backend background removal completed for product %s", product_id)
-            except Exception as bg_err:
-                logger.error(
-                    "Backend background removal failed for product %s: %s", product_id, bg_err
-                )
-                bg_removed = False
-        else:
-            logger.info("Backend background removal not available; saving image as-is")
-            bg_removed = False
-
-        img.save(file_path, format="PNG")
-        logger.info("Image saved successfully for product %s", product_id)
+        file.save(path_orig)
     except Exception as e:
-        logger.error("Failed to save product image: %s", e)
-        raise Exception("Failed to save product image: " + str(e))
+        logger.error("Failed to save original product image: %s", e, exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save uploaded image."}), 500
 
-    success = db.update_product(product_id, {"image_filename": filename})
+    # 3. Run background removal and save transparent PNG
+    try:
+        logger.info("Running backend background removal on: %s", path_orig)
+        success_bg = remove_background_from_file(path_orig, path_png)
+        if not success_bg:
+            logger.warning(
+                "Background removal failed, falling back to converting original image to PNG"
+            )
+            with Image.open(path_orig) as img:
+                img.save(path_png, format="PNG")
+            bg_removed = False
+        else:
+            bg_removed = True
+    except Exception as e:
+        logger.error("Error during background removal processing: %s", e, exc_info=True)
+        try:
+            with Image.open(path_orig) as img:
+                img.save(path_png, format="PNG")
+        except Exception as fallback_err:
+            logger.error("Fallback image conversion also failed: %s", fallback_err, exc_info=True)
+            return jsonify({"success": False, "message": "Failed to process product image."}), 500
+        bg_removed = False
 
+    # 4. Update database with the transparent PNG filename
+    success = db.update_product(product_id, {"image_filename": filename_png})
     if not success:
-        raise Exception("Failed to update database with image filename")
+        logger.error("Failed to update database with image filename")
+        return jsonify({"success": False, "message": "Failed to update database."}), 500
 
     update_catalog_version()
 
@@ -485,7 +418,7 @@ def upload_product_image(product_id):
             "success": True,
             "message": "Image uploaded successfully"
             + (" (background removed)" if bg_removed else " (background removal unavailable)"),
-            "image_filename": filename,
+            "image_filename": filename_png,
             "background_removed": bg_removed,
         }
     )
@@ -497,15 +430,15 @@ def upload_product_image(product_id):
 def remove_background(product_id):
     """
     Explicitly request background removal for an already-uploaded image.
-
-    This endpoint returns HTTP 503 if rembg is not installed — unlike the
-    upload endpoint which degrades gracefully.
+    This endpoint returns HTTP 503 if the local ONNX model or rembg session is unavailable.
     """
-    remove_fn, bg_session = get_rembg()
-
-    if remove_fn is None:
-        logger.error("Background removal requested but rembg is not available")
-        return _rembg_unavailable_response()
+    remove_fn, bg_session = AISessionManager.get_session()
+    if remove_fn is None or bg_session is None:
+        logger.error("Background removal requested but AI engine is unavailable")
+        return (
+            jsonify({"success": False, "message": "Background removal engine is unavailable."}),
+            503,
+        )
 
     product = db.get_product(product_id)
     if not product:
@@ -521,15 +454,29 @@ def remove_background(product_id):
     if not os.path.exists(file_path):
         raise NotFoundError("Image file not found on disk", code="IMAGE_FILE_MISSING")
 
+    # Find the original file if it exists to perform background removal on
+    base, _ = os.path.splitext(filename)
+    original_found = None
+    for f in os.listdir(images_dir):
+        if f.startswith(f"{base}_original"):
+            original_found = os.path.join(images_dir, f)
+            break
+
+    input_path = original_found if original_found else file_path
+
     try:
-        logger.info("Starting background removal for product %s", product_id)
-        img = Image.open(file_path).convert("RGB")
-        output = remove_fn(img, session=bg_session)
-        output.save(file_path, format="PNG")
-        logger.info("Background removal completed successfully for product %s", product_id)
+        logger.info(
+            "Explicit background removal requested for product %s using input: %s",
+            product_id,
+            input_path,
+        )
+        success = remove_background_from_file(input_path, file_path)
+        if not success:
+            raise Exception("AI inference failed")
+        logger.info("Explicit background removal completed successfully for product %s", product_id)
     except Exception as e:
-        logger.error("Background removal failed for %s: %s", product_id, e)
-        raise Exception("Background removal processing failed")
+        logger.error("Background removal failed for %s: %s", product_id, e, exc_info=True)
+        return jsonify({"success": False, "message": "Background removal processing failed."}), 500
 
     update_catalog_version()
 
@@ -546,7 +493,7 @@ def remove_background(product_id):
 @require_admin
 @safe_route
 def delete_product_image(product_id):
-    """Delete product image."""
+    """Delete product image and all associated files."""
     product = db.get_product(product_id)
     if not product:
         raise NotFoundError("Product not found", code="PRODUCT_NOT_FOUND")
@@ -554,13 +501,13 @@ def delete_product_image(product_id):
     filename = product.get("image_filename")
     if filename:
         images_dir = os.path.join(config["default"].DATA_DIR, "images")
-        file_path = os.path.join(images_dir, filename)
-
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception as e:
-                logger.warning("Error removing file: %s", e)
+        # Remove any files associated with this product (original and main transparent PNG)
+        for f_name in os.listdir(images_dir):
+            if f_name.startswith(f"{product_id}_"):
+                try:
+                    os.remove(os.path.join(images_dir, f_name))
+                except Exception as e:
+                    logger.warning("Error removing file: %s", e)
 
         db.update_product(product_id, {"image_filename": None})
 

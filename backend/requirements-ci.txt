@@ -44,6 +44,10 @@ waitress>=3.0.0
 # ── Core image handling (rembg excluded in CI — see requirements-ai.txt) ──────
 Pillow>=10.0.0
 
+# ── Printing & QR codes (always required) ──────────────────────────────────────
+qrcode>=8.0
+playwright>=1.40.0
+
 # NOTE: pywin32 is intentionally absent.
 # PrinterService degrades gracefully on Linux via load_win32_modules() → None.
 

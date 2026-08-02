@@ -26,11 +26,17 @@ Platform notes
 
 import re
 import threading
+import os
 from typing import Dict, Optional, Any
 
 from .printer_manager import PrinterManager, load_win32_modules
-from .escpos_formatter import build_kot, build_bill, build_test_print
 from .db_service import DatabaseService
+
+# HTML-Chromium printing pipeline imports
+from printing.template_manager import TemplateManager
+from printing.renderer import HTMLRenderer
+from printing.image_generator import PlaywrightImageGenerator
+from printing.printer import WindowsImagePrinter
 
 
 class PrinterService:
@@ -53,6 +59,12 @@ class PrinterService:
         self.print_lock = threading.Lock()
         self.printer_name: Optional[str] = None
         self._initialized = False
+
+        # Initialize HTML-Chromium pipeline components
+        self.template_manager = TemplateManager()
+        self.renderer = HTMLRenderer(self.template_manager)
+        self.image_generator = PlaywrightImageGenerator()
+        self.image_printer = WindowsImagePrinter()
 
     def _ensure_initialized(self) -> None:
         """Lazy initialization - only initialize when needed."""
@@ -205,11 +217,28 @@ class PrinterService:
                 # Bypassed win32 validation for development/fallback
                 pass
 
-            # Build ESC/POS bytes
-            esc_pos_bytes = build_bill(bill_data, settings)
+            # Render HTML template
+            html_content = self.renderer.render_bill(bill_data, settings, is_bill=True)
 
-            # Send to printer
-            success = self._send_raw(self.printer_name, esc_pos_bytes, "Bill")
+            # Generate PNG image from HTML
+            png_path = self.image_generator.generate_png(
+                html_content, settings.get("printer_width", "58mm")
+            )
+
+            try:
+                # Send PNG image to printer
+                success = self.image_printer.print_image(
+                    self.printer_name, png_path, f"Bill_{bill_data.get('bill_no', '1')}"
+                )
+            finally:
+                # Clean up temporary PNG file
+                if os.path.exists(png_path):
+                    try:
+                        os.remove(png_path)
+                    except Exception as e:
+                        print(
+                            f"[PrinterService] Warning: Failed to delete temporary print file: {e}"
+                        )
 
             if success:
                 return {"success": True, "error": None}
@@ -245,11 +274,28 @@ class PrinterService:
                 # Bypassed win32 validation for development/fallback
                 pass
 
-            # Build ESC/POS bytes
-            esc_pos_bytes = build_kot(bill_data, settings)
+            # Render HTML template
+            html_content = self.renderer.render_bill(bill_data, settings, is_bill=False)
 
-            # Send to printer
-            success = self._send_raw(self.printer_name, esc_pos_bytes, "KOT")
+            # Generate PNG image from HTML
+            png_path = self.image_generator.generate_png(
+                html_content, settings.get("printer_width", "58mm")
+            )
+
+            try:
+                # Send PNG image to printer
+                success = self.image_printer.print_image(
+                    self.printer_name, png_path, f"KOT_{bill_data.get('bill_no', '1')}"
+                )
+            finally:
+                # Clean up temporary PNG file
+                if os.path.exists(png_path):
+                    try:
+                        os.remove(png_path)
+                    except Exception as e:
+                        print(
+                            f"[PrinterService] Warning: Failed to delete temporary print file: {e}"
+                        )
 
             if success:
                 return {"success": True, "error": None}
@@ -283,11 +329,52 @@ class PrinterService:
                 # Bypassed win32 validation for development/fallback
                 pass
 
-            # Build ESC/POS bytes
-            esc_pos_bytes = build_test_print(settings)
+            # Create mock bill data for test print
+            mock_bill_data = {
+                "bill_no": "TEST-1234",
+                "date": "01-01-2026",
+                "time": "12:00",
+                "order_type": "dine-in",
+                "table_no": "5",
+                "customer_name": "Test Customer",
+                "payment_method": "CASH",
+                "today_token": "99",
+                "cashier": "Test Cashier",
+                "products": [
+                    {"name": "Test Item 1", "quantity": 1, "price": 10.0},
+                    {
+                        "name": "Test Item 2",
+                        "quantity": 2,
+                        "price": 20.0,
+                        "variation_name": "Medium",
+                    },
+                ],
+                "subtotal": 50.0,
+                "discount": 5.0,
+                "gst": 2.25,
+                "total": 47.25,
+            }
 
-            # Send to printer
-            success = self._send_raw(self.printer_name, esc_pos_bytes, "TestPage")
+            # Render HTML template
+            html_content = self.renderer.render_bill(mock_bill_data, settings, is_bill=True)
+
+            # Generate PNG image from HTML
+            png_path = self.image_generator.generate_png(
+                html_content, settings.get("printer_width", "58mm")
+            )
+
+            try:
+                # Send PNG image to printer
+                success = self.image_printer.print_image(self.printer_name, png_path, "TestPrint")
+            finally:
+                # Clean up temporary PNG file
+                if os.path.exists(png_path):
+                    try:
+                        os.remove(png_path)
+                    except Exception as e:
+                        print(
+                            f"[PrinterService] Warning: Failed to delete temporary print file: {e}"
+                        )
 
             if success:
                 return {"success": True, "error": None}

@@ -265,6 +265,19 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     e.preventDefault();
     if (!draggedProductId || draggedProductId === targetId) return;
 
+    const draggedProd = editableProducts.find(p => p.product_id === draggedProductId);
+    const targetProd = editableProducts.find(p => p.product_id === targetId);
+
+    if (draggedProd && targetProd) {
+      if (selectedCategory === 'favorites') {
+        const draggedCat = draggedProd.category_id || draggedProd.category;
+        const targetCat = targetProd.category_id || targetProd.category;
+        if (draggedCat !== targetCat) {
+          return;
+        }
+      }
+    }
+
     const draggedIndex = editableProducts.findIndex(p => p.product_id === draggedProductId);
     const targetIndex = editableProducts.findIndex(p => p.product_id === targetId);
 
@@ -777,7 +790,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           syncService.addToQueue(billData);
 
-          setOrderItems([]);
+          resetBillState();
 
           showWarning('You are offline. Bill saved locally and will sync automatically.');
 
@@ -801,7 +814,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         const response = await billingAPI.createBill(billData);
 
-        setOrderItems([]);
+        resetBillState();
 
         if (onBillCreated) {
 
@@ -847,7 +860,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         syncService.addToQueue(billData);
 
-        setOrderItems([]);
+        resetBillState();
 
         showWarning('Network dropped. Bill saved locally and will sync automatically.');
 
@@ -995,7 +1008,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           syncService.addToQueue(billData);
 
-          setOrderItems([]);
+          resetBillState();
 
           showWarning('Offline mode. Bill saved locally.');
 
@@ -1031,7 +1044,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-      setOrderItems([]);
+      resetBillState();
 
       if (onBillCreated && !editingBill) {
 
@@ -1075,12 +1088,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-  const confirmClear = () => {
-
+  const resetBillState = () => {
     setOrderItems([]);
+    setOrderType(settings?.default_order_type || 'dine-in');
+    setTableNumber('');
+  };
 
+  const confirmClear = () => {
+    resetBillState();
     setShowClearConfirm(false);
-
   };
 
 
@@ -1684,7 +1700,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             </div>
 
-          ) : (selectedCategory === 'favorites' && selectedGroupId === 'all') ? (
+          ) : (selectedCategory === 'favorites') ? (
             // Group the favorite products by category/section
             (() => {
               const favoritesByCategory = {};
@@ -1872,9 +1888,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                   color: isDark ? '#F2F2F2' : '#111827',
                                   margin: '10px 0 8px 0',
                                   textAlign: 'left',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'normal',
+                                  wordBreak: 'break-word',
                                 }}>
                                   {product.name}
                                 </h4>
@@ -2141,9 +2156,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         color: isDark ? '#F2F2F2' : '#111827',
                         margin: '10px 0 8px 0',
                         textAlign: 'left',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
                       }}>
                         {product.name}
                       </h4>

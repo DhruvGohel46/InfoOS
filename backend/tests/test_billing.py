@@ -67,3 +67,42 @@ def test_create_bill_invalid_quantity(client, init_database):
     data = json.loads(response.data)
     assert data["success"] is False
     assert "error" in data
+
+
+def test_create_bill_takeaway(client, init_database):
+    """Test that a takeaway bill has takeaway charges applied."""
+    product = Product.query.first()
+    assert product is not None
+
+    # Set a takeaway surcharge/price on the product
+    product.takeaway_price = 15.0
+    from models import db as orm_db
+
+    orm_db.session.commit()
+
+    payload = {
+        "products": [{"product_id": product.product_id, "quantity": 1}],
+        "customer_name": "Takeaway User",
+        "order_type": "takeaway",
+        "print": False,
+    }
+
+    response = client.post(
+        "/api/bill/create",
+        data=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
+
+    if response.status_code == 401:
+        pytest.skip("Authentication required")
+
+    assert response.status_code == 201
+    data = json.loads(response.data)
+    assert data["success"] is True
+
+    bill = Bill.query.filter_by(customer_name="Takeaway User").first()
+    assert bill is not None
+    # price should be base_price (100.0) + takeaway_price (15.0) = 115.0
+    assert bill.total_amount == 115.0
+    items = json.loads(bill.items)
+    assert items[0]["price"] == 115.0

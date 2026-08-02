@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt #{{ bill.bill_no }}</title>
+  <style>
+    /* CSS_PLACEHOLDER */
+  </style>
+</head>
+<body>
+  <div class="receipt-container">
+    <!-- Header Section -->
+    <div class="header">
+      {% if shop.logo_base64 %}
+      <img src="data:image/png;base64,{{ shop.logo_base64 }}" class="logo" alt="logo">
+      {% endif %}
+      <h1 class="shop-name">{{ shop.name | upper }}</h1>
+      {% if shop.address %}
+      <p class="shop-address">{{ shop.address }}</p>
+      {% endif %}
+      {% if shop.contact %}
+      <p class="shop-contact">Ph: {{ shop.contact }}</p>
+      {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Metadata Section -->
+    <div class="metadata">
+      <div class="meta-row">
+        <span><strong>Date:</strong> {{ bill.date }}</span>
+        <span><strong>Time:</strong> {{ bill.time }}</span>
+      </div>
+      <div class="meta-row">
+        <span><strong>Bill No:</strong> #{{ bill.bill_no }}</span>
+        {% if bill.table_no and bill.order_type.lower() in ['dine-in', 'dine in'] %}
+        <span><strong>Table:</strong> {{ bill.table_no }}</span>
+        {% endif %}
+      </div>
+      <div class="meta-row">
+        <span><strong>Type:</strong> {{ bill.order_type | title }}</span>
+        {% if bill.today_token %}
+        <span><strong>Token:</strong> {{ bill.today_token }}</span>
+        {% endif %}
+      </div>
+      {% if bill.customer_name %}
+      <div class="meta-row">
+        <span><strong>Customer:</strong> {{ bill.customer_name }}</span>
+      </div>
+      {% endif %}
+      {% if bill.cashier %}
+      <div class="meta-row">
+        <span><strong>Cashier:</strong> {{ bill.cashier }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="align-left" style="width: 8%;">Sr.</th>
+          <th class="align-left">Item</th>
+          <th class="align-right" style="width: 12%;">Qty</th>
+          <th class="align-right" style="width: 18%;">Price</th>
+          <th class="align-right" style="width: 20%;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="align-left valign-top" style="width: 8%;">{{ loop.index }}.</td>
+          <td class="align-left">
+            <div class="item-name">{{ item.name }}</div>
+            {% if item.variation_name %}
+            <div class="item-sub text-muted">({{ item.variation_name }})</div>
+            {% endif %}
+            {% if item.specification %}
+            <div class="item-sub text-muted">[{{ item.specification }}]</div>
+            {% endif %}
+          </td>
+          <td class="align-right valign-top" style="width: 12%;">{{ item.quantity }}</td>
+          <td class="align-right valign-top" style="width: 18%;">{{ "%.2f" | format(item.price) }}</td>
+          <td class="align-right valign-top" style="width: 20%;">{{ "%.2f" | format(item.quantity * item.price) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- Totals Section -->
+    <div class="totals">
+      <div class="total-row">
+        <span>Sub Total</span>
+        <span>{{ "%.2f" | format(bill.subtotal) }}</span>
+      </div>
+
+      {% if bill.discount and bill.discount | float > 0 %}
+      <div class="total-row discount">
+        <span>Discount</span>
+        <span>-{{ "%.2f" | format(bill.discount | float) }}</span>
+      </div>
+      {% endif %}
+
+      {% if bill.cgst is not none and bill.cgst | float > 0 %}
+      <div class="total-row">
+        <span>CGST</span>
+        <span>{{ "%.2f" | format(bill.cgst | float) }}</span>
+      </div>
+      {% endif %}
+      {% if bill.sgst is not none and bill.sgst | float > 0 %}
+      <div class="total-row">
+        <span>SGST</span>
+        <span>{{ "%.2f" | format(bill.sgst | float) }}</span>
+      </div>
+      {% endif %}
+      {% if bill.gst is not none and bill.gst | float > 0 %}
+      <div class="total-row">
+        <span>GST</span>
+        <span>{{ "%.2f" | format(bill.gst | float) }}</span>
+      </div>
+      {% endif %}
+      {% if bill.tax is not none and bill.tax | float > 0 %}
+      <div class="total-row">
+        <span>Tax</span>
+        <span>{{ "%.2f" | format(bill.tax | float) }}</span>
+      </div>
+      {% endif %}
+
+      <div class="divider"></div>
+
+      <div class="total-row grand-total">
+        <span><strong>GRAND TOTAL</strong></span>
+        <span><strong>{{ "%.2f" | format(bill.grand_total) }}</strong></span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Footer Section -->
+    <div class="footer">
+      {% if bill.payment_method %}
+      <p class="payment-method">Paid via: {{ bill.payment_method | upper }}</p>
+      {% endif %}
+      
+      {% if footer.message %}
+      <p class="footer-msg">{{ footer.message }}</p>
+      {% else %}
+      <p class="footer-msg">Thank You! Visit Again.</p>
+      {% endif %}
+      
+      {% if footer.qr_code_base64 %}
+      <div class="qr-container">
+        <img class="qr-code" src="data:image/png;base64,{{ footer.qr_code_base64 }}" alt="QR Code">
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

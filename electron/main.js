@@ -45,13 +45,26 @@ function log(message) {
   console.log(`[Electron]: ${message}`);
 }
 
+// Resolve the python command (uses virtual environment if available)
+function getPythonCommand() {
+  const venvWindows = path.join(__dirname, '../backend/.venv/Scripts/python.exe');
+  const venvUnix = path.join(__dirname, '../backend/.venv/bin/python');
+  
+  if (fs.existsSync(venvWindows)) {
+    return venvWindows;
+  } else if (fs.existsSync(venvUnix)) {
+    return venvUnix;
+  }
+  return 'python';
+}
+
 // Get backend executable path
 function getBackendPath() {
   if (isDev) {
     // In dev, run python script
     // Assumes running from project root or electron folder
     return {
-      command: 'python',
+      command: getPythonCommand(),
       args: [path.join(__dirname, '../backend/app.py')]
     };
   } else {
@@ -88,7 +101,7 @@ function runUpdateScript() {
   log(`Running backend update script for version ${currentVersion}...`);
   const dataDir = process.env.POS_DATA_DIR;
 
-  let command = 'python';
+  let command = getPythonCommand();
   let args = [path.join(__dirname, '../backend/update.py')];
 
   if (!isDev) {

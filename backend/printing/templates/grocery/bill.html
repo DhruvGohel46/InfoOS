@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Supermarket Receipt</title>
+  <style>
+    /* CSS_PLACEHOLDER */
+  </style>
+</head>
+<body>
+  <div class="receipt-container">
+    <div class="header">
+      <h1 class="shop-name">{{ shop.name | upper }}</h1>
+      {% if shop.address %}
+      <p class="shop-address">{{ shop.address }}</p>
+      {% endif %}
+      {% if shop.contact %}
+      <p class="shop-contact">Ph: {{ shop.contact }}</p>
+      {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="metadata">
+      <div class="meta-row">
+        <span>Bill No: #{{ bill.bill_no }}</span>
+        <span>Date: {{ bill.date }}</span>
+      </div>
+      <div class="meta-row">
+        <span>Cashier: {{ bill.cashier if bill.cashier else 'Self' }}</span>
+        <span>Time: {{ bill.time }}</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="align-left">Description</th>
+          <th class="align-right">Qty</th>
+          <th class="align-right">Rate</th>
+          <th class="align-right">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="align-left">
+            <div class="item-name">{{ item.name | upper }}</div>
+            {% if item.variation_name %}
+            <div class="item-sub">({{ item.variation_name | upper }})</div>
+            {% endif %}
+          </td>
+          <td class="align-right valign-top">{{ item.quantity }}</td>
+          <td class="align-right valign-top">{{ "%.2f" | format(item.price) }}</td>
+          <td class="align-right valign-top">{{ "%.2f" | format(item.quantity * item.price) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <div class="totals">
+      <div class="total-row">
+        <span>SUBTOTAL</span>
+        <span>{{ "%.2f" | format(bill.subtotal) }}</span>
+      </div>
+      
+      {% if bill.discount and bill.discount | float > 0 %}
+      <div class="total-row discount">
+        <span>TOTAL DISCOUNT</span>
+        <span>-{{ "%.2f" | format(bill.discount | float) }}</span>
+      </div>
+      {% endif %}
+
+      {% if bill.gst is not none and bill.gst | float > 0 %}
+      <div class="total-row">
+        <span>TAX / GST</span>
+        <span>{{ "%.2f" | format(bill.gst | float) }}</span>
+      </div>
+      {% endif %}
+
+      <div class="divider"></div>
+
+      <div class="total-row grand-total">
+        <span>TOTAL AMOUNT</span>
+        <span>{{ "%.2f" | format(bill.grand_total) }}</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="footer">
+      {% if bill.payment_method %}
+      <p class="payment-method">Payment: {{ bill.payment_method | upper }}</p>
+      {% endif %}
+      <p class="footer-msg">SAVINGS WITH US!</p>
+      <p class="barcode-placeholder">|||||||||||||||||||||||||||||||||||||</p>
+      
+      {% if footer.qr_code_base64 %}
+      <div class="qr-container">
+        <img class="qr-code" src="data:image/png;base64,{{ footer.qr_code_base64 }}" alt="QR Code">
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

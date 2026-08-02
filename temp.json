@@ -17,7 +17,7 @@
     "build:backend": "cd backend && pyinstaller backend.spec",
     "dist": "npm run build && npm run build:backend && electron-builder",
     "preelectron-pack": "npm run build",
-    "backend": "cd backend && python app.py",
+    "backend": "cd backend && (if exist .venv\\Scripts\\python.exe (.venv\\Scripts\\python.exe app.py) else (python app.py))",
     "dev": "npm run electron-dev",
     "build-all": "npm run dist",
     "release": "electron-builder --publish always"
