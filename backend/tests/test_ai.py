@@ -6,9 +6,9 @@ from ai.model_loader import get_models_dir, verify_model_exists
 from ai.session_manager import AISessionManager
 from ai.background_removal import remove_background_from_file
 
-
 try:
     import rembg
+
     HAS_REMBG = True
 except ImportError:
     HAS_REMBG = False

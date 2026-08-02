@@ -68,12 +68,15 @@ def test_image_generator():
     mock_settings = {"shop_name": "Test Creamery", "printer_template": "minimal"}
 
     html = renderer.render_bill(mock_bill_data, mock_settings, is_bill=True)
-    
+
     try:
         png_path = generator.generate_png(html, "58mm")
     except Exception as e:
         error_str = str(e)
-        if "Executable doesn't exist" in error_str or "Please run the following command" in error_str:
+        if (
+            "Executable doesn't exist" in error_str
+            or "Please run the following command" in error_str
+        ):
             pytest.skip("Playwright browser executable is not installed.")
             return
         raise e
