@@ -19,7 +19,12 @@ hidden_imports = [
 ]
 
 binaries = []
-datas = [('migrations', 'migrations'), ('data/Sound', 'Sound')]
+datas = [
+    ('migrations', 'migrations'),
+    ('data/Sound', 'Sound'),
+    ('printing/templates', 'printing/templates'),
+    ('ai/models', 'models')
+]
 
 # Copy pywin32 system DLLs to target directory to fix import errors in production build
 import os
