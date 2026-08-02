@@ -1394,67 +1394,102 @@ const Analytics = () => {
                                 {/* Left: Expanded Breakdown Chart */}
                                 <div className="analytics-chart-card" style={{ padding: '32px', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
                                     <h3 className="chart-card-title" style={{ fontSize: '1.4rem' }}>Expense Distribution & Trends</h3>
-                                    <div style={{ flex: 1, width: '100%', height: '400px' }}>
-                                        {filteredRangeExpenses.length > 0 ? (
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie
-                                                        activeIndex={activePieIndex}
-                                                        activeShape={renderActiveShape}
-                                                        onMouseEnter={(_, index) => setActivePieIndex(index)}
-                                                        onMouseLeave={() => setActivePieIndex(-1)}
-                                                        data={Object.entries(
-                                                            filteredRangeExpenses.reduce((acc, curr) => {
-                                                                acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-                                                                return acc;
-                                                            }, {})
-                                                        ).map(([name, value]) => ({ name, value }))}
-                                                        dataKey="value"
-                                                        nameKey="name"
-                                                        cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={2}
-                                                        stroke="none"
-                                                        isAnimationActive={false}
-                                                    >
-                                                        {Object.entries(
-                                                            filteredRangeExpenses.reduce((acc, curr) => {
-                                                                acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-                                                                return acc;
-                                                            }, {})
-                                                        ).map((_, i) => (
-                                                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                                                        ))}
-                                                    </Pie>
-                                                    <RechartsTooltip formatter={(v) => formatCurrency(v)} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        ) : (
-                                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
-                                                <div style={{ textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📉</div>
-                                                    <div>No expense data for this range</div>
-                                                </div>
+                                    
+                                    {filteredRangeExpenses.length > 0 ? (
+                                        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', gap: '40px', marginTop: '20px', flexWrap: 'wrap' }}>
+                                            {/* Left: Doughnut Chart */}
+                                            <div style={{ width: '320px', height: '320px', position: 'relative' }}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            activeIndex={activePieIndex}
+                                                            activeShape={renderActiveShape}
+                                                            onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                                            onMouseLeave={() => setActivePieIndex(-1)}
+                                                            data={Object.entries(
+                                                                filteredRangeExpenses.reduce((acc, curr) => {
+                                                                    acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+                                                                    return acc;
+                                                                }, {})
+                                                            ).map(([name, value]) => ({ name, value }))}
+                                                            dataKey="value"
+                                                            nameKey="name"
+                                                            cx="50%" cy="50%" innerRadius={75} outerRadius={110} paddingAngle={3}
+                                                            stroke="none"
+                                                            isAnimationActive={false}
+                                                        >
+                                                            {Object.entries(
+                                                                filteredRangeExpenses.reduce((acc, curr) => {
+                                                                    acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+                                                                    return acc;
+                                                                }, {})
+                                                            ).map((_, i) => (
+                                                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                                            ))}
+                                                        </Pie>
+                                                        <RechartsTooltip formatter={(v) => formatCurrency(v)} />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
                                             </div>
-                                        )}
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start', margin: '20px auto 0 auto', maxWidth: '320px' }}>
-                                        {Object.entries(
-                                            filteredRangeExpenses.reduce((acc, curr) => {
-                                                acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-                                                return acc;
-                                            }, {})
-                                        ).map(([name, value], i) => {
-                                            const total = filteredRangeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-                                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                            return (
-                                                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
-                                                    <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                                                        {name}: <b>{formatCurrency(value)}</b> ({percent}%)
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+
+                                            {/* Right: Modern Premium Legend */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '280px', flex: 1, maxWidth: '420px' }}>
+                                                {Object.entries(
+                                                    filteredRangeExpenses.reduce((acc, curr) => {
+                                                        acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+                                                        return acc;
+                                                    }, {})
+                                                ).map(([name, value], i) => {
+                                                    const total = filteredRangeExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+                                                    const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                                    return (
+                                                        <div 
+                                                            key={name} 
+                                                            style={{ 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                justifyContent: 'space-between', 
+                                                                padding: '12px 16px', 
+                                                                background: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)',
+                                                                borderRadius: '16px',
+                                                                border: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.04)',
+                                                                transition: 'all 0.2s ease',
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <div style={{ 
+                                                                    width: 10, 
+                                                                    height: 10, 
+                                                                    borderRadius: '50%', 
+                                                                    background: CHART_COLORS[i % CHART_COLORS.length],
+                                                                    boxShadow: `0 0 8px ${CHART_COLORS[i % CHART_COLORS.length]}80`,
+                                                                    flexShrink: 0 
+                                                                }} />
+                                                                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                    {name}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                    {formatCurrency(value)}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                                    {percent}%
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, minHeight: '350px' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📉</div>
+                                                <div>No expense data for this range</div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Right: Summary Metrics */}

@@ -7,12 +7,20 @@ from ai.session_manager import AISessionManager
 from ai.background_removal import remove_background_from_file
 
 
+try:
+    import rembg
+    HAS_REMBG = True
+except ImportError:
+    HAS_REMBG = False
+
+
 def test_model_loader():
     models_dir = get_models_dir()
     assert os.path.exists(models_dir)
     assert verify_model_exists()
 
 
+@pytest.mark.skipif(not HAS_REMBG, reason="rembg is not installed")
 def test_session_manager():
     # Verify initialize returns True and sessions are loaded
     success = AISessionManager.initialize()
@@ -23,6 +31,7 @@ def test_session_manager():
     assert session is not None
 
 
+@pytest.mark.skipif(not HAS_REMBG, reason="rembg is not installed")
 def test_background_removal():
     # Create a simple red test image with Pillow
     temp_dir = tempfile.gettempdir()
