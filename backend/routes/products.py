@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ─── Backend AI Loader ────────────────────────────────────────────────────────
 from ai.background_removal import remove_background_from_file
 from ai.session_manager import AISessionManager
+from ai.image_normalizer import normalize_product_image, optimize_and_save
 
 _rembg_available = False
 _rembg_loading = not os.environ.get("TESTING")
@@ -382,16 +383,16 @@ def upload_product_image(product_id):
         logger.error("Failed to save original product image: %s", e, exc_info=True)
         return jsonify({"success": False, "message": "Failed to save uploaded image."}), 500
 
-    # 3. Run background removal and save transparent PNG
+    # 3. Run background removal + normalization and save transparent PNG
     try:
         logger.info("Running backend background removal on: %s", path_orig)
         success_bg = remove_background_from_file(path_orig, path_png)
         if not success_bg:
-            logger.warning(
-                "Background removal failed, falling back to converting original image to PNG"
-            )
+            logger.warning("Background removal failed, falling back to normalizing original image")
             with Image.open(path_orig) as img:
-                img.save(path_png, format="PNG")
+                # Even without background removal, normalize image to standard canvas
+                normalized = normalize_product_image(img.convert("RGBA"))
+            optimize_and_save(normalized, path_png)
             bg_removed = False
         else:
             bg_removed = True
@@ -399,7 +400,9 @@ def upload_product_image(product_id):
         logger.error("Error during background removal processing: %s", e, exc_info=True)
         try:
             with Image.open(path_orig) as img:
-                img.save(path_png, format="PNG")
+                # Fallback: normalize and center on 1000x1000 transparent canvas
+                normalized = normalize_product_image(img.convert("RGBA"))
+            optimize_and_save(normalized, path_png)
         except Exception as fallback_err:
             logger.error("Fallback image conversion also failed: %s", fallback_err, exc_info=True)
             return jsonify({"success": False, "message": "Failed to process product image."}), 500

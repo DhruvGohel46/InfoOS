@@ -323,7 +323,11 @@ class DatabaseService:
             ).first()
 
             if not bill:
-                bill = Bill.query.filter(Bill.bill_no == bill_no).order_by(Bill.created_at.desc()).first()
+                bill = (
+                    Bill.query.filter(Bill.bill_no == bill_no)
+                    .order_by(Bill.created_at.desc())
+                    .first()
+                )
 
             if bill:
                 return self._bill_to_dict(bill)

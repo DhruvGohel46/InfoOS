@@ -38,6 +38,7 @@ waitress>=3.0.0
 
 # ── Core image handling (always required) ─────────────────────────────────────
 Pillow>=10.0.0
+numpy>=1.24.0
 
 # ── Printing & QR codes (always required) ──────────────────────────────────────
 qrcode>=8.0
