@@ -34,7 +34,7 @@ class PrinterManager {
         console.log(`[PrinterManager] ${job.type} printed successfully.`);
         job.resolve(response);
       } else {
-        throw new Error(response.message || 'Printing failed');
+        throw new Error(response.error || response.message || 'Printing failed');
       }
     } catch (error) {
       console.error(`[PrinterManager] Error printing ${job.type}:`, error.message);

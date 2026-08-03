@@ -322,6 +322,9 @@ class DatabaseService:
                 Bill.bill_no == bill_no, func.date(Bill.created_at) == today
             ).first()
 
+            if not bill:
+                bill = Bill.query.filter(Bill.bill_no == bill_no).order_by(Bill.created_at.desc()).first()
+
             if bill:
                 return self._bill_to_dict(bill)
             return None

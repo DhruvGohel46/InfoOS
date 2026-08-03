@@ -28,7 +28,7 @@ function extractPrintError(error, fallback = 'Printer error. Please check connec
  */
 function validatePrintResult(result, label = 'Print') {
   if (!result || result.success === false) {
-    const errorMsg = result?.error || `${label} failed. Please check printer settings.`;
+    const errorMsg = result?.error || result?.message || `${label} failed. Please check printer settings.`;
     throw new Error(errorMsg);
   }
   return result;
