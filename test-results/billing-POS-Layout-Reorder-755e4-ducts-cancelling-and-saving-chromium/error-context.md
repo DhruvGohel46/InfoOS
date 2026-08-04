@@ -182,7 +182,6 @@ Received: false
 # Test source
 
 ```ts
-  208 |               name: "Burger B",
   209 |               price: 120,
   210 |               category: "Food",
   211 |               category_id: 1,
@@ -279,16 +278,17 @@ Received: false
   302 | 
   303 |     // 5. Enter Edit Mode again and click Done to verify reordering persistence
   304 |     await editLayoutBtn.click();
-  305 |     await doneBtn.click();
-  306 | 
-  307 |     // Verify the APIs were triggered on Done click
-> 308 |     expect(categoriesReordered).toBe(true);
+  305 |     await expect(doneBtn).toBeVisible();
+  306 |     await doneBtn.click();
+  307 | 
+  308 |     // Verify the APIs were triggered on Done click
+> 309 |     expect(categoriesReordered).toBe(true);
       |                                 ^ Error: expect(received).toBe(expected) // Object.is equality
-  309 |     expect(productsReordered).toBe(true);
-  310 | 
-  311 |     // Assert that no uncaught runtime exceptions occurred during test execution
-  312 |     expect(pageErrors).toHaveLength(0);
-  313 |   });
-  314 | });
-  315 | 
+  310 |     expect(productsReordered).toBe(true);
+  311 | 
+  312 |     // Assert that no uncaught runtime exceptions occurred during test execution
+  313 |     expect(pageErrors).toHaveLength(0);
+  314 |   });
+  315 | });
+  316 | 
 ```
