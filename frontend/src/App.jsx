@@ -156,6 +156,171 @@ function AppContent() {
   const [posKey, setPosKey] = useState(0);
   const notificationRef = React.useRef(null);
 
+  // ── Calculator State ──
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calcDisplay, setCalcDisplay] = useState('0');
+  const [calcExpression, setCalcExpression] = useState('');
+  const [calcResult, setCalcResult] = useState(null);
+  const [calcJustEvaluated, setCalcJustEvaluated] = useState(false);
+  const calcRef = React.useRef(null);
+
+  // Close calculator on outside click
+  useEffect(() => {
+    if (!showCalculator) return;
+    const handler = (e) => {
+      if (calcRef.current && !calcRef.current.contains(e.target)) {
+        setShowCalculator(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCalculator]);
+
+  // Alt key shortcut to toggle calculator
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
+        e.preventDefault();
+        setShowCalculator(prev => !prev);
+      }
+    };
+    document.addEventListener('keyup', handler);
+    return () => document.removeEventListener('keyup', handler);
+  }, []);
+
+  // Keyboard calculations listener when calculator is open
+  useEffect(() => {
+    if (!showCalculator) return;
+
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      document.activeElement.blur();
+    }
+
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key;
+
+      if (key === 'Escape') {
+        e.preventDefault();
+        setShowCalculator(false);
+        return;
+      }
+
+      if (/^[0-9]$/.test(key)) {
+        e.preventDefault();
+        calcHandleSpecial(key);
+      } else if (key === '.' || key === ',') {
+        e.preventDefault();
+        calcHandleSpecial('.');
+      } else if (['+', '-', '*', '/'].includes(key)) {
+        e.preventDefault();
+        calcHandleSpecial(key);
+      } else if (key === 'x' || key === 'X') {
+        e.preventDefault();
+        calcHandleSpecial('*');
+      } else if (key === '=' || key === 'Enter') {
+        e.preventDefault();
+        calcHandleSpecial('=');
+      } else if (key === 'Backspace') {
+        e.preventDefault();
+        calcHandleSpecial('⌫');
+      } else if (key === 'Delete' || key === 'c' || key === 'C') {
+        e.preventDefault();
+        calcHandleSpecial('C');
+      } else if (key === '%') {
+        e.preventDefault();
+        calcHandleSpecial('%');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCalculator, calcDisplay, calcExpression, calcJustEvaluated]);
+
+  const calcHandleInput = (value) => {
+    if (value === 'C') {
+      setCalcDisplay('0');
+      setCalcExpression('');
+      setCalcResult(null);
+      setCalcJustEvaluated(false);
+      return;
+    }
+    if (value === '⌫') {
+      setCalcDisplay(prev => {
+        const next = prev.length > 1 ? prev.slice(0, -1) : '0';
+        return next;
+      });
+      if (calcJustEvaluated) { setCalcJustEvaluated(false); setCalcResult(null); }
+      return;
+    }
+    if (value === '=') {
+      try {
+        const expr = calcExpression + calcDisplay;
+        // Safe evaluation: only digits, operators, dot, parentheses
+        if (!/^[0-9+\-*/.()\s]+$/.test(expr)) return;
+        // eslint-disable-next-line no-new-func
+        const result = Function('"use strict"; return (' + expr + ')')();
+        const formatted = parseFloat(result.toFixed(10)).toString();
+        setCalcResult(formatted);
+        setCalcDisplay(formatted);
+        setCalcExpression(expr + ' =');
+        setCalcJustEvaluated(true);
+      } catch {}
+      return;
+    }
+    const isOp = ['+', '-', '*', '/'].includes(value);
+    if (calcJustEvaluated && !isOp) {
+      setCalcExpression('');
+      setCalcDisplay(value === '.' ? '0.' : value);
+      setCalcJustEvaluated(false);
+      setCalcResult(null);
+      return;
+    }
+    if (calcJustEvaluated && isOp) {
+      setCalcExpression(calcDisplay);
+      setCalcDisplay(value);
+      setCalcJustEvaluated(false);
+      setCalcResult(null);
+      return;
+    }
+    if (isOp) {
+      setCalcExpression(prev => prev + calcDisplay);
+      setCalcDisplay(value);
+      return;
+    }
+    if (value === '.' && calcDisplay.includes('.')) return;
+    setCalcDisplay(prev => prev === '0' && value !== '.' ? value : prev + value);
+  };
+
+  const calcRows = [
+    ['C', '⌫', '%', '/'],
+    ['7', '8', '9', '*'],
+    ['4', '5', '6', '-'],
+    ['1', '2', '3', '+'],
+    ['+/-', '0', '.', '='],
+  ];
+
+  const calcHandleSpecial = (val) => {
+    if (val === '%') {
+      try {
+        const num = parseFloat(calcDisplay);
+        if (!isNaN(num)) setCalcDisplay((num / 100).toString());
+      } catch {}
+      return;
+    }
+    if (val === '+/-') {
+      setCalcDisplay(prev => {
+        const n = parseFloat(prev);
+        if (!isNaN(n)) return (-n).toString();
+        return prev;
+      });
+      return;
+    }
+    calcHandleInput(val);
+  };
+
   const [showAttendancePrompt, setShowAttendancePrompt] = useState(false);
 
   // Check Attendance & Salary on Mount
@@ -447,14 +612,14 @@ function AppContent() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: 'calc(10px * var(--display-zoom)) var(--spacing-6) 0 var(--spacing-6)',
+            padding: '0 var(--spacing-6)',
             zIndex: 2000,
             flexShrink: 0,
             transition: 'filter var(--transition-normal) var(--ease-out)',
           }}
         >
-          {/* Left Side - New Bill Button */}
-          <div style={{ width: '200px' }}>
+          {/* Left Side - New Bill Button + Calculator */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', width: 'auto' }} ref={calcRef}>
             <button
               onClick={() => {
                 setPosKey(prev => prev + 1);
@@ -464,10 +629,166 @@ function AppContent() {
               style={{
                 fontSize: 'var(--text-sm)',
                 fontWeight: 'var(--font-medium)',
+                flexShrink: 0,
               }}
             >
               Start New Bill
             </button>
+
+            {/* Calculator Toggle Button */}
+            <button
+              id="calc-toggle-btn"
+              onClick={() => setShowCalculator(prev => !prev)}
+              title="Calculator (Alt)"
+              className="liquid-glass-button"
+              style={{
+                background: showCalculator ? 'rgba(249,115,22,0.2)' : 'var(--bg-secondary)',
+                border: showCalculator ? '1px solid var(--primary-500)' : '1px solid var(--glass-border)',
+                color: showCalculator ? 'var(--primary-400)' : 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 'var(--font-medium)',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                boxShadow: showCalculator ? '0 0 14px rgba(249,115,22,0.35)' : 'var(--shadow-sm)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <rect x="2" y="3" width="20" height="18" rx="2"/>
+                <line x1="8" y1="10" x2="8" y2="10"/>
+                <line x1="12" y1="10" x2="12" y2="10"/>
+                <line x1="16" y1="10" x2="16" y2="10"/>
+                <line x1="8" y1="14" x2="8" y2="14"/>
+                <line x1="12" y1="14" x2="12" y2="14"/>
+                <line x1="16" y1="14" x2="16" y2="14"/>
+                <line x1="8" y1="18" x2="8" y2="18"/>
+                <line x1="12" y1="18" x2="16" y2="18"/>
+              </svg>
+              Calculator
+            </button>
+
+            {/* Calculator Dropdown */}
+            {showCalculator && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 12px)',
+                  left: 0,
+                  zIndex: 9999,
+                  width: '240px',
+                  borderRadius: '16px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--glass-border)',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  padding: '14px',
+                  animation: 'calcSlideDown 0.18s ease',
+                }}
+              >
+                <style>{`
+                  @keyframes calcSlideDown {
+                    from { opacity:0; transform: translateY(-8px) scale(0.97); }
+                    to   { opacity:1; transform: translateY(0) scale(1); }
+                  }
+                `}</style>
+
+                {/* Display */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  marginBottom: '10px',
+                  minHeight: '64px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                  justifyContent: 'flex-end',
+                  gap: '2px',
+                  border: '1px solid var(--glass-border)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    fontSize: '11px',
+                    color: 'var(--text-tertiary)',
+                    minHeight: '16px',
+                    wordBreak: 'break-all',
+                    textAlign: 'right',
+                    opacity: 0.7,
+                  }}>{calcExpression}</div>
+                  <div style={{
+                    fontSize: calcDisplay.length > 10 ? '18px' : '26px',
+                    fontWeight: 700,
+                    color: calcResult !== null ? 'var(--primary-500)' : 'var(--text-primary)',
+                    wordBreak: 'break-all',
+                    textAlign: 'right',
+                    transition: 'color 0.2s ease',
+                    letterSpacing: '-0.5px',
+                  }}>{calcDisplay}</div>
+                </div>
+
+                {/* Buttons Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                  {calcRows.map((row, ri) =>
+                    row.map((btn, bi) => {
+                      const isOp = ['/', '*', '-', '+', '='].includes(btn);
+                      const isClear = btn === 'C';
+                      const isEq = btn === '=';
+                      const isZero = btn === '0';
+                      return (
+                        <button
+                          key={`${ri}-${bi}`}
+                          onClick={() => calcHandleSpecial(btn)}
+                          style={{
+                            gridColumn: isZero ? 'span 1' : undefined,
+                            height: '48px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            fontWeight: isOp || isClear ? 700 : 500,
+                            background: isEq
+                              ? 'var(--primary-500)'
+                              : isClear
+                              ? 'rgba(239,68,68,0.15)'
+                              : isOp
+                              ? 'rgba(249,115,22,0.12)'
+                              : 'var(--bg-secondary)',
+                            color: isEq
+                              ? '#fff'
+                              : isClear
+                              ? '#ef4444'
+                              : isOp
+                              ? 'var(--primary-400)'
+                              : 'var(--text-primary)',
+                            border: isEq ? 'none' : '1px solid var(--glass-border)',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.filter = 'brightness(1.2)';
+                            e.currentTarget.style.transform = 'scale(1.04)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.filter = '';
+                            e.currentTarget.style.transform = '';
+                          }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                        >
+                          {btn}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Center - Title */}

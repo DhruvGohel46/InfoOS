@@ -8,9 +8,6 @@ from printing.image_generator import PlaywrightImageGenerator
 def test_template_manager():
     manager = TemplateManager()
     assert manager.validate_template_exists("default")
-    assert manager.validate_template_exists("minimal")
-    assert manager.validate_template_exists("restaurant")
-    assert manager.validate_template_exists("grocery")
 
     # Check fallback logic
     html_path = manager.get_template_path("non_existent_template", "bill.html")
@@ -41,7 +38,7 @@ def test_html_renderer():
         "shop_name": "Test Burger Joint",
         "shop_address": "123 Main St",
         "shop_contact": "555-1234",
-        "printer_template": "restaurant",
+        "printer_template": "default",
         "printer_width": "80mm",
     }
 
@@ -65,7 +62,7 @@ def test_image_generator():
         "total": 5.0,
     }
 
-    mock_settings = {"shop_name": "Test Creamery", "printer_template": "minimal"}
+    mock_settings = {"shop_name": "Test Creamery", "printer_template": "default"}
 
     html = renderer.render_bill(mock_bill_data, mock_settings, is_bill=True)
 

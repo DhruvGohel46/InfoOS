@@ -55,7 +55,7 @@ class PrinterManager {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 5000 // 5 second timeout
+        timeout: 20000 // 20 second timeout for HTML-to-PNG rendering
       };
 
       const req = http.request(options, (res) => {

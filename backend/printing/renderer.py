@@ -98,10 +98,29 @@ class HTMLRenderer:
         gst = bill_data.get("gst")
         tax = bill_data.get("tax")
 
+        # Format time to HH:MM format
+        raw_time = str(bill_data.get("time", "")).strip()
+        formatted_time = raw_time
+        if raw_time:
+            parts = raw_time.split(":")
+            if len(parts) >= 2:
+                formatted_time = f"{parts[0].zfill(2)}:{parts[1][:2].zfill(2)}"
+
+        # Format date to DD/MM/YY format
+        raw_date = str(bill_data.get("date", "")).strip()
+        formatted_date = raw_date
+        if raw_date and "-" in raw_date:
+            d_parts = raw_date.split("-")
+            if len(d_parts) == 3:
+                year = d_parts[0][-2:]
+                month = d_parts[1].zfill(2)
+                day = d_parts[2].zfill(2)
+                formatted_date = f"{day}/{month}/{year}"
+
         bill = {
             "bill_no": bill_data.get("bill_no", "1"),
-            "date": bill_data.get("date", ""),
-            "time": bill_data.get("time", ""),
+            "date": formatted_date,
+            "time": formatted_time,
             "order_type": bill_data.get("order_type", "dine-in"),
             "table_no": _safe_text(bill_data.get("table_no", "") or ""),
             "customer_name": _safe_text(bill_data.get("customer_name", "") or ""),

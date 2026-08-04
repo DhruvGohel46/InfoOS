@@ -54,7 +54,7 @@ export const printerService = {
       // Fallback for Web/Browser mode
       console.log('Web Mode: Printing Bill via API...');
       const response = await billingAPI.printBill(billNo);
-      return response.data;
+      return validatePrintResult(response.data, 'Bill printing');
     } catch (error) {
       console.error('Failed to print bill:', error);
       throw new Error(extractPrintError(error, 'Failed to print bill. Please check printer.'));
@@ -73,7 +73,7 @@ export const printerService = {
       // Fallback for Web/Browser mode
       console.log('Web Mode: Printing KOT via API...');
       const response = await billingAPI.printKOT(billNo);
-      return response.data;
+      return validatePrintResult(response.data, 'KOT printing');
     } catch (error) {
       console.error('Failed to print KOT:', error);
       throw new Error(extractPrintError(error, 'Failed to print KOT. Please check printer.'));

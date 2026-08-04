@@ -302,6 +302,7 @@ test.describe("POS Layout Reordering", () => {
 
     // 5. Enter Edit Mode again and click Done to verify reordering persistence
     await editLayoutBtn.click();
+    await expect(doneBtn).toBeVisible();
     await doneBtn.click();
 
     // Verify the APIs were triggered on Done click

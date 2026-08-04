@@ -91,12 +91,13 @@ class PlaywrightImageGenerator:
         width_str = str(width_mm).strip().lower()
         if "80" in width_str:
             pixel_width = 576
+            device_scale_factor = 1.0
         elif "a4" in width_str:
             pixel_width = 1200
+            device_scale_factor = 2.0
         else:
             pixel_width = 384  # Default 58mm
-
-        device_scale_factor = 3.0
+            device_scale_factor = 1.0
 
         with sync_playwright() as playwright:
             browser = _launch_browser(playwright)

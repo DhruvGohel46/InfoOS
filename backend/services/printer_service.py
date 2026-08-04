@@ -192,15 +192,28 @@ class PrinterService:
     # Implementation methods (not thread-safe, must be called with lock)
     # ------------------------------------------------------------------
 
+    def _resolve_printer_name(self, settings: Dict[str, Any]) -> Optional[str]:
+        """Dynamically resolve active printer name from settings or system defaults."""
+        printer = settings.get("active_printer")
+        if printer:
+            return printer
+        printer = self.printer_manager.get_thermal_printer()
+        if printer:
+            return printer
+        return self.printer_manager.get_default_printer()
+
     def _print_bill_impl(self, bill_data: Dict) -> Dict[str, Any]:
         """Implementation of bill printing (must be called with lock held)."""
         try:
-            self._ensure_initialized()
             settings = self._get_settings()
             if not settings["printer_enabled"]:
-                return {"success": True, "error": None}
+                return {
+                    "success": False,
+                    "error": "Printer is disabled in Settings. Please enable the printer in Settings -> Printer Settings.",
+                }
 
-            if not self.printer_name:
+            printer_name = self._resolve_printer_name(settings)
+            if not printer_name:
                 return {
                     "success": False,
                     "error": "No printer selected. Please go to Settings -> Printer Settings and configure an active printer.",
@@ -209,9 +222,9 @@ class PrinterService:
             # Validate printer
             modules = load_win32_modules()
             if modules:
-                is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                is_valid, error = self.printer_manager.validate_printer(printer_name)
                 if not is_valid:
-                    print(f"[PrinterService] Connection warning for '{self.printer_name}': {error}")
+                    print(f"[PrinterService] Connection warning for '{printer_name}': {error}")
                     return {"success": False, "error": error}
             else:
                 # Bypassed win32 validation for development/fallback
@@ -228,7 +241,7 @@ class PrinterService:
             try:
                 # Send PNG image to printer
                 success, print_err = self.image_printer.print_image(
-                    self.printer_name, png_path, f"Bill_{bill_data.get('bill_no', '1')}"
+                    printer_name, png_path, f"Bill_{bill_data.get('bill_no', '1')}"
                 )
             finally:
                 # Clean up temporary PNG file
@@ -243,7 +256,7 @@ class PrinterService:
             if success:
                 return {"success": True, "error": None}
             else:
-                err_msg = print_err or f"Failed to send print job to printer '{self.printer_name}'"
+                err_msg = print_err or f"Failed to send print job to printer '{printer_name}'"
                 return {"success": False, "error": err_msg}
 
         except Exception as exc:
@@ -253,12 +266,15 @@ class PrinterService:
     def _print_kot_impl(self, bill_data: Dict) -> Dict[str, Any]:
         """Implementation of KOT printing (must be called with lock held)."""
         try:
-            self._ensure_initialized()
             settings = self._get_settings()
             if not settings["printer_enabled"]:
-                return {"success": True, "error": None}
+                return {
+                    "success": False,
+                    "error": "Printer is disabled in Settings. Please enable the printer in Settings -> Printer Settings.",
+                }
 
-            if not self.printer_name:
+            printer_name = self._resolve_printer_name(settings)
+            if not printer_name:
                 return {
                     "success": False,
                     "error": "No printer selected. Please go to Settings -> Printer Settings and configure an active printer.",
@@ -267,9 +283,9 @@ class PrinterService:
             # Validate printer
             modules = load_win32_modules()
             if modules:
-                is_valid, error = self.printer_manager.validate_printer(self.printer_name)
+                is_valid, error = self.printer_manager.validate_printer(printer_name)
                 if not is_valid:
-                    print(f"[PrinterService] Connection warning for '{self.printer_name}': {error}")
+                    print(f"[PrinterService] Connection warning for '{printer_name}': {error}")
                     return {"success": False, "error": error}
             else:
                 # Bypassed win32 validation for development/fallback
@@ -286,7 +302,7 @@ class PrinterService:
             try:
                 # Send PNG image to printer
                 success, print_err = self.image_printer.print_image(
-                    self.printer_name, png_path, f"KOT_{bill_data.get('bill_no', '1')}"
+                    printer_name, png_path, f"KOT_{bill_data.get('bill_no', '1')}"
                 )
             finally:
                 # Clean up temporary PNG file
@@ -301,7 +317,7 @@ class PrinterService:
             if success:
                 return {"success": True, "error": None}
             else:
-                err_msg = print_err or f"Failed to send print job to printer '{self.printer_name}'"
+                err_msg = print_err or f"Failed to send print job to printer '{printer_name}'"
                 return {"success": False, "error": err_msg}
 
         except Exception as exc:
