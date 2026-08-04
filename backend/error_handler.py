@@ -120,6 +120,16 @@ def safe_route(fn):
             # Known application errors — log at WARNING level
             logger.warning(f"[{e.code}] {e.message}")
             return error_response(e.message, e.status_code, e.code)
+        except (UnicodeEncodeError, UnicodeDecodeError) as e:
+            # Character encoding errors — typically caused by non-ASCII characters
+            # (e.g. ₹, regional language text) hitting a Windows cp1252 codec.
+            logger.warning(f"[ENCODING_ERROR] {str(e)}")
+            return error_response(
+                "Print failed: bill data contains characters that could not be encoded. "
+                "Please ensure the backend is running with UTF-8 encoding.",
+                400,
+                "ENCODING_ERROR",
+            )
         except ValueError as e:
             logger.warning(f"[VALIDATION_ERROR] {str(e)}")
             return error_response(f"Invalid data format: {str(e)}", 400, "VALIDATION_ERROR")

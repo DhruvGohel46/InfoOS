@@ -5,7 +5,7 @@ Background removal using rembg (local ONNX model).
 After removal, automatically runs the full image normalization pipeline:
  - Crop transparent borders
  - Add dynamic padding
- - Normalize scale (~88% canvas occupancy)
+ - Normalize scale (~94% canvas occupancy)
  - Center on 1000x1000 transparent canvas
 """
 

@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 import os
+import sys
 import logging
 import threading
 from dotenv import load_dotenv
@@ -12,6 +13,18 @@ _log = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# ── Windows encoding fix ────────────────────────────────────────────────────
+# On Windows the default stdout/stderr encoding is cp1252 (charmap), which
+# cannot represent characters like ₹ or other non-Latin Unicode. Reconfigure
+# both streams to UTF-8 so that print() / logging output never crashes when
+# bill data, product names or shop names contain non-ASCII characters.
+# reconfigure() is Python 3.7+ and a no-op on systems that are already UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 
 def start_dashboard_refresher():

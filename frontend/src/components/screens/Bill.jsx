@@ -1863,8 +1863,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                         src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
                                         alt={product.name}
                                         style={{ 
-                                          maxWidth: '72%',
-                                          maxHeight: '72%',
+                                          width: '92%',
+                                          height: '92%',
                                           objectFit: 'contain',
                                         }}
                                         loading="lazy"
@@ -2130,8 +2130,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                               src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
                               alt={product.name}
                               style={{ 
-                                maxWidth: '72%',
-                                maxHeight: '72%',
+                                width: '92%',
+                                height: '92%',
                                 objectFit: 'contain',
                               }}
                               loading="lazy"

@@ -17,9 +17,16 @@ function extractPrintError(error, fallback = 'Printer error. Please check connec
 
   // Strip Electron's IPC wrapper: "Error invoking remote method 'print:kot': Error: <actual>"
   const ipcMatch = msg.match(/Error invoking remote method\s+'[^']+'\s*:\s*Error:\s*(.*)/i);
-  if (ipcMatch) return ipcMatch[1].trim() || fallback;
+  const cleaned = ipcMatch ? (ipcMatch[1].trim() || fallback) : (msg || fallback);
 
-  return msg || fallback;
+  // Detect Windows charmap / codec encoding errors (raw Python error surfaces to user)
+  if (
+    /charmap|codec can.t encode|UnicodeEncodeError|UnicodeDecodeError|ENCODING_ERROR/i.test(cleaned)
+  ) {
+    return 'Printer error: Bill contains special characters (e.g. ₹ symbol or regional text) that could not be processed. Please restart the backend server.';
+  }
+
+  return cleaned;
 }
 
 /**

@@ -2,7 +2,7 @@ import os
 import base64
 import io
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 from jinja2 import Environment, FileSystemLoader
 import qrcode
 from .template_manager import TemplateManager
@@ -15,9 +15,13 @@ class HTMLRenderer:
 
     def __init__(self, template_manager: TemplateManager):
         self.template_manager = template_manager
-        # Set up Jinja2 environment pointing to the templates directory
+        # Set up Jinja2 environment pointing to the templates directory.
+        # CRITICAL: encoding='utf-8' must be set explicitly — without it, Jinja2's
+        # FileSystemLoader uses the Windows system default (cp1252/charmap) which
+        # cannot encode ₹, regional language characters, or any non-Latin Unicode.
         self.env = Environment(
-            loader=FileSystemLoader(self.template_manager.templates_dir), autoescape=True
+            loader=FileSystemLoader(self.template_manager.templates_dir, encoding="utf-8"),
+            autoescape=True,
         )
         logger.info("Jinja2 Environment initialized for HTML rendering.")
 
@@ -49,9 +53,9 @@ class HTMLRenderer:
         # Context components
         # 1. Shop details
         shop = {
-            "name": shop_settings.get("shop_name", "RESTAURANT"),
-            "address": shop_settings.get("shop_address", ""),
-            "contact": shop_settings.get("shop_contact", ""),
+            "name": _safe_text(shop_settings.get("shop_name", "RESTAURANT")),
+            "address": _safe_text(shop_settings.get("shop_address", "")),
+            "contact": _safe_text(shop_settings.get("shop_contact", "")),
             "logo_base64": None,
         }
 
@@ -67,13 +71,23 @@ class HTMLRenderer:
         # 2. Bill / Items details
         products = bill_data.get("products") or bill_data.get("items") or []
 
+        # Sanitize product names and string fields (guards against non-UTF-8 data
+        # that could sneak in from older DB records or external sources)
+        safe_products = []
+        for p in products:
+            safe_p = dict(p)
+            safe_p["name"] = _safe_text(p.get("name", ""))
+            safe_p["variation_name"] = _safe_text(p.get("variation_name", "") or "")
+            safe_p["specification"] = _safe_text(p.get("specification", "") or "")
+            safe_products.append(safe_p)
+
         # Recalculate subtotal, discount and totals for display if not explicitly provided
         total = float(bill_data.get("total") or bill_data.get("total_amount") or 0.0)
         discount = float(bill_data.get("discount") or 0.0)
 
         # Subtotal calculation based on item prices (must match DB sum)
         calculated_subtotal = sum(
-            float(p.get("price", 0)) * int(p.get("quantity", 1)) for p in products
+            float(p.get("price", 0)) * int(p.get("quantity", 1)) for p in safe_products
         )
         subtotal = float(
             bill_data.get("subtotal") or bill_data.get("sub_total") or calculated_subtotal
@@ -89,11 +103,13 @@ class HTMLRenderer:
             "date": bill_data.get("date", ""),
             "time": bill_data.get("time", ""),
             "order_type": bill_data.get("order_type", "dine-in"),
-            "table_no": bill_data.get("table_no", ""),
-            "customer_name": bill_data.get("customer_name", ""),
+            "table_no": _safe_text(bill_data.get("table_no", "") or ""),
+            "customer_name": _safe_text(bill_data.get("customer_name", "") or ""),
             "payment_method": bill_data.get("payment_method", "CASH"),
             "today_token": bill_data.get("today_token"),
-            "cashier": bill_data.get("cashier") or bill_data.get("cashier_name"),
+            "cashier": _safe_text(
+                bill_data.get("cashier") or bill_data.get("cashier_name") or ""
+            ),
             "subtotal": subtotal,
             "discount": discount,
             "cgst": cgst,
@@ -105,7 +121,9 @@ class HTMLRenderer:
 
         # 3. Footer details
         footer = {
-            "message": shop_settings.get("printer_footer_msg", "Thank You! Visit Again."),
+            "message": _safe_text(
+                shop_settings.get("printer_footer_msg", "Thank You! Visit Again.")
+            ),
             "qr_code_base64": None,
         }
 
@@ -135,7 +153,7 @@ class HTMLRenderer:
             "bill": bill,
             "shop": shop,
             "settings": shop_settings,
-            "items": products,
+            "items": safe_products,
             "footer": footer,
             "css": css_content,
         }
@@ -145,3 +163,30 @@ class HTMLRenderer:
             html_out = html_out.replace("/* CSS_PLACEHOLDER */", css_content)
         logger.info(f"HTML rendered successfully using template: '{template_name}'.")
         return html_out
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _safe_text(value: Any) -> str:
+    """
+    Converts any value to a clean UTF-8-safe string.
+
+    Encodes to UTF-8 then decodes back, replacing any unencodable characters
+    with a safe '?' placeholder. This is a last-resort guard against binary
+    data or non-standard encodings sneaking in from the database or external
+    sources — it does NOT strip legitimate Unicode (₹, ñ, etc. are preserved).
+
+    Args:
+        value: Any value to convert to string
+
+    Returns:
+        UTF-8 safe string
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    # Round-trip through UTF-8 to catch any surrogate or invalid codepoints
+    return text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")

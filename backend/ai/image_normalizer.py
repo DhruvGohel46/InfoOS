@@ -83,17 +83,17 @@ def crop_transparent_border(
 
 def add_dynamic_padding(
     img: Image.Image,
-    padding_percent: float = 0.08,
-    min_padding: int = 20,
-    max_padding: int = 80,
+    padding_percent: float = 0.04,
+    min_padding: int = 10,
+    max_padding: int = 40,
 ) -> Image.Image:
     """
     Adds dynamic transparent padding around cropped image object.
-    Padding is calculated as 8% of the max object dimension, clamped between 20px and 80px.
+    Padding is calculated as 4% of the max object dimension, clamped between 10px and 40px.
 
     Args:
         img: Cropped PIL Image
-        padding_percent: Proportion of largest dimension to use for padding (default 8%)
+        padding_percent: Proportion of largest dimension to use for padding (default 4%)
         min_padding: Minimum padding in pixels
         max_padding: Maximum padding in pixels
 
@@ -118,16 +118,16 @@ def add_dynamic_padding(
 
 
 def normalize_scale(
-    img: Image.Image, target_canvas_size: int = 1000, occupancy_ratio: float = 0.88
+    img: Image.Image, target_canvas_size: int = 1000, occupancy_ratio: float = 0.94
 ) -> Image.Image:
     """
-    Resizes image so its maximum dimension occupies approx occupancy_ratio (default 88%)
+    Resizes image so its maximum dimension occupies approx occupancy_ratio (default 94%)
     of target_canvas_size while strictly preserving original aspect ratio using LANCZOS.
 
     Args:
         img: Input PIL Image
         target_canvas_size: Size of final target square canvas in pixels (default 1000)
-        occupancy_ratio: Fraction of canvas size the object should occupy (default 0.88)
+        occupancy_ratio: Fraction of canvas size the object should occupy (default 0.94)
 
     Returns:
         Resized RGBA PIL Image
@@ -178,21 +178,21 @@ def center_on_canvas(img: Image.Image, canvas_size: int = 1000) -> Image.Image:
 def normalize_product_image(
     img: Image.Image,
     canvas_size: int = 1000,
-    occupancy_ratio: float = 0.88,
+    occupancy_ratio: float = 0.94,
     alpha_threshold: int = 15,
 ) -> Image.Image:
     """
     Full Smart Product Image Normalization Pipeline:
     1. Detect alpha bounding box (filtering low-alpha noise)
     2. Crop transparent borders
-    3. Add dynamic padding (8% max dim, 20-80px)
-    4. Normalize scale to ~88% of target canvas size (LANCZOS, preserving aspect ratio)
+    3. Add dynamic padding (4% max dim, 10-40px)
+    4. Normalize scale to ~94% of target canvas size (LANCZOS, preserving aspect ratio)
     5. Center on 1000x1000 transparent canvas
 
     Args:
         img: Input PIL Image
         canvas_size: Target square canvas size (default 1000)
-        occupancy_ratio: Target canvas occupancy fraction (default 0.88)
+        occupancy_ratio: Target canvas occupancy fraction (default 0.94)
         alpha_threshold: Noise filter alpha threshold (default 15)
 
     Returns:

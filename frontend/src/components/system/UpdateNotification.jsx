@@ -1,380 +1,613 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../../context/ThemeContext';
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   WaveCanvas — animated sine-wave progress bar
+   Orange = completed (left), dark gray = remaining (right)
+   Glowing orange dot tracks the live wave position at the progress boundary
+───────────────────────────────────────────────────────────────────────────── */
+const WaveCanvas = ({ progress = 0 }) => {
+  const canvasRef = useRef(null);
+  const rafRef    = useRef(null);
+  const phaseRef  = useRef(0);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr    = window.devicePixelRatio || 1;
+    const W      = canvas.width  / dpr;
+    const H      = canvas.height / dpr;
+    const ctx    = canvas.getContext('2d');
+
+    const MID_Y     = H / 2;
+    const AMPLITUDE = 7;
+    const PERIOD    = 156;
+    const LINE_W    = 10;
+    const PROG_X    = W * (progress / 100);
+    const phase     = phaseRef.current;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    const getY = (x) => MID_Y + AMPLITUDE * Math.sin(2 * Math.PI * (x + phase) / PERIOD);
+
+    // Build path helper
+    const buildPath = () => {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x++) {
+        const y = getY(x);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+    };
+
+    // 1 — Full gray wave (background)
+    buildPath();
+    ctx.strokeStyle = '#2E2E2E';
+    ctx.lineWidth   = LINE_W;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur  = 0;
+    ctx.stroke();
+
+    // 2 — Orange wave (progress region, clipped)
+    if (progress > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, PROG_X, H);
+      ctx.clip();
+
+      buildPath();
+      ctx.strokeStyle = '#FF7A00';
+      ctx.lineWidth   = LINE_W;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      ctx.shadowColor = 'rgba(255, 122, 0, 0.45)';
+      ctx.shadowBlur  = 12;
+      ctx.stroke();
+
+      // Soft extra glow pass
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth   = LINE_W + 8;
+      ctx.shadowBlur  = 20;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.restore();
+    }
+
+    // 3 — Progress dot
+    if (progress > 0 && progress < 100) {
+      const dotY = getY(PROG_X);
+
+      // Outer halo
+      const halo = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 20);
+      halo.addColorStop(0,   'rgba(255, 122, 0, 0.32)');
+      halo.addColorStop(0.5, 'rgba(255, 122, 0, 0.10)');
+      halo.addColorStop(1,   'rgba(255, 122, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(PROG_X, dotY, 20, 0, Math.PI * 2);
+      ctx.fillStyle = halo;
+      ctx.fill();
+
+      // Inner glow
+      const inner = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 10);
+      inner.addColorStop(0,   'rgba(255, 160, 40, 0.75)');
+      inner.addColorStop(0.6, 'rgba(255, 122, 0, 0.4)');
+      inner.addColorStop(1,   'rgba(255, 122, 0, 0)');
+      ctx.beginPath();
+      ctx.arc(PROG_X, dotY, 10, 0, Math.PI * 2);
+      ctx.fillStyle = inner;
+      ctx.fill();
+
+      // Solid dot
+      ctx.beginPath();
+      ctx.arc(PROG_X, dotY, 7, 0, Math.PI * 2);
+      ctx.fillStyle   = '#FF7A00';
+      ctx.shadowColor = 'rgba(255, 122, 0, 0.9)';
+      ctx.shadowBlur  = 16;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Specular highlight
+      ctx.beginPath();
+      ctx.arc(PROG_X - 1.5, dotY - 2, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    phaseRef.current -= 1.3; // flow speed — negative = wave scrolls left
+    rafRef.current = requestAnimationFrame(draw);
+  }, [progress]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const parent = canvas.parentElement;
+
+    const resize = () => {
+      const w = parent.clientWidth;
+      const h = 44;
+      canvas.style.width  = `${w}px`;
+      canvas.style.height = `${h}px`;
+      canvas.width  = w * dpr;
+      canvas.height = h * dpr;
+    };
+
+    resize();
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(parent);
+
+    rafRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [draw]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ display: 'block', width: '100%' }}
+    />
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Helper formatters
+───────────────────────────────────────────────────────────────────────────── */
+const fmt = (bytes) => {
+  if (!bytes || bytes <= 0) return '0 KB';
+  const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
+
+const fmtSpeed = (bps) => {
+  if (!bps || bps <= 0) return '0 KB/s';
+  return `${fmt(bps)}/s`;
+};
+
+const fmtTime = (totalBytes, transferred, bps) => {
+  if (!bps || bps <= 0) return '--';
+  const rem = totalBytes - transferred;
+  if (rem <= 0) return '0s';
+  const s = Math.ceil(rem / bps);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${s % 60}s`;
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Icon components (thin white outline, minimal)
+───────────────────────────────────────────────────────────────────────────── */
+const DownloadIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <path d="M20 7V28" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 21L20 29L28 21" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 34H31" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <polyline points="8 21 16 29 32 12" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ErrorIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+    <path d="M20 16V22" stroke="#EF4444" strokeWidth="2.6" strokeLinecap="round"/>
+    <circle cx="20" cy="28" r="1.5" fill="#EF4444"/>
+    <path d="M16.8 8.5L4.5 29A3.7 3.7 0 0 0 8.2 35H31.8A3.7 3.7 0 0 0 35.5 29L23.2 8.5A3.7 3.7 0 0 0 16.8 8.5Z" stroke="#EF4444" strokeWidth="2.2" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SpinnerIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none"
+    style={{ animation: 'infoUpdateSpin 1.2s linear infinite' }}>
+    <circle cx="20" cy="20" r="14" stroke="rgba(255,255,255,0.08)" strokeWidth="2.6"/>
+    <path d="M20 6 A14 14 0 0 1 34 20" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round"/>
+  </svg>
+);
+
+const PauseIcon = () => (
+  <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
+    <rect x="0.5" y="0.5" width="3.5" height="13" rx="1.5" fill="white"/>
+    <rect x="8" y="0.5" width="3.5" height="13" rx="1.5" fill="white"/>
+  </svg>
+);
+
+const ResumeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <polygon points="2,1 13,7 2,13" fill="white"/>
+  </svg>
+);
+
+const SpeedIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a10 10 0 0 1 10 10"/>
+    <path d="M12 2a10 10 0 0 0-10 10"/>
+    <path d="M2 12a10 10 0 0 0 10 10"/>
+    <path d="M22 12a10 10 0 0 1-10 10"/>
+    <path d="M12 12L8.5 8.5"/>
+    <circle cx="12" cy="12" r="1.2" fill="rgba(255,255,255,0.4)" stroke="none"/>
+  </svg>
+);
+
+const ClockIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 15.5 14.5"/>
+  </svg>
+);
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main Component
+───────────────────────────────────────────────────────────────────────────── */
 const UpdateNotification = () => {
-  const { isDark } = useTheme();
-  
-  // States: 'idle', 'checking', 'downloading', 'paused', 'verifying', 'installing', 'completed', 'failed'
-  const [status, setStatus] = useState('idle'); 
-  const [progress, setProgress] = useState(0);
-  const [bytesPerSecond, setBytesPerSecond] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(149210342); // default 142.3 MB fallback
-  const [transferredBytes, setTransferredBytes] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Pause toggle
-  const [isPaused, setIsPaused] = useState(false);
+  const [status, setStatus]               = useState('idle');
+  const [progress, setProgress]           = useState(0);
+  const [bytesPerSecond, setBps]          = useState(0);
+  const [totalBytes, setTotalBytes]       = useState(149210342);
+  const [transferredBytes, setTransferred]= useState(0);
+  const [errorMessage, setErrorMessage]   = useState('');
+  const [isPaused, setIsPaused]           = useState(false);
+  const [hovering, setHovering]           = useState(false);
 
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    // Listen to status changes from the main process
     const unbindStatus = window.electronAPI.onUpdateStatusChanged((state) => {
-      if (isPaused) return; // ignore updates if paused state is simulated/active
-      
-      if (state.status === 'checking') {
-        setStatus('checking');
-      } else if (state.status === 'downloading') {
+      if (isPaused) return;
+      if (state.status === 'checking')          { setStatus('checking'); }
+      else if (state.status === 'downloading')  {
         setStatus('downloading');
         setProgress(Math.round(state.percent || 0));
-        setBytesPerSecond(state.bytesPerSecond || 0);
-      } else if (state.status === 'downloaded') {
-        setStatus('completed');
-        setProgress(100);
-      } else if (state.status === 'error') {
-        setStatus('failed');
-        setErrorMessage(state.errorMessage || 'Unknown download error occurred');
+        setBps(state.bytesPerSecond || 0);
       }
+      else if (state.status === 'downloaded')   { setStatus('completed'); setProgress(100); }
+      else if (state.status === 'error')        { setStatus('failed'); setErrorMessage(state.errorMessage || 'Unknown error'); }
     });
 
-    const unbindAvailable = window.electronAPI.onUpdateAvailable(() => {
-      setStatus('checking');
-    });
+    const unbindAvailable = window.electronAPI.onUpdateAvailable(() => setStatus('checking'));
 
-    const unbindProgress = window.electronAPI.onUpdateProgress((event, info) => {
+    const unbindProgress = window.electronAPI.onUpdateProgress((_ev, info) => {
       if (isPaused) return;
       setStatus('downloading');
       setProgress(Math.round(info.percent || 0));
-      setBytesPerSecond(info.bytesPerSecond || 0);
-      if (info.total) setTotalBytes(info.total);
-      if (info.transferred) setTransferredBytes(info.transferred);
+      setBps(info.bytesPerSecond || 0);
+      if (info.total)       setTotalBytes(info.total);
+      if (info.transferred) setTransferred(info.transferred);
     });
 
     const unbindDownloaded = window.electronAPI.onUpdateDownloaded(() => {
-      setStatus('completed');
-      setProgress(100);
+      setStatus('completed'); setProgress(100);
     });
 
-    // Check initial status
     window.electronAPI.getUpdaterStatus().then((state) => {
-      if (state && state.status !== 'idle') {
-        if (state.status === 'checking') setStatus('checking');
-        else if (state.status === 'downloading') {
-          setStatus('downloading');
-          setProgress(Math.round(state.percent || 0));
-          setBytesPerSecond(state.bytesPerSecond || 0);
-        }
-        else if (state.status === 'downloaded') setStatus('completed');
-        else if (state.status === 'error') {
-          setStatus('failed');
-          setErrorMessage(state.errorMessage || '');
-        }
+      if (!state || state.status === 'idle') return;
+      if (state.status === 'checking')         setStatus('checking');
+      else if (state.status === 'downloading') {
+        setStatus('downloading');
+        setProgress(Math.round(state.percent || 0));
+        setBps(state.bytesPerSecond || 0);
       }
+      else if (state.status === 'downloaded')  { setStatus('completed'); setProgress(100); }
+      else if (state.status === 'error')       { setStatus('failed'); setErrorMessage(state.errorMessage || ''); }
     });
 
     return () => {
-      if (unbindStatus) unbindStatus();
-      if (unbindAvailable) unbindAvailable();
-      if (unbindProgress) unbindProgress();
-      if (unbindDownloaded) unbindDownloaded();
+      unbindStatus?.();
+      unbindAvailable?.();
+      unbindProgress?.();
+      unbindDownloaded?.();
     };
   }, [isPaused]);
 
-  // Auto disappear for completed/failed/checking states
+  // Auto-hide completed/failed/checking
   useEffect(() => {
     if (status === 'completed' || status === 'failed') {
-      const timer = setTimeout(() => {
-        setStatus('idle');
-      }, 5000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setStatus('idle'), 6000);
+      return () => clearTimeout(t);
     }
-
     if (status === 'checking') {
-      // Auto-hide checking state after 15s to prevent getting stuck
-      const timer = setTimeout(() => {
-        setStatus('idle');
-      }, 15000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setStatus('idle'), 15000);
+      return () => clearTimeout(t);
     }
   }, [status]);
 
-  if (status === 'idle') return null;
-
-  // Format Helpers
-  const formatBytes = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  const formatSpeed = (bytesPerSec) => {
-    if (!bytesPerSec || bytesPerSec <= 0) return '0 KB/s';
-    return formatBytes(bytesPerSec) + '/s';
-  };
-
-  const getRemainingTime = () => {
-    if (!bytesPerSecond || bytesPerSecond <= 0) return '--';
-    const remainingBytes = totalBytes - transferredBytes;
-    if (remainingBytes <= 0) return '0s';
-    const seconds = Math.ceil(remainingBytes / bytesPerSecond);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m ${seconds % 60}s`;
-  };
-
-  const computedTransferred = transferredBytes || Math.round((progress / 100) * totalBytes);
-  const transferredText = formatBytes(computedTransferred);
-  const totalText = formatBytes(totalBytes);
-
-  // Styling based on Theme
-  const themeStyles = {
-    bg: isDark ? 'rgba(31, 41, 55, 0.75)' : 'rgba(255, 255, 255, 0.82)',
-    border: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
-    textPrimary: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#9CA3AF' : '#6B7280',
-    shadow: isDark ? '0 20px 40px rgba(0, 0, 0, 0.5)' : '0 20px 40px rgba(17, 24, 39, 0.08)',
-    buttonBg: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F3F4F6',
-    buttonHover: isDark ? 'rgba(255, 255, 255, 0.1)' : '#E5E7EB',
-    iconBg: isDark ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)'
-  };
-
-  const getStatusTitle = () => {
-    switch (status) {
-      case 'checking': return 'Checking for updates...';
-      case 'downloading': return 'Downloading Update...';
-      case 'paused': return 'Update Paused';
-      case 'verifying': return 'Verifying Update...';
-      case 'installing': return 'Installing Update...';
-      case 'completed': return 'Update Ready!';
-      case 'failed': return 'Update Failed';
-      default: return 'Update Available';
-    }
-  };
-
   const handlePauseToggle = () => {
-    if (status === 'downloading') {
-      setStatus('paused');
-      setIsPaused(true);
-    } else if (status === 'paused') {
-      setStatus('downloading');
-      setIsPaused(false);
-    }
+    if (status === 'downloading')  { setStatus('paused');       setIsPaused(true); }
+    else if (status === 'paused')  { setStatus('downloading');  setIsPaused(false); }
   };
 
   const handleRetry = () => {
-    setStatus('checking');
-    setErrorMessage('');
-    if (window.electronAPI && window.electronAPI.checkForUpdates) {
-      window.electronAPI.checkForUpdates();
-    }
+    setStatus('checking'); setErrorMessage('');
+    window.electronAPI?.checkForUpdates?.();
   };
 
   const handleInstall = () => {
     setStatus('installing');
-    if (window.electronAPI && window.electronAPI.installUpdate) {
-      window.electronAPI.installUpdate();
+    window.electronAPI?.installUpdate?.();
+  };
+
+  if (status === 'idle') return null;
+
+  const isDownloading = status === 'downloading';
+  const isPausedState = status === 'paused';
+  const showWave      = isDownloading || isPausedState;
+  const computed      = transferredBytes || Math.round((progress / 100) * totalBytes);
+
+  const getTitle = () => {
+    switch (status) {
+      case 'checking':   return 'Checking for Updates';
+      case 'downloading': return 'Downloading Update...';
+      case 'paused':     return 'Update Paused';
+      case 'completed':  return 'Update Ready!';
+      case 'failed':     return 'Update Failed';
+      case 'installing': return 'Installing...';
+      default: return 'Update Available';
     }
   };
 
+  const getSubtitle = () => {
+    if (isDownloading) return `${progress}% completed  •  ${fmt(computed)} of ${fmt(totalBytes)}`;
+    if (isPausedState) return `Paused at ${progress}%  •  ${fmt(computed)} of ${fmt(totalBytes)}`;
+    if (status === 'checking')   return 'Searching for the latest version...';
+    if (status === 'completed')  return 'Ready to install. Restart to apply.';
+    if (status === 'failed')     return errorMessage || 'Connection lost. Please retry.';
+    if (status === 'installing') return 'Restarting and applying update...';
+    return '';
+  };
+
+  const getIcon = () => {
+    if (status === 'completed')  return <CheckIcon />;
+    if (status === 'failed')     return <ErrorIcon />;
+    if (status === 'checking' || status === 'installing') return <SpinnerIcon />;
+    return <DownloadIcon />;
+  };
+
+  const iconBorderColor =
+    status === 'completed' ? 'rgba(34, 197, 94, 0.3)' :
+    status === 'failed'    ? 'rgba(239, 68, 68, 0.3)' :
+    'rgba(255, 255, 255, 0.10)';
+
   return (
-    <AnimatePresence>
-      {status !== 'idle' && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          pointerEvents: 'none',
-          zIndex: 9999
-        }}>
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            style={{
-              width: '380px',
-              pointerEvents: 'auto',
-              background: themeStyles.bg,
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: `1px solid ${themeStyles.border}`,
-              borderRadius: '24px',
-              boxShadow: themeStyles.shadow,
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-              boxSizing: 'border-box',
-              fontFamily: "'Outfit', sans-serif"
-            }}
-          >
-        {/* Top Section */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          {/* Status Icon */}
+    <>
+      {/* Keyframes injected once */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @keyframes infoUpdateSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .info-update-btn:hover {
+          background: #111111 !important;
+          border-color: rgba(255,255,255,0.36) !important;
+          box-shadow: 0 0 20px rgba(255,255,255,0.04) !important;
+        }
+        .info-update-btn:active {
+          transform: scale(0.97);
+        }
+        .info-update-action-btn:hover {
+          opacity: 0.88;
+        }
+      `}</style>
+
+      <AnimatePresence>
+        {status !== 'idle' && (
           <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            backgroundColor: status === 'completed' ? 'rgba(34, 197, 94, 0.1)' : status === 'failed' ? 'rgba(239, 68, 68, 0.1)' : themeStyles.iconBg,
+            position: 'fixed',
+            bottom: '28px',
+            left: 0,
+            right: 0,
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center',
-            color: status === 'completed' ? '#22C55E' : status === 'failed' ? '#EF4444' : '#F97316',
-            fontSize: '20px',
-            flexShrink: 0
+            pointerEvents: 'none',
+            zIndex: 9999,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           }}>
-            {status === 'completed' ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : status === 'failed' ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: status === 'checking' ? 'spin 1.5s linear infinite' : 'none' }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            )}
-          </div>
-
-          {/* Title & Subtitle */}
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h4 style={{ margin: 0, color: themeStyles.textPrimary, fontSize: '15px', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              {getStatusTitle()}
-            </h4>
-            <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: themeStyles.textSecondary, fontWeight: 500 }}>
-              {status === 'downloading' && `${progress}% completed • ${transferredText} of ${totalText}`}
-              {status === 'paused' && `Paused at ${progress}% • ${transferredText} of ${totalText}`}
-              {status === 'checking' && 'Searching for the latest updates...'}
-              {status === 'completed' && 'Update downloaded successfully.'}
-              {status === 'failed' && (errorMessage || 'Connection lost. Please retry.')}
-              {status === 'verifying' && 'Checking package signature...'}
-              {status === 'installing' && 'Restarting and installing update...'}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress Bar (Only show when downloading, paused, verifying or completed) */}
-        {['downloading', 'paused', 'verifying', 'completed', 'installing'].includes(status) && (
-          <div style={{ width: '100%', height: '5px', backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
             <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ ease: 'easeOut', duration: 0.2 }}
+              initial={{ opacity: 0, y: 52, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0,  scale: 1 }}
+              exit={{    opacity: 0, y: 30,  scale: 0.96 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 220, mass: 0.9 }}
               style={{
-                height: '100%',
-                background: '#F97316',
-                boxShadow: '0 0 8px rgba(249, 115, 22, 0.4)'
+                pointerEvents: 'auto',
+                width: '740px',
+                background: '#0D0D0D',
+                border: '1.5px solid rgba(255,255,255,0.13)',
+                borderRadius: '26px',
+                padding: '28px 30px 24px',
+                boxShadow: `
+                  0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                  0 36px 72px rgba(0,0,0,0.88),
+                  0 0 80px rgba(255,122,0,0.035)
+                `,
+                boxSizing: 'border-box',
+                WebkitFontSmoothing: 'antialiased',
               }}
-            />
+            >
+              {/* ── Header ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: showWave ? '26px' : '0' }}>
+                {/* Icon */}
+                <div style={{
+                  width: '80px', height: '80px', flexShrink: 0,
+                  background: '#111111',
+                  border: `1.5px solid ${iconBorderColor}`,
+                  borderRadius: '18px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 6px 24px rgba(0,0,0,0.55)',
+                }}>
+                  {getIcon()}
+                </div>
+
+                {/* Title + Subtitle */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '26px', fontWeight: 700, color: '#FFFFFF',
+                    letterSpacing: '-0.55px', lineHeight: 1.15, marginBottom: '7px',
+                  }}>
+                    {getTitle()}
+                  </div>
+                  <div style={{
+                    fontSize: '15px', fontWeight: 400, color: '#767676',
+                    letterSpacing: '-0.1px', lineHeight: 1.4,
+                  }}>
+                    {getSubtitle()}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Wave Progress ── */}
+              {showWave && (
+                <div style={{ margin: '0 -2px', paddingBottom: '2px' }}>
+                  <WaveCanvas progress={isPausedState ? progress : progress} />
+                </div>
+              )}
+
+              {/* ── Divider ── */}
+              {showWave && (
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '18px 0 20px' }} />
+              )}
+
+              {/* Non-wave status: spacer */}
+              {!showWave && <div style={{ height: '20px' }} />}
+
+              {/* ── Footer ── */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+
+                {/* Stats */}
+                {isDownloading && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                      <SpeedIcon />
+                      <div>
+                        <div style={{ fontSize: '9.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.65px', marginBottom: '2px' }}>Speed</div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtSpeed(bytesPerSecond)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.07)', margin: '0 18px' }} />
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                      <ClockIcon />
+                      <div>
+                        <div style={{ fontSize: '9.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.65px', marginBottom: '2px' }}>Time</div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtTime(totalBytes, computed, bytesPerSecond)}</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {isPausedState && (
+                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#555555', letterSpacing: '-0.1px' }}>
+                    Download paused
+                  </div>
+                )}
+
+                {status === 'checking' && (
+                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#555555' }}>
+                    Connecting to update server...
+                  </div>
+                )}
+
+                {status === 'failed' && (
+                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#EF4444', opacity: 0.8 }}>
+                    {errorMessage || 'Unable to reach server'}
+                  </div>
+                )}
+
+                {status === 'completed' && (
+                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#22C55E', opacity: 0.85 }}>
+                    Download complete
+                  </div>
+                )}
+
+                {/* Spacer */}
+                <div style={{ flex: 1 }} />
+
+                {/* Action Buttons */}
+                {(isDownloading || isPausedState) && (
+                  <button
+                    className="info-update-btn"
+                    onClick={handlePauseToggle}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '9px',
+                      background: '#000000',
+                      border: '1.5px solid rgba(255,255,255,0.17)',
+                      borderRadius: '13px',
+                      height: '48px', padding: '0 22px',
+                      color: '#FFFFFF',
+                      fontSize: '14px', fontWeight: 600,
+                      fontFamily: 'inherit',
+                      letterSpacing: '-0.2px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      outline: 'none',
+                    }}
+                  >
+                    {isPausedState ? <ResumeIcon /> : <PauseIcon />}
+                    {isPausedState ? 'Resume' : 'Pause'}
+                  </button>
+                )}
+
+                {status === 'failed' && (
+                  <button
+                    className="info-update-action-btn"
+                    onClick={handleRetry}
+                    style={{
+                      background: '#FF7A00',
+                      border: 'none', outline: 'none',
+                      borderRadius: '13px',
+                      height: '48px', padding: '0 22px',
+                      color: '#FFFFFF',
+                      fontSize: '14px', fontWeight: 600,
+                      fontFamily: 'inherit', letterSpacing: '-0.2px',
+                      cursor: 'pointer',
+                      transition: 'opacity 0.15s',
+                      boxShadow: '0 4px 16px rgba(255,122,0,0.3)',
+                    }}
+                  >
+                    Retry
+                  </button>
+                )}
+
+                {status === 'completed' && (
+                  <button
+                    className="info-update-action-btn"
+                    onClick={handleInstall}
+                    style={{
+                      background: '#FF7A00',
+                      border: 'none', outline: 'none',
+                      borderRadius: '13px',
+                      height: '48px', padding: '0 22px',
+                      color: '#FFFFFF',
+                      fontSize: '14px', fontWeight: 600,
+                      fontFamily: 'inherit', letterSpacing: '-0.2px',
+                      cursor: 'pointer',
+                      transition: 'opacity 0.15s',
+                      boxShadow: '0 4px 16px rgba(255,122,0,0.3)',
+                    }}
+                  >
+                    Restart &amp; Install
+                  </button>
+                )}
+              </div>
+            </motion.div>
           </div>
         )}
-
-        {/* Bottom Details & Action Button Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-          {/* Info Details Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {status === 'downloading' && (
-              <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: themeStyles.textSecondary, opacity: 0.8, fontWeight: 500 }}>
-                <span>Speed: {formatSpeed(bytesPerSecond)}</span>
-                <span>•</span>
-                <span>Time: {getRemainingTime()}</span>
-              </div>
-            )}
-            {['downloading', 'paused'].includes(status) && (
-              <div style={{ fontSize: '10px', color: themeStyles.textSecondary, opacity: 0.6 }}>
-                File: infopos-setup-v2.exe
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {status === 'failed' && (
-              <button
-                onClick={handleRetry}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  backgroundColor: '#F97316',
-                  color: 'white',
-                  borderRadius: '10px',
-                  padding: '8px 14px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 10px rgba(249, 115, 22, 0.25)',
-                  transition: 'opacity 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.opacity = 0.9}
-                onMouseOut={(e) => e.target.style.opacity = 1}
-              >
-                Retry
-              </button>
-            )}
-
-            {status === 'completed' && (
-              <button
-                onClick={handleInstall}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  backgroundColor: '#F97316',
-                  color: 'white',
-                  borderRadius: '10px',
-                  padding: '8px 14px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 10px rgba(249, 115, 22, 0.25)',
-                  transition: 'opacity 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.opacity = 0.9}
-                onMouseOut={(e) => e.target.style.opacity = 1}
-              >
-                Restart & Install
-              </button>
-            )}
-
-            {['downloading', 'paused'].includes(status) && (
-              <button
-                onClick={handlePauseToggle}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  backgroundColor: themeStyles.buttonBg,
-                  color: themeStyles.textPrimary,
-                  borderRadius: '10px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = themeStyles.buttonHover}
-                onMouseOut={(e) => e.target.style.backgroundColor = themeStyles.buttonBg}
-              >
-                {status === 'paused' ? 'Resume' : 'Pause'}
-              </button>
-            )}
-          </div>
-        </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </>
   );
 };
 

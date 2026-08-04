@@ -59,6 +59,14 @@ class PlaywrightImageGenerator:
                 # Windows because Playwright internally writes the HTML using the
                 # system's default encoding (cp1252/charmap), which cannot encode
                 # non-ASCII characters like ₹ or other Unicode glyphs.
+                #
+                # Defensive guard: ensure html_content is a str, not bytes.
+                # (Bytes can arrive if something upstream encoded it incorrectly.)
+                if isinstance(html_content, bytes):
+                    html_content = html_content.decode("utf-8", errors="replace")
+                elif not isinstance(html_content, str):
+                    html_content = str(html_content)
+
                 html_temp_path = os.path.join(
                     tempfile.gettempdir(),
                     f"receipt_html_{os.getpid()}_{os.urandom(4).hex()}.html",
@@ -74,6 +82,7 @@ class PlaywrightImageGenerator:
                         os.remove(html_temp_path)
                     except Exception:
                         pass
+
 
                 # Save screenshot to temporary folder
                 temp_dir = tempfile.gettempdir()
