@@ -54,8 +54,26 @@ class PlaywrightImageGenerator:
                 # Emulate screen media to ensure layout matches normal browser viewport rendering
                 page.emulate_media(media="screen")
 
-                # Inject HTML and wait for rendering to settle
-                page.set_content(html_content, wait_until="networkidle")
+                # Write HTML to a UTF-8 temp file and load via file URL.
+                # Using set_content() directly causes 'charmap' codec errors on
+                # Windows because Playwright internally writes the HTML using the
+                # system's default encoding (cp1252/charmap), which cannot encode
+                # non-ASCII characters like ₹ or other Unicode glyphs.
+                html_temp_path = os.path.join(
+                    tempfile.gettempdir(),
+                    f"receipt_html_{os.getpid()}_{os.urandom(4).hex()}.html",
+                )
+                with open(html_temp_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+
+                try:
+                    file_url = f"file:///{html_temp_path.replace(os.sep, '/')}"
+                    page.goto(file_url, wait_until="networkidle")
+                finally:
+                    try:
+                        os.remove(html_temp_path)
+                    except Exception:
+                        pass
 
                 # Save screenshot to temporary folder
                 temp_dir = tempfile.gettempdir()
