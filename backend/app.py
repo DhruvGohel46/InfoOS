@@ -110,6 +110,7 @@ def create_app(config_name="default"):
     from routes.worker_types import worker_types_bp
     from routes.expense_types import expense_types_bp
     from routes.reminders import reminders_bp
+    from routes.notifications import notifications_bp
     from routes.pos import pos_bp
     from auth import auth_bp
     from routes.logs import logs_bp
@@ -172,6 +173,7 @@ def create_app(config_name="default"):
     app.register_blueprint(worker_types_bp)
     app.register_blueprint(expense_types_bp)
     app.register_blueprint(reminders_bp)
+    app.register_blueprint(notifications_bp)
     app.register_blueprint(pos_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(logs_bp)
@@ -502,6 +504,9 @@ def run_programmatic_sqlite_migrations(app, db):
                             "CREATE INDEX IF NOT EXISTS fk_workers_worker_type_id ON workers(worker_type_id)"
                         )
                     )
+                if "salary_day" not in worker_cols:
+                    _log.info("Migrating SQLite: Adding salary_day column to workers table")
+                    conn.execute(text("ALTER TABLE workers ADD COLUMN salary_day INTEGER"))
 
             _log.info("Programmatic SQLite migrations completed successfully")
     except Exception as e:
@@ -629,6 +634,9 @@ def run_programmatic_postgres_migrations(app, db):
                     text(
                         "CREATE INDEX IF NOT EXISTS fk_workers_worker_type_id ON workers(worker_type_id)"
                     )
+                )
+                conn.execute(
+                    text("ALTER TABLE workers ADD COLUMN IF NOT EXISTS salary_day INTEGER")
                 )
 
             _log.info("Programmatic PostgreSQL migrations completed successfully")

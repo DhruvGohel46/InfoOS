@@ -481,8 +481,10 @@ class SummaryService:
                     if pid not in product_sales:
                         pinfo = product_map.get(pid)
                         product_sales[pid] = {
+                            "product_id": pid,
                             "name": item["name"],
                             "category": self._normalize_category(pinfo),
+                            "category_id": pinfo.get("category_id") if pinfo else None,
                             "quantity": 0,
                             "total_amount": 0.0,
                         }
@@ -492,6 +494,16 @@ class SummaryService:
             sorted_products = sorted(
                 product_sales.values(), key=lambda x: x["total_amount"], reverse=True
             )
+
+            formatted_expenses = [
+                {
+                    "name": e.get("title") or e.get("reason") or e.get("category") or "Expense",
+                    "amount": float(e.get("amount", 0.0)),
+                    "category": e.get("category", "Other"),
+                    "date": str(e.get("date")),
+                }
+                for e in expenses
+            ]
 
             return {
                 "range": range_type,
@@ -505,6 +517,7 @@ class SummaryService:
                 "expense_category_totals": expense_category_totals,
                 "average_bill_value": total_sales / len(bills) if bills else 0.0,
                 "products": sorted_products,
+                "expenses": formatted_expenses,
             }
         except Exception as e:
             print(f"Error in range summary: {e}")

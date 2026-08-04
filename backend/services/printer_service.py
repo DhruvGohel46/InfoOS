@@ -227,7 +227,7 @@ class PrinterService:
 
             try:
                 # Send PNG image to printer
-                success = self.image_printer.print_image(
+                success, print_err = self.image_printer.print_image(
                     self.printer_name, png_path, f"Bill_{bill_data.get('bill_no', '1')}"
                 )
             finally:
@@ -243,7 +243,8 @@ class PrinterService:
             if success:
                 return {"success": True, "error": None}
             else:
-                return {"success": False, "error": "Failed to send to printer"}
+                err_msg = print_err or f"Failed to send print job to printer '{self.printer_name}'"
+                return {"success": False, "error": err_msg}
 
         except Exception as exc:
             print(f"[PrinterService] Error printing bill: {exc}")
@@ -284,7 +285,7 @@ class PrinterService:
 
             try:
                 # Send PNG image to printer
-                success = self.image_printer.print_image(
+                success, print_err = self.image_printer.print_image(
                     self.printer_name, png_path, f"KOT_{bill_data.get('bill_no', '1')}"
                 )
             finally:
@@ -300,7 +301,8 @@ class PrinterService:
             if success:
                 return {"success": True, "error": None}
             else:
-                return {"success": False, "error": "Failed to send to printer"}
+                err_msg = print_err or f"Failed to send print job to printer '{self.printer_name}'"
+                return {"success": False, "error": err_msg}
 
         except Exception as exc:
             print(f"[PrinterService] Error printing KOT: {exc}")
@@ -365,7 +367,9 @@ class PrinterService:
 
             try:
                 # Send PNG image to printer
-                success = self.image_printer.print_image(self.printer_name, png_path, "TestPrint")
+                success, print_err = self.image_printer.print_image(
+                    self.printer_name, png_path, "TestPrint"
+                )
             finally:
                 # Clean up temporary PNG file
                 if os.path.exists(png_path):
@@ -379,7 +383,8 @@ class PrinterService:
             if success:
                 return {"success": True, "error": None}
             else:
-                return {"success": False, "error": "Failed to send to printer"}
+                err_msg = print_err or f"Failed to send print job to printer '{self.printer_name}'"
+                return {"success": False, "error": err_msg}
 
         except Exception as exc:
             print(f"[PrinterService] Error printing test page: {exc}")

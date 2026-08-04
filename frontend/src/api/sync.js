@@ -1,5 +1,4 @@
-import { billingAPI, summaryAPI } from '../utils/api';
-import { expensesAPI } from './expenses';
+import { billingAPI, summaryAPI, getLocalDateString } from '../utils/api';
 import { cloudSyncAPI, cloudAuthAPI } from './cloudApi';
 
 const QUEUE_KEY = 'offline_bills_queue';
@@ -115,29 +114,33 @@ export const syncService = {
 
     if (!userId) return;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
 
-    // 1. Weekly Sync
+    // 1. Weekly Sync (Sync previous completed week + current week)
     try {
-      const summaryRes = await summaryAPI.getRangeSummary('week', todayStr);
-      if (summaryRes.data?.success) {
-        const summary = summaryRes.data.summary;
-        if (summary) {
+      const dayOfWeek = now.getDay();
+      const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+      const currentWeekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+      const currentWeekStartStr = getLocalDateString(currentWeekMonday);
+
+      const prevWeekMonday = new Date(currentWeekMonday.getFullYear(), currentWeekMonday.getMonth(), currentWeekMonday.getDate() - 7);
+      const prevWeekStartStr = getLocalDateString(prevWeekMonday);
+
+      const weeksToSync = [prevWeekStartStr, currentWeekStartStr];
+
+      for (const targetWeekStr of weeksToSync) {
+        const summaryRes = await summaryAPI.getRangeSummary('week', targetWeekStr);
+        if (summaryRes.data?.success && summaryRes.data.summary) {
+          const summary = summaryRes.data.summary;
           const weekStartStr = summary.start_date;
           // Check if already uploaded
           const exists = await cloudSyncAPI.checkWeeklyReportExists(userId, weekStartStr, token);
           if (!exists) {
-            // Aggregate expenses and upload
-            const expensesRes = await expensesAPI.getExpenses(200);
-            const allExpenses = expensesRes.expenses || [];
-
-            const startOfWeekTime = new Date(summary.start_date).getTime();
-            const endOfWeekTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
-
-            const thisWeekExpenses = allExpenses.filter(e => {
-              const eTime = new Date(e.date).getTime();
-              return eTime >= startOfWeekTime && eTime <= endOfWeekTime;
-            });
+            const expenseDetails = (summary.expenses || []).map(e => ({
+              name: e.name,
+              amount: e.amount
+            }));
 
             const payload = {
               userId,
@@ -148,10 +151,7 @@ export const syncService = {
                 name: p.name,
                 amount: p.total_amount
               })),
-              expenseDetails: thisWeekExpenses.map(e => ({
-                name: e.title,
-                amount: e.amount
-              }))
+              expenseDetails
             };
 
             await cloudSyncAPI.syncBackup(payload);
@@ -163,27 +163,30 @@ export const syncService = {
       console.error('Auto-sync weekly report failed:', e);
     }
 
-    // 2. Monthly Sync
+    // 2. Monthly Sync (Sync previous completed month + current month)
     try {
-      const summaryRes = await summaryAPI.getRangeSummary('month', todayStr);
-      if (summaryRes.data?.success) {
-        const summary = summaryRes.data.summary;
-        if (summary) {
+      // Previous month 1st day (e.g. 2026-07-01 if now is in August 2026)
+      const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthStartStr = getLocalDateString(prevMonthDate);
+
+      // Current month 1st day (e.g. 2026-08-01 if now is in August 2026)
+      const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const currentMonthStartStr = getLocalDateString(currentMonthDate);
+
+      const monthsToSync = [prevMonthStartStr, currentMonthStartStr];
+
+      for (const targetMonthStr of monthsToSync) {
+        const summaryRes = await summaryAPI.getRangeSummary('month', targetMonthStr);
+        if (summaryRes.data?.success && summaryRes.data.summary) {
+          const summary = summaryRes.data.summary;
           const monthStartStr = summary.start_date;
           // Check if already uploaded
           const exists = await cloudSyncAPI.checkMonthlyReportExists(userId, monthStartStr, token);
           if (!exists) {
-            // Aggregate expenses and upload
-            const expensesRes = await expensesAPI.getExpenses(200);
-            const allExpenses = expensesRes.expenses || [];
-
-            const startOfMonthTime = new Date(summary.start_date).getTime();
-            const endOfMonthTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
-
-            const thisMonthExpenses = allExpenses.filter(e => {
-              const eTime = new Date(e.date).getTime();
-              return eTime >= startOfMonthTime && eTime <= endOfMonthTime;
-            });
+            const expenseDetails = (summary.expenses || []).map(e => ({
+              name: e.name,
+              amount: e.amount
+            }));
 
             const payload = {
               userId,
@@ -194,10 +197,7 @@ export const syncService = {
                 name: p.name,
                 amount: p.total_amount
               })),
-              expenseDetails: thisMonthExpenses.map(e => ({
-                name: e.title,
-                amount: e.amount
-              }))
+              expenseDetails
             };
 
             await cloudSyncAPI.syncMonthlyBackup(payload);

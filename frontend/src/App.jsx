@@ -76,9 +76,11 @@ import SalaryManager from './components/workers/SalaryManager';
 import { workerAPI } from './api/workers';
 
 // Reminders
-import { ReminderProvider, useReminders } from './context/ReminderContext';
+import { ReminderProvider } from './context/ReminderContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import NotificationCenterDrawer from './components/system/NotificationCenterDrawer';
 import Reminders from './components/screens/Reminders';
-import { IoAlarmOutline, IoSyncOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline } from 'react-icons/io5';
+import { IoAlarmOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline } from 'react-icons/io5';
 
 // Offline Sync
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
@@ -120,13 +122,11 @@ import LicensingGate from './components/system/LicensingGate';
 function AppContent() {
   const { currentTheme, toggleTheme, isDark } = useTheme();
   const { settings } = useSettings();
-  const { reminders, activeAlerts, dismissReminder } = useReminders();
   const { isOnline } = useNetwork();
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
-  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  const { checkCatalogVersion } = usePOSData();
-
+  const { unreadCount, toggleCenter } = useNotifications();
   const { addToast, showWarning, showSuccess: alertSuccess } = useAlert();
+  const { checkCatalogVersion } = usePOSData();
 
   const navigate = useNavigate();
   // eslint-disable-next-line no-unused-vars
@@ -155,27 +155,6 @@ function AppContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [posKey, setPosKey] = useState(0);
   const notificationRef = React.useRef(null);
-  const notificationPanelRef = React.useRef(null);
-  const notificationToggleRef = React.useRef(null);
-
-  // Collapse notification panel when clicking outside of it
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (
-        showNotificationPanel &&
-        notificationPanelRef.current &&
-        !notificationPanelRef.current.contains(event.target) &&
-        notificationToggleRef.current &&
-        !notificationToggleRef.current.contains(event.target)
-      ) {
-        setShowNotificationPanel(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showNotificationPanel]);
 
   const [showAttendancePrompt, setShowAttendancePrompt] = useState(false);
 
@@ -657,115 +636,48 @@ function AppContent() {
                 </button>
               </div>
 
+              {/* Notification Center Bell Button */}
               <button
-                ref={notificationToggleRef}
-                onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                id="infoos-notification-bell-btn"
+                onClick={toggleCenter}
                 className="rounded-lg"
                 style={{
                   width: 'calc(40px * var(--display-zoom))',
                   height: 'calc(40px * var(--display-zoom))',
                   border: '1px solid var(--glass-border)',
                   backgroundImage: 'var(--glass-card)',
-                  color: activeAlerts.length > 0 ? 'var(--primary-500)' : 'var(--text-primary)',
+                  color: unreadCount > 0 ? '#FF7A00' : 'var(--text-primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   position: 'relative',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
                 }}
+                title="Open Notification Center"
               >
-                <IoAlarmOutline size={22} className={activeAlerts.length > 0 ? 'ringing' : ''} />
-                {activeAlerts.length > 0 && (
+                <IoAlarmOutline size={22} className={unreadCount > 0 ? 'ringing' : ''} />
+                {unreadCount > 0 && (
                   <span style={{
                     position: 'absolute',
                     top: '-4px',
                     right: '-4px',
                     width: '18px',
                     height: '18px',
-                    background: '#ef4444',
-                    color: 'white',
+                    background: '#FF7A00',
+                    color: '#FFFFFF',
                     borderRadius: '50%',
                     fontSize: '10px',
                     fontWeight: 'bold',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 0 12px rgba(239, 68, 68, 0.4)'
+                    boxShadow: '0 0 12px rgba(255, 122, 0, 0.5)'
                   }}>
-                    {activeAlerts.length}
+                    {unreadCount}
                   </span>
                 )}
               </button>
-
-              {showNotificationPanel && (
-                <div 
-                  ref={notificationPanelRef}
-                  style={{
-                  position: 'absolute',
-                  top: '120%',
-                  right: '0',
-                  width: '320px',
-                  background: isDark ? 'rgba(24, 28, 34, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: '16px',
-                  boxShadow: '0 14px 28px rgba(0,0,0,0.28)',
-                  backdropFilter: 'blur(6px)',
-                  WebkitBackdropFilter: 'blur(6px)',
-                  zIndex: 3000,
-                  overflow: 'hidden',
-                  animation: 'slideDown 0.3s cubic-bezier(0, 0, 0.2, 1)'
-                }}>
-                  <div style={{
-                    padding: '16px',
-                    borderBottom: '1px solid var(--glass-border)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>Notification Queue</h3>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{reminders.length} Active</span>
-                  </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '10px' }}>
-                    {reminders.length > 0 ? reminders.map(alert => (
-                      <div key={alert.id} style={{
-                        padding: '12px',
-                        marginBottom: '8px',
-                        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                        border: '1px solid var(--glass-border)',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        gap: '12px'
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 700 }}>{alert.title}</h4>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(alert.reminder_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                        <button 
-                          onClick={() => dismissReminder(alert.id)}
-                          style={{
-                            background: 'rgba(249, 115, 22, 0.1)',
-                            border: 'none',
-                            color: 'var(--primary-500)',
-                            padding: '4px 8px',
-                            borderRadius: '8px',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          DONE
-                        </button>
-                      </div>
-                    )) : (
-                      <div style={{ padding: '30px 20px', textAlign: 'center' }}>
-                        <IoSyncOutline size={32} style={{ opacity: 0.2, marginBottom: '10px' }} />
-                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>No notifications or active alerts.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               <button
                 onClick={toggleTheme}
@@ -1077,6 +989,9 @@ function AppContent() {
 
         {/* Auto-Updater Notification */}
         <UpdateNotification />
+
+        {/* Centralized Notification Center Drawer */}
+        <NotificationCenterDrawer />
       </>
     </div>
   );
@@ -1090,15 +1005,17 @@ export default function App() {
           <SettingsProvider>
             <NetworkProvider>
               <POSDataProvider>
-                <ReminderProvider>
-                  <HashRouter>
-                    <AuthProvider>
-                      <LicensingGate>
-                        <AppContent />
-                      </LicensingGate>
-                    </AuthProvider>
-                  </HashRouter>
-                </ReminderProvider>
+                <NotificationProvider>
+                  <ReminderProvider>
+                    <HashRouter>
+                      <AuthProvider>
+                        <LicensingGate>
+                          <AppContent />
+                        </LicensingGate>
+                      </AuthProvider>
+                    </HashRouter>
+                  </ReminderProvider>
+                </NotificationProvider>
               </POSDataProvider>
             </NetworkProvider>
           </SettingsProvider>

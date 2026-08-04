@@ -247,6 +247,7 @@ class Worker(db.Model):
     role = db.Column(db.String(100))  # e.g., 'Chef', 'Waiter', 'Manager'
     worker_type_id = db.Column(db.Integer, db.ForeignKey("worker_types.id"), nullable=True)
     salary = db.Column(db.Float, default=0.0)
+    salary_day = db.Column(db.Integer, nullable=True)  # Day of month (1-31)
     join_date = db.Column(db.Date)
     status = db.Column(db.String(20), default="active")  # 'active', 'inactive'
     photo = db.Column(db.Text)  # Base64 string or URL
@@ -365,6 +366,65 @@ class Reminder(db.Model):
             if hasattr(reminder, key):
                 setattr(reminder, key, value)
         return reminder
+
+
+# ==========================================
+# NOTIFICATION CENTER SYSTEM MODEL
+# ==========================================
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(50), nullable=False, default="admin")
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), nullable=False, default="system")
+    priority = db.Column(db.String(20), nullable=False, default="info")
+    status = db.Column(db.String(20), nullable=False, default="unread")
+    source = db.Column(db.String(50), nullable=True)
+    related_id = db.Column(db.String(100), nullable=True)
+    action_route = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now(), index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    dismissed_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    metadata_json = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        db.Index("idx_notif_user_status", "user_id", "status"),
+        db.Index("idx_notif_created_at", "created_at"),
+        db.Index("idx_notif_type", "type"),
+    )
+
+    def to_dict(self):
+        meta = None
+        if self.metadata_json:
+            try:
+                meta = json.loads(self.metadata_json)
+            except Exception:
+                meta = None
+
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "message": self.message,
+            "type": self.type,
+            "priority": self.priority,
+            "status": self.status,
+            "source": self.source,
+            "related_id": self.related_id,
+            "action_route": self.action_route,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "dismissed_at": self.dismissed_at.isoformat() if self.dismissed_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "metadata": meta,
+        }
 
 
 # ==========================================

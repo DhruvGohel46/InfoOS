@@ -1,303 +1,175 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-// removed framer-motion
-import { inventoryAPI } from '../../utils/api';
-import { useSettings } from '../../context/SettingsContext';
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNotifications } from '../../context/NotificationContext';
 import { useReminders } from '../../context/ReminderContext';
+import {
+  IoClose,
+  IoAlertCircleOutline,
+  IoWarningOutline,
+  IoInformationCircleOutline,
+  IoCheckmarkCircleOutline
+} from 'react-icons/io5';
 
-// Icons
-const AlertIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-    </svg>
-);
+const getPopupIcon = (priority) => {
+  switch (priority) {
+    case 'critical':
+    case 'error': return <IoAlertCircleOutline size={20} color="#EF4444" />;
+    case 'warning': return <IoWarningOutline size={20} color="#F59E0B" />;
+    case 'success': return <IoCheckmarkCircleOutline size={20} color="#10B981" />;
+    default: return <IoInformationCircleOutline size={20} color="#3B82F6" />;
+  }
+};
 
-const XIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
-);
+const getBorderColor = (priority) => {
+  switch (priority) {
+    case 'critical':
+    case 'error': return 'rgba(239, 68, 68, 0.4)';
+    case 'warning': return 'rgba(245, 158, 11, 0.4)';
+    case 'success': return 'rgba(16, 185, 129, 0.4)';
+    default: return 'rgba(59, 130, 246, 0.4)';
+  }
+};
 
-const NotificationSystem = forwardRef((props, ref) => {
-    const [notifications, setNotifications] = useState([]);
-    const { settings } = useSettings();
-    const { activeAlerts, snoozeReminder, dismissReminder } = useReminders();
+const NotificationSystem = () => {
+  const { activePopups, removePopup, markAsCompleted } = useNotifications();
+  const { dismissReminder, fetchReminders } = useReminders();
 
-    // Sync activeAlerts with notifications state
-    useEffect(() => {
-        setNotifications(prev => {
-            // Keep all active non-reminder notifications
-            const nonReminders = prev.filter(n => !n.isReminder);
-            
-            // Map activeAlerts to reminder notifications
-            const reminderNotifs = activeAlerts.map(alert => ({
-                id: alert.id,
-                title: alert.title || 'Reminder Alert',
-                message: alert.description || 'Time to complete your task',
-                type: 'warning',
-                isReminder: true,
-                persist: true
-            }));
-            
-            return [...reminderNotifs, ...nonReminders];
-        });
-    }, [activeAlerts]);
+  const handleDoneClick = async (e, notif) => {
+    e.stopPropagation();
+    removePopup(notif.popupId);
+    await markAsCompleted(notif.id);
+    if (notif.related_id) {
+      try {
+        await dismissReminder(notif.related_id);
+        fetchReminders?.();
+      } catch (err) {
+        console.error('Failed to complete reminder:', err);
+      }
+    }
+  };
 
-    // Expose methods to parent via ref
-    useImperativeHandle(ref, () => ({
-        addNotification: (notification) => {
-            const id = Date.now() + Math.random();
-            setNotifications(prev => [{ ...notification, id }, ...prev]);
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '24px',
+      right: '24px',
+      zIndex: 9998,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      pointerEvents: 'none',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    }}>
+      <AnimatePresence>
+        {activePopups.map((notif) => (
+          <motion.div
+            key={notif.popupId || notif.id}
+            initial={{ opacity: 0, y: -20, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 50, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 240, mass: 0.8 }}
+            style={{
+              pointerEvents: 'auto',
+              width: '360px',
+              background: '#0D0D0D',
+              border: `1.5px solid ${getBorderColor(notif.priority)}`,
+              borderRadius: '16px',
+              padding: '14px 16px',
+              boxShadow: '0 20px 48px rgba(0,0,0,0.85)',
+              display: 'flex',
+              gap: '12px',
+              alignItems: 'flex-start',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Auto dismiss progress bar */}
+            <motion.div
+              initial={{ width: '100%' }}
+              animate={{ width: '0%' }}
+              transition={{ duration: 6, ease: 'linear' }}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                height: '3px',
+                background: notif.priority === 'critical' || notif.priority === 'error'
+                  ? '#EF4444'
+                  : notif.priority === 'warning'
+                  ? '#F59E0B'
+                  : '#3B82F6',
+              }}
+            />
 
-            // Auto dismiss after 6 seconds if not persisted
-            if (!notification.persist) {
-                setTimeout(() => {
-                    removeNotification(id);
-                }, 6000);
-            }
-        },
-        checkStock: () => checkLowStock()
-    }));
+            {/* Icon */}
+            <div style={{ marginTop: '2px', flexShrink: 0 }}>
+              {getPopupIcon(notif.priority)}
+            </div>
 
-    const removeNotification = (id) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    };
+            {/* Body */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 700,
+                color: '#FFFFFF',
+                lineHeight: 1.25,
+                marginBottom: '4px',
+              }}>
+                {notif.title}
+              </div>
+              <div style={{
+                fontSize: '12.5px',
+                color: '#8E8E93',
+                lineHeight: 1.4,
+              }}>
+                {notif.message}
+              </div>
 
-    const checkLowStock = async () => {
-        try {
-            const response = await inventoryAPI.getLowStock();
-            if (response.data.success && response.data.low_stock_items.length > 0) {
-                const items = response.data.low_stock_items;
+              {/* Action for reminders */}
+              {(notif.type === 'reminder' || notif.related_id) && (
+                <div style={{ marginTop: '10px' }}>
+                  <button
+                    onClick={(e) => handleDoneClick(e, notif)}
+                    style={{
+                      background: '#FF7A00',
+                      border: 'none',
+                      borderRadius: '6px',
+                      height: '24px',
+                      padding: '0 10px',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    DONE
+                  </button>
+                </div>
+              )}
+            </div>
 
-                // Group by status
-                const outOfStock = items.filter(i => i.stock <= 0);
-                const lowStock = items.filter(i => i.stock > 0);
-
-                // Show Out of Stock Alert (Critical)
-                if (outOfStock.length > 0) {
-                    const message = outOfStock.length === 1
-                        ? `${outOfStock[0].name} is Out of Stock!`
-                        : `${outOfStock.length} items are Out of Stock!`;
-
-                    addSystemNotification({
-                        title: 'Out of Stock Alert',
-                        message: message,
-                        type: 'critical',
-                        items: outOfStock.slice(0, 3).map(i => i.name)
-                    });
-                }
-
-                // Show Low Stock Alert (Warning)
-                if (lowStock.length > 0) {
-                    const message = lowStock.length === 1
-                        ? `${lowStock[0].name} is Low on Stock (${lowStock[0].stock} left)`
-                        : `${lowStock.length} items are running low`;
-
-                    addSystemNotification({
-                        title: 'Low Stock Warning',
-                        message: message,
-                        type: 'warning'
-                    });
-                }
-            }
-        } catch (error) {
-            console.error("Failed to check stock:", error);
-        }
-    };
-
-    const addSystemNotification = (notif) => {
-        const id = Date.now() + Math.random();
-        setNotifications(prev => [{ ...notif, id }, ...prev]);
-        if (!notif.persist) {
-            setTimeout(() => removeNotification(id), 6000);
-        }
-    };
-
-    // --- AUTOMATED CHECKS ---
-
-    useEffect(() => {
-        // 1. App Start / Page Load Check
-        // Check local storage for last check date
-        const lastCheck = localStorage.getItem('last_stock_check_date');
-        const today = new Date().toDateString();
-
-        if (lastCheck !== today) {
-            console.log("First stock check of the day...");
-            checkLowStock();
-            localStorage.setItem('last_stock_check_date', today);
-        }
-
-        // 2. Shop Open/Close Logic
-        // We set an interval to check current time against shop settings
-        const timeCheckInterval = setInterval(() => {
-            if (settings?.shop_open_time || settings?.shop_close_time) {
-                const now = new Date();
-                const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-
-                // Check if we already alerted for this specific time today
-                const lastTimeAlert = localStorage.getItem('last_time_alert');
-                const lastTimeAlertDate = localStorage.getItem('last_time_alert_date');
-
-                if (lastTimeAlertDate === today && lastTimeAlert === currentTime) {
-                    return; // Already alerted this minute
-                }
-
-                if (currentTime === settings.shop_open_time) {
-                    addSystemNotification({ title: 'Shop Open', message: 'Checking opening stock...', type: 'info' });
-                    checkLowStock();
-                    localStorage.setItem('last_time_alert', currentTime);
-                    localStorage.setItem('last_time_alert_date', today);
-                }
-
-                if (currentTime === settings.shop_close_time) {
-                    addSystemNotification({ title: 'Shop Closing', message: 'Final stock summary', type: 'info' });
-                    checkLowStock();
-                    localStorage.setItem('last_time_alert', currentTime);
-                    localStorage.setItem('last_time_alert_date', today);
-                }
-            }
-        }, 30000); // Check every 30 seconds
-
-        return () => clearInterval(timeCheckInterval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [settings]);
-
-    return (
-        <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            pointerEvents: 'none' // Allow clicking through container
-        }}>
-            <>
-                {notifications.map(n => (
-                    <div
-                        key={n.id}
-                        style={{
-                            minWidth: '320px',
-                            maxWidth: '400px',
-                            background: n.type === 'critical' ? '#3A1C1C' : (n.type === 'warning' ? '#3A2A1C' : 'rgba(30, 41, 59, 0.95)'),
-                            border: `1px solid ${n.type === 'critical' ? '#EF4444' : (n.type === 'warning' ? '#F59E0B' : 'rgba(255,255,255,0.1)')}`,
-                            color: n.type === 'critical' ? '#xFCA5A5' : (n.type === 'warning' ? '#FCD34D' : '#fff'),
-                            borderRadius: '12px',
-                            padding: '16px',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-                            backdropFilter: 'blur(10px)',
-                            pointerEvents: 'auto',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                    >
-                        {/* Auto-dismiss progress bar (visual only) */}
-                        {!n.persist && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    bottom: 0,
-                                    left: 0,
-                                    height: '3px',
-                                    background: n.type === 'critical' ? '#EF4444' : (n.type === 'warning' ? '#F59E0B' : '#3B82F6')
-                                }}
-                            />
-                        )}
-
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                            <div style={{
-                                color: n.type === 'critical' ? '#EF4444' : (n.type === 'warning' ? '#F59E0B' : '#3B82F6'),
-                                marginTop: '2px'
-                            }}>
-                                <AlertIcon />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: '#fff' }}>
-                                    {n.title}
-                                </h4>
-                                <p style={{ margin: 0, fontSize: '13px', opacity: 0.9, color: 'rgba(255,255,255,0.8)' }}>
-                                    {n.message}
-                                </p>
-                                {n.items && (
-                                    <div style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-                                        {n.items.join(', ')} ...
-                                    </div>
-                                )}
-                                {n.isReminder && (
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                                        <button
-                                            onClick={() => snoozeReminder(n.id, 5)}
-                                            style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: 'rgba(255, 255, 255, 0.1)',
-                                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                color: '#fff',
-                                                fontSize: '11px',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Snooze 5m
-                                        </button>
-                                        <button
-                                            onClick={() => snoozeReminder(n.id, 15)}
-                                            style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: 'rgba(255, 255, 255, 0.1)',
-                                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                color: '#fff',
-                                                fontSize: '11px',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Snooze 15m
-                                        </button>
-                                        <button
-                                            onClick={() => dismissReminder(n.id)}
-                                            style={{
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: 'rgba(16, 185, 129, 0.2)',
-                                                border: '1px solid rgba(16, 185, 129, 0.4)',
-                                                color: '#10b981',
-                                                fontSize: '11px',
-                                                fontWeight: 600,
-                                                cursor: 'pointer',
-                                                marginLeft: 'auto'
-                                            }}
-                                        >
-                                            Dismiss
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => removeNotification(n.id)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'rgba(255,255,255,0.5)',
-                                    cursor: 'pointer',
-                                    padding: '4px',
-                                    borderRadius: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <XIcon />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </>
-        </div>
-    );
-});
+            {/* Close Popup Toast (Closing popup DOES NOT delete from Notification Center) */}
+            <button
+              onClick={() => removePopup(notif.popupId)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#666666',
+                cursor: 'pointer',
+                padding: '2px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Close alert"
+            >
+              <IoClose size={16} />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default NotificationSystem;

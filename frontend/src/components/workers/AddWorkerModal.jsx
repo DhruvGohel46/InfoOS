@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash } from 'react-icons/io5';
+import { IoClose, IoSave, IoPerson, IoCall, IoBriefcase, IoCash, IoCalendarOutline } from 'react-icons/io5';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import GlobalSelect from '../ui/GlobalSelect';
@@ -8,6 +8,7 @@ import GlobalDatePicker from '../ui/GlobalDatePicker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 import { workerService } from '../../services/workerService';
 import { getLocalDateString } from '../../utils/api';
 
@@ -39,6 +40,9 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const { currentTheme, isDark } = useTheme();
   const { showError } = useAlert();
   const { openUnlock } = useAuth();
+  const { settings } = useSettings();
+  const isWorkerMode = settings?.salary_date_mode === 'WORKER';
+
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -50,6 +54,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
     role: '',
     worker_type_id: '',
     salary: '',
+    salary_day: 10,
     join_date: getLocalDateString(),
     status: 'active',
     photo: null
@@ -64,6 +69,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           role: initialData.role || '',
           worker_type_id: initialData.worker_type_id || '',
           salary: initialData.salary || '',
+          salary_day: initialData.salary_day || 10,
           join_date: initialData.join_date || initialData.joinDate || getLocalDateString(),
           status: initialData.status || 'active',
           photo: initialData.photo || null
@@ -76,6 +82,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           role: '',
           worker_type_id: '',
           salary: '',
+          salary_day: 10,
           join_date: getLocalDateString(),
           status: 'active',
           photo: null
@@ -120,6 +127,11 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const handleSave = async (e) => {
     if (e) e.preventDefault();
 
+    if (isWorkerMode && (!form.salary_day || form.salary_day < 1 || form.salary_day > 31)) {
+      showError('Salary Date is required when in Individual Salary Date mode.');
+      return;
+    }
+
     const selectedType = workerTypes.find(t => t.id === form.worker_type_id);
     const targetRole = selectedType ? selectedType.name : form.role;
 
@@ -141,6 +153,10 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           payload.salary = 0.0;
         } else {
           payload.salary = parseFloat(payload.salary);
+        }
+
+        if (isWorkerMode && payload.salary_day) {
+          payload.salary_day = parseInt(payload.salary_day);
         }
 
         // Handle null/empty photo to prevent Marshmallow validation issues
@@ -322,7 +338,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isWorkerMode ? '1fr 1fr 1fr' : '1fr 1fr', gap: '16px' }}>
                   <Input
                     label="Salary (₹)"
                     leftIcon={<IoCash />}
@@ -330,6 +346,22 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                     value={form.salary}
                     onChange={e => setForm({ ...form, salary: e.target.value })}
                   />
+                  {isWorkerMode && (
+                    <div>
+                      <GlobalSelect
+                        label="Salary Date *"
+                        icon={<IoCalendarOutline />}
+                        options={Array.from({ length: 31 }, (_, i) => ({
+                          label: `Day ${i + 1}`,
+                          value: i + 1
+                        }))}
+                        value={form.salary_day || 10}
+                        onChange={val => setForm({ ...form, salary_day: parseInt(val) })}
+                        placeholder="Select Day"
+                        direction="top"
+                      />
+                    </div>
+                  )}
                   <GlobalDatePicker
                     label="Joining Date"
                     value={form.join_date}

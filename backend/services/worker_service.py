@@ -32,6 +32,15 @@ class WorkerService:
             if wt:
                 role = wt.name
 
+        salary_day = data.get("salary_day")
+        if salary_day not in (None, ""):
+            try:
+                salary_day = int(salary_day)
+            except (ValueError, TypeError):
+                salary_day = None
+        else:
+            salary_day = None
+
         new_worker = Worker(
             worker_id=new_id,
             name=data.get("name"),
@@ -40,6 +49,7 @@ class WorkerService:
             role=role,
             worker_type_id=worker_type_id,
             salary=(float(data.get("salary")) if data.get("salary") not in (None, "") else 0.0),
+            salary_day=salary_day,
             join_date=(
                 datetime.strptime(data.get("join_date"), "%Y-%m-%d").date()
                 if data.get("join_date")
@@ -75,6 +85,15 @@ class WorkerService:
         if "salary" in data:
             val = data.get("salary")
             worker.salary = float(val) if val not in (None, "") else 0.0
+        if "salary_day" in data:
+            s_val = data.get("salary_day")
+            if s_val not in (None, ""):
+                try:
+                    worker.salary_day = int(s_val)
+                except (ValueError, TypeError):
+                    pass
+            else:
+                worker.salary_day = None
         if "status" in data:
             worker.status = data["status"]
         if "photo" in data:
@@ -133,29 +152,50 @@ class WorkerService:
         return Advance.query.filter_by(worker_id=worker_id).order_by(Advance.date.desc()).all()
 
     @staticmethod
-    def _get_finance_cycle_dates():
-        """Helper to get current cycle start/end dates based on settings."""
+    def _get_finance_cycle_dates(worker=None):
+        """Helper to get current cycle start/end dates based on settings and optional worker."""
         from models import Settings
 
-        salary_day_setting = Settings.query.filter_by(key="salary_day").first()
-        salary_day = (
-            int(salary_day_setting.value)
-            if (salary_day_setting and salary_day_setting.value)
-            else 1
-        )
+        mode_setting = Settings.query.filter_by(key="salary_date_mode").first()
+        mode = mode_setting.value if (mode_setting and mode_setting.value) else "GLOBAL"
+
+        salary_day = None
+        if mode == "WORKER" and worker:
+            w_obj = Worker.query.get(worker) if isinstance(worker, str) else worker
+            if w_obj and w_obj.salary_day:
+                salary_day = w_obj.salary_day
+
+        if not salary_day:
+            global_day_setting = Settings.query.filter_by(key="global_salary_day").first()
+            if not global_day_setting or not global_day_setting.value:
+                global_day_setting = Settings.query.filter_by(key="salary_day").first()
+            try:
+                salary_day = (
+                    int(global_day_setting.value)
+                    if (global_day_setting and global_day_setting.value)
+                    else 10
+                )
+            except (ValueError, TypeError):
+                salary_day = 10
 
         today = date.today()
-        if today.day >= salary_day:
-            start_date = date(today.year, today.month, salary_day)
-            # End is next month's salary_day - 1
+        import calendar
+
+        max_days = calendar.monthrange(today.year, today.month)[1]
+        effective_day = min(salary_day, max_days)
+
+        if today.day >= effective_day:
+            start_date = date(today.year, today.month, effective_day)
             next_month = today.month + 1 if today.month < 12 else 1
             next_year = today.year if today.month < 12 else today.year + 1
-            end_date = date(next_year, next_month, salary_day)
+            next_max_days = calendar.monthrange(next_year, next_month)[1]
+            end_date = date(next_year, next_month, min(salary_day, next_max_days))
         else:
             prev_month = today.month - 1 if today.month > 1 else 12
             prev_year = today.year if today.month > 1 else today.year - 1
-            start_date = date(prev_year, prev_month, salary_day)
-            end_date = date(today.year, today.month, salary_day)
+            prev_max_days = calendar.monthrange(prev_year, prev_month)[1]
+            start_date = date(prev_year, prev_month, min(salary_day, prev_max_days))
+            end_date = date(today.year, today.month, effective_day)
 
         from datetime import timedelta
 

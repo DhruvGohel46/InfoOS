@@ -99,8 +99,8 @@ export const POSDataProvider = ({ children }) => {
             }
             // Sync current catalog version to avoid duplicate updates
             const { default: api } = await import('../utils/api');
-            const versionRes = await api.get('/api/products/catalog-version');
-            if (versionRes.data?.success) {
+            const versionRes = await api.get('/api/products/catalog-version').catch(() => null);
+            if (versionRes?.data?.success) {
                 catalogVersionRef.current = versionRes.data.catalog_version || "0";
             }
         } catch (err) {
@@ -111,8 +111,8 @@ export const POSDataProvider = ({ children }) => {
     const checkCatalogVersion = useCallback(async () => {
         try {
             const { default: api } = await import('../utils/api');
-            const response = await api.get('/api/products/catalog-version');
-            if (response.data?.success) {
+            const response = await api.get('/api/products/catalog-version').catch(() => null);
+            if (response?.data?.success) {
                 const newVersion = response.data.catalog_version || "0";
                 if (newVersion !== catalogVersionRef.current) {
                     console.log(`[POSDataContext] Catalog version changed from ${catalogVersionRef.current} to ${newVersion}. Reloading...`);
@@ -132,7 +132,9 @@ export const POSDataProvider = ({ children }) => {
                 }
             }
         } catch (err) {
-            console.error('Failed to check catalog version:', err);
+            if (err?.response?.status !== 429) {
+                console.error('Failed to check catalog version:', err);
+            }
         }
     }, []);
 

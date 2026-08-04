@@ -10,6 +10,7 @@ from validators import (
 )
 from utils.product_variations import normalize_variations
 import cache
+from limiter import limiter
 import os
 import re
 import logging
@@ -58,6 +59,7 @@ def update_catalog_version():
 
 @products_bp.route("/catalog-version", methods=["GET"])
 @safe_route
+@limiter.exempt
 def get_catalog_version():
     """Get the current catalog version/timestamp."""
     settings = db.get_all_settings()

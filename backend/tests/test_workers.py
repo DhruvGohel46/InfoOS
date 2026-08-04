@@ -106,3 +106,58 @@ def test_create_worker_with_type(client, init_database):
     get_data = json.loads(get_response.data)
     assert get_data["worker_type_id"] == wt_id
     assert get_data["role"] == "Assistant"
+
+
+def test_worker_salary_day_and_mode_migration(client, init_database):
+    """Test salary_day creation, editing, and GLOBAL -> WORKER migration logic."""
+    # 1. Create a worker with salary_day = 15
+    w_payload = {
+        "name": "Rajesh Kumar",
+        "salary": 20000.0,
+        "salary_day": 15,
+        "status": "active",
+    }
+    resp = client.post("/api/workers", data=json.dumps(w_payload), content_type="application/json")
+    assert resp.status_code in (200, 201)
+    w_id = json.loads(resp.data)["worker_id"]
+
+    # Check worker salary_day
+    get_resp = client.get(f"/api/workers/{w_id}")
+    assert get_resp.status_code == 200
+    assert json.loads(get_resp.data)["salary_day"] == 15
+
+    # 2. Set global salary day to 10 and toggle mode to WORKER
+    settings_payload = {
+        "global_salary_day": "10",
+        "salary_date_mode": "WORKER",
+    }
+    set_resp = client.put(
+        "/api/settings", data=json.dumps(settings_payload), content_type="application/json"
+    )
+    assert set_resp.status_code == 200
+
+    # 3. Create another worker without explicit salary_day during WORKER mode
+    w2_payload = {"name": "Suresh Patel", "salary": 18000.0}
+    w2_resp = client.post(
+        "/api/workers", data=json.dumps(w2_payload), content_type="application/json"
+    )
+    assert w2_resp.status_code in (200, 201)
+    w2_id = json.loads(w2_resp.data)["worker_id"]
+
+    # Switch GLOBAL -> WORKER migration check:
+    # Set mode back to GLOBAL first
+    client.put(
+        "/api/settings",
+        data=json.dumps({"salary_date_mode": "GLOBAL"}),
+        content_type="application/json",
+    )
+    # Now switch to WORKER again
+    client.put(
+        "/api/settings",
+        data=json.dumps({"salary_date_mode": "WORKER"}),
+        content_type="application/json",
+    )
+
+    # w2 should have inherited global_salary_day (10)
+    w2_get = client.get(f"/api/workers/{w2_id}")
+    assert json.loads(w2_get.data)["salary_day"] == 10

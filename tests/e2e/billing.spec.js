@@ -186,7 +186,7 @@ test.describe("POS Layout Reordering", () => {
     page.on("pageerror", (err) => pageErrors.push(err.message));
 
     // 1. Mock products and categories API responses
-    await page.route("**/api/products**", async (route) => {
+    await page.route((url) => url.pathname === "/api/products", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

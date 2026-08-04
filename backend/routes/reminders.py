@@ -115,6 +115,17 @@ def dismiss_reminder(id):
         reminder.status = "completed"
         reminder.is_dismissed = True
 
+    # Update related Notification record in Notification Center
+    try:
+        from models import Notification
+
+        notifs = Notification.query.filter_by(related_id=reminder.id).all()
+        for notif in notifs:
+            notif.status = "completed"
+            notif.completed_at = now
+    except Exception as ne:
+        logger.error(f"Failed to update notification status for reminder {id}: {ne}")
+
     db.session.commit()
     return jsonify(reminder.to_dict())
 

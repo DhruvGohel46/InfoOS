@@ -29,11 +29,47 @@ def update_settings():
     if not data:
         raise ValidationError("No data provided", code="MISSING_DATA")
 
+    # Migration check when updating salary_date_mode
+    current_settings = db_service.get_all_settings()
+    old_mode = current_settings.get("salary_date_mode", "GLOBAL")
+
+    settings_dict = {}
+    if isinstance(data, list):
+        settings_dict = {
+            item.get("key"): item.get("value") for item in data if isinstance(item, dict)
+        }
+    elif isinstance(data, dict):
+        settings_dict = data
+
+    new_mode = settings_dict.get("salary_date_mode")
+    if new_mode and old_mode != new_mode:
+        if old_mode == "GLOBAL" and new_mode == "WORKER":
+            # Switching from Global -> Worker mode:
+            # Automatically copy the current global salary day into every existing worker's salary_day field
+            global_day_str = (
+                settings_dict.get("global_salary_day")
+                or settings_dict.get("salary_day")
+                or current_settings.get("global_salary_day")
+                or current_settings.get("salary_day", "10")
+            )
+            try:
+                global_day_int = int(global_day_str)
+            except (ValueError, TypeError):
+                global_day_int = 10
+
+            from models import Worker, db
+
+            workers = Worker.query.all()
+            for w in workers:
+                if not w.salary_day:
+                    w.salary_day = global_day_int
+            db.session.commit()
+
     # Check if it's a list or a dict
     if isinstance(data, list):
         success = db_service.update_settings_bulk(data)
     elif isinstance(data, dict):
-        settings_list = [{"key": k, "value": v} for k, v in data.items()]
+        settings_list = [{"key": k, "value": str(v)} for k, v in data.items()]
         success = db_service.update_settings_bulk(settings_list)
     else:
         raise ValidationError("Invalid data format", code="INVALID_FORMAT")

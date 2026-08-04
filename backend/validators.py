@@ -143,6 +143,9 @@ class WorkerCreateSchema(Schema):
     role = fields.String(allow_none=True, load_default=None)
     worker_type_id = fields.Integer(allow_none=True, load_default=None)
     salary = fields.Float(allow_none=True, load_default=0.0, validate=validate.Range(min=0))
+    salary_day = fields.Integer(
+        allow_none=True, load_default=None, validate=validate.Range(min=1, max=31)
+    )
     join_date = fields.String(allow_none=True, load_default=None)
     status = fields.String(allow_none=True, load_default="active")
     photo = fields.String(allow_none=True, load_default=None)
@@ -160,6 +163,7 @@ class WorkerUpdateSchema(Schema):
     role = fields.String(allow_none=True)
     worker_type_id = fields.Integer(allow_none=True)
     salary = fields.Float(allow_none=True, validate=validate.Range(min=0))
+    salary_day = fields.Integer(allow_none=True, validate=validate.Range(min=1, max=31))
     join_date = fields.String(allow_none=True)
     status = fields.String(allow_none=True)
     photo = fields.String(allow_none=True)

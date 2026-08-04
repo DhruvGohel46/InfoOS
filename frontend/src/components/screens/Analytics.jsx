@@ -11,7 +11,7 @@
  * Dependencies: recharts, framer-motion, react-icons
  * =============================================================================
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -250,15 +250,6 @@ const Analytics = () => {
 
     const safeSummary = useMemo(() => summary || {}, [summary]);
 
-    // ─── Lookup mapping for category_id ───
-    const productCategoryMap = useMemo(() => {
-        const map = {};
-        productsList.forEach(p => {
-            map[p.product_id] = p.category_id;
-        });
-        return map;
-    }, [productsList]);
-
     // ─── Dynamic group-wise total sales KPI ───
     const displayTotalSales = useMemo(() => {
         const chartSummary = viewRange === 'day' ? safeSummary : (rangeSummary || safeSummary);
@@ -276,18 +267,81 @@ const Analytics = () => {
         if (selectedGroupId === 'all') {
             return rawTotals;
         }
-        const groupCategoryNames = categories
-            .filter(cat => cat.group_id === parseInt(selectedGroupId))
-            .map(cat => cat.name.toLowerCase());
+        const targetGroupIdStr = String(selectedGroupId);
+        const targetGroupIdInt = parseInt(selectedGroupId, 10);
+
+        const matchedGroup = groups.find(g => 
+            String(g.id) === targetGroupIdStr || g.id === targetGroupIdInt || (g.name && g.name.toLowerCase().trim() === targetGroupIdStr.toLowerCase().trim())
+        );
+
+        const groupCategoryNames = new Set(categories
+            .filter(cat => 
+                String(cat.group_id) === targetGroupIdStr || 
+                cat.group_id === targetGroupIdInt ||
+                (matchedGroup && (String(cat.group_id) === String(matchedGroup.id) || cat.group_id === parseInt(matchedGroup.id, 10)))
+            )
+            .map(cat => cat.name.toLowerCase().trim()));
             
+        if (matchedGroup) {
+            groupCategoryNames.add(matchedGroup.name.toLowerCase().trim());
+        }
+        groupCategoryNames.add(targetGroupIdStr.toLowerCase().trim());
+
         const filtered = {};
         Object.entries(rawTotals).forEach(([name, val]) => {
-            if (groupCategoryNames.includes(name.toLowerCase())) {
+            if (groupCategoryNames.has(name.toLowerCase().trim())) {
                 filtered[name] = val;
             }
         });
         return filtered;
-    }, [viewRange, safeSummary, rangeSummary, selectedGroupId, categories]);
+    }, [viewRange, safeSummary, rangeSummary, selectedGroupId, categories, groups]);
+
+    // ─── Helper function to check if item belongs to selected group ───
+    const isProductInGroup = useCallback((item) => {
+        if (!selectedGroupId || selectedGroupId === 'all') return true;
+        if (!item) return false;
+
+        const targetGroupIdStr = String(selectedGroupId);
+        const targetGroupIdInt = parseInt(selectedGroupId, 10);
+
+        const matchedGroup = groups.find(g => 
+            String(g.id) === targetGroupIdStr || g.id === targetGroupIdInt || (g.name && g.name.toLowerCase().trim() === targetGroupIdStr.toLowerCase().trim())
+        );
+
+        const groupCatList = categories.filter(cat => 
+            String(cat.group_id) === targetGroupIdStr || cat.group_id === targetGroupIdInt ||
+            (matchedGroup && (String(cat.group_id) === String(matchedGroup.id) || cat.group_id === parseInt(matchedGroup.id, 10)))
+        );
+
+        const groupCatIds = new Set(groupCatList.map(cat => cat.id));
+        const groupCatIdsInt = new Set(groupCatList.map(cat => parseInt(cat.id, 10)).filter(n => !isNaN(n)));
+        const groupCatNames = new Set(groupCatList.map(cat => cat.name.toLowerCase().trim()));
+        
+        if (matchedGroup) {
+            groupCatNames.add(matchedGroup.name.toLowerCase().trim());
+        }
+        groupCatNames.add(targetGroupIdStr.toLowerCase().trim());
+
+        const itemProdId = item.product_id || item.id;
+        const productInfo = productsList.find(p => 
+            (itemProdId && (p.product_id === itemProdId || p.id === itemProdId)) || 
+            (item.name && p.name && p.name.toLowerCase().trim() === item.name.toLowerCase().trim())
+        );
+
+        const catId = item.category_id || (productInfo && (productInfo.category_id || productInfo.categoryId));
+        if (catId !== undefined && catId !== null) {
+            if (groupCatIds.has(catId) || groupCatIds.has(String(catId)) || groupCatIdsInt.has(parseInt(catId, 10))) {
+                return true;
+            }
+        }
+
+        const catName = (item.category || (productInfo && (productInfo.category_name || productInfo.category)))?.toString()?.toLowerCase()?.trim();
+        if (catName && groupCatNames.has(catName)) {
+            return true;
+        }
+
+        return false;
+    }, [selectedGroupId, groups, categories, productsList]);
 
     // ═══════════════ DATA LOADING ═══════════════
 
@@ -310,7 +364,7 @@ const Analytics = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, expenseRange, isAdmin, selectedDate]);
 
-    // Aggregate range data when viewRange or selectedDate changes
+    // Aggregate range data when viewRange, selectedDate, selectedGroupId, categories, or productsList changes
     useEffect(() => {
         if (!isAdmin) return;
         if (viewRange === 'day') {
@@ -320,7 +374,7 @@ const Analytics = () => {
             loadRangeData();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [viewRange, debouncedDate, productSales, summary, isAdmin]);
+    }, [viewRange, debouncedDate, productSales, summary, selectedGroupId, categories, productsList, isAdmin]);
 
     async function loadSummary(date) {
         try {
@@ -345,13 +399,7 @@ const Analytics = () => {
                 let sales = response.data.product_sales || [];
                 // Filter by group if selected
                 if (selectedGroupId !== 'all') {
-                    const groupCategories = categories
-                        .filter(cat => cat.group_id === parseInt(selectedGroupId))
-                        .map(cat => cat.id);
-                    sales = sales.filter(item => {
-                        const categoryId = item.category_id || productCategoryMap[item.product_id];
-                        return groupCategories.includes(categoryId);
-                    });
+                    sales = sales.filter(item => isProductInGroup(item));
                 }
                 setProductSales(sales);
             }
@@ -409,13 +457,7 @@ const Analytics = () => {
 
                 // Filter products by selected group if active
                 if (selectedGroupId !== 'all') {
-                    const groupCategories = categories
-                        .filter(cat => cat.group_id === parseInt(selectedGroupId))
-                        .map(cat => cat.id);
-                    rawProducts = rawProducts.filter(item => {
-                        const categoryId = item.category_id || productCategoryMap[item.product_id];
-                        return groupCategories.includes(categoryId);
-                    });
+                    rawProducts = rawProducts.filter(item => isProductInGroup(item));
                 }
 
                 // Map fields to match Top Selling Products layout expects

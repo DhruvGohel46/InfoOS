@@ -2,6 +2,8 @@ import os
 import logging
 from PIL import Image
 
+from typing import Optional, Tuple
+
 logger = logging.getLogger(__name__)
 
 # Lazy imports for pywin32 modules
@@ -36,7 +38,7 @@ class WindowsImagePrinter:
 
     def print_image(
         self, printer_name: str, image_path: str, job_name: str = "InfoOS_Receipt"
-    ) -> bool:
+    ) -> Tuple[bool, Optional[str]]:
         """
         Sends the PNG image to the Windows printer spooler.
 
@@ -46,22 +48,23 @@ class WindowsImagePrinter:
             job_name: Document name in the spooler
 
         Returns:
-            True if successful, False otherwise
+            Tuple of (success: bool, error_message: Optional[str])
         """
         logger.info(
             f"Initiating print job '{job_name}' on printer '{printer_name}' for image '{image_path}'"
         )
 
         if not os.path.exists(image_path):
-            logger.error(f"Print failed: Image file not found at '{image_path}'")
-            return False
+            err_msg = f"Print failed: Image file not found at '{image_path}'"
+            logger.error(err_msg)
+            return False, err_msg
 
         if not _load_win32():
             # Non-Windows fallback
             logger.warning(
                 f"=== PLATFORM FALLBACK: Printed image '{image_path}' on '{printer_name}' ==="
             )
-            return True
+            return True, None
 
         try:
             # Load the image
@@ -70,7 +73,15 @@ class WindowsImagePrinter:
 
             # Start document printing
             hdc = win32ui.CreateDC()
-            hdc.CreatePrinterDC(printer_name)
+            try:
+                hdc.CreatePrinterDC(printer_name)
+            except Exception as dc_err:
+                err_msg = (
+                    f"Could not connect to printer '{printer_name}'. "
+                    f"Please verify printer is powered on and connected. ({dc_err})"
+                )
+                logger.error(err_msg)
+                return False, err_msg
 
             # Retrieve printable dimensions in device pixels
             printable_width = hdc.GetDeviceCaps(win32con.HORZRES)
@@ -96,7 +107,8 @@ class WindowsImagePrinter:
             del hdc
 
             logger.info(f"Print job '{job_name}' successfully sent to Windows spooler.")
-            return True
+            return True, None
         except Exception as e:
-            logger.error(f"Error printing image via Windows GDI: {e}", exc_info=True)
-            return False
+            err_msg = f"Windows GDI print error on printer '{printer_name}': {e}"
+            logger.error(err_msg, exc_info=True)
+            return False, err_msg

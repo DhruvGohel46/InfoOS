@@ -247,6 +247,26 @@ class ReminderService:
 
                 db.session.commit()
 
+                # Record in Notification Center
+                try:
+                    from services.notification_service import NotificationService
+
+                    NotificationService.create_notification(
+                        {
+                            "title": f"Reminder: {reminder.title}",
+                            "message": reminder.description
+                            or f"Scheduled reminder for {reminder.title}",
+                            "type": "reminder",
+                            "priority": "warning",
+                            "source": "reminder_service",
+                            "related_id": reminder.id,
+                            "action_route": "/settings?tab=reminders",
+                            "status": "unread",
+                        }
+                    )
+                except Exception as ne:
+                    logger.error(f"Failed to create notification for reminder {reminder.id}: {ne}")
+
                 # Send notification to frontend
                 self._send_notification(reminder)
 

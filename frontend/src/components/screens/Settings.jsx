@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useAlert as useToast } from '../../context/AlertContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -25,7 +25,8 @@ import {
     IoShieldCheckmarkOutline,
     IoVolumeHighOutline,
     IoCloudUploadOutline,
-    IoConstructOutline
+    IoConstructOutline,
+    IoInformationCircleOutline
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
@@ -653,47 +654,50 @@ const Settings = () => {
 
         setSyncingBackup(true);
         try {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const summaryRes = await summaryAPI.getRangeSummary('week', todayStr);
-            if (!summaryRes.data?.success) {
-                throw new Error(summaryRes.data?.error || 'Failed to fetch weekly summaries');
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+            const currentWeekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+            const currentWeekStartStr = getLocalDateString(currentWeekMonday);
+
+            const prevWeekMonday = new Date(currentWeekMonday.getFullYear(), currentWeekMonday.getMonth(), currentWeekMonday.getDate() - 7);
+            const prevWeekStartStr = getLocalDateString(prevWeekMonday);
+
+            const weeksToSync = [prevWeekStartStr, currentWeekStartStr];
+            let syncedCount = 0;
+
+            for (const targetWeekStr of weeksToSync) {
+                const summaryRes = await summaryAPI.getRangeSummary('week', targetWeekStr);
+                if (summaryRes.data?.success && summaryRes.data.summary) {
+                    const summary = summaryRes.data.summary;
+                    const weekStartStr = summary.start_date;
+
+                    const expenseDetails = (summary.expenses || []).map(e => ({
+                        name: e.name,
+                        amount: e.amount
+                    }));
+
+                    const payload = {
+                        userId,
+                        weekStartDate: weekStartStr,
+                        totalSales: summary.total_sales,
+                        totalExpenses: summary.total_expenses,
+                        salesDetails: (summary.products || []).map(p => ({
+                            name: p.name,
+                            amount: p.total_amount
+                        })),
+                        expenseDetails
+                    };
+
+                    await cloudSyncAPI.syncBackup(payload);
+                    syncedCount++;
+                }
             }
 
-            const summary = summaryRes.data.summary;
-            const weekStartStr = summary.start_date;
-
-            // Directly sync (backend uses UPSERT to automatically replace/update the existing record)
-
-            const expensesRes = await expensesAPI.getExpenses(200);
-            const allExpenses = expensesRes.expenses || [];
-
-            const startOfWeekTime = new Date(summary.start_date).getTime();
-            const endOfWeekTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
-
-            const thisWeekExpenses = allExpenses.filter(e => {
-                const eTime = new Date(e.date).getTime();
-                return eTime >= startOfWeekTime && eTime <= endOfWeekTime;
-            });
-
-            const payload = {
-                userId,
-                weekStartDate: weekStartStr,
-                totalSales: summary.total_sales,
-                totalExpenses: summary.total_expenses,
-                salesDetails: (summary.products || []).map(p => ({
-                    name: p.name,
-                    amount: p.total_amount
-                })),
-                expenseDetails: thisWeekExpenses.map(e => ({
-                    name: e.title,
-                    amount: e.amount
-                }))
-            };
-
-            await cloudSyncAPI.syncBackup(payload);
-            showSuccess(`Success! Aggregated backup for week of ${weekStartStr} synced to cloud.`);
+            showSuccess(`Success! Synced ${syncedCount} weekly backup(s) (previous week starting ${prevWeekStartStr} & current week) to cloud.`);
         } catch (err) {
-            console.error('Manual sync failed:', err);
+            console.error('Manual weekly sync failed:', err);
             showError(err.response?.data?.error || err.message || 'Sync failed');
         } finally {
             setSyncingBackup(false);
@@ -727,45 +731,44 @@ const Settings = () => {
 
         setSyncingMonthlyBackup(true);
         try {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const summaryRes = await summaryAPI.getRangeSummary('month', todayStr);
-            if (!summaryRes.data?.success) {
-                throw new Error(summaryRes.data?.error || 'Failed to fetch monthly summaries');
+            const now = new Date();
+            const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const prevMonthStartStr = getLocalDateString(prevMonthDate);
+            const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            const currentMonthStartStr = getLocalDateString(currentMonthDate);
+
+            const monthsToSync = [prevMonthStartStr, currentMonthStartStr];
+            let syncedCount = 0;
+
+            for (const targetMonthStr of monthsToSync) {
+                const summaryRes = await summaryAPI.getRangeSummary('month', targetMonthStr);
+                if (summaryRes.data?.success && summaryRes.data.summary) {
+                    const summary = summaryRes.data.summary;
+                    const monthStartStr = summary.start_date;
+
+                    const expenseDetails = (summary.expenses || []).map(e => ({
+                        name: e.name,
+                        amount: e.amount
+                    }));
+
+                    const payload = {
+                        userId,
+                        monthStartDate: monthStartStr,
+                        totalSales: summary.total_sales,
+                        totalExpenses: summary.total_expenses,
+                        salesDetails: (summary.products || []).map(p => ({
+                            name: p.name,
+                            amount: p.total_amount
+                        })),
+                        expenseDetails
+                    };
+
+                    await cloudSyncAPI.syncMonthlyBackup(payload);
+                    syncedCount++;
+                }
             }
 
-            const summary = summaryRes.data.summary;
-            const monthStartStr = summary.start_date;
-
-            // Directly sync (backend uses UPSERT to automatically replace/update the existing record)
-
-            const expensesRes = await expensesAPI.getExpenses(200);
-            const allExpenses = expensesRes.expenses || [];
-
-            const startOfMonthTime = new Date(summary.start_date).getTime();
-            const endOfMonthTime = new Date(summary.end_date).getTime() + (24 * 60 * 60 * 1000) - 1;
-
-            const thisMonthExpenses = allExpenses.filter(e => {
-                const eTime = new Date(e.date).getTime();
-                return eTime >= startOfMonthTime && eTime <= endOfMonthTime;
-            });
-
-            const payload = {
-                userId,
-                monthStartDate: monthStartStr,
-                totalSales: summary.total_sales,
-                totalExpenses: summary.total_expenses,
-                salesDetails: (summary.products || []).map(p => ({
-                    name: p.name,
-                    amount: p.total_amount
-                })),
-                expenseDetails: thisMonthExpenses.map(e => ({
-                    name: e.title,
-                    amount: e.amount
-                }))
-            };
-
-            await cloudSyncAPI.syncMonthlyBackup(payload);
-            showSuccess(`Success! Aggregated backup for month starting ${monthStartStr} synced to cloud.`);
+            showSuccess(`Success! Synced ${syncedCount} monthly backup(s) (previous month starting ${prevMonthStartStr} & current month) to cloud.`);
         } catch (err) {
             console.error('Manual monthly sync failed:', err);
             showError(err.response?.data?.error || err.message || 'Sync failed');
@@ -1753,6 +1756,37 @@ const Settings = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Notification Cleanup Retention */}
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Notification Auto-Cleanup</span>
+                                            <span className="stLabelDesc">Automatically delete notification history older than selected timeframe</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                                            <Dropdown
+                                                options={[
+                                                    { label: '7 Days', value: '7' },
+                                                    { label: '30 Days', value: '30' },
+                                                    { label: '90 Days', value: '90' },
+                                                    { label: 'Never (Keep All)', value: 'never' }
+                                                ]}
+                                                value={formSettings.notification_retention || '30'}
+                                                onChange={async (val) => {
+                                                    handleChange('notification_retention', val);
+                                                    try {
+                                                        await updateSettings({ ...formSettings, notification_retention: val });
+                                                        showSuccess(`Notification retention updated to ${val === 'never' ? 'Never' : val + ' days'}`);
+                                                    } catch (err) {
+                                                        showError('Failed to update notification retention');
+                                                    }
+                                                }}
+                                                placeholder="Select retention timeframe"
+                                                className="stDropdown"
+                                                zIndex={38}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </>
                         )}
@@ -1771,34 +1805,135 @@ const Settings = () => {
                                     borderRadius: '12px',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '16px'
+                                    gap: '20px'
                                 }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Salary Settings</h3>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
-                                        <div style={{ width: '100%' }}>
-                                            <GlobalDatePicker
-                                                value={(() => {
-                                                    const day = parseInt(formSettings.salary_day) || 1;
-                                                    const now = new Date();
-                                                    return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
-                                                })()}
-                                                onChange={(dateStr) => {
-                                                    if (dateStr) {
-                                                        const parts = dateStr.split('-');
-                                                        if (parts.length === 3) {
-                                                            const day = parseInt(parts[2]);
-                                                            handleChange('salary_day', day.toString());
-                                                        }
-                                                    }
-                                                }}
-                                                placeholder="Select Salary Day"
-                                            />
-                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                                                Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.salary_day || 1}</strong> of every month
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Salary Settings</h3>
+                                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>Configure how worker salary payout dates are determined</p>
+                                    </div>
+
+                                    {/* Toggle: Use Common Salary Date For All Workers */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '16px 18px',
+                                        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                        border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                        borderRadius: '12px'
+                                    }}>
+                                        <div style={{ flex: 1, paddingRight: '16px' }}>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Use Common Salary Date For All Workers
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                                {(formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL'
+                                                    ? 'Enabled — All workers inherit a single global monthly salary date.'
+                                                    : 'Disabled — Every worker has an independent salary date configured in their profile.'}
                                             </div>
                                         </div>
+
+                                        {/* Toggle Button */}
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const isGlobal = (formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL';
+                                                const nextMode = isGlobal ? 'WORKER' : 'GLOBAL';
+                                                handleChange('salary_date_mode', nextMode);
+                                                try {
+                                                    await updateSettings({
+                                                        ...formSettings,
+                                                        salary_date_mode: nextMode
+                                                    });
+                                                    showSuccess(`Switched to ${nextMode === 'GLOBAL' ? 'Common Salary Date' : 'Individual Worker Salary Dates'} mode`);
+                                                } catch (err) {
+                                                    showError('Failed to update salary date mode');
+                                                }
+                                            }}
+                                            style={{
+                                                width: '50px',
+                                                height: '28px',
+                                                borderRadius: '14px',
+                                                background: (formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL' ? '#F97316' : 'rgba(255,255,255,0.18)',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                position: 'relative',
+                                                transition: 'background-color 0.2s ease',
+                                                padding: '3px',
+                                                flexShrink: 0
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '22px',
+                                                height: '22px',
+                                                borderRadius: '50%',
+                                                background: '#FFFFFF',
+                                                transform: (formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL' ? 'translateX(22px)' : 'translateX(0px)',
+                                                transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                                            }} />
+                                        </button>
                                     </div>
+
+                                    {/* Dynamic Fields with Smooth Framer Motion Animations */}
+                                    <AnimatePresence mode="wait">
+                                        {(formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL' ? (
+                                            <motion.div
+                                                key="global-salary-picker"
+                                                initial={{ opacity: 0, y: -8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -8 }}
+                                                transition={{ duration: 0.18 }}
+                                            >
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>Monthly Salary Date</label>
+                                                <div style={{ width: '100%' }}>
+                                                    <GlobalDatePicker
+                                                        value={(() => {
+                                                            const day = parseInt(formSettings.global_salary_day || formSettings.salary_day) || 10;
+                                                            const now = new Date();
+                                                            return getLocalDateString(new Date(now.getFullYear(), now.getMonth(), day));
+                                                        })()}
+                                                        onChange={(dateStr) => {
+                                                            if (dateStr) {
+                                                                const parts = dateStr.split('-');
+                                                                if (parts.length === 3) {
+                                                                    const day = parseInt(parts[2]);
+                                                                    handleChange('global_salary_day', day.toString());
+                                                                    handleChange('salary_day', day.toString());
+                                                                }
+                                                            }
+                                                        }}
+                                                        placeholder="Select Salary Day"
+                                                    />
+                                                    <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                                        Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.global_salary_day || formSettings.salary_day || 10}</strong> of every month
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="worker-salary-info"
+                                                initial={{ opacity: 0, y: -8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -8 }}
+                                                transition={{ duration: 0.18 }}
+                                                style={{
+                                                    padding: '14px 16px',
+                                                    background: 'rgba(249, 115, 22, 0.08)',
+                                                    border: '1px solid rgba(249, 115, 22, 0.2)',
+                                                    borderRadius: '10px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <IoInformationCircleOutline size={24} color="#F97316" style={{ flexShrink: 0 }} />
+                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                                    <strong>Individual Worker Salary Dates Active:</strong> The global salary date picker is disabled. Each worker will have their own mandatory salary date configured in their worker profile (Worker Add/Edit modal).
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
 
                                 <div style={{

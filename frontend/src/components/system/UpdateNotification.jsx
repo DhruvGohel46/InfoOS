@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   WaveCanvas — animated sine-wave progress bar
+   WaveCanvas — animated sine-wave progress bar (compact, scaled-down)
    Orange = completed (left), dark gray = remaining (right)
    Glowing orange dot tracks the live wave position at the progress boundary
 ───────────────────────────────────────────────────────────────────────────── */
@@ -21,9 +21,9 @@ const WaveCanvas = ({ progress = 0 }) => {
     const ctx    = canvas.getContext('2d');
 
     const MID_Y     = H / 2;
-    const AMPLITUDE = 7;
-    const PERIOD    = 156;
-    const LINE_W    = 10;
+    const AMPLITUDE = 5;
+    const PERIOD    = 120;
+    const LINE_W    = 6;
     const PROG_X    = W * (progress / 100);
     const phase     = phaseRef.current;
 
@@ -65,13 +65,13 @@ const WaveCanvas = ({ progress = 0 }) => {
       ctx.lineCap     = 'round';
       ctx.lineJoin    = 'round';
       ctx.shadowColor = 'rgba(255, 122, 0, 0.45)';
-      ctx.shadowBlur  = 12;
+      ctx.shadowBlur  = 8;
       ctx.stroke();
 
       // Soft extra glow pass
       ctx.globalAlpha = 0.25;
-      ctx.lineWidth   = LINE_W + 8;
-      ctx.shadowBlur  = 20;
+      ctx.lineWidth   = LINE_W + 5;
+      ctx.shadowBlur  = 14;
       ctx.stroke();
       ctx.globalAlpha = 1;
 
@@ -83,44 +83,44 @@ const WaveCanvas = ({ progress = 0 }) => {
       const dotY = getY(PROG_X);
 
       // Outer halo
-      const halo = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 20);
+      const halo = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 14);
       halo.addColorStop(0,   'rgba(255, 122, 0, 0.32)');
       halo.addColorStop(0.5, 'rgba(255, 122, 0, 0.10)');
       halo.addColorStop(1,   'rgba(255, 122, 0, 0)');
       ctx.beginPath();
-      ctx.arc(PROG_X, dotY, 20, 0, Math.PI * 2);
+      ctx.arc(PROG_X, dotY, 14, 0, Math.PI * 2);
       ctx.fillStyle = halo;
       ctx.fill();
 
       // Inner glow
-      const inner = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 10);
+      const inner = ctx.createRadialGradient(PROG_X, dotY, 0, PROG_X, dotY, 7);
       inner.addColorStop(0,   'rgba(255, 160, 40, 0.75)');
       inner.addColorStop(0.6, 'rgba(255, 122, 0, 0.4)');
       inner.addColorStop(1,   'rgba(255, 122, 0, 0)');
       ctx.beginPath();
-      ctx.arc(PROG_X, dotY, 10, 0, Math.PI * 2);
+      ctx.arc(PROG_X, dotY, 7, 0, Math.PI * 2);
       ctx.fillStyle = inner;
       ctx.fill();
 
       // Solid dot
       ctx.beginPath();
-      ctx.arc(PROG_X, dotY, 7, 0, Math.PI * 2);
+      ctx.arc(PROG_X, dotY, 4.5, 0, Math.PI * 2);
       ctx.fillStyle   = '#FF7A00';
       ctx.shadowColor = 'rgba(255, 122, 0, 0.9)';
-      ctx.shadowBlur  = 16;
+      ctx.shadowBlur  = 10;
       ctx.fill();
       ctx.shadowBlur = 0;
 
       // Specular highlight
       ctx.beginPath();
-      ctx.arc(PROG_X - 1.5, dotY - 2, 2.2, 0, Math.PI * 2);
+      ctx.arc(PROG_X - 1, dotY - 1, 1.5, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
       ctx.fill();
     }
 
     ctx.restore();
 
-    phaseRef.current -= 1.3; // flow speed — negative = wave scrolls left
+    phaseRef.current -= 1.3;
     rafRef.current = requestAnimationFrame(draw);
   }, [progress]);
 
@@ -133,7 +133,7 @@ const WaveCanvas = ({ progress = 0 }) => {
 
     const resize = () => {
       const w = parent.clientWidth;
-      const h = 44;
+      const h = 34;
       canvas.style.width  = `${w}px`;
       canvas.style.height = `${h}px`;
       canvas.width  = w * dpr;
@@ -187,53 +187,53 @@ const fmtTime = (totalBytes, transferred, bps) => {
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Icon components (thin white outline, minimal)
+   Icon components (compact minimal)
 ───────────────────────────────────────────────────────────────────────────── */
 const DownloadIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-    <path d="M20 7V28" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 21L20 29L28 21" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M9 34H31" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round"/>
+  <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+    <path d="M20 7V28" stroke="#FF7A00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 21L20 29L28 21" stroke="#FF7A00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 34H31" stroke="#FF7A00" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 const CheckIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-    <polyline points="8 21 16 29 32 12" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+  <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+    <polyline points="8 21 16 29 32 12" stroke="#22C55E" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 const ErrorIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-    <path d="M20 16V22" stroke="#EF4444" strokeWidth="2.6" strokeLinecap="round"/>
-    <circle cx="20" cy="28" r="1.5" fill="#EF4444"/>
-    <path d="M16.8 8.5L4.5 29A3.7 3.7 0 0 0 8.2 35H31.8A3.7 3.7 0 0 0 35.5 29L23.2 8.5A3.7 3.7 0 0 0 16.8 8.5Z" stroke="#EF4444" strokeWidth="2.2" strokeLinejoin="round"/>
+  <svg width="26" height="26" viewBox="0 0 40 40" fill="none">
+    <path d="M20 16V22" stroke="#EF4444" strokeWidth="3" strokeLinecap="round"/>
+    <circle cx="20" cy="28" r="1.8" fill="#EF4444"/>
+    <path d="M16.8 8.5L4.5 29A3.7 3.7 0 0 0 8.2 35H31.8A3.7 3.7 0 0 0 35.5 29L23.2 8.5A3.7 3.7 0 0 0 16.8 8.5Z" stroke="#EF4444" strokeWidth="2.6" strokeLinejoin="round"/>
   </svg>
 );
 
 const SpinnerIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none"
+  <svg width="26" height="26" viewBox="0 0 40 40" fill="none"
     style={{ animation: 'infoUpdateSpin 1.2s linear infinite' }}>
-    <circle cx="20" cy="20" r="14" stroke="rgba(255,255,255,0.08)" strokeWidth="2.6"/>
-    <path d="M20 6 A14 14 0 0 1 34 20" stroke="#FF7A00" strokeWidth="2.6" strokeLinecap="round"/>
+    <circle cx="20" cy="20" r="14" stroke="rgba(255,255,255,0.08)" strokeWidth="3"/>
+    <path d="M20 6 A14 14 0 0 1 34 20" stroke="#FF7A00" strokeWidth="3" strokeLinecap="round"/>
   </svg>
 );
 
 const PauseIcon = () => (
-  <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
+  <svg width="10" height="11" viewBox="0 0 12 14" fill="none">
     <rect x="0.5" y="0.5" width="3.5" height="13" rx="1.5" fill="white"/>
     <rect x="8" y="0.5" width="3.5" height="13" rx="1.5" fill="white"/>
   </svg>
 );
 
 const ResumeIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+  <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
     <polygon points="2,1 13,7 2,13" fill="white"/>
   </svg>
 );
 
 const SpeedIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2a10 10 0 0 1 10 10"/>
     <path d="M12 2a10 10 0 0 0-10 10"/>
     <path d="M2 12a10 10 0 0 0 10 10"/>
@@ -244,7 +244,7 @@ const SpeedIcon = () => (
 );
 
 const ClockIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/>
     <polyline points="12 6 12 12 15.5 14.5"/>
   </svg>
@@ -392,7 +392,7 @@ const UpdateNotification = () => {
         .info-update-btn:hover {
           background: #111111 !important;
           border-color: rgba(255,255,255,0.36) !important;
-          box-shadow: 0 0 20px rgba(255,255,255,0.04) !important;
+          box-shadow: 0 0 16px rgba(255,255,255,0.04) !important;
         }
         .info-update-btn:active {
           transform: scale(0.97);
@@ -406,7 +406,7 @@ const UpdateNotification = () => {
         {status !== 'idle' && (
           <div style={{
             position: 'fixed',
-            bottom: '28px',
+            bottom: '24px',
             left: 0,
             right: 0,
             display: 'flex',
@@ -416,36 +416,36 @@ const UpdateNotification = () => {
             fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           }}>
             <motion.div
-              initial={{ opacity: 0, y: 52, scale: 0.94 }}
+              initial={{ opacity: 0, y: 40, scale: 0.94 }}
               animate={{ opacity: 1, y: 0,  scale: 1 }}
-              exit={{    opacity: 0, y: 30,  scale: 0.96 }}
+              exit={{    opacity: 0, y: 24,  scale: 0.96 }}
               transition={{ type: 'spring', damping: 22, stiffness: 220, mass: 0.9 }}
               style={{
                 pointerEvents: 'auto',
-                width: '740px',
+                width: '460px',
                 background: '#0D0D0D',
                 border: '1.5px solid rgba(255,255,255,0.13)',
-                borderRadius: '26px',
-                padding: '28px 30px 24px',
+                borderRadius: '20px',
+                padding: '20px 22px 16px',
                 boxShadow: `
                   0 0 0 0.5px rgba(255,255,255,0.04) inset,
-                  0 36px 72px rgba(0,0,0,0.88),
-                  0 0 80px rgba(255,122,0,0.035)
+                  0 24px 56px rgba(0,0,0,0.88),
+                  0 0 60px rgba(255,122,0,0.03)
                 `,
                 boxSizing: 'border-box',
                 WebkitFontSmoothing: 'antialiased',
               }}
             >
               {/* ── Header ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: showWave ? '26px' : '0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: showWave ? '18px' : '0' }}>
                 {/* Icon */}
                 <div style={{
-                  width: '80px', height: '80px', flexShrink: 0,
+                  width: '48px', height: '48px', flexShrink: 0,
                   background: '#111111',
                   border: `1.5px solid ${iconBorderColor}`,
-                  borderRadius: '18px',
+                  borderRadius: '13px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 6px 24px rgba(0,0,0,0.55)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                 }}>
                   {getIcon()}
                 </div>
@@ -453,14 +453,14 @@ const UpdateNotification = () => {
                 {/* Title + Subtitle */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: '26px', fontWeight: 700, color: '#FFFFFF',
-                    letterSpacing: '-0.55px', lineHeight: 1.15, marginBottom: '7px',
+                    fontSize: '18px', fontWeight: 700, color: '#FFFFFF',
+                    letterSpacing: '-0.3px', lineHeight: 1.15, marginBottom: '4px',
                   }}>
                     {getTitle()}
                   </div>
                   <div style={{
-                    fontSize: '15px', fontWeight: 400, color: '#767676',
-                    letterSpacing: '-0.1px', lineHeight: 1.4,
+                    fontSize: '13px', fontWeight: 400, color: '#767676',
+                    letterSpacing: '-0.1px', lineHeight: 1.35,
                   }}>
                     {getSubtitle()}
                   </div>
@@ -476,11 +476,11 @@ const UpdateNotification = () => {
 
               {/* ── Divider ── */}
               {showWave && (
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '18px 0 20px' }} />
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '14px 0 14px' }} />
               )}
 
               {/* Non-wave status: spacer */}
-              {!showWave && <div style={{ height: '20px' }} />}
+              {!showWave && <div style={{ height: '14px' }} />}
 
               {/* ── Footer ── */}
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -488,46 +488,46 @@ const UpdateNotification = () => {
                 {/* Stats */}
                 {isDownloading && (
                   <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       <SpeedIcon />
                       <div>
-                        <div style={{ fontSize: '9.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.65px', marginBottom: '2px' }}>Speed</div>
-                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtSpeed(bytesPerSecond)}</div>
+                        <div style={{ fontSize: '8.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '1px' }}>Speed</div>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtSpeed(bytesPerSecond)}</div>
                       </div>
                     </div>
 
-                    <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.07)', margin: '0 18px' }} />
+                    <div style={{ width: '1px', height: '22px', background: 'rgba(255,255,255,0.07)', margin: '0 14px' }} />
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                       <ClockIcon />
                       <div>
-                        <div style={{ fontSize: '9.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.65px', marginBottom: '2px' }}>Time</div>
-                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtTime(totalBytes, computed, bytesPerSecond)}</div>
+                        <div style={{ fontSize: '8.5px', fontWeight: 500, color: '#3C3C3C', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '1px' }}>Time</div>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: '#A0A0A0', letterSpacing: '-0.2px' }}>{fmtTime(totalBytes, computed, bytesPerSecond)}</div>
                       </div>
                     </div>
                   </>
                 )}
 
                 {isPausedState && (
-                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#555555', letterSpacing: '-0.1px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 400, color: '#555555', letterSpacing: '-0.1px' }}>
                     Download paused
                   </div>
                 )}
 
                 {status === 'checking' && (
-                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#555555' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 400, color: '#555555' }}>
                     Connecting to update server...
                   </div>
                 )}
 
                 {status === 'failed' && (
-                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#EF4444', opacity: 0.8 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 400, color: '#EF4444', opacity: 0.8 }}>
                     {errorMessage || 'Unable to reach server'}
                   </div>
                 )}
 
                 {status === 'completed' && (
-                  <div style={{ fontSize: '13px', fontWeight: 400, color: '#22C55E', opacity: 0.85 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 400, color: '#22C55E', opacity: 0.85 }}>
                     Download complete
                   </div>
                 )}
@@ -541,13 +541,13 @@ const UpdateNotification = () => {
                     className="info-update-btn"
                     onClick={handlePauseToggle}
                     style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '9px',
+                      display: 'inline-flex', alignItems: 'center', gap: '7px',
                       background: '#000000',
                       border: '1.5px solid rgba(255,255,255,0.17)',
-                      borderRadius: '13px',
-                      height: '48px', padding: '0 22px',
+                      borderRadius: '10px',
+                      height: '36px', padding: '0 16px',
                       color: '#FFFFFF',
-                      fontSize: '14px', fontWeight: 600,
+                      fontSize: '12.5px', fontWeight: 600,
                       fontFamily: 'inherit',
                       letterSpacing: '-0.2px',
                       cursor: 'pointer',
@@ -567,14 +567,14 @@ const UpdateNotification = () => {
                     style={{
                       background: '#FF7A00',
                       border: 'none', outline: 'none',
-                      borderRadius: '13px',
-                      height: '48px', padding: '0 22px',
+                      borderRadius: '10px',
+                      height: '36px', padding: '0 16px',
                       color: '#FFFFFF',
-                      fontSize: '14px', fontWeight: 600,
+                      fontSize: '12.5px', fontWeight: 600,
                       fontFamily: 'inherit', letterSpacing: '-0.2px',
                       cursor: 'pointer',
                       transition: 'opacity 0.15s',
-                      boxShadow: '0 4px 16px rgba(255,122,0,0.3)',
+                      boxShadow: '0 4px 14px rgba(255,122,0,0.3)',
                     }}
                   >
                     Retry
@@ -588,14 +588,14 @@ const UpdateNotification = () => {
                     style={{
                       background: '#FF7A00',
                       border: 'none', outline: 'none',
-                      borderRadius: '13px',
-                      height: '48px', padding: '0 22px',
+                      borderRadius: '10px',
+                      height: '36px', padding: '0 16px',
                       color: '#FFFFFF',
-                      fontSize: '14px', fontWeight: 600,
+                      fontSize: '12.5px', fontWeight: 600,
                       fontFamily: 'inherit', letterSpacing: '-0.2px',
                       cursor: 'pointer',
                       transition: 'opacity 0.15s',
-                      boxShadow: '0 4px 16px rgba(255,122,0,0.3)',
+                      boxShadow: '0 4px 14px rgba(255,122,0,0.3)',
                     }}
                   >
                     Restart &amp; Install
