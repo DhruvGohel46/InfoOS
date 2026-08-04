@@ -10,45 +10,38 @@ logger = logging.getLogger(__name__)
 
 def _launch_browser(playwright):
     """
-    Launches a browser for Playwright image rendering using a multi-tiered fallback strategy:
+    Launches a browser for Playwright image rendering using a robust strategy:
     1. Standard Playwright Chromium (looking in %LOCALAPPDATA%/ms-playwright).
-    2. System Microsoft Edge (pre-installed on all Windows 10/11 machines).
-    3. System Google Chrome.
-    4. Automatic 'playwright install chromium' as a last resort.
+    2. Automatic 'playwright install chromium' if missing.
+    3. System Microsoft Edge (pre-installed on all Windows 10/11 machines).
+    4. System Google Chrome.
     """
     if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
         local_appdata = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(local_appdata, "ms-playwright")
 
-    launch_args = ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"]
+    launch_args = [
+        "--disable-gpu",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--hide-scrollbars",
+        "--mute-audio",
+    ]
 
     # 1. Default Playwright Chromium
     try:
         return playwright.chromium.launch(headless=True, args=launch_args)
     except Exception as e:
-        logger.warning(f"Default Playwright Chromium launch failed: {e}. Trying system Edge...")
-
-    # 2. System Microsoft Edge (installed by default on Windows 10 & 11)
-    try:
-        return playwright.chromium.launch(channel="msedge", headless=True, args=launch_args)
-    except Exception as e:
-        logger.warning(f"System Edge launch failed: {e}. Trying system Chrome...")
-
-    # 3. System Google Chrome
-    try:
-        return playwright.chromium.launch(channel="chrome", headless=True, args=launch_args)
-    except Exception as e:
         logger.warning(
-            f"System Chrome launch failed: {e}. Attempting auto-install of Playwright Chromium..."
+            f"Default Playwright Chromium launch failed: {e}. Attempting auto-install..."
         )
 
-    # 4. Auto-install Playwright Chromium binary
+    # 2. Immediately attempt auto-installation of Playwright Chromium
     try:
         import subprocess
 
-        logger.info(
-            "Executing 'playwright install chromium' to download missing browser binaries..."
-        )
+        logger.info("Executing 'playwright install chromium' to download browser binaries...")
         subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
             check=True,
@@ -56,7 +49,19 @@ def _launch_browser(playwright):
         )
         return playwright.chromium.launch(headless=True, args=launch_args)
     except Exception as e:
-        logger.error(f"Auto-install of Playwright Chromium failed: {e}")
+        logger.warning(f"Auto-install of Playwright Chromium failed: {e}. Trying system Edge...")
+
+    # 3. Fallback: System Microsoft Edge (installed by default on Windows 10 & 11)
+    try:
+        return playwright.chromium.launch(channel="msedge", headless=True, args=launch_args)
+    except Exception as e:
+        logger.warning(f"System Edge launch failed: {e}. Trying system Chrome...")
+
+    # 4. Fallback: System Google Chrome
+    try:
+        return playwright.chromium.launch(channel="chrome", headless=True, args=launch_args)
+    except Exception as e:
+        logger.error(f"System Chrome launch failed: {e}")
         raise RuntimeError(f"Failed to launch any browser for receipt rendering: {e}")
 
 
@@ -140,9 +145,17 @@ class PlaywrightImageGenerator:
                     temp_dir, f"receipt_{os.getpid()}_{os.urandom(4).hex()}.png"
                 )
 
-                page.screenshot(
-                    path=png_path, full_page=True, omit_background=False  # Keep white background
-                )
+                try:
+                    page.screenshot(
+                        path=png_path,
+                        full_page=True,
+                        omit_background=False,  # Keep white background
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Full-page screenshot failed ({e}). Retrying standard screenshot..."
+                    )
+                    page.screenshot(path=png_path, omit_background=False)
 
                 context.close()
             finally:
