@@ -1,10 +1,63 @@
 import os
+import sys
 import tempfile
 import logging
 from typing import Optional
 from playwright.sync_api import sync_playwright
 
 logger = logging.getLogger(__name__)
+
+
+def _launch_browser(playwright):
+    """
+    Launches a browser for Playwright image rendering using a multi-tiered fallback strategy:
+    1. Standard Playwright Chromium (looking in %LOCALAPPDATA%/ms-playwright).
+    2. System Microsoft Edge (pre-installed on all Windows 10/11 machines).
+    3. System Google Chrome.
+    4. Automatic 'playwright install chromium' as a last resort.
+    """
+    if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+        local_appdata = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(local_appdata, "ms-playwright")
+
+    launch_args = ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"]
+
+    # 1. Default Playwright Chromium
+    try:
+        return playwright.chromium.launch(headless=True, args=launch_args)
+    except Exception as e:
+        logger.warning(f"Default Playwright Chromium launch failed: {e}. Trying system Edge...")
+
+    # 2. System Microsoft Edge (installed by default on Windows 10 & 11)
+    try:
+        return playwright.chromium.launch(channel="msedge", headless=True, args=launch_args)
+    except Exception as e:
+        logger.warning(f"System Edge launch failed: {e}. Trying system Chrome...")
+
+    # 3. System Google Chrome
+    try:
+        return playwright.chromium.launch(channel="chrome", headless=True, args=launch_args)
+    except Exception as e:
+        logger.warning(
+            f"System Chrome launch failed: {e}. Attempting auto-install of Playwright Chromium..."
+        )
+
+    # 4. Auto-install Playwright Chromium binary
+    try:
+        import subprocess
+
+        logger.info(
+            "Executing 'playwright install chromium' to download missing browser binaries..."
+        )
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+            timeout=120,
+        )
+        return playwright.chromium.launch(headless=True, args=launch_args)
+    except Exception as e:
+        logger.error(f"Auto-install of Playwright Chromium failed: {e}")
+        raise RuntimeError(f"Failed to launch any browser for receipt rendering: {e}")
 
 
 class PlaywrightImageGenerator:
@@ -41,9 +94,7 @@ class PlaywrightImageGenerator:
         device_scale_factor = 3.0
 
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(
-                headless=True, args=["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"]
-            )
+            browser = _launch_browser(playwright)
             try:
                 context = browser.new_context(
                     viewport={"width": pixel_width, "height": 100},

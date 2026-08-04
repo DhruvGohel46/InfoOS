@@ -25,6 +25,15 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+# ── Playwright Browser Path Configuration ─────────────────────────────────────
+# When backend is packaged with PyInstaller (sys.frozen == True), Playwright defaults
+# PLAYWRIGHT_BROWSERS_PATH to _internal/playwright/driver/package/.local-browsers.
+# Setting PLAYWRIGHT_BROWSERS_PATH to standard user %LOCALAPPDATA%/ms-playwright
+# directory ensures Playwright locates installed browsers on Windows desktop environments.
+if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+    local_appdata = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(local_appdata, "ms-playwright")
+
 
 def start_dashboard_refresher():
     """Start the dashboard refresher and reminder checker in a separate thread"""

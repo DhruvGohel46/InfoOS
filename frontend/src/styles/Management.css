@@ -393,12 +393,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: calc(4px * var(--display-zoom));
+  padding: calc(2px * var(--display-zoom));
+  transform: scale(1.2);
   transition: transform 0.3s ease;
 }
 
 .pmCard:hover .pmCardImage {
-  transform: scale(1.05);
+  transform: scale(1.28);
 }
 
 .pmCardImagePlaceholder {
