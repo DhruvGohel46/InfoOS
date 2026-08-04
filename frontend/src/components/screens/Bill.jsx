@@ -60,7 +60,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const { isOnline } = useNetwork();
 
-  
+
 
   // ── POS Data from global context (load-once pattern) ──
 
@@ -203,8 +203,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     // Products: filter products for the current selected category
     const showAllAsFavorite = settings?.show_all_as_favorite === 'true';
-    const activeProds = products.filter(product => 
-      selectedCategory === 'favorites' 
+    const activeProds = products.filter(product =>
+      selectedCategory === 'favorites'
         ? (showAllAsFavorite ? true : !!product.favorite)
         : (product.category_id === selectedCategory || product.category === selectedCategory)
     );
@@ -361,7 +361,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
     }
 
-    
+
 
     const nextCategories = [
 
@@ -503,7 +503,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const filteredProducts = products.filter(product => {
     let categoryMatch;
-    
+
     // Group filter match
     let groupMatch = true;
     if (selectedGroupId !== 'all') {
@@ -888,7 +888,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
 
-      
+
 
       if (type === 'bill') {
 
@@ -900,7 +900,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       }
 
-      
+
 
       showSuccess(`${type.toUpperCase()} printed successfully`);
 
@@ -930,13 +930,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       await printerService.printBill(billNo);
 
-      
+
 
       setPrintStatus('Preparing KOT...');
 
       await printerService.printKOT(billNo);
 
-      
+
 
       showSuccess('Bill & KOT printed successfully');
 
@@ -1495,8 +1495,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
               alignItems: 'center',
               gap: '8px'
             }}>
-              {selectedCategory === 'favorites' 
-                ? '★ Favorites' 
+              {selectedCategory === 'favorites'
+                ? '★ Favorites'
                 : (bootstrapCategories.find(c => c.id === selectedCategory)?.name || 'Products')}
               {isEditMode && (
                 <span style={{
@@ -1766,7 +1766,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                               style={{ position: 'relative' }}
                             >
-                              <div 
+                              <div
                                 onClick={isEditMode ? undefined : (e) => {
                                   if (!hasTwoVariations) {
                                     handleAddItem(product, e);
@@ -1862,7 +1862,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                       <img
                                         src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
                                         alt={product.name}
-                                        style={{ 
+                                        style={{
                                           width: '100%',
                                           height: '100%',
                                           objectFit: 'contain',
@@ -1969,12 +1969,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                                     <div
                                       style={{
-                                        width: '26px', 
+                                        width: '26px',
                                         height: '26px',
                                         backgroundColor: '#ff6b00',
                                         borderRadius: '50%',
-                                        display: 'flex', 
-                                        alignItems: 'center', 
+                                        display: 'flex',
+                                        alignItems: 'center',
                                         justifyContent: 'center',
                                         color: 'white',
                                         cursor: isEditMode ? 'default' : 'pointer'
@@ -2032,7 +2032,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                     style={{ position: 'relative' }}
                   >
-                    <div 
+                    <div
                       onClick={isEditMode ? undefined : (e) => {
                         if (!hasTwoVariations) {
                           handleAddItem(product, e);
@@ -2131,7 +2131,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                             <img
                               src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
                               alt={product.name}
-                              style={{ 
+                              style={{
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'contain',
@@ -2240,12 +2240,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                           <div
                             style={{
-                              width: '26px', 
+                              width: '26px',
                               height: '26px',
                               backgroundColor: '#ff6b00',
                               borderRadius: '50%',
-                              display: 'flex', 
-                              alignItems: 'center', 
+                              display: 'flex',
+                              alignItems: 'center',
                               justifyContent: 'center',
                               color: 'white',
                               cursor: isEditMode ? 'default' : 'pointer'
@@ -2666,119 +2666,120 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 return (
 
-                <div key={lineKey} style={{
+                  <div key={lineKey} style={{
 
-                  display: 'grid',
+                    display: 'grid',
 
-                  gridTemplateColumns: '2fr 1fr 1fr',
+                    gridTemplateColumns: '2fr 1fr 1fr',
 
-                  alignItems: 'center',
+                    alignItems: 'center',
 
-                  padding: '3px 0',
+                    padding: '3px 0',
 
-                  borderBottom: `1px solid ${currentTheme.colors.border}`,
+                    borderBottom: `1px solid ${currentTheme.colors.border}`,
 
-                }}>
+                  }}>
 
-                  <div>
+                    <div>
 
-                    <div style={{
+                      <div style={{
 
-                      fontSize: '12.5px',
+                        fontSize: '12.5px',
 
-                      fontWeight: currentTheme.typography.fontWeight.medium,
+                        fontWeight: currentTheme.typography.fontWeight.medium,
 
-                      color: currentTheme.colors.text.primary,
+                        color: currentTheme.colors.text.primary,
 
-                    }}>
+                      }}>
 
-                      {item.name}
+                        {item.name}
+
+                      </div>
+
+                      <div style={{
+
+                        fontSize: '10.5px',
+
+                        color: currentTheme.colors.text.secondary,
+
+                      }}>
+
+                        {formatCurrency(item.price)} each
+
+                      </div>
 
                     </div>
 
-                    <div style={{
 
-                      fontSize: '10.5px',
 
-                      color: currentTheme.colors.text.secondary,
+                    <div style={{ textAlign: 'center' }}>
 
-                    }}>
+                      <div style={{
 
-                      {formatCurrency(item.price)} each
+                        display: 'flex',
+
+                        alignItems: 'center',
+
+                        justifyContent: 'center',
+
+                        gap: '2px',
+
+                      }}>
+
+                        <Button
+
+                          variant="ghost"
+
+                          size="sm"
+
+                          onClick={() => updateQuantity(lineKey, item.quantity - 1)}
+
+                          style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
+
+                        >
+
+                          −
+
+                        </Button>
+
+                        <span style={{ minWidth: '24px', textAlign: 'center', fontSize: '12px' }}>
+
+                          {item.quantity}
+
+                        </span>
+
+                        <Button
+
+                          variant="ghost"
+
+                          size="sm"
+
+                          onClick={() => updateQuantity(lineKey, item.quantity + 1)}
+
+                          style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
+
+                        >
+
+                          +
+
+                        </Button>
+
+                      </div>
+
+                    </div>
+
+
+
+                    <div style={{ textAlign: 'right', fontSize: '12.5px', fontFamily: 'monospace' }}>
+
+                      {formatCurrency(item.price * item.quantity)}
 
                     </div>
 
                   </div>
 
-
-
-                  <div style={{ textAlign: 'center' }}>
-
-                    <div style={{
-
-                      display: 'flex',
-
-                      alignItems: 'center',
-
-                      justifyContent: 'center',
-
-                      gap: '2px',
-
-                    }}>
-
-                      <Button
-
-                        variant="ghost"
-
-                        size="sm"
-
-                        onClick={() => updateQuantity(lineKey, item.quantity - 1)}
-
-                        style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
-
-                      >
-
-                        −
-
-                      </Button>
-
-                      <span style={{ minWidth: '24px', textAlign: 'center', fontSize: '12px' }}>
-
-                        {item.quantity}
-
-                      </span>
-
-                      <Button
-
-                        variant="ghost"
-
-                        size="sm"
-
-                        onClick={() => updateQuantity(lineKey, item.quantity + 1)}
-
-                        style={{ minWidth: '22px', padding: '0', height: '22px', fontSize: '11px' }}
-
-                      >
-
-                        +
-
-                      </Button>
-
-                    </div>
-
-                  </div>
-
-
-
-                  <div style={{ textAlign: 'right', fontSize: '12.5px', fontFamily: 'monospace' }}>
-
-                    {formatCurrency(item.price * item.quantity)}
-
-                  </div>
-
-                </div>
-
-              );})}
+                );
+              })}
 
             </div>
 
@@ -2902,13 +2903,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             {/* Row 1 */}
 
-            <Button 
+            <Button
 
-              variant="secondary" 
+              variant="secondary"
 
-              onClick={handleSaveOrder} 
+              onClick={handleSaveOrder}
 
-              fullWidth 
+              fullWidth
 
               disabled={isPrinting}
 
@@ -2942,13 +2943,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             </Button>
 
-            <Button 
+            <Button
 
-              variant="secondary" 
+              variant="secondary"
 
-              onClick={() => handleSaveAndPrintOrder('kot')} 
+              onClick={() => handleSaveAndPrintOrder('kot')}
 
-              fullWidth 
+              fullWidth
 
               disabled={isPrinting}
 
@@ -2982,17 +2983,17 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             </Button>
 
-            
+
 
             {/* Row 2 */}
 
-            <Button 
+            <Button
 
-              variant="secondary" 
+              variant="secondary"
 
-              onClick={() => handleSaveAndPrintOrder('bill')} 
+              onClick={() => handleSaveAndPrintOrder('bill')}
 
-              fullWidth 
+              fullWidth
 
               disabled={isPrinting}
 
@@ -3026,13 +3027,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
             </Button>
 
-            <Button 
+            <Button
 
-              variant="primary" 
+              variant="primary"
 
-              onClick={() => handleSaveAndPrintOrder('both')} 
+              onClick={() => handleSaveAndPrintOrder('both')}
 
-              fullWidth 
+              fullWidth
 
               disabled={isPrinting}
 

@@ -923,11 +923,11 @@ const ProductManagement = () => {
                 width: '100%', maxWidth: '720px', maxHeight: '90vh',
                 display: 'flex', flexDirection: 'column',
                 borderRadius: '22px',
-                backgroundColor: isDark 
-                  ? 'rgba(22, 26, 32, 0.95)' 
+                backgroundColor: isDark
+                  ? 'rgba(22, 26, 32, 0.95)'
                   : 'rgba(255, 255, 255, 0.98)',
-                border: isDark 
-                  ? '1px solid rgba(255, 255, 255, 0.08)' 
+                border: isDark
+                  ? '1px solid rgba(255, 255, 255, 0.08)'
                   : '1px solid rgba(0, 0, 0, 0.08)',
                 boxShadow: isDark
                   ? '0 30px 80px rgba(0, 0, 0, 0.55)'

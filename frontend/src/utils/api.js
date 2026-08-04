@@ -40,14 +40,14 @@ export const setAuthToken = (token) => {
 api.interceptors.response.use(undefined, (err) => {
   const { config } = err;
   if (!config || config.method !== 'get') return Promise.reject(err);
-  
+
   // Only retry network errors or 5xx
   const status = err.response?.status;
   if (status && status < 500 && status !== 408) return Promise.reject(err);
 
   config.__retryCount = config.__retryCount || 0;
   if (config.__retryCount >= 3) return Promise.reject(err);
-  
+
   config.__retryCount += 1;
   const backoff = new Promise(resolve => setTimeout(resolve, 1000 * config.__retryCount));
   return backoff.then(() => api(config));
@@ -68,7 +68,7 @@ api.interceptors.response.use(
           timestamp: new Date().toISOString()
         }
       }));
-    } catch (_) {}
+    } catch (_) { }
     return response;
   },
   (error) => {
@@ -141,7 +141,7 @@ api.interceptors.response.use(
           error: message || error.message
         }
       }));
-    } catch (_) {}
+    } catch (_) { }
 
     return Promise.reject(error);
   }
@@ -577,15 +577,15 @@ export const flog = {
   _send(level, source, message) {
     const payload = { level, source, message, timestamp: new Date().toISOString() };
     if (_ipc()) {
-      try { _ipc()(payload); return; } catch (_) {}
+      try { _ipc()(payload); return; } catch (_) { }
     }
     // HTTP fallback (fire and forget)
-    logsAPI.writeFrontendLog(level, source, message).catch(() => {});
+    logsAPI.writeFrontendLog(level, source, message).catch(() => { });
   },
-  debug:    (source, msg) => flog._send('debug',    source, msg),
-  info:     (source, msg) => flog._send('info',     source, msg),
-  warn:     (source, msg) => flog._send('warning',  source, msg),
-  error:    (source, msg) => flog._send('error',    source, msg),
+  debug: (source, msg) => flog._send('debug', source, msg),
+  info: (source, msg) => flog._send('info', source, msg),
+  warn: (source, msg) => flog._send('warning', source, msg),
+  error: (source, msg) => flog._send('error', source, msg),
 };
 
 export const apiRequest = async (method, url, data = null) => {
@@ -594,20 +594,20 @@ export const apiRequest = async (method, url, data = null) => {
       method,
       url,
     };
-    
+
     if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
       config.data = data;
     }
-    
+
     const response = await api(config);
-    
+
     return {
       success: true,
       data: response.data,
     };
   } catch (error) {
     console.error(`API ${method} ${url} failed:`, error);
-    
+
     return {
       success: false,
       error: error.response?.data?.message || error.message || 'Request failed',
