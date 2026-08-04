@@ -26,7 +26,6 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-
 def start_dashboard_refresher():
     """Start the dashboard refresher and reminder checker in a separate thread"""
     from dashboard_refresher import DashboardRefresher

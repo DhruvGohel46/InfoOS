@@ -261,7 +261,6 @@ const UpdateNotification = () => {
   const [transferredBytes, setTransferred]= useState(0);
   const [errorMessage, setErrorMessage]   = useState('');
   const [isPaused, setIsPaused]           = useState(false);
-  const [hovering, setHovering]           = useState(false);
 
   useEffect(() => {
     if (!window.electronAPI) return;

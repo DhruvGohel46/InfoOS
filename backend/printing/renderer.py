@@ -107,9 +107,7 @@ class HTMLRenderer:
             "customer_name": _safe_text(bill_data.get("customer_name", "") or ""),
             "payment_method": bill_data.get("payment_method", "CASH"),
             "today_token": bill_data.get("today_token"),
-            "cashier": _safe_text(
-                bill_data.get("cashier") or bill_data.get("cashier_name") or ""
-            ),
+            "cashier": _safe_text(bill_data.get("cashier") or bill_data.get("cashier_name") or ""),
             "subtotal": subtotal,
             "discount": discount,
             "cgst": cgst,

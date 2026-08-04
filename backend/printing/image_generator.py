@@ -83,7 +83,6 @@ class PlaywrightImageGenerator:
                     except Exception:
                         pass
 
-
                 # Save screenshot to temporary folder
                 temp_dir = tempfile.gettempdir()
                 png_path = os.path.join(
