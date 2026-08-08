@@ -76,8 +76,15 @@ class HTMLRenderer:
         safe_products = []
         for p in products:
             safe_p = dict(p)
-            safe_p["name"] = _safe_text(p.get("name", ""))
-            safe_p["variation_name"] = _safe_text(p.get("variation_name", "") or "")
+            name = _safe_text(p.get("name", ""))
+            var_name = _safe_text(p.get("variation_name", "") or "")
+            if var_name:
+                v_suffix = f"({var_name})"
+                if name.strip().lower().endswith(v_suffix.lower()):
+                    idx = name.strip().lower().rfind(v_suffix.lower())
+                    name = name.strip()[:idx].strip()
+            safe_p["name"] = name
+            safe_p["variation_name"] = var_name
             safe_p["specification"] = _safe_text(p.get("specification", "") or "")
             safe_products.append(safe_p)
 

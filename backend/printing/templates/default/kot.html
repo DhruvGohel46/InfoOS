@@ -29,7 +29,7 @@
     }
     .kot-label {
       font-size: 30px;
-      font-weight: 400;
+      font-weight: 700;
       margin-bottom: 6px;
     }
     .order-type {
@@ -47,20 +47,20 @@
       margin: 8px 0;
     }
     .items-table th {
-      font-size: 30px;
-      font-weight: 700;
+      font-size: 24px;
+      font-weight: 400;
       padding: 6px 0;
     }
     .items-table td {
       padding: 8px 0;
     }
+    .item-sr-col {
+      text-align: left;
+      width: 15%;
+    }
     .item-name-col {
       text-align: left;
-      width: 55%;
-    }
-    .item-note-col {
-      text-align: center;
-      width: 25%;
+      width: 65%;
     }
     .item-qty-col {
       text-align: right;
@@ -71,13 +71,14 @@
       font-size: 30px;
       word-break: break-word;
     }
-    .special-note-val {
-      font-size: 30px;
+    .item-sub {
+      font-size: 28px;
       font-weight: 400;
+      color: #333;
     }
     .item-qty {
       font-size: 30px;
-      font-weight: 400;
+      font-weight: 700;
     }
     .total-qty-container {
       text-align: right;
@@ -100,27 +101,26 @@
     <table class="items-table">
       <thead>
         <tr>
+          <th class="item-sr-col">No.</th>
           <th class="item-name-col">Item</th>
-          <th class="item-note-col">Special<br>Note</th>
           <th class="item-qty-col">Qty.</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
+          <td class="item-sr-col" style="vertical-align: top;">
+            {{ loop.index }}
+          </td>
           <td class="item-name-col" style="vertical-align: top;">
             <div class="item-name">
               {{ item.name }}
-              {% if item.variation_name %}
+              {% if item.variation_name and not item.name.lower().endswith('(' + item.variation_name.lower() + ')') %}
               ({{ item.variation_name }})
               {% endif %}
             </div>
-          </td>
-          <td class="item-note-col special-note-val" style="vertical-align: top;">
             {% if item.specification %}
-              {{ item.specification }}
-            {% else %}
-              --
+            <div class="item-sub">[{{ item.specification }}]</div>
             {% endif %}
           </td>
           <td class="item-qty-col item-qty" style="vertical-align: top;">

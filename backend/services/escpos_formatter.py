@@ -391,7 +391,7 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
     # Items - Quantity before item, natural wrapping
     products = order.get("products") or order.get("items") or []
 
-    for product in products:
+    for item_idx, product in enumerate(products, 1):
         name = str(product.get("name", "Item"))
 
         # Try multiple field names for quantity
@@ -419,12 +419,13 @@ def build_kot(order: Dict, settings: Dict) -> bytes:
             v_suffix = f"({variation_name})"
             cleaned_name = name.strip()
             if cleaned_name.lower().endswith(v_suffix.lower()):
-                idx = cleaned_name.lower().rfind(v_suffix.lower())
-                base_name = cleaned_name[:idx].strip()
+                idx_v = cleaned_name.lower().rfind(v_suffix.lower())
+                base_name = cleaned_name[:idx_v].strip()
 
-        # Print: Item Name (left) and Qty (right) - space-between
+        # Print: Item Name with Sr No (left) and Qty (right) - space-between
+        item_title = f"{item_idx}. {base_name}"
         formatter.bold_on()
-        formatter.line_with_margin(f"{base_name:<{item_w}}{qty:>{qty_w}}", margin_w)
+        formatter.line_with_margin(f"{item_title:<{item_w}}{qty:>{qty_w}}", margin_w)
         formatter.bold_off()
 
         # Variation - attached to item, indented

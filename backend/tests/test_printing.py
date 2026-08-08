@@ -86,3 +86,42 @@ def test_image_generator():
         if os.path.exists(png_path):
             os.remove(png_path)
         generator.close_browser()
+
+
+def test_kot_renderer_format():
+    manager = TemplateManager()
+    renderer = HTMLRenderer(manager)
+
+    mock_kot_data = {
+        "bill_no": "KOT-101",
+        "date": "2026-08-08",
+        "time": "14:00",
+        "order_type": "dine-in",
+        "products": [
+            {
+                "name": "Pizza (Medium)",
+                "variation_name": "Medium",
+                "quantity": 2,
+                "price": 15.0,
+                "specification": "Extra Cheese",
+            },
+            {
+                "name": "Burger",
+                "quantity": 1,
+                "price": 8.0,
+            },
+        ],
+    }
+
+    mock_settings = {"printer_template": "default"}
+
+    html = renderer.render_bill(mock_kot_data, mock_settings, is_bill=False)
+
+    # 1. Verify Sr. No. column exists
+    assert "Sr. No." in html
+    # 2. Verify Special Note column header is removed
+    assert "Special<br>Note" not in html
+    # 3. Verify no double variation (e.g., "(Medium) (Medium)")
+    assert "(Medium) (Medium)" not in html
+    assert "(Medium)" in html
+
