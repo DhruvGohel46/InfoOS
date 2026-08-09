@@ -65,9 +65,9 @@ const rawAPI = {
   },
 
   // Printing APIs
-  printBill: (billNo) => ipcRenderer.invoke('print:bill', billNo),
-  printKOT: (billNo) => ipcRenderer.invoke('print:kot', billNo),
-  printBillAndKOT: (billNo) => ipcRenderer.invoke('print:billAndKOT', billNo),
+  printBill: (billNo, options) => ipcRenderer.invoke('print:bill', billNo, options),
+  printKOT: (billNo, options) => ipcRenderer.invoke('print:kot', billNo, options),
+  printBillAndKOT: (billNo, options) => ipcRenderer.invoke('print:billAndKOT', billNo, options),
   isPrinting: () => ipcRenderer.invoke('print:isPrinting'),
 
   // File Operations

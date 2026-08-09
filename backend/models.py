@@ -102,6 +102,7 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bill_no = db.Column(db.Integer, nullable=False)
     customer_name = db.Column(db.String(255))
+    customer_mobile = db.Column(db.String(50), nullable=True)
     total_amount = db.Column(db.Float, nullable=False)
     today_token = db.Column(db.Integer, default=0)  # For daily token number if needed
     payment_method = db.Column(db.String(50), default="CASH")

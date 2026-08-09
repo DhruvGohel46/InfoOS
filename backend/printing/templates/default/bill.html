@@ -24,14 +24,27 @@
 
     <div class="divider-solid"></div>
 
-    <!-- Customer Name Section -->
+    <!-- Customer Name, Mobile & Table Section -->
+    {% if bill.customer_name or bill.customer_mobile or bill.table_no %}
     <div class="customer-section">
+      {% if bill.customer_name %}
       <div class="meta-row">
-        <span>Name: {{ bill.customer_name or '' }}</span>
+        <span>Name: {{ bill.customer_name }}</span>
       </div>
+      {% endif %}
+      {% if bill.customer_mobile %}
+      <div class="meta-row">
+        <span>Mobile: {{ bill.customer_mobile }}</span>
+      </div>
+      {% endif %}
+      {% if bill.table_no %}
+      <div class="meta-row">
+        <span>Table No.: {{ bill.table_no }}</span>
+      </div>
+      {% endif %}
     </div>
-
     <div class="divider-solid"></div>
+    {% endif %}
 
     <!-- Metadata Section -->
     <div class="metadata">
@@ -44,11 +57,10 @@
         <span></span>
       </div>
       <div class="meta-row">
-        <span>Cashier: {{ bill.cashier or 'biller' }}</span>
         <span>Bill No.: {{ bill.bill_no }}</span>
       </div>
       <div class="meta-row">
-        <span class="token-bold"><strong>Token No.: {{ bill.today_token or bill.bill_no }}</strong></span>
+        <span class="token-bold"><strong>{% if bill.kot_no %}KOT No.: {{ bill.kot_no }}{% else %}Token No.: {{ bill.today_token or bill.bill_no }}{% endif %}</strong></span>
         <span></span>
       </div>
     </div>

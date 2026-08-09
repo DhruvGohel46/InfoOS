@@ -293,10 +293,10 @@ export const billingAPI = {
   getNextBillNumber: () => api.get('/api/bill/next-number'),
 
   // Print existing bill
-  printBill: (billNo) => api.post(`/api/bill/print/${billNo}`),
+  printBill: (billNo, payload = {}) => api.post(`/api/bill/print/${billNo}`, payload),
 
   // Print KOT for existing bill
-  printKOT: (billNo) => api.post(`/api/bill/print-kot/${billNo}`),
+  printKOT: (billNo, payload = {}) => api.post(`/api/bill/print-kot/${billNo}`, payload),
 
   // Management: Get all bills including cancelled
   getAllBills: () => api.get('/api/bill/management/all'),

@@ -111,6 +111,7 @@ class SQLiteDatabaseService:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     bill_no INTEGER NOT NULL,
                     customer_name TEXT,
+                    customer_mobile TEXT,
                     total_amount REAL NOT NULL,
                     items TEXT NOT NULL, -- JSON string of items
                     status TEXT DEFAULT 'CONFIRMED', -- CONFIRMED, CANCELLED
@@ -145,10 +146,17 @@ class SQLiteDatabaseService:
                 try:
                     cursor.execute("ALTER TABLE bills ADD COLUMN updated_at TIMESTAMP")
                     cursor.execute(
-                        "UPDATE bills SET updated_at = created_at WHERE updated_at IS NULL"
+                        "UPDATE bills SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
                     )
                 except Exception as e:
                     print(f"Migration error (updated_at): {e}")
+
+            if "customer_mobile" not in columns:
+                print("Migrating database: Adding customer_mobile column to bills table")
+                try:
+                    cursor.execute("ALTER TABLE bills ADD COLUMN customer_mobile TEXT DEFAULT ''")
+                except Exception as e:
+                    print(f"Migration error (customer_mobile): {e}")
 
             if "order_type" not in columns:
                 print("Migrating database: Adding order_type column to bills table")
@@ -423,12 +431,13 @@ class SQLiteDatabaseService:
             # Insert the bill
             cursor.execute(
                 """
-                INSERT INTO bills (bill_no, customer_name, total_amount, items, order_type, table_no)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO bills (bill_no, customer_name, customer_mobile, total_amount, items, order_type, table_no)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     next_bill_no,
                     bill_data.get("customer_name", ""),
+                    bill_data.get("customer_mobile", "") or bill_data.get("customer_phone", ""),
                     float(bill_data["total_amount"]),
                     json.dumps(enriched_items),
                     bill_data.get("order_type", "dine-in"),
@@ -660,6 +669,7 @@ class SQLiteDatabaseService:
                     """
                     UPDATE bills 
                     SET customer_name = ?, 
+                        customer_mobile = ?,
                         total_amount = ?, 
                         items = ?,
                         updated_at = CURRENT_TIMESTAMP
@@ -667,6 +677,7 @@ class SQLiteDatabaseService:
                 """,
                     (
                         bill_data.get("customer_name", ""),
+                        bill_data.get("customer_mobile", "") or bill_data.get("customer_phone", ""),
                         float(bill_data["total_amount"]),
                         json.dumps(enriched_items),
                         bill_no,

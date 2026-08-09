@@ -125,3 +125,11 @@ def test_kot_renderer_format():
     assert "(Medium) (Medium)" not in html
     assert "(Medium)" in html
 
+
+def test_preview_image_endpoint(client):
+    response = client.get("/api/bill/preview-image")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data.get("success") is True
+    assert "image_base64" in data
+    assert data["image_base64"].startswith("data:image/png;base64,")

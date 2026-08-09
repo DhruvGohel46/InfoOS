@@ -94,6 +94,14 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const [tableNumber, setTableNumber] = useState('');
 
+  const [kotNumber, setKotNumber] = useState('');
+
+  const [customerName, setCustomerName] = useState('');
+
+  const [customerMobile, setCustomerMobile] = useState('');
+
+  const [activeField, setActiveField] = useState(null); // 'table' | 'kot' | 'customer' | 'mobile' | null
+
   const [selectedCategory, setSelectedCategory] = useState('favorites');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -349,6 +357,72 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
+  // ── Keyboard shortcut to change Item Group (Ctrl key, skipping 'All') ──
+
+  useEffect(() => {
+
+    const handleKeyDown = (e) => {
+
+      // Ignore keypress if user is currently typing in an input, textarea, or contenteditable element
+
+      const activeElem = document.activeElement;
+
+      const isTyping = activeElem && (
+
+        activeElem.tagName === 'INPUT' ||
+
+        activeElem.tagName === 'TEXTAREA' ||
+
+        activeElem.isContentEditable
+
+      );
+
+      if (isTyping) return;
+
+
+
+      if (e.key === 'Control') {
+
+        if (!groups || groups.length === 0) return;
+
+
+
+        setSelectedGroupId((prevGroupId) => {
+
+          const currentIndex = groups.findIndex(g => g.id.toString() === prevGroupId.toString());
+
+          if (currentIndex === -1) {
+
+            // If on 'all' or invalid, switch to the first real group (NEVER 'all')
+
+            return groups[0].id.toString();
+
+          } else {
+
+            // Cycle to the next group, wrapping around to groups[0] (NEVER 'all')
+
+            const nextIndex = (currentIndex + 1) % groups.length;
+
+            return groups[nextIndex].id.toString();
+
+          }
+
+        });
+
+      }
+
+    };
+
+
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+
+  }, [groups]);
+
+
+
   // Filter categories based on selected group
 
   useEffect(() => {
@@ -435,6 +509,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       setOrderType(bill.order_type || 'dine-in');
 
       setTableNumber(bill.table_no || '');
+
+      setCustomerName(bill.customer_name || '');
+
+      setCustomerMobile(bill.customer_mobile || bill.customer_phone || '');
+
+      setKotNumber('');
 
       // Clear location state so that it doesn't reload on subsequent clicks/refreshes
       navigate(location.pathname, { replace: true, state: {} });
@@ -764,11 +844,17 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         print: false,
 
-        customer_name: editingBill ? editingBill.customer_name : '',
+        customer_name: customerName || (editingBill ? editingBill.customer_name : ''),
+
+        customer_mobile: customerMobile || (editingBill ? editingBill.customer_mobile || editingBill.customer_phone : ''),
 
         order_type: orderType,
 
-        table_no: orderType === 'dine-in' ? tableNumber : ''
+        table_no: tableNumber || (editingBill ? editingBill.table_no : ''),
+
+        kot_no: kotNumber,
+
+        custom_kot_no: kotNumber
 
       };
 
@@ -850,11 +936,17 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           print: false,
 
-          customer_name: '',
+          customer_name: customerName || '',
+
+          customer_mobile: customerMobile || '',
 
           order_type: orderType,
 
-          table_no: orderType === 'dine-in' ? tableNumber : ''
+          table_no: tableNumber || '',
+
+          kot_no: kotNumber,
+
+          custom_kot_no: kotNumber
 
         };
 
@@ -888,15 +980,20 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       setPrintStatus(type === 'bill' ? 'Printing Bill...' : 'Printing KOT...');
 
-
+      const printOpts = {
+        kot_no: kotNumber,
+        customer_name: customerName,
+        customer_mobile: customerMobile,
+        table_no: tableNumber
+      };
 
       if (type === 'bill') {
 
-        await printerService.printBill(billNo);
+        await printerService.printBill(billNo, printOpts);
 
       } else {
 
-        await printerService.printKOT(billNo);
+        await printerService.printKOT(billNo, printOpts);
 
       }
 
@@ -928,13 +1025,20 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       setPrintStatus('Printing Bill...');
 
-      await printerService.printBill(billNo);
+      const printOpts = {
+        kot_no: kotNumber,
+        customer_name: customerName,
+        customer_mobile: customerMobile,
+        table_no: tableNumber
+      };
+
+      await printerService.printBill(billNo, printOpts);
 
 
 
       setPrintStatus('Preparing KOT...');
 
-      await printerService.printKOT(billNo);
+      await printerService.printKOT(billNo, printOpts);
 
 
 
@@ -984,11 +1088,17 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         print: false, // We handle printing manually for better control
 
-        customer_name: editingBill ? editingBill.customer_name : '',
+        customer_name: customerName || (editingBill ? editingBill.customer_name : ''),
+
+        customer_mobile: customerMobile || (editingBill ? editingBill.customer_mobile || editingBill.customer_phone : ''),
 
         order_type: orderType,
 
-        table_no: orderType === 'dine-in' ? tableNumber : ''
+        table_no: tableNumber || (editingBill ? editingBill.table_no : ''),
+
+        kot_no: kotNumber,
+
+        custom_kot_no: kotNumber
 
       };
 
@@ -1092,6 +1202,10 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     setOrderItems([]);
     setOrderType(settings?.default_order_type || 'dine-in');
     setTableNumber('');
+    setKotNumber('');
+    setCustomerName('');
+    setCustomerMobile('');
+    setActiveField(null);
   };
 
   const confirmClear = () => {
@@ -2494,68 +2608,280 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-          {/* Table Number Input for Dine In */}
+          {/* 4 Option Buttons: Table Number | KOT Number | Customer Name | Mobile Number */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '5px',
+            marginBottom: 'calc(8px * var(--display-zoom, 1))'
+          }}>
+            {/* Table Number Button */}
+            <button
+              onClick={() => setActiveField(activeField === 'table' ? null : 'table')}
+              style={{
+                padding: 'calc(5px * var(--display-zoom, 1)) 2px',
+                borderRadius: '8px',
+                border: activeField === 'table'
+                  ? '2px solid var(--primary-500)'
+                  : tableNumber
+                    ? '1px solid rgba(249, 115, 22, 0.4)'
+                    : '1px solid var(--glass-border)',
+                backgroundColor: activeField === 'table'
+                  ? 'rgba(249, 115, 22, 0.12)'
+                  : tableNumber
+                    ? 'rgba(249, 115, 22, 0.06)'
+                    : isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                color: (activeField === 'table' || tableNumber) ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title={tableNumber ? `Table: ${tableNumber}` : 'Table Number'}
+            >
+              {tableNumber ? `T: ${tableNumber}` : 'Table No'}
+            </button>
 
-          {orderType === 'dine-in' && (
+            {/* KOT Number Button */}
+            <button
+              onClick={() => setActiveField(activeField === 'kot' ? null : 'kot')}
+              style={{
+                padding: 'calc(5px * var(--display-zoom, 1)) 2px',
+                borderRadius: '8px',
+                border: activeField === 'kot'
+                  ? '2px solid var(--primary-500)'
+                  : kotNumber
+                    ? '1px solid rgba(249, 115, 22, 0.4)'
+                    : '1px solid var(--glass-border)',
+                backgroundColor: activeField === 'kot'
+                  ? 'rgba(249, 115, 22, 0.12)'
+                  : kotNumber
+                    ? 'rgba(249, 115, 22, 0.06)'
+                    : isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                color: (activeField === 'kot' || kotNumber) ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title={kotNumber ? `KOT: ${kotNumber}` : 'KOT Number'}
+            >
+              {kotNumber ? `KOT: ${kotNumber}` : 'KOT No'}
+            </button>
 
+            {/* Customer Name Button */}
+            <button
+              onClick={() => setActiveField(activeField === 'customer' ? null : 'customer')}
+              style={{
+                padding: 'calc(5px * var(--display-zoom, 1)) 2px',
+                borderRadius: '8px',
+                border: activeField === 'customer'
+                  ? '2px solid var(--primary-500)'
+                  : customerName
+                    ? '1px solid rgba(249, 115, 22, 0.4)'
+                    : '1px solid var(--glass-border)',
+                backgroundColor: activeField === 'customer'
+                  ? 'rgba(249, 115, 22, 0.12)'
+                  : customerName
+                    ? 'rgba(249, 115, 22, 0.06)'
+                    : isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                color: (activeField === 'customer' || customerName) ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title={customerName ? `Name: ${customerName}` : 'Customer Name'}
+            >
+              {customerName ? `Name: ${customerName}` : 'Cus.Name'}
+            </button>
+
+            {/* Mobile Number Button */}
+            <button
+              onClick={() => setActiveField(activeField === 'mobile' ? null : 'mobile')}
+              style={{
+                padding: 'calc(5px * var(--display-zoom, 1)) 2px',
+                borderRadius: '8px',
+                border: activeField === 'mobile'
+                  ? '2px solid var(--primary-500)'
+                  : customerMobile
+                    ? '1px solid rgba(249, 115, 22, 0.4)'
+                    : '1px solid var(--glass-border)',
+                backgroundColor: activeField === 'mobile'
+                  ? 'rgba(249, 115, 22, 0.12)'
+                  : customerMobile
+                    ? 'rgba(249, 115, 22, 0.06)'
+                    : isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                color: (activeField === 'mobile' || customerMobile) ? 'var(--primary-500)' : 'var(--text-secondary)',
+                fontWeight: 600,
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title={customerMobile ? `Mobile: ${customerMobile}` : 'Mobile Number'}
+            >
+              {customerMobile ? `Mob: ${customerMobile}` : 'Cus.Num'}
+            </button>
+          </div>
+
+          {/* Value Entry Bar (Opens down when any of the 4 buttons is tapped) */}
+          {activeField && (
             <div style={{
-
               display: 'flex',
-
               alignItems: 'center',
-
               gap: '6px',
-
               marginBottom: 'calc(8px * var(--display-zoom, 1))',
-
-              padding: 'calc(5px * var(--display-zoom, 1))',
-
+              padding: 'calc(5px * var(--display-zoom, 1)) 8px',
               borderRadius: '8px',
-
-              backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f3f4f6',
-
+              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f3f4f6',
               border: '1px solid var(--glass-border)'
-
             }}>
+              <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', minWidth: '70px' }}>
+                {activeField === 'table' && 'Table No:'}
+                {activeField === 'kot' && 'KOT No:'}
+                {activeField === 'customer' && 'Customer Name:'}
+                {activeField === 'mobile' && 'Customer Mobile Number:'}
+              </span>
 
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Table Number:</span>
+              {activeField === 'table' && (
+                <input
+                  type="text"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  placeholder="Optional (e.g. 5)"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--glass-border)',
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : 'white',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              )}
 
-              <input
+              {activeField === 'kot' && (
+                <input
+                  type="text"
+                  value={kotNumber}
+                  onChange={(e) => setKotNumber(e.target.value)}
+                  placeholder="Optional (e.g. 101)"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--glass-border)',
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : 'white',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              )}
 
-                type="text"
+              {activeField === 'customer' && (
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Optional (e.g. John Doe)"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--glass-border)',
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : 'white',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              )}
 
-                value={tableNumber}
+              {activeField === 'mobile' && (
+                <input
+                  type="text"
+                  value={customerMobile}
+                  onChange={(e) => setCustomerMobile(e.target.value)}
+                  placeholder="Optional (e.g. 98765XXXXX)"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--glass-border)',
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.25)' : 'white',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              )}
 
-                onChange={(e) => setTableNumber(e.target.value)}
-
-                placeholder="Optional (e.g. 5)"
-
-                style={{
-
-                  flex: 1,
-
-                  padding: '3px 6px',
-
-                  borderRadius: '6px',
-
-                  border: '1px solid var(--glass-border)',
-
-                  backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'white',
-
-                  color: 'var(--text-primary)',
-
-                  fontSize: '12px',
-
-                  fontWeight: 600,
-
-                  outline: 'none',
-
-                }}
-
-              />
-
+              {/* Clear button if active field has value */}
+              {((activeField === 'table' && tableNumber) ||
+                (activeField === 'kot' && kotNumber) ||
+                (activeField === 'customer' && customerName) ||
+                (activeField === 'mobile' && customerMobile)) && (
+                <button
+                  onClick={() => {
+                    if (activeField === 'table') setTableNumber('');
+                    if (activeField === 'kot') setKotNumber('');
+                    if (activeField === 'customer') setCustomerName('');
+                    if (activeField === 'mobile') setCustomerMobile('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '0 4px',
+                    lineHeight: 1
+                  }}
+                  title="Clear"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-
           )}
 
 

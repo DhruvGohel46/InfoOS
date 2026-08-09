@@ -124,13 +124,18 @@ class HTMLRenderer:
                 day = d_parts[2].zfill(2)
                 formatted_date = f"{day}/{month}/{year}"
 
+        kot_no = _safe_text(bill_data.get("kot_no") or bill_data.get("custom_kot_no") or "")
         bill = {
             "bill_no": bill_data.get("bill_no", "1"),
+            "kot_no": kot_no,
             "date": formatted_date,
             "time": formatted_time,
             "order_type": bill_data.get("order_type", "dine-in"),
             "table_no": _safe_text(bill_data.get("table_no", "") or ""),
             "customer_name": _safe_text(bill_data.get("customer_name", "") or ""),
+            "customer_mobile": _safe_text(
+                bill_data.get("customer_mobile") or bill_data.get("customer_phone") or ""
+            ),
             "payment_method": bill_data.get("payment_method", "CASH"),
             "today_token": bill_data.get("today_token"),
             "cashier": _safe_text(bill_data.get("cashier") or bill_data.get("cashier_name") or ""),

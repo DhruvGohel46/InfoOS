@@ -414,6 +414,11 @@ def run_programmatic_sqlite_migrations(app, db):
                 if "table_no" not in bills_cols:
                     _log.info("Migrating SQLite: Adding table_no column to bills table")
                     conn.execute(text("ALTER TABLE bills ADD COLUMN table_no TEXT"))
+                if "customer_mobile" not in bills_cols:
+                    _log.info("Migrating SQLite: Adding customer_mobile column to bills table")
+                    conn.execute(
+                        text("ALTER TABLE bills ADD COLUMN customer_mobile TEXT DEFAULT ''")
+                    )
 
                 # 4. Add variations, takeaway_price, and display_order to products
                 res = conn.execute(text("PRAGMA table_info(products)"))
@@ -545,6 +550,11 @@ def run_programmatic_postgres_migrations(app, db):
                 )
                 conn.execute(
                     text("ALTER TABLE bills ADD COLUMN IF NOT EXISTS table_no VARCHAR(50)")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE bills ADD COLUMN IF NOT EXISTS customer_mobile VARCHAR(50) DEFAULT ''"
+                    )
                 )
 
                 # 3. Add variations, takeaway_price, and display_order to products

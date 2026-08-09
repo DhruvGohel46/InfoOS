@@ -45,15 +45,15 @@ export const printerService = {
   /**
    * Prints the Customer Bill
    */
-  async printBill(billNo) {
+  async printBill(billNo, printOptions = {}) {
     try {
       if (window.electronAPI) {
-        const result = await window.electronAPI.printBill(billNo);
+        const result = await window.electronAPI.printBill(billNo, printOptions);
         return validatePrintResult(result, 'Bill printing');
       }
       // Fallback for Web/Browser mode
       console.log('Web Mode: Printing Bill via API...');
-      const response = await billingAPI.printBill(billNo);
+      const response = await billingAPI.printBill(billNo, printOptions);
       return validatePrintResult(response.data, 'Bill printing');
     } catch (error) {
       console.error('Failed to print bill:', error);
@@ -64,15 +64,15 @@ export const printerService = {
   /**
    * Prints the Kitchen Order Ticket (KOT)
    */
-  async printKOT(billNo) {
+  async printKOT(billNo, printOptions = {}) {
     try {
       if (window.electronAPI) {
-        const result = await window.electronAPI.printKOT(billNo);
+        const result = await window.electronAPI.printKOT(billNo, printOptions);
         return validatePrintResult(result, 'KOT printing');
       }
       // Fallback for Web/Browser mode
       console.log('Web Mode: Printing KOT via API...');
-      const response = await billingAPI.printKOT(billNo);
+      const response = await billingAPI.printKOT(billNo, printOptions);
       return validatePrintResult(response.data, 'KOT printing');
     } catch (error) {
       console.error('Failed to print KOT:', error);
@@ -83,16 +83,16 @@ export const printerService = {
   /**
    * Sequential workflow: Bill -> Wait -> KOT
    */
-  async printBillAndKOT(billNo) {
+  async printBillAndKOT(billNo, printOptions = {}) {
     try {
       if (window.electronAPI) {
-        const result = await window.electronAPI.printBillAndKOT(billNo);
+        const result = await window.electronAPI.printBillAndKOT(billNo, printOptions);
         return validatePrintResult(result, 'Bill & KOT printing');
       }
       
       // Fallback for Web/Browser mode: Manual Sequence
-      await this.printBill(billNo);
-      await this.printKOT(billNo);
+      await this.printBill(billNo, printOptions);
+      await this.printKOT(billNo, printOptions);
       
       return { success: true };
     } catch (error) {

@@ -67,10 +67,14 @@ class BillCreateSchema(Schema):
         fields.Nested(BillItemSchema), required=True, validate=validate.Length(min=1)
     )
     customer_name = fields.String(load_default="")
+    customer_mobile = fields.String(load_default="")
+    customer_phone = fields.String(load_default="")
     payment_method = fields.String(load_default="CASH")
     print = fields.Boolean(load_default=False)
     order_type = fields.String(load_default="dine-in")
     table_no = fields.String(load_default="")
+    kot_no = fields.String(load_default="")
+    custom_kot_no = fields.String(load_default="")
 
     class Meta:
         unknown = EXCLUDE
@@ -81,9 +85,13 @@ class BillUpdateSchema(Schema):
 
     products = fields.List(fields.Nested(BillItemSchema), load_default=[])
     customer_name = fields.String(load_default="")
+    customer_mobile = fields.String(load_default="")
+    customer_phone = fields.String(load_default="")
     total_amount = fields.Float(load_default=0)
     order_type = fields.String(load_default="dine-in")
     table_no = fields.String(load_default="")
+    kot_no = fields.String(load_default="")
+    custom_kot_no = fields.String(load_default="")
 
     class Meta:
         unknown = EXCLUDE

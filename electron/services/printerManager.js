@@ -8,9 +8,9 @@ class PrinterManager {
     this.apiBaseUrl = 'http://localhost:5050';
   }
 
-  async addJob(type, billNo) {
+  async addJob(type, billNo, payload = {}) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ type, billNo, resolve, reject });
+      this.queue.push({ type, billNo, payload, resolve, reject });
       this.processQueue();
     });
   }
@@ -28,7 +28,7 @@ class PrinterManager {
 
       console.log(`[PrinterManager] Printing ${job.type} for bill #${job.billNo}...`);
       
-      const response = await this._makeRequest(path);
+      const response = await this._makeRequest(path, job.payload);
       
       if (response.success) {
         console.log(`[PrinterManager] ${job.type} printed successfully.`);
@@ -45,15 +45,17 @@ class PrinterManager {
     }
   }
 
-  _makeRequest(path) {
+  _makeRequest(path, payload = {}) {
     return new Promise((resolve, reject) => {
+      const postData = JSON.stringify(payload || {});
       const options = {
         hostname: '127.0.0.1',
         port: 5050,
         path: path,
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
         },
         timeout: 20000 // 20 second timeout for HTML-to-PNG rendering
       };
@@ -83,6 +85,7 @@ class PrinterManager {
         }
       });
 
+      req.write(postData);
       req.end();
     });
   }
@@ -90,28 +93,28 @@ class PrinterManager {
   setupHandlers() {
     // All handlers return {success, error} instead of throwing,
     // which prevents Electron's "Error invoking remote method" wrapper.
-    ipcMain.handle('print:bill', async (event, billNo) => {
+    ipcMain.handle('print:bill', async (event, billNo, options) => {
       try {
-        return await this.addJob('bill', billNo);
+        return await this.addJob('bill', billNo, options);
       } catch (error) {
         console.error('[PrinterManager] IPC print:bill error:', error.message);
         return { success: false, error: error.message };
       }
     });
 
-    ipcMain.handle('print:kot', async (event, billNo) => {
+    ipcMain.handle('print:kot', async (event, billNo, options) => {
       try {
-        return await this.addJob('kot', billNo);
+        return await this.addJob('kot', billNo, options);
       } catch (error) {
         console.error('[PrinterManager] IPC print:kot error:', error.message);
         return { success: false, error: error.message };
       }
     });
 
-    ipcMain.handle('print:billAndKOT', async (event, billNo) => {
+    ipcMain.handle('print:billAndKOT', async (event, billNo, options) => {
       try {
-        const billResult = await this.addJob('bill', billNo);
-        const kotResult = await this.addJob('kot', billNo);
+        const billResult = await this.addJob('bill', billNo, options);
+        const kotResult = await this.addJob('kot', billNo, options);
         return { success: true, billResult, kotResult };
       } catch (error) {
         console.error('[PrinterManager] IPC print:billAndKOT error:', error.message);

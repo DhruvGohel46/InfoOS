@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
+import os
+import base64
 from auth import require_admin
 from services.db_service import DatabaseService
 from services.printer_service import PrinterService
@@ -65,6 +67,7 @@ def _build_printer_payload(bill: dict) -> dict:
 
     return {
         "bill_no": bill.get("bill_no"),
+        "kot_no": bill.get("kot_no") or bill.get("custom_kot_no", ""),
         "date": bill_date,
         "time": bill_time,
         "products": products,
@@ -72,6 +75,7 @@ def _build_printer_payload(bill: dict) -> dict:
             bill.get("total") if bill.get("total") is not None else bill.get("total_amount", 0)
         ),
         "customer_name": bill.get("customer_name", ""),
+        "customer_mobile": bill.get("customer_mobile", "") or bill.get("customer_phone", ""),
         "payment_method": bill.get("payment_method", "CASH"),
         "today_token": bill.get("today_token", 0),
         "order_type": bill.get("order_type", "dine-in"),
@@ -100,6 +104,8 @@ def create_bill():
     # Create bill in database (ACID — db_service handles transaction)
     bill_data = {
         "customer_name": validated.get("customer_name", ""),
+        "customer_mobile": validated.get("customer_mobile", "")
+        or validated.get("customer_phone", ""),
         "total_amount": total,
         "items": validated_products,
         "payment_method": validated.get("payment_method", "CASH"),
@@ -123,6 +129,8 @@ def create_bill():
         "products": validated_products,
         "total": total,
         "customer_name": created_bill.get("customer_name", ""),
+        "customer_mobile": created_bill.get("customer_mobile", "")
+        or created_bill.get("customer_phone", ""),
         "payment_method": created_bill.get("payment_method", "CASH"),
         "today_token": created_bill.get("today_token", 0),
         "order_type": created_bill.get("order_type", "dine-in"),
@@ -337,6 +345,8 @@ def update_bill(bill_no):
 
     bill_update_data = {
         "customer_name": validated.get("customer_name", ""),
+        "customer_mobile": validated.get("customer_mobile", "")
+        or validated.get("customer_phone", ""),
         "total_amount": total if products else validated.get("total_amount", 0),
         "items": validated_products,
         "order_type": order_type,
@@ -369,6 +379,16 @@ def print_bill(bill_no):
 
     # Normalize bill shape for printer service (`products`/`total` keys).
     print_payload = _build_printer_payload(bill)
+    body = request.get_json(silent=True) or {}
+    if body.get("kot_no"):
+        print_payload["kot_no"] = body.get("kot_no")
+    if body.get("customer_name"):
+        print_payload["customer_name"] = body.get("customer_name")
+    if body.get("customer_mobile") or body.get("customer_phone"):
+        print_payload["customer_mobile"] = body.get("customer_mobile") or body.get("customer_phone")
+    if body.get("table_no"):
+        print_payload["table_no"] = body.get("table_no")
+
     result = printer_service.print_bill(print_payload)
 
     if not result.get("success"):
@@ -394,6 +414,16 @@ def print_kot(bill_no):
 
     # Normalize bill shape for printer service (`products`/`total` keys).
     print_payload = _build_printer_payload(bill)
+    body = request.get_json(silent=True) or {}
+    if body.get("kot_no"):
+        print_payload["kot_no"] = body.get("kot_no")
+    if body.get("customer_name"):
+        print_payload["customer_name"] = body.get("customer_name")
+    if body.get("customer_mobile") or body.get("customer_phone"):
+        print_payload["customer_mobile"] = body.get("customer_mobile") or body.get("customer_phone")
+    if body.get("table_no"):
+        print_payload["table_no"] = body.get("table_no")
+
     result = printer_service.print_kot(print_payload)
 
     if not result.get("success"):
@@ -402,6 +432,78 @@ def print_kot(bill_no):
 
     return (
         jsonify({"success": True, "message": f"KOT for Bill {bill_no} printed successfully"}),
+        200,
+    )
+
+
+@billing_bp.route("/preview-image", methods=["GET", "POST"])
+@safe_route
+def get_bill_preview_image():
+    """Generate or serve high-quality receipt preview image of print window bill template."""
+    data = request.get_json() if request.method == "POST" and request.is_json else {}
+
+    bill_data = {
+        "bill_no": data.get("bill_no", "BILL-1001"),
+        "date": data.get("date", "2026-08-09"),
+        "time": data.get("time", "18:30:00"),
+        "order_type": data.get("order_type", "dine-in"),
+        "customer_name": data.get("customer_name", "John Doe"),
+        "cashier": data.get("cashier", "biller"),
+        "today_token": data.get("today_token", 5),
+        "products": data.get("products")
+        or [
+            {
+                "name": "Margherita Pizza",
+                "variation_name": "Medium",
+                "quantity": 2,
+                "price": 250.00,
+            },
+            {"name": "Cold Coffee", "quantity": 1, "price": 120.00},
+            {"name": "Garlic Bread", "quantity": 1, "price": 150.00},
+        ],
+        "subtotal": data.get("subtotal", 770.00),
+        "discount": data.get("discount", 50.00),
+        "gst": data.get("gst", 36.00),
+        "total": data.get("total", 756.00),
+    }
+
+    settings = db.get_all_settings()
+    shop_settings = {
+        "shop_name": settings.get("shop_name", "InfoOS Cafe & Restaurant"),
+        "shop_address": settings.get("shop_address", "123 Main Tech Park, Suite 400"),
+        "shop_contact": settings.get("shop_contact", "+91 9876543210"),
+        "printer_template": settings.get("printer_template", "default"),
+        "printer_footer_msg": settings.get("printer_footer_msg", "Thank You! Visit Again."),
+    }
+
+    html = printer_service.renderer.render_bill(bill_data, shop_settings, is_bill=True)
+    width = settings.get("printer_width", "80mm")
+
+    as_file = request.args.get("as_file", "false").lower() == "true"
+    png_path = printer_service.image_generator.generate_png(html, width)
+
+    if as_file and os.path.exists(png_path):
+        return send_file(png_path, mimetype="image/png")
+
+    try:
+        with open(png_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+    finally:
+        if os.path.exists(png_path):
+            try:
+                os.remove(png_path)
+            except Exception:
+                pass
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "image_base64": f"data:image/png;base64,{img_b64}",
+                "template": shop_settings["printer_template"],
+                "width": width,
+            }
+        ),
         200,
     )
 

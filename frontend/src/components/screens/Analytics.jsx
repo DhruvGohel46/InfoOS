@@ -2142,10 +2142,26 @@ const Analytics = () => {
                                         </div>
                                     </div>
                                     {previewBill.customer_name && (
-                                        <div style={{ gridColumn: 'span 2' }}>
+                                        <div>
                                             <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>Customer Name</div>
                                             <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
                                                 {previewBill.customer_name}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {(previewBill.customer_mobile || previewBill.customer_phone) && (
+                                        <div>
+                                            <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>Mobile Number</div>
+                                            <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                {previewBill.customer_mobile || previewBill.customer_phone}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {(previewBill.kot_no || previewBill.custom_kot_no) && (
+                                        <div>
+                                            <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', marginBottom: '4px' }}>KOT No.</div>
+                                            <div style={{ fontWeight: 600, color: isDark ? '#FFFFFF' : '#111827' }}>
+                                                {previewBill.kot_no || previewBill.custom_kot_no}
                                             </div>
                                         </div>
                                     )}

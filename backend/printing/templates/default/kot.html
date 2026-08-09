@@ -92,8 +92,17 @@
   <div class="receipt-container">
     <div class="header">
       <div class="datetime">{{ bill.date }} {{ bill.time }}</div>
-      <div class="kot-label">KOT - {{ bill.bill_no }}</div>
+      <div class="kot-label">KOT - {{ bill.kot_no or bill.bill_no }}</div>
       <div class="order-type">{{ bill.order_type | title }}</div>
+      {% if bill.table_no %}
+      <div style="font-size: 24px; font-weight: 700; margin-top: 4px;">Table: {{ bill.table_no }}</div>
+      {% endif %}
+      {% if bill.customer_name %}
+      <div style="font-size: 24px; font-weight: 600; margin-top: 2px;">Name: {{ bill.customer_name }}</div>
+      {% endif %}
+      {% if bill.customer_mobile %}
+      <div style="font-size: 22px; font-weight: 600; margin-top: 2px;">Mobile: {{ bill.customer_mobile }}</div>
+      {% endif %}
     </div>
 
     <div class="divider-dashed"></div>
@@ -101,7 +110,7 @@
     <table class="items-table">
       <thead>
         <tr>
-          <th class="item-sr-col">No.</th>
+          <th class="item-sr-col">Sr. No.</th>
           <th class="item-name-col">Item</th>
           <th class="item-qty-col">Qty.</th>
         </tr>

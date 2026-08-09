@@ -294,6 +294,8 @@ class DatabaseService:
             new_bill = Bill(
                 bill_no=next_bill_no,
                 customer_name=bill_data.get("customer_name", ""),
+                customer_mobile=bill_data.get("customer_mobile", "")
+                or bill_data.get("customer_phone", ""),
                 total_amount=float(bill_data["total_amount"]),
                 payment_method=bill_data.get("payment_method", "CASH"),
                 items=json.dumps(enriched_items),
@@ -542,6 +544,9 @@ class DatabaseService:
                 print(f"Error adjusting inventory for updated bill: {eval_err}")
 
             bill.customer_name = bill_data.get("customer_name", "")
+            bill.customer_mobile = bill_data.get("customer_mobile", "") or bill_data.get(
+                "customer_phone", ""
+            )
             bill.total_amount = float(bill_data["total_amount"])
             bill.items = json.dumps(enriched_items)
             bill.order_type = bill_data.get("order_type", bill.order_type)
@@ -571,6 +576,7 @@ class DatabaseService:
             "id": bill.id,
             "bill_no": bill.bill_no,
             "customer_name": bill.customer_name,
+            "customer_mobile": getattr(bill, "customer_mobile", ""),
             "total_amount": bill.total_amount,
             "today_token": bill.today_token,
             "payment_method": bill.payment_method,

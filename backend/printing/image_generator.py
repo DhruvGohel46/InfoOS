@@ -65,13 +65,46 @@ def _launch_browser(playwright):
         raise RuntimeError(f"Failed to launch any browser for receipt rendering: {e}")
 
 
+import threading
+
+
 class PlaywrightImageGenerator:
-    """Uses Playwright to render HTML into a high-quality PNG receipt image."""
+    """Uses Playwright to render HTML into a high-quality PNG receipt image with persistent browser instance."""
+
+    _playwright = None
+    _browser = None
+    _lock = threading.Lock()
+
+    @classmethod
+    def _get_browser(cls):
+        """Get or initialize thread-safe persistent browser instance for instant receipt rendering."""
+        with cls._lock:
+            if cls._browser is None or not cls._browser.is_connected():
+                if cls._playwright is None:
+                    cls._playwright = sync_playwright().start()
+                try:
+                    cls._browser = _launch_browser(cls._playwright)
+                except Exception as e:
+                    logger.error(f"Failed to launch browser: {e}")
+                    raise e
+            return cls._browser
 
     @classmethod
     def close_browser(cls):
-        """No-op for backward compatibility."""
-        pass
+        """Cleanly close persistent browser instance on shutdown."""
+        with cls._lock:
+            if cls._browser:
+                try:
+                    cls._browser.close()
+                except Exception:
+                    pass
+                cls._browser = None
+            if cls._playwright:
+                try:
+                    cls._playwright.stop()
+                except Exception:
+                    pass
+                cls._playwright = None
 
     def generate_png(self, html_content: str, width_mm: str = "58mm") -> str:
         """
@@ -84,10 +117,6 @@ class PlaywrightImageGenerator:
         Returns:
             Absolute path to the generated PNG file
         """
-        # Define base width: ~203 DPI / ~8 dots per mm
-        # 58mm width (printable width ~48mm) -> 384px
-        # 80mm width (printable width ~72mm) -> 576px
-        # A4 width -> 1200px
         width_str = str(width_mm).strip().lower()
         if "80" in width_str:
             pixel_width = 576
@@ -99,68 +128,66 @@ class PlaywrightImageGenerator:
             pixel_width = 384  # Default 58mm
             device_scale_factor = 1.0
 
-        with sync_playwright() as playwright:
-            browser = _launch_browser(playwright)
+        if isinstance(html_content, bytes):
+            html_content = html_content.decode("utf-8", errors="replace")
+        elif not isinstance(html_content, str):
+            html_content = str(html_content)
+
+        html_temp_path = os.path.join(
+            tempfile.gettempdir(),
+            f"receipt_html_{os.getpid()}_{os.urandom(4).hex()}.html",
+        )
+        with open(html_temp_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
+        png_path = os.path.join(
+            tempfile.gettempdir(), f"receipt_{os.getpid()}_{os.urandom(4).hex()}.png"
+        )
+
+        try:
+            browser = self._get_browser()
+            context = browser.new_context(
+                viewport={"width": pixel_width, "height": 100},
+                device_scale_factor=device_scale_factor,
+            )
             try:
-                context = browser.new_context(
-                    viewport={"width": pixel_width, "height": 100},
-                    device_scale_factor=device_scale_factor,
-                )
                 page = context.new_page()
-
-                # Emulate screen media to ensure layout matches normal browser viewport rendering
                 page.emulate_media(media="screen")
-
-                # Write HTML to a UTF-8 temp file and load via file URL.
-                # Using set_content() directly causes 'charmap' codec errors on
-                # Windows because Playwright internally writes the HTML using the
-                # system's default encoding (cp1252/charmap), which cannot encode
-                # non-ASCII characters like ₹ or other Unicode glyphs.
-                #
-                # Defensive guard: ensure html_content is a str, not bytes.
-                # (Bytes can arrive if something upstream encoded it incorrectly.)
-                if isinstance(html_content, bytes):
-                    html_content = html_content.decode("utf-8", errors="replace")
-                elif not isinstance(html_content, str):
-                    html_content = str(html_content)
-
-                html_temp_path = os.path.join(
-                    tempfile.gettempdir(),
-                    f"receipt_html_{os.getpid()}_{os.urandom(4).hex()}.html",
-                )
-                with open(html_temp_path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
+                file_url = f"file:///{html_temp_path.replace(os.sep, '/')}"
+                page.goto(file_url, wait_until="domcontentloaded")
 
                 try:
-                    file_url = f"file:///{html_temp_path.replace(os.sep, '/')}"
-                    page.goto(file_url, wait_until="networkidle")
-                finally:
-                    try:
-                        os.remove(html_temp_path)
-                    except Exception:
-                        pass
-
-                # Save screenshot to temporary folder
-                temp_dir = tempfile.gettempdir()
-                png_path = os.path.join(
-                    temp_dir, f"receipt_{os.getpid()}_{os.urandom(4).hex()}.png"
-                )
-
-                try:
-                    page.screenshot(
-                        path=png_path,
-                        full_page=True,
-                        omit_background=False,  # Keep white background
-                    )
+                    page.screenshot(path=png_path, full_page=True, omit_background=False)
                 except Exception as e:
                     logger.warning(
                         f"Full-page screenshot failed ({e}). Retrying standard screenshot..."
                     )
                     page.screenshot(path=png_path, omit_background=False)
-
-                context.close()
             finally:
-                browser.close()
+                context.close()
+        except Exception as e:
+            # Fallback retry if browser crashed or disconnected
+            logger.warning(f"Receipt rendering error: {e}. Retrying with fresh browser instance...")
+            self.close_browser()
+            browser = self._get_browser()
+            context = browser.new_context(
+                viewport={"width": pixel_width, "height": 100},
+                device_scale_factor=device_scale_factor,
+            )
+            try:
+                page = context.new_page()
+                page.emulate_media(media="screen")
+                file_url = f"file:///{html_temp_path.replace(os.sep, '/')}"
+                page.goto(file_url, wait_until="domcontentloaded")
+                page.screenshot(path=png_path, full_page=True, omit_background=False)
+            finally:
+                context.close()
+        finally:
+            if os.path.exists(html_temp_path):
+                try:
+                    os.remove(html_temp_path)
+                except Exception:
+                    pass
 
         logger.info(
             f"Generated receipt PNG image at: {png_path} (width: {pixel_width}px, scale: {device_scale_factor})"
