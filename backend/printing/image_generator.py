@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import logging
+import concurrent.futures
 from typing import Optional
 from playwright.sync_api import sync_playwright
 
@@ -65,50 +66,61 @@ def _launch_browser(playwright):
         raise RuntimeError(f"Failed to launch any browser for receipt rendering: {e}")
 
 
-import threading
-
-
 class PlaywrightImageGenerator:
-    """Uses Playwright to render HTML into a high-quality PNG receipt image with persistent browser instance."""
+    """
+    Uses Playwright to render HTML into a high-quality PNG receipt image with persistent browser instance.
+    All Playwright operations are executed on a dedicated single-threaded executor to prevent conflicts
+    with active asyncio event loops.
+    """
 
+    _executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="playwright_renderer"
+    )
     _playwright = None
     _browser = None
-    _lock = threading.Lock()
 
     @classmethod
-    def _get_browser(cls):
-        """Get or initialize thread-safe persistent browser instance for instant receipt rendering."""
-        with cls._lock:
-            if cls._browser is None or not cls._browser.is_connected():
-                if cls._playwright is None:
-                    cls._playwright = sync_playwright().start()
-                try:
-                    cls._browser = _launch_browser(cls._playwright)
-                except Exception as e:
-                    logger.error(f"Failed to launch browser: {e}")
-                    raise e
-            return cls._browser
+    def _get_browser_impl(cls):
+        """Get or initialize thread-safe persistent browser instance (runs on worker thread)."""
+        if cls._browser is None or not cls._browser.is_connected():
+            if cls._playwright is None:
+                cls._playwright = sync_playwright().start()
+            try:
+                cls._browser = _launch_browser(cls._playwright)
+            except Exception as e:
+                logger.error(f"Failed to launch browser: {e}")
+                raise e
+        return cls._browser
+
+    @classmethod
+    def _close_browser_impl(cls):
+        """Cleanly close persistent browser instance on shutdown (runs on worker thread)."""
+        if cls._browser:
+            try:
+                cls._browser.close()
+            except Exception:
+                pass
+            cls._browser = None
+        if cls._playwright:
+            try:
+                cls._playwright.stop()
+            except Exception:
+                pass
+            cls._playwright = None
 
     @classmethod
     def close_browser(cls):
         """Cleanly close persistent browser instance on shutdown."""
-        with cls._lock:
-            if cls._browser:
-                try:
-                    cls._browser.close()
-                except Exception:
-                    pass
-                cls._browser = None
-            if cls._playwright:
-                try:
-                    cls._playwright.stop()
-                except Exception:
-                    pass
-                cls._playwright = None
+        try:
+            future = cls._executor.submit(cls._close_browser_impl)
+            return future.result(timeout=10)
+        except Exception as e:
+            logger.warning(f"Error closing Playwright browser: {e}")
 
     def generate_png(self, html_content: str, width_mm: str = "58mm") -> str:
         """
         Renders the HTML content in Chromium and saves a PNG screenshot.
+        Offloads rendering to dedicated worker thread to avoid asyncio loop issues.
 
         Args:
             html_content: Raw HTML string to render
@@ -117,6 +129,11 @@ class PlaywrightImageGenerator:
         Returns:
             Absolute path to the generated PNG file
         """
+        future = self._executor.submit(self._generate_png_impl, html_content, width_mm)
+        return future.result()
+
+    def _generate_png_impl(self, html_content: str, width_mm: str = "58mm") -> str:
+        """Internal implementation of generate_png running inside the dedicated worker thread."""
         width_str = str(width_mm).strip().lower()
         if "80" in width_str:
             pixel_width = 576
@@ -145,7 +162,7 @@ class PlaywrightImageGenerator:
         )
 
         try:
-            browser = self._get_browser()
+            browser = self._get_browser_impl()
             context = browser.new_context(
                 viewport={"width": pixel_width, "height": 100},
                 device_scale_factor=device_scale_factor,
@@ -168,8 +185,8 @@ class PlaywrightImageGenerator:
         except Exception as e:
             # Fallback retry if browser crashed or disconnected
             logger.warning(f"Receipt rendering error: {e}. Retrying with fresh browser instance...")
-            self.close_browser()
-            browser = self._get_browser()
+            self._close_browser_impl()
+            browser = self._get_browser_impl()
             context = browser.new_context(
                 viewport={"width": pixel_width, "height": 100},
                 device_scale_factor=device_scale_factor,

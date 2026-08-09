@@ -423,6 +423,78 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
+  // ── Keyboard shortcut to cycle Categories (Tab key / Shift+Tab) ──
+
+  useEffect(() => {
+
+    const handleKeyDown = (e) => {
+
+      // Ignore keypress if user is currently typing in an input, textarea, or contenteditable element
+
+      const activeElem = document.activeElement;
+
+      const isTyping = activeElem && (
+
+        activeElem.tagName === 'INPUT' ||
+
+        activeElem.tagName === 'TEXTAREA' ||
+
+        activeElem.isContentEditable
+
+      );
+
+      if (isTyping) return;
+
+
+
+      if (e.key === 'Tab') {
+
+        if (!categories || categories.length === 0) return;
+
+        e.preventDefault();
+
+
+
+        setSelectedCategory((prevCategory) => {
+
+          const currentIndex = categories.findIndex(
+
+            c => c.id.toString() === (prevCategory !== null && prevCategory !== undefined ? prevCategory.toString() : '')
+
+          );
+
+
+
+          if (currentIndex === -1) {
+
+            return categories[0].id;
+
+          } else {
+
+            const step = e.shiftKey ? -1 : 1;
+
+            const nextIndex = (currentIndex + step + categories.length) % categories.length;
+
+            return categories[nextIndex].id;
+
+          }
+
+        });
+
+      }
+
+    };
+
+
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+
+  }, [categories]);
+
+
+
   // Filter categories based on selected group
 
   useEffect(() => {
