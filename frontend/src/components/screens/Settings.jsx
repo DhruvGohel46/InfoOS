@@ -1413,6 +1413,21 @@ const Settings = () => {
                                             zIndex={50}
                                         />
                                     </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Lock Group Selection (Keyboard Only)</span>
+                                            <span className="stLabelDesc">Disable mouse clicks on Group selector so group can only be switched using shortcut key (Ctrl key)</span>
+                                        </div>
+                                        <label className="stToggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={formSettings.lock_group_select === 'true'}
+                                                onChange={(e) => handleChange('lock_group_select', e.target.checked ? 'true' : 'false')}
+                                            />
+                                            <span className="stSlider"></span>
+                                        </label>
+                                    </div>
                                 </div>
                             </>
                         )}

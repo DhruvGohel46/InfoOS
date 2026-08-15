@@ -202,6 +202,15 @@ export const POSDataProvider = ({ children }) => {
         };
     }, [preloadAnalytics]);
 
+    // Listen for custom pos-catalog-updated events for instant real-time sync
+    useEffect(() => {
+        const handleCatalogUpdated = () => {
+            refreshAll();
+        };
+        window.addEventListener('pos-catalog-updated', handleCatalogUpdated);
+        return () => window.removeEventListener('pos-catalog-updated', handleCatalogUpdated);
+    }, [refreshAll]);
+
     // Periodically check for catalog updates every 2 minutes (reduced from 30s to avoid 429 errors)
     useEffect(() => {
         const interval = setInterval(() => {

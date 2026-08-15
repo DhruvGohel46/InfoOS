@@ -1390,7 +1390,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           flexDirection: 'column',
 
-          gap: '24px'
+          gap: '16px'
 
         }}>
 
@@ -1426,38 +1426,6 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           </div>
 
-
-
-          {/* Item Groups Dropdown Selector */}
-
-          <div style={{ width: '100%' }}>
-
-            <GlobalSelect
-
-              options={[
-
-                { label: 'All Groups', value: 'all' },
-
-                ...groups.map(group => ({
-
-                  label: group.name,
-
-                  value: group.id.toString()
-
-                }))
-
-              ]}
-
-              value={selectedGroupId}
-
-              onChange={(val) => setSelectedGroupId(val)}
-
-              placeholder="Select Group"
-
-            />
-
-          </div>
-
         </div>
 
 
@@ -1468,7 +1436,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
           overflowY: 'auto',
 
-          padding: '0 20px'
+          padding: '0 20px 16px 20px'
 
         }}>
 
@@ -1646,6 +1614,40 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             )}
           </div>
 
+        </div>
+
+        {/* Item Groups Dropdown Selector - Relocated to Bottom of Sidebar */}
+        <div style={{
+          padding: '16px 20px 20px 20px',
+          borderTop: '1px solid var(--glass-border)',
+          background: isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.4)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }}>
+          <GlobalSelect
+            options={[
+              { label: 'All Groups', value: 'all' },
+              ...groups.map(group => ({
+                label: group.name,
+                value: group.id.toString()
+              }))
+            ]}
+            value={selectedGroupId}
+            onChange={(val) => setSelectedGroupId(val)}
+            placeholder="Select Group"
+            direction="top"
+            locked={settings?.lock_group_select === 'true'}
+            lockedTooltip="Group selector locked. Press Ctrl key to change group."
+            arrowIcon={
+              settings?.lock_group_select === 'true' ? (
+                <span style={{ fontSize: '11px', opacity: 0.45, color: 'var(--text-tertiary)', userSelect: 'none' }}></span>
+              ) : (
+                <span style={{ fontSize: '10px', opacity: 0.25, color: 'var(--text-tertiary)', userSelect: 'none' }}>•</span>
+              )
+            }
+            rotateArrow={false}
+          />
         </div>
 
       </div>

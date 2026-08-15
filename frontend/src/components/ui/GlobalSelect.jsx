@@ -27,7 +27,11 @@ const GlobalSelect = ({
     className = '',
     direction = 'bottom',
     icon = null,
-    style = {}
+    style = {},
+    arrowIcon = undefined,
+    rotateArrow = true,
+    locked = false,
+    lockedTooltip = 'Locked (Use Ctrl key shortcut to change group)'
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
@@ -44,7 +48,7 @@ const GlobalSelect = ({
     }, []);
 
     const handleSelect = (option) => {
-        if (!disabled) {
+        if (!disabled && !locked) {
             onChange(option.value);
             setIsOpen(false);
         }
@@ -74,7 +78,7 @@ const GlobalSelect = ({
                 flexDirection: 'column',
                 gap: '8px',
                 width: '100%',
-                opacity: disabled ? 0.6 : 1,
+                opacity: disabled ? 0.6 : (locked ? 0.85 : 1),
                 pointerEvents: disabled ? 'none' : 'auto',
                 position: 'relative',
                 ...style
@@ -94,7 +98,12 @@ const GlobalSelect = ({
             <div style={{ position: 'relative' }}>
                 <button
                     type="button"
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={() => {
+                        if (!disabled && !locked) {
+                            setIsOpen(!isOpen);
+                        }
+                    }}
+                    title={locked ? lockedTooltip : ''}
                     style={{
                         width: '100%',
                         height: '44px',
@@ -106,29 +115,44 @@ const GlobalSelect = ({
                         fontSize: '14px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
+                        justifyContent: locked ? 'center' : 'space-between',
+                        cursor: (disabled || locked) ? 'not-allowed' : 'pointer',
                         transition: 'all 0.2s ease',
                         boxShadow: isOpen ? '0 0 0 3px rgba(var(--primary-rgb), 0.1)' : 'none',
+                        position: 'relative'
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: locked ? 'center' : 'flex-start',
+                        gap: '8px',
+                        overflow: 'hidden',
+                        width: locked ? '100%' : 'auto'
+                    }}>
                         {icon && <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}>{icon}</span>}
                         <span style={{
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            textAlign: locked ? 'center' : 'left'
                         }}>
                             {selectedOption ? selectedOption.label : placeholder}
                         </span>
                     </div>
 
                     <motion.div
-                        animate={{ rotate: isOpen ? 180 : 0 }}
+                        animate={{ rotate: (isOpen && rotateArrow) ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
-                        style={{ display: 'flex', alignItems: 'center', color: 'var(--text-tertiary)' }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            color: 'var(--text-tertiary)',
+                            position: locked ? 'absolute' : 'static',
+                            right: locked ? '12px' : 'auto'
+                        }}
                     >
-                        <ChevronDown size={16} />
+                        {arrowIcon !== undefined ? arrowIcon : <ChevronDown size={16} />}
                     </motion.div>
                 </button>
 

@@ -9,6 +9,7 @@ from validators import (
 )
 import cache
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,11 @@ db = DatabaseService()
 
 _create_schema = ItemGroupCreateSchema()
 _update_schema = ItemGroupUpdateSchema()
+
+
+def _update_catalog_version():
+    """Bump catalog_version so POS clients automatically re-sync live."""
+    db.update_settings_bulk([{"key": "catalog_version", "value": str(int(time.time()))}])
 
 
 @groups_bp.route("", methods=["GET"])
@@ -70,6 +76,10 @@ def create_group():
         raise Exception("Failed to create group")
 
     cache.invalidate("groups")
+    cache.invalidate("products")
+    cache.invalidate("products_with_stock")
+    cache.invalidate("categories")
+    _update_catalog_version()
     return (
         jsonify(
             {
@@ -113,6 +123,10 @@ def update_group(group_id):
         raise NotFoundError("Group not found or no changes made", code="GROUP_NOT_FOUND")
 
     cache.invalidate("groups")
+    cache.invalidate("products")
+    cache.invalidate("products_with_stock")
+    cache.invalidate("categories")
+    _update_catalog_version()
     return jsonify({"success": True, "message": "Group updated successfully"}), 200
 
 
@@ -176,9 +190,12 @@ def delete_group(group_id):
     if not success:
         raise Exception("Failed to delete group")
 
-    # Invalidate categories cache too, since categories' group mappings changed
+    # Invalidate categories and products cache, and bump catalog version
     cache.invalidate("groups")
+    cache.invalidate("products")
+    cache.invalidate("products_with_stock")
     cache.invalidate("categories")
+    _update_catalog_version()
 
     return (
         jsonify(

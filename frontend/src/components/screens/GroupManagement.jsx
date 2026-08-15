@@ -16,10 +16,12 @@ import {
   IoChevronBackOutline,
   IoCheckmarkCircle
 } from 'react-icons/io5';
+import { usePOSData } from '../../context/POSDataContext';
 
 const GroupManagement = () => {
   const { staggerContainer, staggerItem } = useAnimation();
   const { showConfirm } = useAlert();
+  const { refreshAll } = usePOSData();
 
   // Groups state
   const [groups, setGroups] = useState([]);
@@ -98,6 +100,8 @@ const GroupManagement = () => {
       }
       resetForm();
       loadGroups();
+      window.dispatchEvent(new Event('pos-catalog-updated'));
+      if (refreshAll) refreshAll();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -129,6 +133,8 @@ const GroupManagement = () => {
       await groupsAPI.deleteGroup(pendingDelete.id, deleteOption, targetGroupId);
       setPendingDelete(null);
       loadGroups();
+      window.dispatchEvent(new Event('pos-catalog-updated'));
+      if (refreshAll) refreshAll();
       if (selectedGroup && selectedGroup.id === pendingDelete.id) {
         setSelectedGroup(null);
       }
@@ -150,6 +156,8 @@ const GroupManagement = () => {
       };
       await groupsAPI.updateGroup(group.id, updatedData);
       loadGroups();
+      window.dispatchEvent(new Event('pos-catalog-updated'));
+      if (refreshAll) refreshAll();
     } catch (err) {
       const apiError = handleAPIError(err);
       setError(apiError.message);
@@ -710,7 +718,7 @@ const GroupManagement = () => {
               return (
                 <motion.div key={group.id} variants={staggerItem}>
                   <div
-                    className={`glass-card ${!group.is_active ? 'opacity-60' : ''}`}
+                    className="glass-card"
                     style={{
                       padding: '24px',
                       position: 'relative',
@@ -718,7 +726,10 @@ const GroupManagement = () => {
                       display: 'flex',
                       flexDirection: 'column',
                       minHeight: '220px',
-                      border: isSelected ? '2px solid rgba(249, 115, 22, 0.7)' : '1px solid var(--glass-border)',
+                      opacity: group.is_active ? 1 : 0.65,
+                      border: !group.is_active
+                        ? '1px dashed rgba(239, 68, 68, 0.35)'
+                        : (isSelected ? '2px solid rgba(249, 115, 22, 0.7)' : '1px solid var(--glass-border)'),
                       background: isSelected ? 'rgba(249, 115, 22, 0.03)' : 'var(--glass-card)',
                       boxShadow: isSelected ? '0 4px 16px rgba(249, 115, 22, 0.08)' : 'var(--shadow-card)',
                       cursor: 'pointer',
@@ -737,7 +748,7 @@ const GroupManagement = () => {
                       if (!isSelected) {
                         e.currentTarget.style.transform = 'translateY(0)';
                         e.currentTarget.style.boxShadow = 'var(--shadow-card)';
-                        e.currentTarget.style.borderColor = 'var(--glass-border)';
+                        e.currentTarget.style.borderColor = group.is_active ? 'var(--glass-border)' : 'rgba(239, 68, 68, 0.35)';
                       }
                     }}
                   >
@@ -756,20 +767,28 @@ const GroupManagement = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
-                      <span 
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleGroupActive(group); }}
+                        title={group.is_active ? 'Click to disable group' : 'Click to enable group'}
                         style={{
-                          padding: '4px 10px',
+                          padding: '4px 12px',
                           fontSize: '11px',
                           fontWeight: 700,
-                          background: group.is_active ? 'rgba(34, 197, 94, 0.08)' : 'rgba(115, 115, 115, 0.08)',
-                          color: group.is_active ? '#22c55e' : 'var(--text-muted)',
-                          border: group.is_active ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(115, 115, 115, 0.2)',
-                          borderRadius: '6px',
+                          borderRadius: '20px',
+                          border: group.is_active ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+                          background: group.is_active ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: group.is_active ? '#22c55e' : '#ef4444',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease'
                         }}
-                        onClick={(e) => { e.stopPropagation(); toggleGroupActive(group); }}
                       >
-                        {group.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: group.is_active ? '#22c55e' : '#ef4444' }} />
+                        {group.is_active ? 'Enabled' : 'Disabled'}
+                      </button>
                     </div>
 
                     <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px', opacity: 0.8, flex: 1 }}>

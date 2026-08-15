@@ -218,6 +218,16 @@ const ProductManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Real-time listener for group & product catalog updates
+  useEffect(() => {
+    const handleCatalogUpdate = () => {
+      loadProducts();
+      loadCategories();
+    };
+    window.addEventListener('pos-catalog-updated', handleCatalogUpdate);
+    return () => window.removeEventListener('pos-catalog-updated', handleCatalogUpdate);
+  }, []);
+
   const loadProducts = async () => {
     try {
       setError('');

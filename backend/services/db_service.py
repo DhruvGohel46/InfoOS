@@ -80,7 +80,10 @@ class DatabaseService:
         query = Product.query
 
         if not include_inactive:
-            query = query.filter(Product.active == True)
+            query = query.filter(Product.active == True)\
+                         .outerjoin(Category, Product.category_id == Category.id)\
+                         .outerjoin(ItemGroup, Category.group_id == ItemGroup.id)\
+                         .filter(or_(ItemGroup.id == None, (ItemGroup.is_active == True) & (ItemGroup.deleted_at == None)))
 
         products = query.order_by(Product.display_order, Product.name).all()
 
@@ -98,7 +101,10 @@ class DatabaseService:
         )
 
         if not include_inactive:
-            query = query.filter(Product.active == True)
+            query = query.filter(Product.active == True)\
+                         .outerjoin(Category, Product.category_id == Category.id)\
+                         .outerjoin(ItemGroup, Category.group_id == ItemGroup.id)\
+                         .filter(or_(ItemGroup.id == None, (ItemGroup.is_active == True) & (ItemGroup.deleted_at == None)))
 
         results = query.order_by(Product.display_order, Product.name).all()
 
@@ -595,7 +601,9 @@ class DatabaseService:
     def get_all_categories(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
         query = Category.query
         if not include_inactive:
-            query = query.filter(Category.active == True)
+            query = query.filter(Category.active == True)\
+                         .outerjoin(ItemGroup, Category.group_id == ItemGroup.id)\
+                         .filter(or_(ItemGroup.id == None, (ItemGroup.is_active == True) & (ItemGroup.deleted_at == None)))
 
         cats = query.order_by(Category.display_order, Category.name).all()
 
