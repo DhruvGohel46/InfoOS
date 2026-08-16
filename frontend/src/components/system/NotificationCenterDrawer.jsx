@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
@@ -22,6 +22,7 @@ import {
   IoShieldCheckmarkOutline,
   IoTrashOutline,
   IoOpenOutline,
+  IoRefreshOutline,
 } from 'react-icons/io5';
 
 const typeFilterTabs = [
@@ -92,6 +93,8 @@ const NotificationCenterDrawer = () => {
     setFilterType,
     searchTerm,
     setSearchTerm,
+    loading,
+    fetchNotifications,
     markAsRead,
     markAsCompleted,
     dismissNotification,
@@ -101,6 +104,7 @@ const NotificationCenterDrawer = () => {
   const { dismissReminder, fetchReminders } = useReminders();
   const navigate = useNavigate();
   const drawerRef = useRef(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Close drawer on click outside
   useEffect(() => {
@@ -116,15 +120,51 @@ const NotificationCenterDrawer = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isCenterOpen, setIsCenterOpen]);
 
+  // Close drawer on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isCenterOpen) {
+        setIsCenterOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCenterOpen, setIsCenterOpen]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchNotifications();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  // Tab counts
+  const activeNotifs = notifications.filter(n => n.status !== 'dismissed');
+  const getTabCount = (tabId) => {
+    switch (tabId) {
+      case 'all': return activeNotifs.length;
+      case 'unread': return activeNotifs.filter(n => n.status === 'unread').length;
+      case 'completed': return notifications.filter(n => n.status === 'completed').length;
+      case 'reminders': return activeNotifs.filter(n => n.type === 'reminder').length;
+      case 'system': return activeNotifs.filter(n => ['system', 'sync', 'backup', 'db', 'license'].includes(n.type)).length;
+      case 'errors': return activeNotifs.filter(n => n.priority === 'error' || n.priority === 'critical').length;
+      case 'updates': return activeNotifs.filter(n => n.type === 'update').length;
+      default: return 0;
+    }
+  };
+
   // Filter list
   const filteredNotifications = notifications.filter((n) => {
     // Tab filter
+    if (filterType === 'all' && n.status === 'dismissed') return false;
     if (filterType === 'unread' && n.status !== 'unread') return false;
     if (filterType === 'completed' && n.status !== 'completed') return false;
-    if (filterType === 'reminders' && n.type !== 'reminder') return false;
-    if (filterType === 'errors' && n.priority !== 'error' && n.priority !== 'critical') return false;
-    if (filterType === 'updates' && n.type !== 'update') return false;
-    if (filterType === 'system' && !['system', 'sync', 'backup', 'db', 'license'].includes(n.type)) return false;
+    if (filterType === 'reminders' && (n.type !== 'reminder' || n.status === 'dismissed')) return false;
+    if (filterType === 'errors' && ((n.priority !== 'error' && n.priority !== 'critical') || n.status === 'dismissed')) return false;
+    if (filterType === 'updates' && (n.type !== 'update' || n.status === 'dismissed')) return false;
+    if (filterType === 'system' && (!['system', 'sync', 'backup', 'db', 'license'].includes(n.type) || n.status === 'dismissed')) return false;
 
     // Search filter
     if (searchTerm) {
@@ -197,6 +237,7 @@ const NotificationCenterDrawer = () => {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 60, scale: 0.97 }}
             transition={{ type: 'spring', damping: 24, stiffness: 240, mass: 0.85 }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute',
               top: '72px',
@@ -248,6 +289,32 @@ const NotificationCenterDrawer = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Manual Refresh Button */}
+                  <button
+                    onClick={handleManualRefresh}
+                    disabled={loading || isRefreshing}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#A0A0A0',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '4px',
+                      borderRadius: '6px',
+                      transition: 'all 0.15s',
+                    }}
+                    title="Refresh notifications"
+                  >
+                    <IoRefreshOutline
+                      size={17}
+                      style={{
+                        animation: (loading || isRefreshing) ? 'spin 1s linear infinite' : 'none',
+                      }}
+                    />
+                  </button>
+
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
@@ -338,6 +405,7 @@ const NotificationCenterDrawer = () => {
               }}>
                 {typeFilterTabs.map((tab) => {
                   const isActive = filterType === tab.id;
+                  const count = getTabCount(tab.id);
                   return (
                     <button
                       key={tab.id}
@@ -347,15 +415,30 @@ const NotificationCenterDrawer = () => {
                         border: isActive ? 'none' : '1px solid rgba(255,255,255,0.08)',
                         color: isActive ? '#FFFFFF' : '#888888',
                         borderRadius: '8px',
-                        padding: '5px 12px',
+                        padding: '5px 10px',
                         fontSize: '12px',
                         fontWeight: isActive ? 700 : 500,
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
                         transition: 'all 0.15s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
                       }}
                     >
-                      {tab.label}
+                      <span>{tab.label}</span>
+                      {count > 0 && (
+                        <span style={{
+                          background: isActive ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          padding: '1px 6px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          color: isActive ? '#FFFFFF' : '#999',
+                        }}>
+                          {count}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

@@ -71,11 +71,34 @@ def start_dashboard_refresher():
                         Reminder.status == "pending", Reminder.reminder_time <= now
                     ).all()
 
+                    from models import Notification
+                    from services.notification_service import NotificationService
+
                     for reminder in triggered_reminders:
                         _log.info("Reminder triggered: %s", reminder.title)
                         reminder.status = "triggered"
                         reminder.triggered_at = now
                         reminder.last_triggered_at = now
+
+                        try:
+                            existing_notif = Notification.query.filter_by(
+                                related_id=reminder.id,
+                                status="unread"
+                            ).first()
+                            if not existing_notif:
+                                NotificationService.create_notification({
+                                    "title": f"Reminder: {reminder.title}",
+                                    "message": reminder.description or "Scheduled reminder triggered.",
+                                    "type": "reminder",
+                                    "priority": "warning",
+                                    "related_id": reminder.id,
+                                    "action_route": "/reminders",
+                                    "source": "reminder",
+                                    "user_id": reminder.user_id or "admin",
+                                })
+                        except Exception as ne:
+                            _log.error("Failed to create notification for reminder %s: %s", reminder.id, ne)
+
                         db.session.commit()
                 except Exception as e:
                     _log.error("Reminder checker error: %s", e)

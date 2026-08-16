@@ -14,7 +14,7 @@ export const NotificationProvider = ({ children }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Load notifications from API
+  // Load all notifications from API without restricting by UI tab filters
   const fetchNotifications = useCallback(async (params = {}) => {
     try {
       setLoading(true);
@@ -23,35 +23,19 @@ export const NotificationProvider = ({ children }) => {
         ...params
       };
 
-      if (filterType === 'unread') {
-        queryParams.status = 'unread';
-      } else if (filterType === 'completed') {
-        queryParams.status = 'completed';
-      } else if (filterType !== 'all') {
-        queryParams.type = filterType;
-      }
-
-      if (filterStatus !== 'all') {
-        queryParams.status = filterStatus;
-      }
-
-      if (searchTerm) {
-        queryParams.search = searchTerm;
-      }
-
       const res = await notificationAPI.getNotifications(queryParams);
 
-      if (res.success) {
+      if (res && res.success) {
         setNotifications(res.notifications || []);
-        setUnreadCount(res.unread_count || 0);
-        setTotalCount(res.total_count || 0);
+        setUnreadCount(res.unread_count ?? (res.notifications || []).filter(n => n.status === 'unread').length);
+        setTotalCount(res.total_count ?? (res.notifications || []).length);
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     } finally {
       setLoading(false);
     }
-  }, [filterType, filterStatus, searchTerm]);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
@@ -182,8 +166,19 @@ export const NotificationProvider = ({ children }) => {
   }, [notifications]);
 
   const toggleCenter = useCallback(() => {
-    setIsCenterOpen(prev => !prev);
-  }, []);
+    setIsCenterOpen(prev => {
+      const next = !prev;
+      if (next) {
+        fetchNotifications();
+      }
+      return next;
+    });
+  }, [fetchNotifications]);
+
+  const openCenter = useCallback(() => {
+    setIsCenterOpen(true);
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return (
     <NotificationContext.Provider value={{
@@ -194,6 +189,7 @@ export const NotificationProvider = ({ children }) => {
       isCenterOpen,
       setIsCenterOpen,
       toggleCenter,
+      openCenter,
       filterType,
       setFilterType,
       filterStatus,

@@ -1342,12 +1342,6 @@ function AppContent() {
         
         {/* Offline Badge */}
         <OfflineBadge />
-
-        {/* Auto-Updater Notification */}
-        <UpdateNotification />
-
-        {/* Centralized Notification Center Drawer */}
-        <NotificationCenterDrawer />
       </>
     </div>
   );
