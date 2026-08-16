@@ -176,10 +176,13 @@ const Inventory = () => {
         e.stopPropagation(); // prevent row click
         if (item.is_locked) return;
 
+        const newStock = item.stock + amount;
+        const changeStr = amount > 0 ? `+${amount}` : `${amount}`;
+        const unitStr = item.unit ? ` ${item.unit}` : ' unit';
+
         // Optimistically update stock in UI state to prevent flickering
         setItems(prevItems => prevItems.map(i => {
             if (i.id === item.id) {
-                const newStock = i.stock + amount;
                 let newStatus = "In Stock";
                 if (newStock <= 0) newStatus = "Out of Stock";
                 else if (newStock <= i.alert_threshold) newStatus = "Low Stock";
@@ -190,19 +193,25 @@ const Inventory = () => {
 
         try {
             await inventoryAPI.adjustStock(item.id, amount);
-            showSuccess('Stock updated');
+            showSuccess(`Stock for "${item.name}" ${amount > 0 ? 'increased' : 'decreased'} by ${changeStr}${unitStr} (New stock: ${newStock}${unitStr})`, {
+                title: 'Stock Updated',
+                category: 'inventory',
+                action_route: '/inventory'
+            });
             loadInventory(true); // silent background load
         } catch (err) {
-            showError('Failed to update stock');
+            showError(`Failed to update stock for "${item.name}"`);
             loadInventory();
         }
     };
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
+        const targetItem = items.find(i => i.id === id);
+        const itemName = targetItem ? targetItem.name : 'Inventory Item';
         const confirmed = await showConfirm({
             title: 'Delete Inventory Item',
-            description: 'This item will be permanently removed from your inventory.',
+            description: `Are you sure you want to delete "${itemName}"? This item will be permanently removed from your inventory.`,
             confirmLabel: 'Delete',
             cancelLabel: 'Cancel',
             variant: 'danger',
@@ -210,10 +219,14 @@ const Inventory = () => {
         if (!confirmed) return;
         try {
             await inventoryAPI.deleteInventory(id);
-            showSuccess('Item deleted');
+            showSuccess(`"${itemName}" was permanently deleted from inventory`, {
+                title: 'Inventory Item Deleted',
+                category: 'inventory',
+                action_route: '/inventory'
+            });
             loadInventory(true); // silent background load
         } catch (err) {
-            showError('Failed to delete');
+            showError(`Failed to delete "${itemName}"`);
         }
     };
 
@@ -229,6 +242,8 @@ const Inventory = () => {
                 if (p) payload.name = p.name;
             }
 
+            const unitStr = payload.unit ? ` ${payload.unit}` : '';
+
             if (selectedItem) {
                 // Optimistically update existing item
                 setItems(prevItems => prevItems.map(i => {
@@ -241,15 +256,23 @@ const Inventory = () => {
                     return i;
                 }));
                 await inventoryAPI.updateInventory(selectedItem.id, payload);
-                showSuccess('Inventory updated');
+                showSuccess(`Inventory item "${payload.name}" updated (Stock: ${payload.stock}${unitStr}, Alert Threshold: ${payload.alert_threshold})`, {
+                    title: 'Inventory Item Updated',
+                    category: 'inventory',
+                    action_route: '/inventory'
+                });
             } else {
                 await inventoryAPI.createInventory(payload);
-                showSuccess('Inventory created');
+                showSuccess(`New inventory item "${payload.name}" created (Initial Stock: ${payload.stock}${unitStr})`, {
+                    title: 'Inventory Item Created',
+                    category: 'inventory',
+                    action_route: '/inventory'
+                });
             }
             setShowAddModal(false);
             loadInventory(true); // silent background load
         } catch (err) {
-            showError('Failed to save');
+            showError(`Failed to save "${formData.name || 'inventory item'}"`);
             loadInventory();
         }
     };

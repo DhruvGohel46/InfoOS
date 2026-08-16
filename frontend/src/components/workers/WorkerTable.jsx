@@ -21,7 +21,7 @@ import {
 import { formatCurrency } from '../../utils/api';
 
 /* ─── Action Menu ─── */
-const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setOpen }) => {
+const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, onAttendance, onSalaryHistory, onPayroll, open, setOpen }) => {
     const { isDark } = useTheme();
     return (
         <div style={{ position: 'relative' }}>
@@ -64,19 +64,19 @@ const ActionMenu = ({ worker, onView, onEdit, onDelete, onReactivate, open, setO
                                 overflow: 'hidden',
                              }}
                         >
-                            <MenuItem icon={IoEye} label="View Profile" onClick={() => { onView(worker); setOpen(false); }} color="#FF7A00" />
-                            <MenuItem icon={IoPencil} label="Edit Worker" onClick={() => { onEdit(worker); setOpen(false); }} color="#3B82F6" />
-                            <MenuItem icon={IoCalendarOutline} label="Attendance" onClick={() => { setOpen(false); }} color="#10B981" />
-                            <MenuItem icon={IoWalletOutline} label="Salary History" onClick={() => { setOpen(false); }} color="#A855F7" />
-                            <MenuItem icon={IoDocumentTextOutline} label="Payroll" onClick={() => { setOpen(false); }} color="#F59E0B" />
+                            <MenuItem icon={IoEye} label="View Profile" onClick={() => { onView?.(worker); setOpen(false); }} color="#FF7A00" />
+                            <MenuItem icon={IoPencil} label="Edit Worker" onClick={() => { onEdit?.(worker); setOpen(false); }} color="#3B82F6" />
+                            <MenuItem icon={IoCalendarOutline} label="Attendance" onClick={() => { onAttendance ? onAttendance(worker) : onView?.(worker, 'attendance'); setOpen(false); }} color="#10B981" />
+                            <MenuItem icon={IoWalletOutline} label="Salary History" onClick={() => { onSalaryHistory ? onSalaryHistory(worker) : onView?.(worker, 'salary'); setOpen(false); }} color="#A855F7" />
+                            <MenuItem icon={IoDocumentTextOutline} label="Payroll" onClick={() => { onPayroll ? onPayroll(worker) : onView?.(worker, 'advances'); setOpen(false); }} color="#F59E0B" />
                             <div style={{
                                 height: 1, margin: '6px 8px',
                                 background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
                             }} />
                             {worker.status === 'inactive' ? (
-                                <MenuItem icon={IoCheckmarkCircle} label="Reactivate" onClick={() => { onReactivate(worker); setOpen(false); }} color="#10B981" />
+                                <MenuItem icon={IoCheckmarkCircle} label="Reactivate" onClick={() => { onReactivate?.(worker); setOpen(false); }} color="#10B981" />
                             ) : (
-                                <MenuItem icon={IoTrash} label="Deactivate" onClick={() => { onDelete(worker); setOpen(false); }} color="#EF4444" />
+                                <MenuItem icon={IoTrash} label="Deactivate" onClick={() => { onDelete?.(worker); setOpen(false); }} color="#EF4444" />
                             )}
                         </motion.div>
                     </>
@@ -107,7 +107,7 @@ const MenuItem = ({ icon: Icon, label, onClick, color }) => {
 };
 
 /* ─── Worker Card (Square Design) ─── */
-const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) => {
+const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, onAttendance, onSalaryHistory, onPayroll, index }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const { isDark } = useTheme();
     
@@ -147,6 +147,9 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onReactivate={onReactivate}
+                    onAttendance={onAttendance}
+                    onSalaryHistory={onSalaryHistory}
+                    onPayroll={onPayroll}
                     open={menuOpen}
                     setOpen={setMenuOpen}
                 />
@@ -336,7 +339,7 @@ const WorkerCard = ({ worker, onView, onEdit, onDelete, onReactivate, index }) =
 };
 
 /* ─── Responsive Grid Container ─── */
-const WorkerTable = ({ workers, onView, onEdit, onDelete, onReactivate }) => {
+const WorkerTable = ({ workers, onView, onEdit, onDelete, onReactivate, onAttendance, onSalaryHistory, onPayroll }) => {
     return (
         <div style={{
             display: 'grid',
@@ -353,6 +356,9 @@ const WorkerTable = ({ workers, onView, onEdit, onDelete, onReactivate }) => {
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onReactivate={onReactivate}
+                    onAttendance={onAttendance}
+                    onSalaryHistory={onSalaryHistory}
+                    onPayroll={onPayroll}
                     index={i}
                 />
             ))}

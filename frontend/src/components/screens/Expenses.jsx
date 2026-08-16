@@ -63,14 +63,22 @@ export default function Expenses() {
     try {
       const res = await expensesAPI.createExpense(expenseData);
       if (res.success) {
-        addToast({ type: 'success', title: 'Expense recorded successfully' });
+        const title = expenseData.title || expenseData.category || 'General Expense';
+        const amount = expenseData.amount ? `₹${expenseData.amount}` : '';
+        addToast({
+          type: 'success',
+          title: 'Expense Recorded',
+          description: `Expense of ${amount} recorded for "${title}"`,
+          category: 'expenses',
+          action_route: '/expenses'
+        });
         setIsFormOpen(false);
         fetchExpenses();
       } else {
-        addToast({ type: 'error', title: res.message || 'Error recording expense' });
+        addToast({ type: 'error', title: 'Error Recording Expense', description: res.message || 'Could not record expense' });
       }
     } catch (e) {
-      addToast({ type: 'error', title: 'Error recording expense' });
+      addToast({ type: 'error', title: 'Error Recording Expense', description: 'Failed to record expense' });
     }
   };
 
@@ -78,29 +86,45 @@ export default function Expenses() {
     try {
       const res = await expensesAPI.updateExpense(editingExpense.id, expenseData);
       if (res.success) {
-        addToast({ type: 'success', title: 'Expense updated successfully' });
+        const title = expenseData.title || editingExpense?.title || 'Expense';
+        const amount = expenseData.amount ? `₹${expenseData.amount}` : '';
+        addToast({
+          type: 'success',
+          title: 'Expense Updated',
+          description: `Expense "${title}" updated to ${amount}`,
+          category: 'expenses',
+          action_route: '/expenses'
+        });
         setEditingExpense(null);
         fetchExpenses();
       } else {
-        addToast({ type: 'error', title: res.message || 'Error updating expense' });
+        addToast({ type: 'error', title: 'Error Updating Expense', description: res.message || 'Could not update expense' });
       }
     } catch (e) {
-      addToast({ type: 'error', title: 'Error updating expense' });
+      addToast({ type: 'error', title: 'Error Updating Expense', description: 'Failed to update expense' });
     }
   };
 
   const handleDeleteExpense = async (expenseId) => {
-    if (!window.confirm('Are you sure you want to delete this expense record?')) return;
+    const target = expenses.find(e => e.id === expenseId);
+    const expTitle = target ? `"${target.title || target.category || 'Expense'}" (₹${target.amount || 0})` : 'this expense record';
+    if (!window.confirm(`Are you sure you want to delete ${expTitle}?`)) return;
     try {
       const res = await expensesAPI.deleteExpense(expenseId);
       if (res.success) {
-        addToast({ type: 'success', title: 'Expense deleted' });
+        addToast({
+          type: 'success',
+          title: 'Expense Deleted',
+          description: `Expense record ${expTitle} was removed`,
+          category: 'expenses',
+          action_route: '/expenses'
+        });
         fetchExpenses();
       } else {
-        addToast({ type: 'error', title: res.message || 'Error deleting expense' });
+        addToast({ type: 'error', title: 'Error Deleting Expense', description: res.message || 'Could not delete expense' });
       }
     } catch (e) {
-      addToast({ type: 'error', title: 'Error deleting expense' });
+      addToast({ type: 'error', title: 'Error Deleting Expense', description: 'Failed to delete expense' });
     }
   };
 

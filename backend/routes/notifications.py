@@ -73,10 +73,26 @@ def run_cleanup():
     return jsonify({"success": True, "deleted_count": count})
 
 
-@notifications_bp.route("/api/notifications/<notification_id>", methods=["DELETE"])
+@notifications_bp.route("/api/notifications/clear-all", methods=["POST", "DELETE"])
+@notifications_bp.route("/api/notifications/clear", methods=["POST", "DELETE"])
+@notifications_bp.route("/api/notifications", methods=["DELETE"])
+@safe_route
+def clear_all_notifications():
+    """Clear and delete all notifications."""
+    count = NotificationService.clear_all(user_id="admin")
+    return jsonify({"success": True, "count": count, "message": f"Cleared {count} notifications."})
+
+
+@notifications_bp.route("/api/notifications/<notification_id>", methods=["DELETE", "POST"])
 @safe_route
 def delete_notification(notification_id):
-    """Delete a single notification."""
+    """Delete a single notification or clear all if special ID passed."""
+    if notification_id in ["clear-all", "clear", "all"]:
+        count = NotificationService.clear_all(user_id="admin")
+        return jsonify(
+            {"success": True, "count": count, "message": f"Cleared {count} notifications."}
+        )
+
     success = NotificationService.delete_notification(notification_id)
     if not success:
         raise NotFoundError("Notification not found.", code="NOTIFICATION_NOT_FOUND")

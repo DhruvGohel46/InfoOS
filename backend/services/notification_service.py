@@ -14,6 +14,11 @@ class NotificationService:
         user_id="admin", status=None, notif_type=None, search=None, limit=100, offset=0
     ):
         """Retrieve notifications with optional filtering, search, and pagination."""
+        try:
+            NotificationService.auto_cleanup()
+        except Exception as e:
+            logger.warning(f"Notification auto-cleanup error during get: {e}")
+
         query = Notification.query
         if user_id:
             query = query.filter(
@@ -157,26 +162,65 @@ class NotificationService:
 
     @staticmethod
     def auto_cleanup():
-        """Run auto-cleanup based on notification_retention setting (7, 30, 90, never)."""
+        """
+        Run auto-cleanup:
+        1. Automatically remove all bill creation/transaction notifications older than 1 hour.
+        2. Clean up other notifications based on notification_retention setting (7, 30, 90 days, or never).
+        """
+        deleted_count = 0
+        now = datetime.now()
+
+        # 1. Automatically purge bill notifications older than 1 hour
+        bill_cutoff = now - timedelta(hours=1)
+        expired_bills = Notification.query.filter(
+            or_(
+                Notification.type.in_(["billing", "bill"]),
+                Notification.title.ilike("%bill%"),
+                Notification.message.ilike("%bill%"),
+            ),
+            Notification.created_at < bill_cutoff,
+        ).all()
+
+        for b in expired_bills:
+            db.session.delete(b)
+            deleted_count += 1
+
+        # 2. General retention cleanup
         retention_setting = Settings.query.filter_by(key="notification_retention").first()
         retention_val = retention_setting.value if retention_setting else "30"
 
-        if retention_val == "never" or not retention_val:
-            return 0
+        if retention_val != "never" and retention_val:
+            try:
+                days = int(retention_val)
+                cutoff = now - timedelta(days=days)
+                expired = Notification.query.filter(Notification.created_at < cutoff).all()
+                for n in expired:
+                    db.session.delete(n)
+                    deleted_count += 1
+            except (ValueError, TypeError):
+                pass
 
-        try:
-            days = int(retention_val)
-        except (ValueError, TypeError):
-            days = 30
-
-        cutoff = datetime.now() - timedelta(days=days)
-        expired = Notification.query.filter(Notification.created_at < cutoff).all()
-        deleted_count = len(expired)
-
-        for n in expired:
-            db.session.delete(n)
-
-        db.session.commit()
         if deleted_count > 0:
-            logger.info(f"Auto-cleaned {deleted_count} notifications older than {days} days.")
+            db.session.commit()
+            logger.info(
+                f"Auto-cleaned {deleted_count} expired notifications (including bill notifications > 1 hour)."
+            )
+
         return deleted_count
+
+    @staticmethod
+    def clear_all(user_id="admin"):
+        """Delete all notifications for the user."""
+        query = Notification.query
+        if user_id:
+            query = query.filter(
+                or_(
+                    Notification.user_id == user_id,
+                    Notification.user_id.is_(None),
+                    Notification.user_id == "",
+                )
+            )
+        count = query.delete(synchronize_session=False)
+        db.session.commit()
+        logger.info(f"Cleared all {count} notifications.")
+        return count

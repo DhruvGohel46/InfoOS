@@ -104,6 +104,12 @@ def start_dashboard_refresher():
                             )
 
                         db.session.commit()
+
+                    # Periodically auto-purge bill notifications older than 1 hour and expired retention
+                    try:
+                        NotificationService.auto_cleanup()
+                    except Exception as ce:
+                        _log.warning("Notification cleanup error: %s", ce)
                 except Exception as e:
                     _log.error("Reminder checker error: %s", e)
                     db.session.rollback()

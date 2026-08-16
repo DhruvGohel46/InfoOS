@@ -55,7 +55,18 @@ const WorkersPage = () => {
 
     const handleAddClick = () => { setEditingWorker(null); setShowAddModal(true); };
     const handleEditClick = (worker) => { setEditingWorker(worker); setShowAddModal(true); };
-    const handleViewClick = (worker) => { navigate(`/workers/${worker.worker_id}`); };
+    const handleViewClick = (worker, tab = 'attendance') => {
+        navigate(`/workers/${worker.worker_id}?tab=${tab}`, { state: { tab } });
+    };
+    const handleWorkerAttendance = (worker) => {
+        navigate(`/workers/${worker.worker_id}?tab=attendance`, { state: { tab: 'attendance' } });
+    };
+    const handleWorkerSalary = (worker) => {
+        navigate(`/workers/${worker.worker_id}?tab=salary`, { state: { tab: 'salary' } });
+    };
+    const handleWorkerPayroll = (worker) => {
+        navigate(`/workers/${worker.worker_id}?tab=advances`, { state: { tab: 'advances' } });
+    };
     const handleAttendanceClick = () => { setShowAttendanceModal(true); };
 
     const handleDeleteClick = async (worker) => {
@@ -289,6 +300,9 @@ const WorkersPage = () => {
                         onEdit={handleEditClick}
                         onDelete={handleDeleteClick}
                         onReactivate={handleReactivateClick}
+                        onAttendance={handleWorkerAttendance}
+                        onSalaryHistory={handleWorkerSalary}
+                        onPayroll={handleWorkerPayroll}
                     />
                 )}
             </div>

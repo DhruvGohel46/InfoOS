@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -16,6 +16,8 @@ import '../../styles/Workers.css';
 const WorkerProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { currentTheme, isDark } = useTheme();
     const { showSuccess, showError, showConfirm } = useAlert();
     const { settings } = useSettings();
@@ -30,6 +32,7 @@ const WorkerProfile = () => {
         return `${day}/${month}/${year}`;
     };
 
+    const initialTab = searchParams.get('tab') || location.state?.tab || 'attendance';
     const [worker, setWorker] = useState(null);
     const [advances, setAdvances] = useState([]);
     const [salaryHistory, setSalaryHistory] = useState([]);
@@ -37,8 +40,15 @@ const WorkerProfile = () => {
     const [attendance, setAttendance] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [totalPaid, setTotalPaid] = useState(0);
-    const [activeTab, setActiveTab] = useState('attendance');
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const requestedTab = searchParams.get('tab') || location.state?.tab;
+        if (requestedTab && ['attendance', 'advances', 'salary', 'expenses'].includes(requestedTab)) {
+            setActiveTab(requestedTab);
+        }
+    }, [searchParams, location.state]);
 
     // Advance Form
     const [advanceAmount, setAdvanceAmount] = useState('');
@@ -176,6 +186,12 @@ const WorkerProfile = () => {
         setSubmittingAdvance(true);
         try {
             await workerAPI.addAdvance(id, { amount: advanceAmount, reason: advanceReason });
+            const wName = worker?.name || 'Worker';
+            showSuccess(`Advance of ₹${advanceAmount} recorded for ${wName}${advanceReason ? ` (${advanceReason})` : ''}`, {
+                title: 'Advance Recorded',
+                category: 'workers',
+                action_route: `/workers/${id}`
+            });
             setAdvanceAmount('');
             setAdvanceReason('');
             loadData();
@@ -198,7 +214,12 @@ const WorkerProfile = () => {
         try {
             await workerAPI.generateSalary(id, month, year);
             loadData();
-            showSuccess('Salary generated successfully');
+            const wName = worker?.name || 'Worker';
+            showSuccess(`Salary generated for ${wName} for period ${month}/${year}`, {
+                title: 'Salary Generated',
+                category: 'workers',
+                action_route: `/workers/${id}`
+            });
         } catch (error) {
             showError('Failed to generate salary: ' + (error.response?.data?.error || error.message));
         }
@@ -215,12 +236,17 @@ const WorkerProfile = () => {
         if (confirmed) {
             try {
                 await workerAPI.deleteWorker(worker.worker_id);
+                showSuccess(`Worker "${worker.name}" was removed`, {
+                    title: 'Worker Deleted',
+                    category: 'workers',
+                    action_route: '/workers'
+                });
                 navigate('/workers');
             } catch (e) {
                 showError('Failed to delete worker');
             }
         }
-    }
+    };
 
     const calculateScore = () => {
         if (!attendance || !attendance.length) return 100;

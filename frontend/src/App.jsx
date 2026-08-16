@@ -81,7 +81,7 @@ import { ReminderProvider } from './context/ReminderContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import NotificationCenterDrawer from './components/system/NotificationCenterDrawer';
 import Reminders from './components/screens/Reminders';
-import { IoAlarmOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline, IoSparkles } from 'react-icons/io5';
+import { IoNotifications, IoNotificationsOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline, IoSparkles } from 'react-icons/io5';
 
 // Offline Sync
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
@@ -155,7 +155,6 @@ function AppContent() {
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [posKey, setPosKey] = useState(0);
-  const notificationRef = React.useRef(null);
 
   // ── Calculator State ──
   const [showCalculator, setShowCalculator] = useState(false);
@@ -365,17 +364,6 @@ function AppContent() {
   }, [isOnline, alertSuccess]);
 
   const [salaryNotification, setSalaryNotification] = useState(false);
-
-  // Initial Stock Check
-  useEffect(() => {
-    // Small delay to ensure backend is ready and settings loaded
-    const timer = setTimeout(() => {
-      if (notificationRef.current) {
-        notificationRef.current.checkStock();
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Handle auto-updater installation safety confirmations and postpones
   useEffect(() => {
@@ -986,7 +974,7 @@ function AppContent() {
                 </button>
               </div>
 
-              {/* Notification Center Bell Button */}
+              {/* Notification Center Bell Button (3D Glowing Effect) */}
               <button
                 id="infoos-notification-bell-btn"
                 onClick={toggleCenter}
@@ -994,38 +982,63 @@ function AppContent() {
                 style={{
                   width: 'calc(40px * var(--display-zoom))',
                   height: 'calc(40px * var(--display-zoom))',
-                  border: '1px solid var(--glass-border)',
-                  backgroundImage: 'var(--glass-card)',
+                  border: unreadCount > 0
+                    ? '1.5px solid rgba(255, 150, 40, 0.75)'
+                    : '1px solid var(--glass-border)',
+                  background: unreadCount > 0
+                    ? (isDark
+                        ? 'linear-gradient(135deg, rgba(255, 140, 30, 0.28) 0%, rgba(255, 100, 0, 0.14) 50%, rgba(180, 60, 0, 0.24) 100%)'
+                        : 'linear-gradient(135deg, #FFF3E6 0%, #FFE0C2 100%)')
+                    : 'var(--glass-card)',
                   color: unreadCount > 0 ? '#FF7A00' : 'var(--text-primary)',
+                  boxShadow: unreadCount > 0
+                    ? (isDark
+                        ? '0 0 16px rgba(255, 122, 0, 0.55), 0 0 32px rgba(255, 122, 0, 0.25), inset 0 1.5px 2px rgba(255, 255, 255, 0.4), inset 0 -2px 5px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35)'
+                        : '0 0 14px rgba(255, 122, 0, 0.45), 0 0 28px rgba(255, 122, 0, 0.2), inset 0 1.5px 2px rgba(255, 255, 255, 0.9), inset 0 -2px 4px rgba(230, 100, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.12)')
+                    : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   position: 'relative',
-                  transition: 'all 0.2s',
+                  transform: unreadCount > 0 ? 'translateY(-1px)' : 'none',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
-                title="Open Notification Center"
+                onMouseEnter={(e) => {
+                  if (unreadCount > 0) {
+                    e.currentTarget.style.transform = 'translateY(-2px) scale(1.04)';
+                    e.currentTarget.style.boxShadow = isDark
+                      ? '0 0 22px rgba(255, 122, 0, 0.75), 0 0 40px rgba(255, 122, 0, 0.35), inset 0 1.5px 3px rgba(255, 255, 255, 0.6), inset 0 -2px 6px rgba(0, 0, 0, 0.45), 0 6px 14px rgba(0, 0, 0, 0.4)'
+                      : '0 0 18px rgba(255, 122, 0, 0.6), 0 0 34px rgba(255, 122, 0, 0.28), inset 0 1.5px 3px rgba(255, 255, 255, 1), inset 0 -2px 5px rgba(230, 100, 0, 0.35), 0 5px 12px rgba(0, 0, 0, 0.16)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (unreadCount > 0) {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = isDark
+                      ? '0 0 16px rgba(255, 122, 0, 0.55), 0 0 32px rgba(255, 122, 0, 0.25), inset 0 1.5px 2px rgba(255, 255, 255, 0.4), inset 0 -2px 5px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35)'
+                      : '0 0 14px rgba(255, 122, 0, 0.45), 0 0 28px rgba(255, 122, 0, 0.2), inset 0 1.5px 2px rgba(255, 255, 255, 0.9), inset 0 -2px 4px rgba(230, 100, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.12)';
+                  }
+                }}
+                title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
               >
-                <IoAlarmOutline size={22} className={unreadCount > 0 ? 'ringing' : ''} />
-                {unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    top: '-4px',
-                    right: '-4px',
-                    width: '18px',
-                    height: '18px',
-                    background: '#FF7A00',
-                    color: '#FFFFFF',
-                    borderRadius: '50%',
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 0 12px rgba(255, 122, 0, 0.5)'
-                  }}>
-                    {unreadCount}
-                  </span>
+                {unreadCount > 0 ? (
+                  <IoNotifications
+                    size={21}
+                    style={{
+                      color: '#FF7A00',
+                      filter: 'drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)) drop-shadow(0 0 8px #FF7A00) drop-shadow(0 0 16px rgba(255, 122, 0, 0.8))',
+                      transform: 'scale(1.05)',
+                      transition: 'all 0.25s ease',
+                    }}
+                  />
+                ) : (
+                  <IoNotificationsOutline
+                    size={20}
+                    style={{
+                      transition: 'all 0.25s ease',
+                    }}
+                  />
                 )}
               </button>
 
@@ -1101,7 +1114,7 @@ function AppContent() {
       </div> {/* End Main Content Area */}
 
       {/* Global Notification System */}
-      <NotificationSystem ref={notificationRef} />
+      <NotificationSystem />
 
       {/* Global Notification Center Drawer */}
       <NotificationCenterDrawer />

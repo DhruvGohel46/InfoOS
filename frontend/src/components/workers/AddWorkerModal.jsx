@@ -146,14 +146,22 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           payload.photo = await fileToBase64(photoFile);
         }
 
+        // Convert worker_type_id to integer or null
+        if (payload.worker_type_id !== '' && payload.worker_type_id !== null && payload.worker_type_id !== undefined) {
+          const parsedTypeId = parseInt(payload.worker_type_id, 10);
+          payload.worker_type_id = !isNaN(parsedTypeId) ? parsedTypeId : null;
+        } else {
+          payload.worker_type_id = null;
+        }
+
         // Convert salary to float or set to 0 if empty
-        if (payload.salary === '') {
+        if (payload.salary === '' || payload.salary === null || payload.salary === undefined || isNaN(parseFloat(payload.salary))) {
           payload.salary = 0.0;
         } else {
           payload.salary = parseFloat(payload.salary);
         }
 
-        if (payload.salary_day !== '' && payload.salary_day !== null && payload.salary_day !== undefined) {
+        if (payload.salary_day !== '' && payload.salary_day !== null && payload.salary_day !== undefined && !isNaN(parseInt(payload.salary_day, 10))) {
           payload.salary_day = parseInt(payload.salary_day, 10);
         } else {
           payload.salary_day = null;
@@ -163,8 +171,12 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           payload.join_date = payload.join_date.split('T')[0];
         }
 
+        if (!payload.phone) payload.phone = null;
+        if (!payload.description) payload.description = null;
+        if (!payload.email) payload.email = null;
+
         // Handle null/empty photo to prevent Marshmallow validation issues
-        if (payload.photo === null) {
+        if (payload.photo === null || payload.photo === '') {
           delete payload.photo;
         }
 
@@ -342,7 +354,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isWorkerMode ? '1fr 1fr 1fr' : '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <Input
                     label="Salary (₹)"
                     leftIcon={<IoCash />}
@@ -350,7 +362,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                     value={form.salary}
                     onChange={e => setForm({ ...form, salary: e.target.value })}
                   />
-                  {isWorkerMode && (
+                  {isWorkerMode ? (
                     <div>
                       <GlobalSelect
                         label="Salary Date"
@@ -371,25 +383,45 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                         direction="top"
                       />
                     </div>
+                  ) : (
+                    <GlobalDatePicker
+                      label="Joining Date (Start Date)"
+                      value={form.join_date}
+                      onChange={(val) => setForm({ ...form, join_date: val })}
+                      placeholder="Select Date"
+                      direction="top"
+                      align="right"
+                    />
                   )}
-                  <GlobalDatePicker
-                    label="Joining Date (Start Date)"
-                    value={form.join_date}
-                    onChange={(val) => setForm({ ...form, join_date: val })}
-                    placeholder="Select Date"
-                    direction="top"
-                    align="right"
-                  />
                 </div>
 
-                <div>
-                  <Input
-                    label="Description / Notes (Optional)"
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                    placeholder="e.g. Head chef, morning shift responsibilities"
-                  />
-                </div>
+                {isWorkerMode ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <GlobalDatePicker
+                      label="Joining Date (Start Date)"
+                      value={form.join_date}
+                      onChange={(val) => setForm({ ...form, join_date: val })}
+                      placeholder="Select Date"
+                      direction="top"
+                      align="left"
+                    />
+                    <Input
+                      label="Description / Notes (Optional)"
+                      value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })}
+                      placeholder="e.g. Head chef, morning shift"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Input
+                      label="Description / Notes (Optional)"
+                      value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })}
+                      placeholder="e.g. Head chef, morning shift"
+                    />
+                  </div>
+                )}
 
               </form>
             </div>

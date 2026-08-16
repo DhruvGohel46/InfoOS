@@ -30,7 +30,11 @@ const SalaryManager = () => {
             if (day > 31) day = 31;
 
             await updateSettings({ salary_day: day.toString() });
-            showSuccess('Salary date updated successfully!');
+            showSuccess(`Monthly salary date updated to day ${day} of every month`, {
+                title: 'Salary Date Updated',
+                category: 'workers',
+                action_route: '/workers'
+            });
         } catch (error) {
             showError('Failed to update settings');
         } finally {

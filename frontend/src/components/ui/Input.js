@@ -17,6 +17,7 @@ const Input = React.forwardRef(({
   size = 'md',
   variant = 'default',
   className = '',
+  leftIcon,
   ...props
 }, ref) => {
   const { currentTheme } = useTheme();
@@ -142,7 +143,7 @@ const Input = React.forwardRef(({
       )}
 
       <div style={{ position: 'relative', width: '100%' }}>
-        {props.leftIcon && (
+        {leftIcon && (
           <div style={{
             position: 'absolute',
             left: currentTheme.spacing[3],
@@ -154,7 +155,7 @@ const Input = React.forwardRef(({
             pointerEvents: 'none',
             zIndex: 1,
           }}>
-            {props.leftIcon}
+            {leftIcon}
           </div>
         )}
         <motion.input
@@ -169,7 +170,7 @@ const Input = React.forwardRef(({
           required={required}
           style={{
             ...inputStyles,
-            paddingLeft: props.leftIcon ? `calc(${currentTheme.spacing[3]} + 24px)` : inputStyles.paddingLeft,
+            paddingLeft: leftIcon ? `calc(${currentTheme.spacing[3]} + 24px)` : inputStyles.paddingLeft,
           }}
           whileFocus={{
             scale: 1.01,

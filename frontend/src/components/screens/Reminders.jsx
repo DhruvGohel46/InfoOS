@@ -50,7 +50,12 @@ const Reminders = () => {
                 user_id: 'admin'
             });
             
-            showSuccess("Reminder scheduled successfully!");
+            const formattedRepeat = repeat && repeat !== 'none' ? ` (${repeat})` : '';
+            showSuccess(`Reminder "${title}" scheduled for ${date} at ${time}${formattedRepeat}`, {
+                title: 'Reminder Scheduled',
+                category: 'reminders',
+                action_route: '/reminders'
+            });
             setTitle('');
             setDescription('');
             setDate('');
@@ -74,9 +79,13 @@ const Reminders = () => {
             try {
                 await deleteReminder(id);
                 fetchReminders();
-                showSuccess("Reminder removed.");
+                showSuccess(`Reminder "${title}" was removed`, {
+                    title: 'Reminder Deleted',
+                    category: 'reminders',
+                    action_route: '/reminders'
+                });
             } catch (err) {
-                showError("Delete failed.");
+                showError(`Delete failed for "${title}"`);
             }
         }
     };

@@ -39,13 +39,31 @@ export const AlertProvider = ({ children }) => {
 
     // ─── Toast API ───
 
-    const addToast = useCallback(({
-        type = 'info',
-        title,
-        description,
-        duration = 4000,
-        action,
-    }) => {
+    const addToast = useCallback((optionsOrTitle, possibleDesc, possibleType) => {
+        let toastObj = {};
+        if (typeof optionsOrTitle === 'object' && optionsOrTitle !== null) {
+            toastObj = { ...optionsOrTitle };
+        } else {
+            // Support addToast('Title/Message', 'Description', 'type')
+            toastObj = {
+                title: optionsOrTitle,
+                description: possibleDesc || '',
+                type: possibleType || 'info',
+            };
+        }
+
+        const {
+            type = 'info',
+            title,
+            description,
+            duration = 4000,
+            action,
+            recordNotification = true,
+            category,
+            action_route,
+            metadata,
+        } = toastObj;
+
         const id = `toast-${++toastIdCounter}-${Date.now()}`;
         const newToast = { id, type, title, description, duration, action };
 
@@ -55,6 +73,28 @@ export const AlertProvider = ({ children }) => {
             return updated.slice(0, 4);
         });
 
+        // Bridge with Notification Center if recordNotification is enabled
+        if (recordNotification !== false) {
+            const notifTitle = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : type === 'warning' ? 'Warning' : 'Notification');
+            const notifMsg = description || (typeof optionsOrTitle === 'string' ? optionsOrTitle : title || '');
+            if (notifMsg) {
+                try {
+                    window.dispatchEvent(new CustomEvent('app-record-notification', {
+                        detail: {
+                            title: notifTitle,
+                            message: notifMsg,
+                            type: category || (type === 'error' ? 'errors' : 'system'),
+                            priority: type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info',
+                            action_route: action_route || null,
+                            metadata: metadata || null,
+                        }
+                    }));
+                } catch (e) {
+                    console.error('Error dispatching notification event:', e);
+                }
+            }
+        }
+
         return id;
     }, []);
 
@@ -62,21 +102,93 @@ export const AlertProvider = ({ children }) => {
         setToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
-    // Shorthand helpers
-    const showSuccess = useCallback((message, duration) => {
-        return addToast({ type: 'success', title: 'Success', description: message, duration });
+    // Shorthand helpers with metadata support
+    const showSuccess = useCallback((message, durationOrOptions, possibleOptions) => {
+        let duration = 4000;
+        let opts = {};
+        if (typeof durationOrOptions === 'number') {
+            duration = durationOrOptions;
+            if (possibleOptions && typeof possibleOptions === 'object') opts = possibleOptions;
+        } else if (typeof durationOrOptions === 'object' && durationOrOptions !== null) {
+            opts = durationOrOptions;
+            if (opts.duration) duration = opts.duration;
+        }
+        return addToast({
+            type: 'success',
+            title: opts.title || 'Success',
+            description: message,
+            duration,
+            category: opts.category,
+            action_route: opts.action_route,
+            recordNotification: opts.recordNotification ?? true,
+            ...opts,
+        });
     }, [addToast]);
 
-    const showError = useCallback((message, duration) => {
-        return addToast({ type: 'error', title: 'Error', description: message, duration });
+    const showError = useCallback((message, durationOrOptions, possibleOptions) => {
+        let duration = 5000;
+        let opts = {};
+        if (typeof durationOrOptions === 'number') {
+            duration = durationOrOptions;
+            if (possibleOptions && typeof possibleOptions === 'object') opts = possibleOptions;
+        } else if (typeof durationOrOptions === 'object' && durationOrOptions !== null) {
+            opts = durationOrOptions;
+            if (opts.duration) duration = opts.duration;
+        }
+        return addToast({
+            type: 'error',
+            title: opts.title || 'Error',
+            description: message,
+            duration,
+            category: opts.category || 'errors',
+            action_route: opts.action_route,
+            recordNotification: opts.recordNotification ?? true,
+            ...opts,
+        });
     }, [addToast]);
 
-    const showWarning = useCallback((message, duration) => {
-        return addToast({ type: 'warning', title: 'Warning', description: message, duration });
+    const showWarning = useCallback((message, durationOrOptions, possibleOptions) => {
+        let duration = 4500;
+        let opts = {};
+        if (typeof durationOrOptions === 'number') {
+            duration = durationOrOptions;
+            if (possibleOptions && typeof possibleOptions === 'object') opts = possibleOptions;
+        } else if (typeof durationOrOptions === 'object' && durationOrOptions !== null) {
+            opts = durationOrOptions;
+            if (opts.duration) duration = opts.duration;
+        }
+        return addToast({
+            type: 'warning',
+            title: opts.title || 'Warning',
+            description: message,
+            duration,
+            category: opts.category,
+            action_route: opts.action_route,
+            recordNotification: opts.recordNotification ?? true,
+            ...opts,
+        });
     }, [addToast]);
 
-    const showInfo = useCallback((message, duration) => {
-        return addToast({ type: 'info', title: 'Info', description: message, duration });
+    const showInfo = useCallback((message, durationOrOptions, possibleOptions) => {
+        let duration = 4000;
+        let opts = {};
+        if (typeof durationOrOptions === 'number') {
+            duration = durationOrOptions;
+            if (possibleOptions && typeof possibleOptions === 'object') opts = possibleOptions;
+        } else if (typeof durationOrOptions === 'object' && durationOrOptions !== null) {
+            opts = durationOrOptions;
+            if (opts.duration) duration = opts.duration;
+        }
+        return addToast({
+            type: 'info',
+            title: opts.title || 'Info',
+            description: message,
+            duration,
+            category: opts.category,
+            action_route: opts.action_route,
+            recordNotification: opts.recordNotification ?? true,
+            ...opts,
+        });
     }, [addToast]);
 
     // ─── Confirmation Modal API ───

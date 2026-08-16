@@ -30,4 +30,9 @@ export const notificationAPI = {
     const response = await api.delete(`/api/notifications/${id}`);
     return response.data;
   },
+
+  clearAll: async () => {
+    const response = await api.delete('/api/notifications/clear-all');
+    return response.data;
+  },
 };

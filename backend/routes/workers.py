@@ -78,10 +78,15 @@ def get_workers():
 @safe_route
 def create_worker():
     """Create a new worker."""
-    data = request.json
+    data = dict(request.json or {})
+    for key in ["worker_type_id", "salary_day", "phone", "email", "description", "photo"]:
+        if key in data and (data[key] == "" or data[key] is None):
+            data[key] = None
+    if "salary" in data and (data["salary"] == "" or data["salary"] is None):
+        data["salary"] = 0.0
 
     try:
-        validated = _worker_create_schema.load(data or {})
+        validated = _worker_create_schema.load(data)
     except MarshmallowValidationError as e:
         raise ValidationError(f"Invalid worker data: {e.messages}", code="WORKER_VALIDATION_FAILED")
 
@@ -140,10 +145,15 @@ def get_worker(worker_id):
 @safe_route
 def update_worker(worker_id):
     """Update a worker's details."""
-    data = request.json
+    data = dict(request.json or {})
+    for key in ["worker_type_id", "salary_day", "phone", "email", "description", "photo"]:
+        if key in data and (data[key] == "" or data[key] is None):
+            data[key] = None
+    if "salary" in data and (data["salary"] == "" or data["salary"] is None):
+        data["salary"] = 0.0
 
     try:
-        validated = _worker_update_schema.load(data or {})
+        validated = _worker_update_schema.load(data)
     except MarshmallowValidationError as e:
         raise ValidationError(
             f"Invalid update data: {e.messages}", code="WORKER_UPDATE_VALIDATION_FAILED"

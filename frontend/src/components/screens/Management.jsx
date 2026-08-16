@@ -226,6 +226,7 @@ const ProductManagement = () => {
     };
     window.addEventListener('pos-catalog-updated', handleCatalogUpdate);
     return () => window.removeEventListener('pos-catalog-updated', handleCatalogUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProducts = async () => {
@@ -339,14 +340,26 @@ const ProductManagement = () => {
           is_available: productData.active !== undefined ? !!productData.active : true
         };
 
+        const prodDesc = `"${formData.name}" (₹${formData.price}${formData.category ? `, ${formData.category}` : ''})`;
+
         if (editingProduct) {
           await OnlineProductService.updateProduct(editingProduct.product_id, cloudProductData);
-          showSuccess('Cloud product updated successfully');
+          showSuccess(`Cloud product ${prodDesc} updated successfully`, {
+            title: 'Product Updated',
+            category: 'inventory',
+            action_route: '/management'
+          });
         } else {
           await OnlineProductService.createProduct(cloudProductData);
-          showSuccess('Cloud product created successfully');
+          showSuccess(`Cloud product ${prodDesc} created successfully`, {
+            title: 'Product Created',
+            category: 'inventory',
+            action_route: '/management'
+          });
         }
       } else {
+        const prodDesc = `"${formData.name}" (₹${formData.price}${formData.category ? `, ${formData.category}` : ''})`;
+
         if (editingProduct) {
           await LocalProductService.updateProduct(editingProduct.product_id, productData);
 
@@ -359,20 +372,32 @@ const ProductManagement = () => {
             setImageUploading(true);
             setImageProcessing(true);
             try {
-              const formData = new FormData();
-              formData.append('image', selectedImage);
-              const res = await productsAPI.uploadImage(editingProduct.product_id, formData);
+              const formDataImg = new FormData();
+              formDataImg.append('image', selectedImage);
+              const res = await productsAPI.uploadImage(editingProduct.product_id, formDataImg);
               if (res && res.data && res.data.background_removed === false) {
-                showSuccess('Product updated, but background removal was unavailable. Original image saved.');
+                showSuccess(`Product ${prodDesc} updated (original image saved, background removal unavailable)`, {
+                  title: 'Product Updated',
+                  category: 'inventory',
+                  action_route: '/management'
+                });
               } else {
-                showSuccess('Product updated successfully with background-removed image!');
+                showSuccess(`Product ${prodDesc} updated successfully with background-removed image!`, {
+                  title: 'Product Updated',
+                  category: 'inventory',
+                  action_route: '/management'
+                });
               }
             } finally {
               setImageUploading(false);
               setImageProcessing(false);
             }
           } else {
-            showSuccess('Product updated successfully');
+            showSuccess(`Product ${prodDesc} updated successfully`, {
+              title: 'Product Updated',
+              category: 'inventory',
+              action_route: '/management'
+            });
           }
 
         } else {
@@ -384,20 +409,32 @@ const ProductManagement = () => {
             setImageUploading(true);
             setImageProcessing(true);
             try {
-              const formData = new FormData();
-              formData.append('image', selectedImage);
-              const res = await productsAPI.uploadImage(id, formData);
+              const formDataImg = new FormData();
+              formDataImg.append('image', selectedImage);
+              const res = await productsAPI.uploadImage(id, formDataImg);
               if (res && res.data && res.data.background_removed === false) {
-                showSuccess('Product created, but background removal was unavailable. Original image saved.');
+                showSuccess(`New product ${prodDesc} created (original image saved)`, {
+                  title: 'Product Created',
+                  category: 'inventory',
+                  action_route: '/management'
+                });
               } else {
-                showSuccess('Product created successfully with background-removed image!');
+                showSuccess(`New product ${prodDesc} created with background-removed image!`, {
+                  title: 'Product Created',
+                  category: 'inventory',
+                  action_route: '/management'
+                });
               }
             } finally {
               setImageUploading(false);
               setImageProcessing(false);
             }
           } else {
-            showSuccess('Product created successfully');
+            showSuccess(`New product ${prodDesc} created successfully`, {
+              title: 'Product Created',
+              category: 'inventory',
+              action_route: '/management'
+            });
           }
         }
       }
@@ -412,12 +449,21 @@ const ProductManagement = () => {
 
   const handleReactivate = async (product) => {
     try {
+      const prodName = `"${product.name}"`;
       if (isOnlineMode) {
         await OnlineProductService.updateProduct(product.product_id, { is_available: true });
-        showSuccess('Cloud product reactivated');
+        showSuccess(`Cloud product ${prodName} reactivated`, {
+          title: 'Product Reactivated',
+          category: 'inventory',
+          action_route: '/management'
+        });
       } else {
         await LocalProductService.updateProduct(product.product_id, { active: true });
-        showSuccess('Product reactivated successfully');
+        showSuccess(`Product ${prodName} reactivated successfully`, {
+          title: 'Product Reactivated',
+          category: 'inventory',
+          action_route: '/management'
+        });
       }
       await loadProducts();
       checkCatalogVersion();
@@ -427,15 +473,23 @@ const ProductManagement = () => {
     }
   };
 
-
   const handleDisable = async (product) => {
     try {
+      const prodName = `"${product.name}"`;
       if (isOnlineMode) {
         await OnlineProductService.updateProduct(product.product_id, { is_available: false });
-        showSuccess('Cloud product deactivated');
+        showSuccess(`Cloud product ${prodName} deactivated`, {
+          title: 'Product Disabled',
+          category: 'inventory',
+          action_route: '/management'
+        });
       } else {
         await LocalProductService.updateProduct(product.product_id, { active: false });
-        showSuccess('Product disabled');
+        showSuccess(`Product ${prodName} disabled`, {
+          title: 'Product Disabled',
+          category: 'inventory',
+          action_route: '/management'
+        });
       }
       await loadProducts();
       checkCatalogVersion();
@@ -447,12 +501,21 @@ const ProductManagement = () => {
 
   const handleDeleteDirect = async (product) => {
     try {
+      const prodName = `"${product.name}"`;
       if (isOnlineMode) {
         await OnlineProductService.deleteProduct(product.product_id);
-        showSuccess('Cloud product permanently deleted');
+        showSuccess(`Cloud product ${prodName} permanently deleted`, {
+          title: 'Product Deleted',
+          category: 'inventory',
+          action_route: '/management'
+        });
       } else {
         await productsAPI.deleteProductPermanently(product.product_id);
-        showSuccess('Product permanently deleted');
+        showSuccess(`Product ${prodName} permanently deleted`, {
+          title: 'Product Deleted',
+          category: 'inventory',
+          action_route: '/management'
+        });
       }
       await loadProducts();
       checkCatalogVersion();
@@ -467,12 +530,21 @@ const ProductManagement = () => {
     if (!itemToDelete) return;
 
     try {
+      const prodName = `"${itemToDelete.name || 'Product'}"`;
       if (isOnlineMode) {
         await OnlineProductService.deleteProduct(itemToDelete.product_id);
-        showSuccess('Cloud product permanently deleted');
+        showSuccess(`Cloud product ${prodName} permanently deleted`, {
+          title: 'Product Deleted',
+          category: 'inventory',
+          action_route: '/management'
+        });
       } else {
         await productsAPI.deleteProductPermanently(itemToDelete.product_id, deletePassword);
-        showSuccess('Product permanently deleted');
+        showSuccess(`Product ${prodName} permanently deleted`, {
+          title: 'Product Deleted',
+          category: 'inventory',
+          action_route: '/management'
+        });
       }
       setShowPasswordModal(false);
       setItemToDelete(null);
