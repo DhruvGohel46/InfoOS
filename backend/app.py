@@ -82,22 +82,26 @@ def start_dashboard_refresher():
 
                         try:
                             existing_notif = Notification.query.filter_by(
-                                related_id=reminder.id,
-                                status="unread"
+                                related_id=reminder.id, status="unread"
                             ).first()
                             if not existing_notif:
-                                NotificationService.create_notification({
-                                    "title": f"Reminder: {reminder.title}",
-                                    "message": reminder.description or "Scheduled reminder triggered.",
-                                    "type": "reminder",
-                                    "priority": "warning",
-                                    "related_id": reminder.id,
-                                    "action_route": "/reminders",
-                                    "source": "reminder",
-                                    "user_id": reminder.user_id or "admin",
-                                })
+                                NotificationService.create_notification(
+                                    {
+                                        "title": f"Reminder: {reminder.title}",
+                                        "message": reminder.description
+                                        or "Scheduled reminder triggered.",
+                                        "type": "reminder",
+                                        "priority": "warning",
+                                        "related_id": reminder.id,
+                                        "action_route": "/reminders",
+                                        "source": "reminder",
+                                        "user_id": reminder.user_id or "admin",
+                                    }
+                                )
                         except Exception as ne:
-                            _log.error("Failed to create notification for reminder %s: %s", reminder.id, ne)
+                            _log.error(
+                                "Failed to create notification for reminder %s: %s", reminder.id, ne
+                            )
 
                         db.session.commit()
                 except Exception as e:
