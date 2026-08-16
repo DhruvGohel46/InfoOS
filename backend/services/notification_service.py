@@ -14,7 +14,15 @@ class NotificationService:
         user_id="admin", status=None, notif_type=None, search=None, limit=100, offset=0
     ):
         """Retrieve notifications with optional filtering, search, and pagination."""
-        query = Notification.query.filter_by(user_id=user_id)
+        query = Notification.query
+        if user_id:
+            query = query.filter(
+                or_(
+                    Notification.user_id == user_id,
+                    Notification.user_id.is_(None),
+                    Notification.user_id == "",
+                )
+            )
 
         if status:
             if status == "active":
@@ -23,14 +31,16 @@ class NotificationService:
                 query = query.filter(Notification.status == status)
 
         if notif_type:
-            if notif_type == "errors":
+            if notif_type in ["unread", "completed", "dismissed", "read"]:
+                query = query.filter(Notification.status == notif_type)
+            elif notif_type == "errors":
                 query = query.filter(Notification.priority.in_(["error", "critical"]))
             elif notif_type == "system":
                 query = query.filter(
                     Notification.type.in_(["system", "backup", "sync", "db", "license"])
                 )
-            elif notif_type == "reminders":
-                query = query.filter(Notification.type == "reminder")
+            elif notif_type in ["reminder", "reminders"]:
+                query = query.filter(Notification.type.in_(["reminder", "reminders"]))
             elif notif_type == "updates":
                 query = query.filter(Notification.type == "update")
             else:
@@ -43,7 +53,14 @@ class NotificationService:
             )
 
         total_count = query.count()
-        unread_count = Notification.query.filter_by(user_id=user_id, status="unread").count()
+        unread_count = Notification.query.filter(
+            or_(
+                Notification.user_id == user_id,
+                Notification.user_id.is_(None),
+                Notification.user_id == "",
+            ),
+            Notification.status == "unread",
+        ).count()
 
         items = query.order_by(desc(Notification.created_at)).offset(offset).limit(limit).all()
 

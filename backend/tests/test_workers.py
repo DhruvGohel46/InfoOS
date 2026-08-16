@@ -161,3 +161,95 @@ def test_worker_salary_day_and_mode_migration(client, init_database):
     # w2 should have inherited global_salary_day (10)
     w2_get = client.get(f"/api/workers/{w2_id}")
     assert json.loads(w2_get.data)["salary_day"] == 10
+
+
+def test_worker_join_date_save_and_update(client, init_database):
+    """Test that join_date / Start Date is properly persisted on creation and update."""
+    payload = {
+        "name": "Karan Sharma",
+        "salary": 25000.0,
+        "join_date": "2026-03-12",
+        "description": "Lead Chef",
+        "status": "active",
+    }
+    resp = client.post("/api/workers", data=json.dumps(payload), content_type="application/json")
+    assert resp.status_code in (200, 201)
+    w_id = json.loads(resp.data)["worker_id"]
+
+    get_resp = client.get(f"/api/workers/{w_id}")
+    assert get_resp.status_code == 200
+    data = json.loads(get_resp.data)
+    assert data["join_date"] == "2026-03-12"
+    assert data["description"] == "Lead Chef"
+
+    # Now update join_date and description
+    update_payload = {
+        "join_date": "2026-06-18",
+        "description": "Senior Executive Chef",
+    }
+    put_resp = client.put(
+        f"/api/workers/{w_id}",
+        data=json.dumps(update_payload),
+        content_type="application/json",
+    )
+    assert put_resp.status_code == 200
+
+    # Verify updated
+    get_resp2 = client.get(f"/api/workers/{w_id}")
+    assert get_resp2.status_code == 200
+    data2 = json.loads(get_resp2.data)
+    assert data2["join_date"] == "2026-06-18"
+    assert data2["description"] == "Senior Executive Chef"
+
+
+def test_effective_salary_day_fallback_and_dynamic_partitioning(client, init_database):
+    """Test fallback to Start Date (join_date) in WORKER mode and dynamic advance partitioning."""
+    from services.worker_service import WorkerService
+    from models import Worker, Advance, db
+    from datetime import date
+
+    # Set mode to WORKER
+    client.put(
+        "/api/settings",
+        data=json.dumps({"salary_date_mode": "WORKER", "global_salary_day": "1"}),
+        content_type="application/json",
+    )
+
+    # Worker with Start Date = 12th, no explicit salary_day
+    payload = {
+        "name": "Pooja Verma",
+        "salary": 30000.0,
+        "join_date": "2026-04-12",
+        "status": "active",
+    }
+    resp = client.post("/api/workers", data=json.dumps(payload), content_type="application/json")
+    w_id = json.loads(resp.data)["worker_id"]
+
+    worker = Worker.query.get(w_id)
+    worker.salary_day = None  # Ensure no explicit salary_day
+    db.session.commit()
+
+    # Effective salary day should be 12 (from join_date)
+    eff_day = WorkerService.get_effective_salary_day(worker)
+    assert eff_day == 12
+
+    # Now give explicit salary_day = 20
+    worker.salary_day = 20
+    db.session.commit()
+    eff_day2 = WorkerService.get_effective_salary_day(worker)
+    assert eff_day2 == 20
+
+    # Now generate salary for May 2026
+    adv = Advance(worker_id=w_id, amount=2000.0, reason="Medical", date=date(2026, 5, 10))
+    db.session.add(adv)
+    db.session.commit()
+
+    # Period for May 2026 with salary_day=20: April 21 to May 20
+    # Advance on May 10 falls within May 2026 cycle
+    payment = WorkerService.generate_salary(w_id, month=5, year=2026)
+    assert payment.advance_deduction == 2000.0
+    assert payment.final_salary == 28000.0
+
+    # Mark paid and verify locking
+    WorkerService.mark_salary_paid(payment.payment_id)
+    assert payment.paid is True

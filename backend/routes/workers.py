@@ -39,27 +39,35 @@ def get_workers():
     # Get today's attendance map
     attendance_map = WorkerService.get_today_attendance()
 
-    # Calculate Salary Cycle Period
-    start_date, inclusive_end_date = WorkerService._get_finance_cycle_dates()
-
-    advances_map = WorkerService.get_advances_sum_map(start_date, inclusive_end_date)
-
     for w in workers:
+        w_start, w_end = WorkerService._get_finance_cycle_dates(worker=w)
+        w_advance = (
+            db.session.query(func.sum(Advance.amount))
+            .filter(
+                Advance.worker_id == w.worker_id,
+                Advance.date >= w_start,
+                Advance.date <= w_end,
+            )
+            .scalar()
+            or 0.0
+        )
         result.append(
             {
                 "worker_id": w.worker_id,
                 "name": w.name,
                 "role": w.role,
+                "description": w.description,
                 "worker_type_id": w.worker_type_id,
                 "salary": w.salary,
                 "salary_day": w.salary_day,
+                "join_date": w.join_date.isoformat() if w.join_date else None,
                 "phone": w.phone,
                 "photo": w.photo,
                 "status": w.status,
                 "today_attendance": attendance_map.get(w.worker_id, "Not Marked"),
-                "current_advance": advances_map.get(w.worker_id, 0.0),
-                "cycle_start": start_date.isoformat(),
-                "cycle_end": inclusive_end_date.isoformat(),
+                "current_advance": float(w_advance),
+                "cycle_start": w_start.isoformat(),
+                "cycle_end": w_end.isoformat(),
             }
         )
     return jsonify(result)
@@ -91,7 +99,7 @@ def get_worker(worker_id):
         raise NotFoundError("Worker not found", code="WORKER_NOT_FOUND")
 
     # Calculate Current Cycle Stats for this specific worker
-    start_date, end_date = WorkerService._get_finance_cycle_dates()
+    start_date, end_date = WorkerService._get_finance_cycle_dates(worker=worker)
     current_advance = (
         db.session.query(func.sum(Advance.amount))
         .filter(
@@ -110,6 +118,7 @@ def get_worker(worker_id):
             "phone": worker.phone,
             "email": worker.email,
             "role": worker.role,
+            "description": worker.description,
             "worker_type_id": worker.worker_type_id,
             "salary": worker.salary,
             "salary_day": worker.salary_day,

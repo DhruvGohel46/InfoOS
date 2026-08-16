@@ -200,8 +200,29 @@ This keeps agent config discoverable in the same place as your existing hardware
 7. Security pass: encrypted key storage, log redaction, rate limiting on `/api/agents/chat`, timeout/circuit breaker on the adapter layer.
 
 ---
+## 11. Token & Cost Optimization
+ 
+Since the user pays the LLM bill directly with their own key, runaway token usage is a trust problem, not just a cost problem. Build these in from day one:
+ 
+1. **Minimal, per-agent system prompts — not one giant prompt.** Each domain agent gets only the instructions and tool schemas relevant to its own scope (e.g. the Reminder Agent never sees Billing/Payroll tool definitions). Smaller tool surface = fewer input tokens per call and less chance of the model picking the wrong tool.
+2. **Route before you call the LLM at all.** Use a cheap, deterministic first pass (keyword/intent matcher, or a tiny/cheap model) to decide *which* domain agent should handle a message before invoking the user's chosen (possibly expensive) model. Trivial or malformed requests get rejected without ever reaching the paid LLM.
+3. **Cap conversation context aggressively.** Don't replay the entire chat history on every turn:
+   - Keep a rolling window (e.g. last 6–10 turns) and summarize anything older into a short system-note instead of resending it verbatim.
+   - Never include full database dumps in context — tools should return only the specific rows/fields needed to answer the current request (e.g. "top 5 low-stock items," not the whole inventory table).
+4. **Cache tool results and repeated lookups within a session.** If the agent already fetched today's `DailySalesSummary` or the product catalog once, reuse that result for follow-up questions in the same conversation instead of re-querying/re-describing it to the model.
+5. **Prefer structured tool results over prose.** Have tools return compact JSON, not prose descriptions — models spend far fewer tokens parsing `{"stock": 12, "threshold": 5}` than a paragraph explaining the same thing, and it reduces hallucination risk too.
+6. **Set hard limits, configurable by the admin, in Settings > AI Agents:**
+   - Max tokens per response (`max_tokens` on every call).
+   - Max tool-call round-trips per user message (e.g. 3–5) before the agent must stop and ask the user rather than looping.
+   - Max messages/requests per day or per session (a simple counter in `AGENT_ACTION_LOG` or a new `AGENT_USAGE` table), with a friendly "daily AI limit reached" message once hit.
+   - A live **token/cost estimate** shown in the chat panel per session, computed from the provider's published rate for the selected model (maintain a small static `model_pricing.json` the admin can update).
+7. **Short-circuit for read-only/analytics questions.** Many questions ("what were yesterday's sales?") don't need the LLM to reason at all — have the Analytics Agent try a direct pattern match against `/api/summary`/`/api/reports` first, and only fall back to an LLM call for genuinely open-ended questions.
+8. **Avoid unnecessary re-generation.** For Suggest & Confirm actions, don't re-call the LLM to "confirm" — once the human approves, execute the already-generated tool call directly. The confirmation step is a UI gate, not a new prompt.
+9. **Use the cheapest capable model per agent, not one model for everything.** Let the admin optionally set a different (cheaper/faster) model for low-stakes agents like Reminders/Analytics, and reserve their strongest model only for agents that need more reasoning (Product/Inventory edits).
+10. **Log token usage per call** (`input_tokens`, `output_tokens`, `estimated_cost`) alongside every `AGENT_ACTION_LOG` row, feeding the Settings audit log and giving the admin visibility into exactly where spend is going.
+---
 
-## 11. Non-Negotiable Guardrails (checklist for code review)
+## 12. Non-Negotiable Guardrails (checklist for code review)
 
 - [ ] Worker role blocked at middleware level on every agent route.
 - [ ] No agent tool executes raw SQL — only calls existing validated service functions.

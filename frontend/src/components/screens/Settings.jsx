@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import '../../styles/Settings.css';
 import '../../styles/typography.css'; // Import typography system
 import Dropdown from '../ui/Dropdown';
+import GlobalSelect from '../ui/GlobalSelect';
 import GlobalTimePicker from '../ui/GlobalTimePicker';
 import GlobalDatePicker from '../ui/GlobalDatePicker';
 import Card from '../ui/Card'; // Import Shared Card Component
@@ -26,7 +27,8 @@ import {
     IoVolumeHighOutline,
     IoCloudUploadOutline,
     IoConstructOutline,
-    IoInformationCircleOutline
+    IoInformationCircleOutline,
+    IoSparklesOutline
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
@@ -35,6 +37,7 @@ import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI, cloudAuthAPI } from '
 import api, { summaryAPI } from '../../utils/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
+import { agentsAPI } from '../../api/agents';
 
 
 const Settings = () => {
@@ -197,6 +200,200 @@ const Settings = () => {
 
         return () => clearInterval(interval);
     }, [devModeEnabled, activeTab]);
+
+    // ── Agentic AI System State ───────────────────────────────────────────
+    const [agentConfig, setAgentConfig] = useState({
+        provider: 'openai',
+        model_name: 'gpt-4o-mini',
+        base_url: '',
+        api_key: '',
+        has_api_key: false,
+        enabled: true,
+        max_tokens_per_response: 800,
+        max_tool_rounds: 3,
+        daily_request_limit: 100
+    });
+    const [agentPermissions, setAgentPermissions] = useState([]);
+    const [agentLogs, setAgentLogs] = useState([]);
+    const [usageSummary, setUsageSummary] = useState(null);
+    const [testingConnection, setTestingConnection] = useState(false);
+    const [agentSaving, setAgentSaving] = useState(false);
+    const [logFilterAgent, setLogFilterAgent] = useState('');
+    const [logFilterStatus, setLogFilterStatus] = useState('');
+
+    const loadAgentData = useCallback(async () => {
+        try {
+            const [configRes, permRes, logsRes, usageRes] = await Promise.all([
+                agentsAPI.getConfig(),
+                agentsAPI.getPermissions(),
+                agentsAPI.getAuditLogs({ limit: 50 }),
+                agentsAPI.getUsageSummary().catch(() => ({ success: false }))
+            ]);
+            if (configRes.success && configRes.config) {
+                setAgentConfig(prev => ({
+                    ...prev,
+                    provider: configRes.config.provider || 'openai',
+                    model_name: configRes.config.model_name || 'gpt-4o-mini',
+                    base_url: configRes.config.base_url || '',
+                    enabled: configRes.config.enabled !== false,
+                    max_tokens_per_response: configRes.config.max_tokens_per_response || 800,
+                    max_tool_rounds: configRes.config.max_tool_rounds || 3,
+                    daily_request_limit: configRes.config.daily_request_limit || 100,
+                    has_api_key: configRes.config.has_api_key,
+                    api_key: configRes.config.has_api_key ? '••••••••••••••••' : ''
+                }));
+            }
+            if (permRes.success && permRes.permissions) {
+                setAgentPermissions(permRes.permissions);
+            }
+            if (logsRes.success && logsRes.logs) {
+                setAgentLogs(logsRes.logs);
+            }
+            if (usageRes.success && usageRes.usage) {
+                setUsageSummary(usageRes.usage);
+            }
+        } catch (err) {
+            console.error('Failed to load agent settings:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'agents') {
+            loadAgentData();
+        }
+    }, [activeTab, loadAgentData]);
+
+    const handleSaveAgentConfig = async () => {
+        setAgentSaving(true);
+        try {
+            const payload = {
+                provider: agentConfig.provider,
+                model_name: agentConfig.model_name,
+                base_url: agentConfig.base_url,
+                enabled: agentConfig.enabled,
+                api_key: agentConfig.api_key,
+                max_tokens_per_response: parseInt(agentConfig.max_tokens_per_response, 10) || 800,
+                max_tool_rounds: parseInt(agentConfig.max_tool_rounds, 10) || 3,
+                daily_request_limit: parseInt(agentConfig.daily_request_limit, 10) || 100
+            };
+            const res = await agentsAPI.updateConfig(payload);
+            showSuccess(res.message || 'AI Agent configuration saved.');
+            loadAgentData();
+        } catch (err) {
+            showError(err.response?.data?.error || 'Failed to save agent configuration.');
+        } finally {
+            setAgentSaving(false);
+        }
+    };
+
+    const handleTestLlmConnection = async () => {
+        setTestingConnection(true);
+        try {
+            const payload = {
+                provider: agentConfig.provider,
+                model_name: agentConfig.model_name,
+                base_url: agentConfig.base_url,
+                api_key: agentConfig.api_key
+            };
+            const res = await agentsAPI.testConnection(payload);
+            showSuccess(res.message || 'LLM Connection successful!');
+        } catch (err) {
+            showError(err.response?.data?.error || 'Connection to LLM provider failed.');
+        } finally {
+            setTestingConnection(false);
+        }
+    };
+
+    const handleUpdateAgentPermissionTier = async (agentName, tier) => {
+        const updated = agentPermissions.map(p =>
+            p.agent_name === agentName ? { ...p, tier } : p
+        );
+        setAgentPermissions(updated);
+        try {
+            await agentsAPI.updatePermissions(updated);
+            showSuccess(`Updated ${agentName} agent tier.`);
+        } catch (err) {
+            showError('Failed to update agent tier.');
+            loadAgentData();
+        }
+    };
+
+    const handleToggleAgentEnabled = async (agentName, enabled) => {
+        const updated = agentPermissions.map(p =>
+            p.agent_name === agentName ? { ...p, enabled } : p
+        );
+        setAgentPermissions(updated);
+        try {
+            await agentsAPI.updatePermissions(updated);
+            showSuccess(`${agentName} agent ${enabled ? 'enabled' : 'disabled'}.`);
+        } catch (err) {
+            showError('Failed to toggle agent.');
+            loadAgentData();
+        }
+    };
+
+    const [showAdvancedTiers, setShowAdvancedTiers] = useState(false);
+    const [showAuditLogs, setShowAuditLogs] = useState(false);
+
+    // Derive active preset
+    const currentPreset = (() => {
+        if (!agentPermissions.length) return 'ask_always';
+        const analytics = agentPermissions.find(p => p.agent_name === 'analytics')?.tier;
+        const reminder = agentPermissions.find(p => p.agent_name === 'reminder')?.tier;
+        const billing = agentPermissions.find(p => p.agent_name === 'billing')?.tier;
+        const inventory = agentPermissions.find(p => p.agent_name === 'inventory')?.tier;
+        const product = agentPermissions.find(p => p.agent_name === 'product')?.tier;
+
+        if (analytics === 'full_autonomy' && reminder === 'full_autonomy' && billing === 'suggest_confirm' && inventory === 'suggest_confirm' && product === 'suggest_confirm') {
+            return 'small_auto';
+        }
+        if (billing === 'suggest_confirm' && inventory === 'suggest_confirm' && product === 'suggest_confirm' && reminder === 'suggest_confirm') {
+            return 'ask_always';
+        }
+        return 'custom';
+    })();
+
+    const handleApplyPreset = async (preset) => {
+        let updated;
+        if (preset === 'ask_always') {
+            updated = agentPermissions.map(p => ({
+                ...p,
+                tier: 'suggest_confirm'
+            }));
+        } else if (preset === 'small_auto') {
+            updated = agentPermissions.map(p => {
+                if (p.agent_name === 'analytics' || p.agent_name === 'reminder') {
+                    return { ...p, tier: 'full_autonomy' };
+                }
+                return { ...p, tier: 'suggest_confirm' };
+            });
+        } else {
+            return;
+        }
+
+        setAgentPermissions(updated);
+        try {
+            await agentsAPI.updatePermissions(updated);
+            showSuccess(preset === 'ask_always' ? 'Preset active: Confirm before changes.' : 'Preset active: Small tasks execute automatically.');
+        } catch (err) {
+            showError('Failed to update agent autonomy preset.');
+            loadAgentData();
+        }
+    };
+
+    const handleFilterAuditLogs = async (agent = logFilterAgent, status = logFilterStatus) => {
+        try {
+            const params = { limit: 50 };
+            if (agent) params.agent = agent;
+            if (status) params.status = status;
+            const res = await agentsAPI.getAuditLogs(params);
+            if (res.success && res.logs) {
+                setAgentLogs(res.logs);
+            }
+        } catch (err) {
+            console.error('Failed to filter logs:', err);
+        }
+    };
 
     // Live API & IPC Diagnostics Events Listener
     useEffect(() => {
@@ -1104,8 +1301,28 @@ const Settings = () => {
         salary_day: '1',
  
         // Reminder Sound
-        reminder_sound: 'reminder.mp3'
+        reminder_sound: 'reminder.mp3',
+
+        // Default Group & Idle Timeout
+        default_group_id: '',
+        idle_timeout_enabled: 'false',
+        idle_timeout_minutes: '5'
     });
+
+    const [activeGroupsList, setActiveGroupsList] = useState([]);
+    useEffect(() => {
+        const loadActiveGroups = async () => {
+            try {
+                const res = await api.get('/api/groups?include_inactive=false');
+                if (res.data?.success) {
+                    setActiveGroupsList(res.data.groups || []);
+                }
+            } catch (e) {
+                console.error('Failed to load active groups in Settings:', e);
+            }
+        };
+        loadActiveGroups();
+    }, []);
 
     // Sync form with global settings when they load
     useEffect(() => {
@@ -1184,6 +1401,7 @@ const Settings = () => {
         { id: 'workers', label: 'Worker Configuration', icon: IoPeopleOutline },
         { id: 'expenses', label: 'Expense Configuration', icon: IoReceiptOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
+        { id: 'agents', label: 'AI Agents', icon: IoSparklesOutline },
         { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline },
         { id: 'advanced', label: 'Advanced', icon: IoConstructOutline }
     ];
@@ -1413,6 +1631,75 @@ const Settings = () => {
                                             zIndex={50}
                                         />
                                     </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Default Item Group</span>
+                                            <span className="stLabelDesc">Designate a group to open by default on the Bill Screen and Sales/Analytics Screen</span>
+                                        </div>
+                                        <Dropdown
+                                            options={[
+                                                { label: 'None (Disabled)', value: '' },
+                                                ...activeGroupsList.map(g => ({
+                                                    label: g.name,
+                                                    value: g.id.toString()
+                                                }))
+                                            ]}
+                                            value={formSettings.default_group_id || ''}
+                                            onChange={(val) => {
+                                                handleChange('default_group_id', val);
+                                                if (!val) {
+                                                    handleChange('idle_timeout_enabled', 'false');
+                                                }
+                                            }}
+                                            placeholder="Select Default Group"
+                                            className="stDropdown"
+                                            zIndex={40}
+                                        />
+                                    </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Auto-Switch to Default Group on Idle</span>
+                                            <span className="stLabelDesc">Automatically switch the Bill Screen back to the Default Group when inactive with an empty bill</span>
+                                        </div>
+                                        <label className="stToggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={formSettings.idle_timeout_enabled === 'true'}
+                                                onChange={(e) => {
+                                                    if (e.target.checked && (!formSettings.default_group_id || formSettings.default_group_id === '')) {
+                                                        showError('Please select a Default Item Group above before enabling Idle Timeout.');
+                                                        return;
+                                                    }
+                                                    handleChange('idle_timeout_enabled', e.target.checked ? 'true' : 'false');
+                                                }}
+                                            />
+                                            <span className="stSlider"></span>
+                                        </label>
+                                    </div>
+
+                                    {formSettings.idle_timeout_enabled === 'true' && (
+                                        <div className="stFormGroup">
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Idle Timeout Duration (Minutes)</span>
+                                                <span className="stLabelDesc">Minutes of inactivity before returning to Default Group (1 to 60)</span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="60"
+                                                className="stInput"
+                                                style={{ width: '120px' }}
+                                                value={formSettings.idle_timeout_minutes || '5'}
+                                                onChange={(e) => {
+                                                    const num = parseInt(e.target.value, 10);
+                                                    const val = isNaN(num) ? '5' : Math.max(1, Math.min(60, num)).toString();
+                                                    handleChange('idle_timeout_minutes', val);
+                                                }}
+                                            />
+                                        </div>
+                                    )}
 
                                     <div className="stFormGroup">
                                         <div className="stLabel">
@@ -1944,7 +2231,7 @@ const Settings = () => {
                                             >
                                                 <IoInformationCircleOutline size={24} color="#F97316" style={{ flexShrink: 0 }} />
                                                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                                                    <strong>Individual Worker Salary Dates Active:</strong> The global salary date picker is disabled. Each worker will have their own mandatory salary date configured in their worker profile (Worker Add/Edit modal).
+                                                    <strong>Individual Worker Salary Dates Active:</strong> Advance partitions are calculated dynamically using each worker's individual salary date (configured on their worker profile). If a worker does not have an individual salary date set, the system automatically falls back to that worker's Start Date (day of month).
                                                 </div>
                                             </motion.div>
                                         )}
@@ -2581,6 +2868,550 @@ const Settings = () => {
                                                     {item}
                                                 </span>
                                             ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'agents' && (
+                            <div className="stSectionContainer">
+                                <div className="stSectionTitle">
+                                    <IoSparklesOutline size={22} color="var(--primary)" />
+                                    AI Agents & Autonomous Assistants (BYO-Key)
+                                </div>
+
+                                <div className="stSectionContent" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {/* Data Safety & Privacy Guarantee Banner */}
+                                    <div style={{
+                                        padding: '16px 20px',
+                                        borderRadius: '12px',
+                                        background: isDark ? 'rgba(249, 115, 22, 0.08)' : 'rgba(249, 115, 22, 0.06)',
+                                        border: '1px solid rgba(249, 115, 22, 0.25)',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '14px',
+                                    }}>
+                                        <div style={{ fontSize: '24px', flexShrink: 0 }}>🛡️</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+                                            <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
+                                                Zero-Bypass Architecture & Local Key Encryption
+                                            </strong>
+                                            Agents never touch SQLite directly; all actions pass through the exact same validated service layers as the UI.
+                                            API keys are encrypted locally at rest and never transmitted to any third party other than your chosen provider.
+                                            <strong> Workers can never access agent features under any configuration.</strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Master Agent Switch */}
+                                    <div style={{
+                                        padding: '20px',
+                                        borderRadius: '12px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Master Agent Kill Switch
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                Instantly activate or deactivate all autonomous agent features across the entire system.
+                                            </div>
+                                        </div>
+                                        <label className="stToggleSwitch" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={agentConfig.enabled}
+                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                                            />
+                                            <span className="stToggleSlider"></span>
+                                        </label>
+                                    </div>
+
+                                    {/* Card 1 — Connect */}
+                                    <div style={{
+                                        padding: '20px',
+                                        borderRadius: '12px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                    }}>
+                                        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                            Card 1 — Connect
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
+                                            Configure your LLM provider credentials. This one model applies to all agents throughout the entire system.
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                                            <div className="stFormGroup">
+                                                <div className="stLabel">
+                                                    <span className="stLabelTitle">Provider</span>
+                                                    <span className="stLabelDesc">Choose your AI provider</span>
+                                                </div>
+                                                <GlobalSelect
+                                                    options={[
+                                                        { value: 'openai', label: 'OpenAI' },
+                                                        { value: 'anthropic', label: 'Claude (Anthropic)' },
+                                                        { value: 'google', label: 'Gemini (Google)' },
+                                                        { value: 'custom_openai', label: 'Custom (Local or other)' }
+                                                    ]}
+                                                    value={agentConfig.provider}
+                                                    onChange={(val) => {
+                                                        const p = val;
+                                                        let defModel = 'gpt-4o-mini';
+                                                        if (p === 'anthropic') defModel = 'claude-3-5-sonnet-20241022';
+                                                        else if (p === 'google') defModel = 'gemini-1.5-flash';
+                                                        else if (p === 'custom_openai') defModel = 'llama3';
+                                                        setAgentConfig(prev => ({ ...prev, provider: p, model_name: defModel }));
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div className="stFormGroup">
+                                                <div className="stLabel">
+                                                    <span className="stLabelTitle">Model Name</span>
+                                                    <span className="stLabelDesc">User-specified model identifier</span>
+                                                </div>
+                                                <input
+                                                    className="stInput"
+                                                    value={agentConfig.model_name}
+                                                    onChange={(e) => setAgentConfig(prev => ({ ...prev, model_name: e.target.value }))}
+                                                    placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet, gemini-1.5-flash"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {agentConfig.provider === 'custom_openai' && (
+                                            <div className="stFormGroup" style={{ marginBottom: '16px' }}>
+                                                <div className="stLabel">
+                                                    <span className="stLabelTitle">Base URL</span>
+                                                    <span className="stLabelDesc">Local or custom endpoint URL</span>
+                                                </div>
+                                                <input
+                                                    className="stInput"
+                                                    value={agentConfig.base_url}
+                                                    onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
+                                                    placeholder="e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="stFormGroup" style={{ marginBottom: '16px' }}>
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">API Key</span>
+                                                <span className="stLabelDesc">
+                                                    {agentConfig.has_api_key ? 'Encrypted key stored securely at rest' : 'Enter your provider API key'}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="password"
+                                                className="stInput"
+                                                value={agentConfig.api_key}
+                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, api_key: e.target.value }))}
+                                                placeholder="sk-..."
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <Button
+                                                variant="secondary"
+                                                onClick={handleTestLlmConnection}
+                                                loading={testingConnection}
+                                            >
+                                                Test Connection
+                                            </Button>
+                                            <Button
+                                                variant="primary"
+                                                onClick={handleSaveAgentConfig}
+                                                loading={agentSaving}
+                                            >
+                                                Save AI Configuration
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Card 2 — What can it do without asking me? */}
+                                    <div style={{
+                                        padding: '20px',
+                                        borderRadius: '12px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                    }}>
+                                        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                            Card 2 — What can it do without asking me?
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
+                                            Choose how autonomously the AI assistant operates before executing changes.
+                                        </div>
+
+                                        {/* Presets Radio Options */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                                            <label
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'flex-start',
+                                                    gap: '12px',
+                                                    padding: '14px 16px',
+                                                    borderRadius: '10px',
+                                                    background: currentPreset === 'ask_always' ? 'rgba(249, 115, 22, 0.08)' : 'var(--bg-secondary)',
+                                                    border: currentPreset === 'ask_always' ? '1px solid #F97316' : '1px solid var(--border-secondary)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onClick={() => handleApplyPreset('ask_always')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="agent_preset"
+                                                    checked={currentPreset === 'ask_always'}
+                                                    onChange={() => handleApplyPreset('ask_always')}
+                                                    style={{ marginTop: '3px', cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                        Ask me before anything changes (default)
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                        Every agent prepares draft actions as Suggest & Confirm cards. Nothing in the database changes until you click Approve.
+                                                    </div>
+                                                </div>
+                                            </label>
+
+                                            <label
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'flex-start',
+                                                    gap: '12px',
+                                                    padding: '14px 16px',
+                                                    borderRadius: '10px',
+                                                    background: currentPreset === 'small_auto' ? 'rgba(249, 115, 22, 0.08)' : 'var(--bg-secondary)',
+                                                    border: currentPreset === 'small_auto' ? '1px solid #F97316' : '1px solid var(--border-secondary)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onClick={() => handleApplyPreset('small_auto')}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="agent_preset"
+                                                    checked={currentPreset === 'small_auto'}
+                                                    onChange={() => handleApplyPreset('small_auto')}
+                                                    style={{ marginTop: '3px', cursor: 'pointer' }}
+                                                />
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                        Let it handle small stuff automatically
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                        Reminders and Analytics execute automatically. Billing, inventory adjustments, menu updates, and expenses still ask for confirmation.
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        {/* Non-negotiable ceiling banner */}
+                                        <div style={{
+                                            fontSize: '11.5px',
+                                            color: 'var(--text-tertiary)',
+                                            padding: '8px 12px',
+                                            borderRadius: '6px',
+                                            background: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            marginBottom: '14px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            🔒 <span><strong>Non-negotiable ceiling:</strong> Payroll disbursement, old-bill voids, and hard deletes always require explicit owner confirmation regardless of preset.</span>
+                                        </div>
+
+                                        {/* Collapsible Advanced Settings Link */}
+                                        <div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAdvancedTiers(prev => !prev)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#F97316',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    padding: '4px 0',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                <span>{showAdvancedTiers ? '▼' : '▶'}</span>
+                                                <span>{showAdvancedTiers ? 'Hide Advanced Settings' : 'Advanced settings (Per-agent autonomy matrix)'}</span>
+                                            </button>
+
+                                            {showAdvancedTiers && (
+                                                <div style={{ marginTop: '14px', overflowX: 'auto' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '1px solid var(--border-secondary)', textAlign: 'left' }}>
+                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>Domain Agent</th>
+                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>Capabilities</th>
+                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>Action Tier</th>
+                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', textAlign: 'center' }}>Enabled</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {agentPermissions.map((perm) => {
+                                                                const isCeiling = perm.is_ceiling_locked;
+                                                                return (
+                                                                    <tr key={perm.agent_name} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+                                                                        <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                                                                            {perm.agent_name}
+                                                                            {isCeiling && (
+                                                                                <span style={{ marginLeft: '6px', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444' }}>
+                                                                                    Ceiling Locked
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td style={{ padding: '12px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
+                                                                            {perm.agent_name === 'billing' && 'Product lookup, receipt drafts, same-day voids'}
+                                                                            {perm.agent_name === 'inventory' && 'Stock inquiries, adjustments, threshold updates'}
+                                                                            {perm.agent_name === 'product' && 'Menu item CRUD, variations, group toggles'}
+                                                                            {perm.agent_name === 'worker' && 'Attendance, salary advances, payroll review'}
+                                                                            {perm.agent_name === 'expense' && 'Operational expense logging, spend analytics'}
+                                                                            {perm.agent_name === 'analytics' && 'Sales summary, payment breakdown (Read-Only)'}
+                                                                            {perm.agent_name === 'reminder' && 'Task scheduling, snoozing, alerts'}
+                                                                        </td>
+                                                                        <td style={{ padding: '12px', minWidth: '220px' }}>
+                                                                            <GlobalSelect
+                                                                                options={[
+                                                                                    { value: 'read_only', label: 'Read-Only (No Modifications)' },
+                                                                                    { value: 'suggest_confirm', label: 'Suggest & Confirm (Approve/Reject)' },
+                                                                                    ...(!isCeiling ? [{ value: 'full_autonomy', label: 'Full Autonomy (Auto-execute)' }] : [])
+                                                                                ]}
+                                                                                value={perm.tier}
+                                                                                onChange={(val) => handleUpdateAgentPermissionTier(perm.agent_name, val)}
+                                                                                style={{ width: '100%' }}
+                                                                            />
+                                                                        </td>
+                                                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={perm.enabled}
+                                                                                onChange={(e) => handleToggleAgentEnabled(perm.agent_name, e.target.checked)}
+                                                                            />
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Card 3 — Usage today */}
+                                    <div style={{
+                                        padding: '20px',
+                                        borderRadius: '12px',
+                                        background: 'var(--surface-primary)',
+                                        border: '1px solid var(--border-secondary)',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    Card 3 — Usage today
+                                                    <span style={{ fontSize: '10.5px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 600 }}>
+                                                        ⚡ Zero-Cost Fast-Path Active
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                    Clear, real-time breakdown of tokens used and estimated provider API expenses today.
+                                                </div>
+                                            </div>
+                                            <Button variant="secondary" onClick={loadAgentData} style={{ height: '32px', fontSize: '12px' }}>
+                                                Refresh Usage
+                                            </Button>
+                                        </div>
+
+                                        {/* Informative Verbal Summary */}
+                                        <div style={{
+                                            padding: '12px 16px',
+                                            marginBottom: '16px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(59, 130, 246, 0.08)',
+                                            border: '1px solid rgba(59, 130, 246, 0.25)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '13px',
+                                            lineHeight: '1.5'
+                                        }}>
+                                            💡 <strong>Today's Token Consumption:</strong> You have consumed <strong>{usageSummary ? (usageSummary.total_input_tokens + usageSummary.total_output_tokens).toLocaleString() : 0} tokens</strong> ({usageSummary ? usageSummary.total_input_tokens.toLocaleString() : 0} input / {usageSummary ? usageSummary.total_output_tokens.toLocaleString() : 0} output) across <strong>{usageSummary ? usageSummary.requests_count : 0} requests</strong> today, with an estimated cost of <strong>${usageSummary ? (usageSummary.estimated_cost_usd || 0).toFixed(4) : '0.0000'} USD</strong>.
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                                            <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-secondary)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Requests Today</div>
+                                                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                    {usageSummary ? usageSummary.requests_count : 0} requests
+                                                </div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-secondary)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tokens Consumed Today</div>
+                                                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                    {usageSummary ? (usageSummary.total_input_tokens + usageSummary.total_output_tokens).toLocaleString() : 0}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-secondary)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Spend Today (USD)</div>
+                                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginTop: '4px' }}>
+                                                    ${usageSummary ? (usageSummary.estimated_cost_usd || 0).toFixed(4) : '0.0000'}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-secondary)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Optimization Engine</div>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px' }}>
+                                                    Rolling 6-turn + Tool Caching
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Collapsible Audit Log Section */}
+                                        <div style={{ borderTop: '1px solid var(--border-secondary)', paddingTop: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAuditLogs(prev => !prev)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '14px',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <span>{showAuditLogs ? '▼' : '▶'}</span>
+                                                    <span>Audit Action Log & Cost Ledger ({agentLogs.length})</span>
+                                                </button>
+
+                                                {showAuditLogs && (
+                                                    <div style={{ display: 'flex', gap: '8px', minWidth: '300px' }}>
+                                                        <GlobalSelect
+                                                            options={[
+                                                                { value: '', label: 'All Agents' },
+                                                                { value: 'billing', label: 'Billing' },
+                                                                { value: 'inventory', label: 'Inventory' },
+                                                                { value: 'product', label: 'Product' },
+                                                                { value: 'worker', label: 'Worker' },
+                                                                { value: 'expense', label: 'Expense' },
+                                                                { value: 'analytics', label: 'Analytics' },
+                                                                { value: 'reminder', label: 'Reminder' }
+                                                            ]}
+                                                            value={logFilterAgent}
+                                                            onChange={(val) => {
+                                                                setLogFilterAgent(val);
+                                                                handleFilterAuditLogs(val, logFilterStatus);
+                                                            }}
+                                                            style={{ minWidth: '140px' }}
+                                                        />
+                                                        <GlobalSelect
+                                                            options={[
+                                                                { value: '', label: 'All Statuses' },
+                                                                { value: 'proposed', label: 'Proposed' },
+                                                                { value: 'executed', label: 'Executed' },
+                                                                { value: 'rejected', label: 'Rejected' },
+                                                                { value: 'failed', label: 'Failed' }
+                                                            ]}
+                                                            value={logFilterStatus}
+                                                            onChange={(val) => {
+                                                                setLogFilterStatus(val);
+                                                                handleFilterAuditLogs(logFilterAgent, val);
+                                                            }}
+                                                            style={{ minWidth: '140px' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {showAuditLogs && (
+                                                <div style={{ marginTop: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '1px solid var(--border-secondary)', textAlign: 'left' }}>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Timestamp</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Agent</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Action Diff</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Tokens</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Est. Cost</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Status</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>Actor</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {agentLogs.length === 0 ? (
+                                                                <tr>
+                                                                    <td colSpan={7} style={{ textAlign: 'center', padding: '20px', color: 'var(--text-tertiary)' }}>
+                                                                        No agent action logs recorded yet.
+                                                                    </td>
+                                                                </tr>
+                                                            ) : (
+                                                                agentLogs.map(l => {
+                                                                    let badgeBg = 'rgba(107, 114, 128, 0.15)';
+                                                                    let badgeColor = '#9CA3AF';
+                                                                    if (l.status === 'executed') {
+                                                                        badgeBg = 'rgba(16, 185, 129, 0.15)';
+                                                                        badgeColor = '#10B981';
+                                                                    } else if (l.status === 'proposed') {
+                                                                        badgeBg = 'rgba(249, 115, 22, 0.15)';
+                                                                        badgeColor = '#F97316';
+                                                                    } else if (l.status === 'rejected') {
+                                                                        badgeBg = 'rgba(239, 68, 68, 0.15)';
+                                                                        badgeColor = '#EF4444';
+                                                                    }
+
+                                                                    const totalTokens = (l.input_tokens || 0) + (l.output_tokens || 0);
+
+                                                                    return (
+                                                                        <tr key={l.id} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+                                                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                                                                                {l.created_at ? new Date(l.created_at).toLocaleString() : '-'}
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px', fontWeight: 600, textTransform: 'capitalize', color: 'var(--text-primary)' }}>
+                                                                                {l.agent_name}
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
+                                                                                {l.diff_summary || l.tool_name}
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                                                                                {totalTokens > 0 ? `${totalTokens.toLocaleString()} (${l.input_tokens || 0} in / ${l.output_tokens || 0} out)` : '0 (Fast-Path)'}
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px', color: '#10B981', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                                                ${(l.estimated_cost || 0).toFixed(5)}
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px' }}>
+                                                                                <span style={{ padding: '2px 8px', borderRadius: '4px', background: badgeBg, color: badgeColor, fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>
+                                                                                    {l.status}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>
+                                                                                {l.performed_by || 'admin'}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

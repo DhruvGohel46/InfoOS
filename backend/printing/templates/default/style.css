@@ -84,14 +84,34 @@ body {
 .items-table th {
   font-weight: 700;
   font-size: 30px;
-  padding-bottom: 6px;
+  padding: 6px 2px;
   border-bottom: 2px solid #000;
 }
 
 .items-table td {
-  padding: 6px 0;
+  padding: 6px 2px;
   font-size: 30px;
   font-weight: 400;
+}
+
+.col-item {
+  width: 40%;
+  padding-right: 4px;
+}
+
+.col-qty {
+  width: 14%;
+  padding-right: 8px;
+}
+
+.col-price {
+  width: 22%;
+  padding-right: 14px;
+}
+
+.col-amount {
+  width: 24%;
+  padding-left: 4px;
 }
 
 .item-name {

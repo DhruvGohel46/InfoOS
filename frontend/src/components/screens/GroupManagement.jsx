@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnimation } from '../../hooks/useAnimation';
 import { groupsAPI, categoriesAPI, handleAPIError } from '../../utils/api';
+import { settingsAPI } from '../../api/settings';
+import { useSettings } from '../../context/SettingsContext';
 import '../../styles/Management.css';
 import { useAlert } from '../../context/AlertContext';
 import Button from '../ui/Button';
@@ -22,6 +24,7 @@ const GroupManagement = () => {
   const { staggerContainer, staggerItem } = useAnimation();
   const { showConfirm } = useAlert();
   const { refreshAll } = usePOSData();
+  const { settings, updateSettings } = useSettings();
 
   // Groups state
   const [groups, setGroups] = useState([]);
@@ -52,6 +55,14 @@ const GroupManagement = () => {
     group_id: '',
   });
 
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    color: '#64748B', 
+    icon: '',
+    is_active: true,
+  });
+
   // ----- Load groups -----
   useEffect(() => {
     loadGroups();
@@ -75,19 +86,18 @@ const GroupManagement = () => {
   const resetForm = () => {
     setEditingGroup(null);
     setShowAddForm(false);
+    setFormData({
+      name: '',
+      description: '',
+      color: '#64748B',
+      icon: '',
+      is_active: true,
+    });
   };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
-
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    color: '#64748B', 
-    icon: '',
-    is_active: true,
-  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -130,6 +140,10 @@ const GroupManagement = () => {
     if (!pendingDelete) return;
     try {
       setError('');
+      if (settings?.default_group_id && settings.default_group_id.toString() === pendingDelete.id.toString()) {
+        await settingsAPI.updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+        if (updateSettings) updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+      }
       await groupsAPI.deleteGroup(pendingDelete.id, deleteOption, targetGroupId);
       setPendingDelete(null);
       loadGroups();
@@ -147,6 +161,18 @@ const GroupManagement = () => {
   const toggleGroupActive = async (group) => {
     try {
       setError('');
+      if (group.is_active && settings?.default_group_id && settings.default_group_id.toString() === group.id.toString()) {
+        const confirmed = await showConfirm({
+          title: 'Default Group Active',
+          message: `"${group.name}" is currently set as the Default Item Group. Deactivating it will unset the default group. Do you want to proceed?`,
+          confirmText: 'Deactivate & Unset',
+          type: 'warning'
+        });
+        if (!confirmed) return;
+        await settingsAPI.updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+        if (updateSettings) updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+      }
+
       const updatedData = {
         name: group.name,
         description: group.description || '',
@@ -186,6 +212,10 @@ const GroupManagement = () => {
     try {
       setError('');
       setLoading(true);
+      if (!is_active && settings?.default_group_id && selectedGroupIds.map(String).includes(settings.default_group_id.toString())) {
+        await settingsAPI.updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+        if (updateSettings) updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+      }
       await Promise.all(selectedGroupIds.map(async (id) => {
         const group = groups.find(g => g.id === id);
         if (group) {
@@ -221,6 +251,10 @@ const GroupManagement = () => {
     try {
       setError('');
       setLoading(true);
+      if (settings?.default_group_id && selectedGroupIds.map(String).includes(settings.default_group_id.toString())) {
+        await settingsAPI.updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+        if (updateSettings) updateSettings({ default_group_id: '', idle_timeout_enabled: 'false' });
+      }
       await Promise.all(selectedGroupIds.map(id => groupsAPI.deleteGroup(id, 'remove', '')));
       setSelectedGroupIds([]);
       loadGroups();

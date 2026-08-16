@@ -65,6 +65,7 @@ import NotificationSystem from './components/system/NotificationSystem';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminUnlockModal from './components/system/AdminUnlockModal';
 import AdminRoute from './components/system/AdminRoute';
+import AgentChatPanel from './components/agents/AgentChatPanel';
 
 // Worker Pages
 // Worker Pages
@@ -80,7 +81,7 @@ import { ReminderProvider } from './context/ReminderContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import NotificationCenterDrawer from './components/system/NotificationCenterDrawer';
 import Reminders from './components/screens/Reminders';
-import { IoAlarmOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline } from 'react-icons/io5';
+import { IoAlarmOutline, IoShieldCheckmarkOutline, IoPersonOutline, IoCalendarOutline, IoSparkles } from 'react-icons/io5';
 
 // Offline Sync
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
@@ -671,6 +672,34 @@ function AppContent() {
               Calculator
             </button>
 
+            {/* AI Assistant Header Button (Owner / Admin Only) */}
+            {isAdmin && (
+              <button
+                id="header-ai-btn"
+                onClick={() => window.dispatchEvent(new CustomEvent('toggle-agent-chat'))}
+                title="Ask InfoOS AI Assistant"
+                className="liquid-glass-button"
+                style={{
+                  background: 'rgba(249,115,22,0.14)',
+                  border: '1px solid rgba(249,115,22,0.4)',
+                  color: '#F97316',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 'var(--font-medium)',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backdropFilter: 'var(--glass-blur)',
+                  WebkitBackdropFilter: 'var(--glass-blur)',
+                  boxShadow: '0 0 10px rgba(249,115,22,0.2)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <IoSparkles size={15} />
+                <span>Ask AI</span>
+              </button>
+            )}
+
             {/* Calculator Dropdown */}
             {showCalculator && (
               <div
@@ -1074,11 +1103,17 @@ function AppContent() {
       {/* Global Notification System */}
       <NotificationSystem ref={notificationRef} />
 
+      {/* Global Notification Center Drawer */}
+      <NotificationCenterDrawer />
+
       {/* Global Admin Unlock Modal */}
       <AdminUnlockModal />
 
       {/* Global Update Notification */}
       <UpdateNotification />
+
+      {/* Global Admin Agentic AI Assistant */}
+      <AgentChatPanel />
 
       {/* Startup Attendance Prompt */}
       <>

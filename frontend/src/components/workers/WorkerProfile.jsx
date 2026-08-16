@@ -45,37 +45,73 @@ const WorkerProfile = () => {
     const [advanceReason, setAdvanceReason] = useState('');
     const [submittingAdvance, setSubmittingAdvance] = useState(false);
 
-    // Group advances by their month cycles based on settings.salary_day
+    // Determine effective salary day (Worker-wise with Start Date fallback vs Global)
+    const effectiveSalaryDay = useMemo(() => {
+        const mode = (settings?.salary_date_mode || 'GLOBAL').toUpperCase();
+        if (mode === 'WORKER') {
+            if (worker?.salary_day && parseInt(worker.salary_day, 10) >= 1 && parseInt(worker.salary_day, 10) <= 31) {
+                return parseInt(worker.salary_day, 10);
+            }
+            const jDate = worker?.join_date || worker?.joinDate;
+            if (jDate) {
+                const parsedDay = new Date(jDate).getDate();
+                if (!isNaN(parsedDay) && parsedDay >= 1 && parsedDay <= 31) {
+                    return parsedDay;
+                }
+            }
+        }
+        const gDay = settings?.global_salary_day || settings?.salary_day;
+        return gDay ? (parseInt(gDay, 10) || 10) : 10;
+    }, [settings?.salary_date_mode, settings?.global_salary_day, settings?.salary_day, worker?.salary_day, worker?.join_date, worker?.joinDate]);
+
+    // Group advances dynamically by their salary payout cycle
     const groupedAdvances = useMemo(() => {
         const groups = {};
-        const salaryDay = settings?.salary_day ? parseInt(settings.salary_day) : 1;
+        const salaryDay = effectiveSalaryDay;
 
         advances.forEach(adv => {
             const d = new Date(adv.date);
+            const advDay = d.getDate();
+            const advMonth = d.getMonth() + 1; // 1-12
+            const advYear = d.getFullYear();
+
+            // If advDay <= salaryDay, belongs to payout of current month/year
+            // If advDay > salaryDay, belongs to payout of next month
             let cycleMonth, cycleYear;
-            
-            if (d.getDate() >= salaryDay) {
-                cycleMonth = d.getMonth() + 1;
-                cycleYear = d.getFullYear();
+            if (advDay <= salaryDay) {
+                cycleMonth = advMonth;
+                cycleYear = advYear;
             } else {
-                cycleMonth = d.getMonth();
-                cycleYear = d.getFullYear();
-                if (cycleMonth === 0) {
-                    cycleMonth = 12;
-                    cycleYear -= 1;
+                if (advMonth === 12) {
+                    cycleMonth = 1;
+                    cycleYear = advYear + 1;
+                } else {
+                    cycleMonth = advMonth + 1;
+                    cycleYear = advYear;
                 }
             }
 
             const key = `${cycleYear}-${cycleMonth}`;
             if (!groups[key]) {
-                const nextM = cycleMonth + 1 <= 12 ? cycleMonth + 1 : 1;
-                const nextY = cycleMonth + 1 <= 12 ? cycleYear : cycleYear + 1;
-                
-                const start = new Date(cycleYear, cycleMonth - 1, salaryDay);
-                const end = new Date(nextY, nextM - 1, salaryDay - 1);
-                
+                const prevM = cycleMonth > 1 ? cycleMonth - 1 : 12;
+                const prevY = cycleMonth > 1 ? cycleYear : cycleYear - 1;
+
+                const daysInPrevM = new Date(prevY, prevM, 0).getDate();
+                const daysInCycleM = new Date(cycleYear, cycleMonth, 0).getDate();
+
+                const cappedSalaryDay = Math.min(salaryDay, daysInCycleM);
+                const cappedPrevSalaryDay = Math.min(salaryDay, daysInPrevM);
+
+                // Start date = (prev cycle end date) + 1 day
+                const prevEnd = new Date(prevY, prevM - 1, cappedPrevSalaryDay);
+                const start = new Date(prevEnd.getTime() + 24 * 60 * 60 * 1000);
+                const end = new Date(cycleYear, cycleMonth - 1, cappedSalaryDay);
+
                 const rangeStr = `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
                 const name = new Date(cycleYear, cycleMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+                // Check if this cycle is already settled / paid in salaryHistory
+                const paidRecord = salaryHistory.find(p => p.month === cycleMonth && p.year === cycleYear && p.paid);
 
                 groups[key] = {
                     key,
@@ -83,6 +119,7 @@ const WorkerProfile = () => {
                     range: rangeStr,
                     year: cycleYear,
                     month: cycleMonth,
+                    isPaid: Boolean(paidRecord),
                     items: [],
                     total: 0
                 };
@@ -95,7 +132,7 @@ const WorkerProfile = () => {
             if (a.year !== b.year) return b.year - a.year;
             return b.month - a.month;
         });
-    }, [advances, settings?.salary_day]);
+    }, [advances, effectiveSalaryDay, salaryHistory]);
 
     const loadData = React.useCallback(async () => {
         setLoading(true);
@@ -652,6 +689,22 @@ const WorkerProfile = () => {
                                                 <tr style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F3F4F6', borderBottom: `1px solid ${currentTheme.colors.border}` }}>
                                                     <td colSpan="2" style={{ padding: '12px 16px', fontWeight: 700, color: currentTheme.colors.text.primary }}>
                                                         {group.name} <span style={{ fontWeight: 500, fontSize: '0.85rem', color: currentTheme.colors.text.tertiary, marginLeft: '8px' }}>({group.range})</span>
+                                                        {group.isPaid && (
+                                                            <span style={{
+                                                                marginLeft: '10px',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                background: 'rgba(16, 185, 129, 0.1)',
+                                                                color: '#16A34A',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px'
+                                                            }}>
+                                                                <IoCheckmarkCircle size={12} /> Settled
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#EF4444' }}>
                                                         Total: {formatCurrency(group.total)}

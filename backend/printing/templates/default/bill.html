@@ -71,16 +71,16 @@
     <table class="items-table">
       <thead>
         <tr>
-          <th class="align-left" style="width: 46%;">Item</th>
-          <th class="align-right" style="width: 14%;">Qty.</th>
-          <th class="align-right" style="width: 20%;">Price</th>
-          <th class="align-right" style="width: 20%;">Amount</th>
+          <th class="align-left col-item">Item</th>
+          <th class="align-right col-qty">Qty.</th>
+          <th class="align-right col-price">Price</th>
+          <th class="align-right col-amount">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
-          <td class="align-left valign-top">
+          <td class="align-left valign-top col-item">
             <div class="item-name">{{ item.name }}</div>
             {% if item.variation_name %}
             <div class="item-sub">({{ item.variation_name }})</div>
@@ -89,9 +89,9 @@
             <div class="item-sub">[{{ item.specification }}]</div>
             {% endif %}
           </td>
-          <td class="align-right valign-top">{{ item.quantity }}</td>
-          <td class="align-right valign-top">{{ "%.2f" | format(item.price) }}</td>
-          <td class="align-right valign-top">{{ "%.2f" | format(item.quantity * item.price) }}</td>
+          <td class="align-right valign-top col-qty">{{ item.quantity }}</td>
+          <td class="align-right valign-top col-price">{{ "%.2f" | format(item.price) }}</td>
+          <td class="align-right valign-top col-amount">{{ "%.2f" | format(item.quantity * item.price) }}</td>
         </tr>
         {% endfor %}
       </tbody>

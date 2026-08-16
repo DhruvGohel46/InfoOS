@@ -41,6 +41,23 @@ class WorkerService:
         else:
             salary_day = None
 
+        join_date_val = data.get("join_date")
+        parsed_join_date = date.today()
+        if join_date_val:
+            try:
+                if isinstance(join_date_val, str):
+                    parsed_join_date = datetime.strptime(
+                        join_date_val.split("T")[0], "%Y-%m-%d"
+                    ).date()
+                elif isinstance(join_date_val, (datetime, date)):
+                    parsed_join_date = (
+                        join_date_val.date()
+                        if isinstance(join_date_val, datetime)
+                        else join_date_val
+                    )
+            except (ValueError, TypeError):
+                parsed_join_date = date.today()
+
         new_worker = Worker(
             worker_id=new_id,
             name=data.get("name"),
@@ -50,12 +67,9 @@ class WorkerService:
             worker_type_id=worker_type_id,
             salary=(float(data.get("salary")) if data.get("salary") not in (None, "") else 0.0),
             salary_day=salary_day,
-            join_date=(
-                datetime.strptime(data.get("join_date"), "%Y-%m-%d").date()
-                if data.get("join_date")
-                else date.today()
-            ),
+            join_date=parsed_join_date,
             status=data.get("status", "active"),
+            description=data.get("description"),
             photo=data.get("photo"),
         )
         db.session.add(new_worker)
@@ -70,6 +84,8 @@ class WorkerService:
 
         if "name" in data:
             worker.name = data["name"]
+        if "description" in data:
+            worker.description = data["description"]
         if "phone" in data:
             worker.phone = data["phone"]
         if "email" in data:
@@ -94,6 +110,18 @@ class WorkerService:
                     pass
             else:
                 worker.salary_day = None
+        if "join_date" in data:
+            j_val = data.get("join_date")
+            if j_val:
+                try:
+                    if isinstance(j_val, str):
+                        worker.join_date = datetime.strptime(j_val.split("T")[0], "%Y-%m-%d").date()
+                    elif isinstance(j_val, (datetime, date)):
+                        worker.join_date = j_val.date() if isinstance(j_val, datetime) else j_val
+                except (ValueError, TypeError):
+                    pass
+            else:
+                worker.join_date = None
         if "status" in data:
             worker.status = data["status"]
         if "photo" in data:
@@ -152,55 +180,76 @@ class WorkerService:
         return Advance.query.filter_by(worker_id=worker_id).order_by(Advance.date.desc()).all()
 
     @staticmethod
-    def _get_finance_cycle_dates(worker=None):
-        """Helper to get current cycle start/end dates based on settings and optional worker."""
-        from models import Settings
+    def get_effective_salary_day(worker=None):
+        """
+        Determine effective salary day (1-31) for a worker:
+        - If salary_date_mode is 'WORKER':
+            1. Use worker.salary_day if set (1-31)
+            2. Else fallback to worker's Start Date (join_date.day)
+            3. Else fallback to global salary_day setting (default 10)
+        - If salary_date_mode is 'GLOBAL':
+            1. Use global_salary_day or salary_day setting (default 10)
+        """
+        from models import Settings, Worker
 
         mode_setting = Settings.query.filter_by(key="salary_date_mode").first()
-        mode = mode_setting.value if (mode_setting and mode_setting.value) else "GLOBAL"
+        mode = mode_setting.value.upper() if (mode_setting and mode_setting.value) else "GLOBAL"
 
-        salary_day = None
         if mode == "WORKER" and worker:
             w_obj = Worker.query.get(worker) if isinstance(worker, str) else worker
-            if w_obj and w_obj.salary_day:
-                salary_day = w_obj.salary_day
+            if w_obj:
+                if w_obj.salary_day and 1 <= w_obj.salary_day <= 31:
+                    return w_obj.salary_day
+                if w_obj.join_date:
+                    return w_obj.join_date.day
 
-        if not salary_day:
-            global_day_setting = Settings.query.filter_by(key="global_salary_day").first()
-            if not global_day_setting or not global_day_setting.value:
-                global_day_setting = Settings.query.filter_by(key="salary_day").first()
-            try:
-                salary_day = (
-                    int(global_day_setting.value)
-                    if (global_day_setting and global_day_setting.value)
-                    else 10
-                )
-            except (ValueError, TypeError):
-                salary_day = 10
+        global_day_setting = Settings.query.filter_by(key="global_salary_day").first()
+        if not global_day_setting or not global_day_setting.value:
+            global_day_setting = Settings.query.filter_by(key="salary_day").first()
+        try:
+            val = (
+                int(global_day_setting.value)
+                if (global_day_setting and global_day_setting.value)
+                else 10
+            )
+            return max(1, min(31, val))
+        except (ValueError, TypeError):
+            return 10
 
-        today = date.today()
+    @staticmethod
+    def _get_finance_cycle_dates(worker=None, ref_date=None):
+        """
+        Helper to get current cycle start/end dates based on settings and worker.
+        Cycle for day D ending in month M, year Y:
+        - Ends on date(Y, M, min(D, max_days_M))
+        - Starts on prev_end_date + 1 day
+        """
         import calendar
+        from datetime import timedelta
+
+        salary_day = WorkerService.get_effective_salary_day(worker)
+        today = ref_date or date.today()
 
         max_days = calendar.monthrange(today.year, today.month)[1]
         effective_day = min(salary_day, max_days)
 
-        if today.day >= effective_day:
-            start_date = date(today.year, today.month, effective_day)
-            next_month = today.month + 1 if today.month < 12 else 1
-            next_year = today.year if today.month < 12 else today.year + 1
-            next_max_days = calendar.monthrange(next_year, next_month)[1]
-            end_date = date(next_year, next_month, min(salary_day, next_max_days))
+        if today.day <= effective_day:
+            cycle_month = today.month
+            cycle_year = today.year
         else:
-            prev_month = today.month - 1 if today.month > 1 else 12
-            prev_year = today.year if today.month > 1 else today.year - 1
-            prev_max_days = calendar.monthrange(prev_year, prev_month)[1]
-            start_date = date(prev_year, prev_month, min(salary_day, prev_max_days))
-            end_date = date(today.year, today.month, effective_day)
+            cycle_month = today.month + 1 if today.month < 12 else 1
+            cycle_year = today.year if today.month < 12 else today.year + 1
 
-        from datetime import timedelta
+        cycle_max_days = calendar.monthrange(cycle_year, cycle_month)[1]
+        end_date = date(cycle_year, cycle_month, min(salary_day, cycle_max_days))
 
-        inclusive_end_date = end_date - timedelta(days=1)
-        return start_date, inclusive_end_date
+        prev_month = cycle_month - 1 if cycle_month > 1 else 12
+        prev_year = cycle_year if cycle_month > 1 else cycle_year - 1
+        prev_max_days = calendar.monthrange(prev_year, prev_month)[1]
+        prev_end_date = date(prev_year, prev_month, min(salary_day, prev_max_days))
+
+        start_date = prev_end_date + timedelta(days=1)
+        return start_date, end_date
 
     # SALARY MANAGEMENT
     @staticmethod
@@ -209,31 +258,27 @@ class WorkerService:
         if not worker:
             return None
 
+        import calendar
+        from datetime import timedelta
+
+        salary_day = WorkerService.get_effective_salary_day(worker)
+
         # If month/year not provided, use current cycle
         if not month or not year:
-            start_date, end_date = WorkerService._get_finance_cycle_dates()
-            # Use the start month as the 'period' month
-            month = start_date.month
-            year = start_date.year
+            start_date, end_date = WorkerService._get_finance_cycle_dates(worker=worker)
+            month = end_date.month
+            year = end_date.year
         else:
-            # If explicit month/year provided (e.g. from history generator), calculate cycle for that month
-            from models import Settings
+            month = int(month)
+            year = int(year)
+            end_max_days = calendar.monthrange(year, month)[1]
+            end_date = date(year, month, min(salary_day, end_max_days))
 
-            salary_day_setting = Settings.query.filter_by(key="salary_day").first()
-            salary_day = (
-                int(salary_day_setting.value)
-                if (salary_day_setting and salary_day_setting.value)
-                else 1
-            )
-
-            # For explicit month, cycle starts at salary_day of month and ends at salary_day-1 of next month
-            next_m = month + 1 if month < 12 else 1
-            next_y = year if month < 12 else year + 1
-            start_date = date(year, month, salary_day)
-            end_date = date(next_y, next_m, salary_day)
-            from datetime import timedelta
-
-            end_date = end_date - timedelta(days=1)
+            prev_m = month - 1 if month > 1 else 12
+            prev_y = year if month > 1 else year - 1
+            prev_max_days = calendar.monthrange(prev_y, prev_m)[1]
+            prev_end_date = date(prev_y, prev_m, min(salary_day, prev_max_days))
+            start_date = prev_end_date + timedelta(days=1)
 
         # Calculate total advances for the SPECIFIC cycle period
         total_advances = (
@@ -255,9 +300,11 @@ class WorkerService:
         ).first()
 
         if existing:
-            existing.base_salary = worker.salary
-            existing.advance_deduction = total_advances
-            existing.final_salary = final_salary
+            # If not yet paid, re-evaluate and update with latest calculation
+            if not existing.paid:
+                existing.base_salary = worker.salary
+                existing.advance_deduction = total_advances
+                existing.final_salary = final_salary
             payment = existing
         else:
             payment = SalaryPayment(

@@ -70,6 +70,7 @@ class Product(db.Model):
     favorite = db.Column(db.Boolean, default=False)
     display_order = db.Column(db.Integer, default=0)
     variations = db.Column(db.Text, default="[]")  # JSON array of {id, name, price}
+    description = db.Column(db.Text, nullable=True)  # Product culinary/item description
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
@@ -246,6 +247,7 @@ class Worker(db.Model):
     phone = db.Column(db.String(15))
     email = db.Column(db.String(255))
     role = db.Column(db.String(100))  # e.g., 'Chef', 'Waiter', 'Manager'
+    description = db.Column(db.Text, nullable=True)  # Job responsibilities or notes
     worker_type_id = db.Column(db.Integer, db.ForeignKey("worker_types.id"), nullable=True)
     salary = db.Column(db.Float, default=0.0)
     salary_day = db.Column(db.Integer, nullable=True)  # Day of month (1-31)
@@ -507,4 +509,120 @@ class AuditEvent(db.Model):
             "user_agent": self.user_agent,
             "request_id": self.request_id,
             "meta": meta,
+        }
+
+
+# ==========================================
+# AGENTIC AI SYSTEM MODELS
+# ==========================================
+
+
+class AgentConfig(db.Model):
+    __tablename__ = "agent_config"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    provider = db.Column(
+        db.String(50), default="openai"
+    )  # 'openai', 'anthropic', 'google', 'custom_openai'
+    encrypted_api_key = db.Column(db.Text, nullable=True)
+    base_url = db.Column(db.String(255), nullable=True)
+    model_name = db.Column(db.String(100), default="gpt-4o-mini")
+    enabled = db.Column(db.Boolean, default=True)  # Master kill switch
+    max_tokens_per_response = db.Column(db.Integer, default=800)
+    max_tool_rounds = db.Column(db.Integer, default=3)
+    daily_request_limit = db.Column(db.Integer, default=100)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    def to_dict(self, mask_key=True):
+        masked = None
+        if self.encrypted_api_key:
+            masked = "••••••••••••••••"
+        return {
+            "id": self.id,
+            "provider": self.provider,
+            "has_api_key": bool(self.encrypted_api_key),
+            "masked_api_key": masked,
+            "base_url": self.base_url,
+            "model_name": self.model_name,
+            "enabled": bool(self.enabled),
+            "max_tokens_per_response": self.max_tokens_per_response or 800,
+            "max_tool_rounds": self.max_tool_rounds or 3,
+            "daily_request_limit": self.daily_request_limit or 100,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class AgentPermission(db.Model):
+    __tablename__ = "agent_permissions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    agent_name = db.Column(db.String(50), unique=True, nullable=False)
+    tier = db.Column(
+        db.String(30), default="suggest_confirm"
+    )  # 'read_only', 'suggest_confirm', 'full_autonomy'
+    enabled = db.Column(db.Boolean, default=True)
+    model_override = db.Column(db.String(100), nullable=True)  # Optional cheaper model override
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "agent_name": self.agent_name,
+            "tier": self.tier,
+            "enabled": bool(self.enabled),
+            "model_override": self.model_override,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class AgentActionLog(db.Model):
+    __tablename__ = "agent_action_logs"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    agent_name = db.Column(db.String(50), nullable=False)
+    action_type = db.Column(db.String(100), nullable=False)
+    tool_name = db.Column(db.String(100), nullable=False)
+    args_json = db.Column(db.Text, default="{}")
+    diff_summary = db.Column(db.Text, nullable=True)  # Human-readable diff description
+    status = db.Column(
+        db.String(30), default="proposed"
+    )  # 'proposed', 'approved', 'rejected', 'executed', 'failed'
+    result_summary = db.Column(db.Text, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    performed_by = db.Column(db.String(100), default="admin")
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+    estimated_cost = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=func.now(), index=True)
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        db.Index("idx_agent_logs_status", "status"),
+        db.Index("idx_agent_logs_agent", "agent_name"),
+    )
+
+    def to_dict(self):
+        try:
+            parsed_args = json.loads(self.args_json) if self.args_json else {}
+        except Exception:
+            parsed_args = {}
+
+        return {
+            "id": self.id,
+            "agent_name": self.agent_name,
+            "action_type": self.action_type,
+            "tool_name": self.tool_name,
+            "args": parsed_args,
+            "diff_summary": self.diff_summary,
+            "status": self.status,
+            "result_summary": self.result_summary,
+            "error_message": self.error_message,
+            "performed_by": self.performed_by,
+            "input_tokens": self.input_tokens or 0,
+            "output_tokens": self.output_tokens or 0,
+            "estimated_cost": round(self.estimated_cost or 0.0, 6),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

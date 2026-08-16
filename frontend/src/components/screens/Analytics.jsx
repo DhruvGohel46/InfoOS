@@ -21,6 +21,7 @@ import {
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 import api, { summaryAPI, reportsAPI, billingAPI, getLocalDateString, groupsAPI, categoriesAPI, productsAPI } from '../../utils/api';
 import { formatCurrency, handleAPIError, downloadFile } from '../../utils/api';
 import { usePOSData } from '../../context/POSDataContext';
@@ -30,7 +31,7 @@ import Card from '../ui/Card';
 import Skeleton from '../ui/Skeleton';
 import GlobalDatePicker from '../ui/GlobalDatePicker';
 import PageContainer from '../layout/PageContainer';
-import GlobalSelect from '../ui/GlobalSelect';
+import GroupSelector from '../common/GroupSelector';
 import {
     IoBarChartOutline,
     IoReceiptOutline,
@@ -119,6 +120,7 @@ const Analytics = () => {
     const navigate = useNavigate();
     const { isDark } = useTheme();
     const { isAdmin } = useAuth();
+    const { settings } = useSettings();
     const {
         cachedAnalytics
     } = usePOSData();
@@ -146,10 +148,22 @@ const Analytics = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // ─── Groups for filtering ───
+    // ─── Groups for filtering (Defaults to Settings Default Group on open) ───
     const [groups, setGroups] = useState([]);
-    const [selectedGroupId, setSelectedGroupId] = useState('all');
+    const [selectedGroupId, setSelectedGroupId] = useState(() => {
+        const def = settings?.default_group_id;
+        return def ? def.toString() : 'all';
+    });
     const [categories, setCategories] = useState([]);
+    const initialDefaultGroupApplied = React.useRef(false);
+
+    // Apply Default Group on initial screen open if settings loaded asynchronously
+    useEffect(() => {
+        if (!initialDefaultGroupApplied.current && settings?.default_group_id) {
+            setSelectedGroupId(settings.default_group_id.toString());
+            initialDefaultGroupApplied.current = true;
+        }
+    }, [settings?.default_group_id]);
 
     // ─── Range toggle ───
     const [viewRange, setViewRange] = useState('day');       // 'day' | 'week' | 'month' | 'year'
@@ -895,10 +909,10 @@ const Analytics = () => {
                                             />
                                         </div>
                                         <div style={{ minWidth: '160px' }}>
-                                            <GlobalSelect
-                                                options={[{ label: 'All Groups', value: 'all' }, ...groups.map(g => ({ label: g.name, value: g.id }))]}
+                                            <GroupSelector
+                                                groups={groups}
                                                 value={selectedGroupId}
-                                                onChange={setSelectedGroupId}
+                                                onChange={(val) => setSelectedGroupId(val)}
                                                 placeholder="Filter by Group"
                                                 className="report-select-override"
                                                 direction="bottom"

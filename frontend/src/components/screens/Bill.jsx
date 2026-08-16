@@ -14,7 +14,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import SearchBar from '../ui/SearchBar';
 import VariationPickerModal from '../billing/VariationPickerModal';
-import GlobalSelect from '../ui/GlobalSelect';
+import GroupSelector from '../common/GroupSelector';
 import {
   IoSaveOutline,
   IoPrintOutline,
@@ -356,69 +356,71 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-  // ── Keyboard shortcut to change Item Group (Ctrl key, skipping 'All') ──
-
+  // ── Auto-Open Default Group on Idle Timeout ──
   useEffect(() => {
+    if (settings?.idle_timeout_enabled !== 'true' || !settings?.default_group_id) {
+      return;
+    }
 
-    const handleKeyDown = (e) => {
+    const defaultGroupId = settings.default_group_id.toString();
+    const timeoutMinutes = parseInt(settings.idle_timeout_minutes, 10) || 5;
+    const timeoutMs = Math.max(1, timeoutMinutes) * 60 * 1000;
 
-      // Ignore keypress if user is currently typing in an input, textarea, or contenteditable element
+    let timerId = null;
 
-      const activeElem = document.activeElement;
+    const resetTimer = () => {
+      if (timerId) clearTimeout(timerId);
 
-      const isTyping = activeElem && (
+      timerId = setTimeout(() => {
+        // Trigger condition: cart/orderItems is empty AND no active modal open AND not already default group
+        const isCartEmpty = orderItems.length === 0;
+        const hasOpenModal = Boolean(
+          variationModalProduct || showClearConfirm || isPrinting || editingBill
+        );
+        const isAlreadyDefault = (selectedGroupId || '').toString() === defaultGroupId;
 
-        activeElem.tagName === 'INPUT' ||
-
-        activeElem.tagName === 'TEXTAREA' ||
-
-        activeElem.isContentEditable
-
-      );
-
-      if (isTyping) return;
-
-
-
-      if (e.key === 'Control') {
-
-        if (!groups || groups.length === 0) return;
-
-
-
-        setSelectedGroupId((prevGroupId) => {
-
-          const currentIndex = groups.findIndex(g => g.id.toString() === prevGroupId.toString());
-
-          if (currentIndex === -1) {
-
-            // If on 'all' or invalid, switch to the first real group (NEVER 'all')
-
-            return groups[0].id.toString();
-
-          } else {
-
-            // Cycle to the next group, wrapping around to groups[0] (NEVER 'all')
-
-            const nextIndex = (currentIndex + 1) % groups.length;
-
-            return groups[nextIndex].id.toString();
-
+        if (isCartEmpty && !hasOpenModal) {
+          if (!isAlreadyDefault) {
+            // Verify default group is active
+            const isGroupValid =
+              groups.length === 0 ||
+              groups.some((g) => g.id.toString() === defaultGroupId && g.is_active !== false);
+            if (isGroupValid) {
+              setSelectedGroupId(defaultGroupId);
+            }
           }
-
-        });
-
-      }
-
+        } else {
+          // If cart has items or modal is open, do not auto-switch; reset timer
+          resetTimer();
+        }
+      }, timeoutMs);
     };
 
+    // User activity listeners
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    const handleActivity = () => {
+      resetTimer();
+    };
 
+    activityEvents.forEach((evt) => window.addEventListener(evt, handleActivity, { passive: true }));
+    resetTimer();
 
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => window.removeEventListener('keydown', handleKeyDown);
-
-  }, [groups]);
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      activityEvents.forEach((evt) => window.removeEventListener(evt, handleActivity));
+    };
+  }, [
+    settings?.idle_timeout_enabled,
+    settings?.default_group_id,
+    settings?.idle_timeout_minutes,
+    orderItems.length,
+    selectedGroupId,
+    groups,
+    variationModalProduct,
+    showClearConfirm,
+    isPrinting,
+    editingBill,
+  ]);
 
 
 
@@ -1625,28 +1627,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
           flexDirection: 'column',
           gap: '8px',
         }}>
-          <GlobalSelect
-            options={[
-              { label: 'All Groups', value: 'all' },
-              ...groups.map(group => ({
-                label: group.name,
-                value: group.id.toString()
-              }))
-            ]}
+          <GroupSelector
+            groups={groups}
             value={selectedGroupId}
             onChange={(val) => setSelectedGroupId(val)}
             placeholder="Select Group"
             direction="top"
-            locked={settings?.lock_group_select === 'true'}
-            lockedTooltip="Group selector locked. Press Ctrl key to change group."
-            arrowIcon={
-              settings?.lock_group_select === 'true' ? (
-                <span style={{ fontSize: '11px', opacity: 0.45, color: 'var(--text-tertiary)', userSelect: 'none' }}></span>
-              ) : (
-                <span style={{ fontSize: '10px', opacity: 0.25, color: 'var(--text-tertiary)', userSelect: 'none' }}>•</span>
-              )
-            }
-            rotateArrow={false}
           />
         </div>
 

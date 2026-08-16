@@ -52,9 +52,10 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
     name: '',
     phone: '',
     role: '',
+    description: '',
     worker_type_id: '',
     salary: '',
-    salary_day: 10,
+    salary_day: '',
     join_date: getLocalDateString(),
     status: 'active',
     photo: null
@@ -67,10 +68,11 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           name: initialData.name || '',
           phone: initialData.phone || '',
           role: initialData.role || '',
+          description: initialData.description || '',
           worker_type_id: initialData.worker_type_id || '',
-          salary: initialData.salary || '',
-          salary_day: initialData.salary_day || 10,
-          join_date: initialData.join_date || initialData.joinDate || getLocalDateString(),
+          salary: initialData.salary !== undefined && initialData.salary !== null ? initialData.salary : '',
+          salary_day: initialData.salary_day !== undefined && initialData.salary_day !== null ? initialData.salary_day : '',
+          join_date: initialData.join_date ? initialData.join_date.split('T')[0] : (initialData.joinDate ? initialData.joinDate.split('T')[0] : getLocalDateString()),
           status: initialData.status || 'active',
           photo: initialData.photo || null
         });
@@ -80,9 +82,10 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           name: '',
           phone: '',
           role: '',
+          description: '',
           worker_type_id: '',
           salary: '',
-          salary_day: 10,
+          salary_day: '',
           join_date: getLocalDateString(),
           status: 'active',
           photo: null
@@ -127,11 +130,6 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const handleSave = async (e) => {
     if (e) e.preventDefault();
 
-    if (isWorkerMode && (!form.salary_day || form.salary_day < 1 || form.salary_day > 31)) {
-      showError('Salary Date is required when in Individual Salary Date mode.');
-      return;
-    }
-
     const selectedType = workerTypes.find(t => t.id === form.worker_type_id);
     const targetRole = selectedType ? selectedType.name : form.role;
 
@@ -155,8 +153,14 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
           payload.salary = parseFloat(payload.salary);
         }
 
-        if (isWorkerMode && payload.salary_day) {
-          payload.salary_day = parseInt(payload.salary_day);
+        if (payload.salary_day !== '' && payload.salary_day !== null && payload.salary_day !== undefined) {
+          payload.salary_day = parseInt(payload.salary_day, 10);
+        } else {
+          payload.salary_day = null;
+        }
+
+        if (payload.join_date) {
+          payload.join_date = payload.join_date.split('T')[0];
         }
 
         // Handle null/empty photo to prevent Marshmallow validation issues
@@ -349,24 +353,41 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
                   {isWorkerMode && (
                     <div>
                       <GlobalSelect
-                        label="Salary Date *"
+                        label="Salary Date"
                         icon={<IoCalendarOutline />}
-                        options={Array.from({ length: 31 }, (_, i) => ({
-                          label: `Day ${i + 1}`,
-                          value: i + 1
-                        }))}
-                        value={form.salary_day || 10}
-                        onChange={val => setForm({ ...form, salary_day: parseInt(val) })}
-                        placeholder="Select Day"
+                        options={[
+                          {
+                            label: `Auto (Start Date: Day ${form.join_date ? new Date(form.join_date).getDate() : 1})`,
+                            value: ''
+                          },
+                          ...Array.from({ length: 31 }, (_, i) => ({
+                            label: `Day ${i + 1}`,
+                            value: i + 1
+                          }))
+                        ]}
+                        value={form.salary_day || ''}
+                        onChange={val => setForm({ ...form, salary_day: val ? parseInt(val, 10) : '' })}
+                        placeholder="Select Day (or Auto)"
                         direction="top"
                       />
                     </div>
                   )}
                   <GlobalDatePicker
-                    label="Joining Date"
+                    label="Joining Date (Start Date)"
                     value={form.join_date}
                     onChange={(val) => setForm({ ...form, join_date: val })}
                     placeholder="Select Date"
+                    direction="top"
+                    align="right"
+                  />
+                </div>
+
+                <div>
+                  <Input
+                    label="Description / Notes (Optional)"
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    placeholder="e.g. Head chef, morning shift responsibilities"
                   />
                 </div>
 

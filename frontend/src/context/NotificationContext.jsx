@@ -18,13 +18,28 @@ export const NotificationProvider = ({ children }) => {
   const fetchNotifications = useCallback(async (params = {}) => {
     try {
       setLoading(true);
-      const res = await notificationAPI.getNotifications({
-        type: filterType !== 'all' ? filterType : undefined,
-        status: filterStatus !== 'all' ? filterStatus : undefined,
-        search: searchTerm || undefined,
+      const queryParams = {
         limit: 100,
         ...params
-      });
+      };
+
+      if (filterType === 'unread') {
+        queryParams.status = 'unread';
+      } else if (filterType === 'completed') {
+        queryParams.status = 'completed';
+      } else if (filterType !== 'all') {
+        queryParams.type = filterType;
+      }
+
+      if (filterStatus !== 'all') {
+        queryParams.status = filterStatus;
+      }
+
+      if (searchTerm) {
+        queryParams.search = searchTerm;
+      }
+
+      const res = await notificationAPI.getNotifications(queryParams);
 
       if (res.success) {
         setNotifications(res.notifications || []);

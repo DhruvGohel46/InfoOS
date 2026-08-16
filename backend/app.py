@@ -115,6 +115,7 @@ def create_app(config_name="default"):
     from auth import auth_bp
     from routes.logs import logs_bp
     from routes.import_menu import import_menu_bp
+    from routes.agents import agents_bp
     from limiter import limiter
 
     # Load configuration
@@ -178,6 +179,7 @@ def create_app(config_name="default"):
     app.register_blueprint(auth_bp)
     app.register_blueprint(logs_bp)
     app.register_blueprint(import_menu_bp)
+    app.register_blueprint(agents_bp)
 
     # Serve product images
     @app.route("/api/images/<path:filename>")
@@ -437,6 +439,9 @@ def run_programmatic_sqlite_migrations(app, db):
                     conn.execute(
                         text("ALTER TABLE products ADD COLUMN display_order INTEGER DEFAULT 0")
                     )
+                if "description" not in product_cols:
+                    _log.info("Migrating SQLite: Adding description column to products table")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN description TEXT"))
 
                 # 6. Create worker_types and expense_types tables if they don't exist
                 res = conn.execute(
@@ -512,6 +517,125 @@ def run_programmatic_sqlite_migrations(app, db):
                 if "salary_day" not in worker_cols:
                     _log.info("Migrating SQLite: Adding salary_day column to workers table")
                     conn.execute(text("ALTER TABLE workers ADD COLUMN salary_day INTEGER"))
+                if "description" not in worker_cols:
+                    _log.info("Migrating SQLite: Adding description column to workers table")
+                    conn.execute(text("ALTER TABLE workers ADD COLUMN description TEXT"))
+
+                # 8. Create agent_config, agent_permissions, and agent_action_logs tables
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS agent_config (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        provider VARCHAR(50) DEFAULT 'openai',
+                        encrypted_api_key TEXT,
+                        base_url VARCHAR(255),
+                        model_name VARCHAR(100) DEFAULT 'gpt-4o-mini',
+                        enabled BOOLEAN DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS agent_permissions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        agent_name VARCHAR(50) UNIQUE NOT NULL,
+                        tier VARCHAR(30) DEFAULT 'suggest_confirm',
+                        enabled BOOLEAN DEFAULT 1,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS agent_action_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        agent_name VARCHAR(50) NOT NULL,
+                        action_type VARCHAR(100) NOT NULL,
+                        tool_name VARCHAR(100) NOT NULL,
+                        args_json TEXT DEFAULT '{}',
+                        diff_summary TEXT,
+                        status VARCHAR(30) DEFAULT 'proposed',
+                        result_summary TEXT,
+                        error_message TEXT,
+                        performed_by VARCHAR(100) DEFAULT 'admin',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_agent_logs_status ON agent_action_logs(status)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_action_logs(agent_name)"
+                    )
+                )
+
+                # Seed default permissions if empty
+                res = conn.execute(text("SELECT COUNT(*) FROM agent_permissions")).fetchone()
+                if res and res[0] == 0:
+                    _log.info("Seeding default agent permissions")
+                    conn.execute(text("""
+                        INSERT INTO agent_permissions (agent_name, tier, enabled, updated_at) VALUES
+                        ('billing', 'suggest_confirm', 1, datetime('now')),
+                        ('inventory', 'suggest_confirm', 1, datetime('now')),
+                        ('product', 'suggest_confirm', 1, datetime('now')),
+                        ('worker', 'suggest_confirm', 1, datetime('now')),
+                        ('expense', 'suggest_confirm', 1, datetime('now')),
+                        ('analytics', 'full_autonomy', 1, datetime('now')),
+                        ('reminder', 'full_autonomy', 1, datetime('now'))
+                    """))
+
+                # 9. Dynamic column migrations for agent token & cost optimization
+                res = conn.execute(text("PRAGMA table_info(agent_config)"))
+                config_cols = [row[1] for row in res.fetchall()]
+                if "max_tokens_per_response" not in config_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_config ADD COLUMN max_tokens_per_response INTEGER DEFAULT 800"
+                        )
+                    )
+                if "max_tool_rounds" not in config_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_config ADD COLUMN max_tool_rounds INTEGER DEFAULT 3"
+                        )
+                    )
+                if "daily_request_limit" not in config_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_config ADD COLUMN daily_request_limit INTEGER DEFAULT 100"
+                        )
+                    )
+
+                res = conn.execute(text("PRAGMA table_info(agent_permissions)"))
+                perm_cols = [row[1] for row in res.fetchall()]
+                if "model_override" not in perm_cols:
+                    conn.execute(
+                        text("ALTER TABLE agent_permissions ADD COLUMN model_override VARCHAR(100)")
+                    )
+
+                res = conn.execute(text("PRAGMA table_info(agent_action_logs)"))
+                log_cols = [row[1] for row in res.fetchall()]
+                if "input_tokens" not in log_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_action_logs ADD COLUMN input_tokens INTEGER DEFAULT 0"
+                        )
+                    )
+                if "output_tokens" not in log_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_action_logs ADD COLUMN output_tokens INTEGER DEFAULT 0"
+                        )
+                    )
+                if "estimated_cost" not in log_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE agent_action_logs ADD COLUMN estimated_cost REAL DEFAULT 0.0"
+                        )
+                    )
 
             _log.info("Programmatic SQLite migrations completed successfully")
     except Exception as e:

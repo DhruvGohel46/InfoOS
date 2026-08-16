@@ -39,11 +39,13 @@ const GlobalDatePicker = ({
     placeholder = 'Select date',
     disabled = false,
     className = '',
-    forceDown = false
+    forceDown = false,
+    direction = 'auto', // 'auto' | 'top' | 'bottom'
+    align = 'auto' // 'auto' | 'left' | 'right'
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0, transformOrigin: 'top center' });
 
     // Internal state for navigation (which month/year is currently visible)
     const [viewDate, setViewDate] = useState(new Date());
@@ -70,21 +72,66 @@ const GlobalDatePicker = ({
                 const dropdownWidth = Math.max(rect.width, minDropdownWidth);
                 const dropdownHeight = type === 'date' ? 360 : 300; 
 
-                // Determine if we should open upwards (if no space below AND space above)
                 const spaceBelow = viewportHeight - rect.bottom;
-                const shouldOpenUp = !forceDown && spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+                const spaceAbove = rect.top;
 
-                // Determine horizontal position (center on trigger but keep within viewport)
-                let left = rect.left;
-                
-                // If trigger is smaller than min width, try to align better
-                if (rect.width < minDropdownWidth) {
-                    // Try to center it relative to trigger
-                    left = rect.left - (minDropdownWidth - rect.width) / 2;
+                // Determine vertical direction
+                let openUp = false;
+                if (direction === 'top') {
+                    openUp = true;
+                } else if (direction === 'bottom' || forceDown) {
+                    openUp = false;
+                } else {
+                    // 'auto' mode: open up if not enough space below and more space above
+                    if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+                        openUp = true;
+                    } else if (spaceBelow < dropdownHeight && spaceAbove >= dropdownHeight) {
+                        openUp = true;
+                    }
                 }
 
-                // Keep within viewport with some margin
-                const margin = 16;
+                const margin = 12;
+                let top = 0;
+                let originY = 'top';
+
+                if (openUp) {
+                    originY = 'bottom';
+                    top = rect.top + window.scrollY - dropdownHeight - 6;
+                    // Clamp so it never spills above the top of viewport
+                    if (top < window.scrollY + margin) {
+                        top = window.scrollY + margin;
+                    }
+                } else {
+                    originY = 'top';
+                    top = rect.bottom + window.scrollY + 6;
+                    // Clamp so it never spills below the bottom of viewport
+                    if (top + dropdownHeight > window.scrollY + viewportHeight - margin) {
+                        top = window.scrollY + viewportHeight - dropdownHeight - margin;
+                    }
+                }
+
+                // Determine horizontal position
+                let left = rect.left;
+                let originX = 'center';
+
+                if (align === 'right') {
+                    left = rect.right - dropdownWidth;
+                    originX = 'right';
+                } else if (align === 'left') {
+                    left = rect.left;
+                    originX = 'left';
+                } else {
+                    // 'auto' mode: if expanding right would overflow viewport, align to right edge
+                    if (rect.left + dropdownWidth > viewportWidth - margin) {
+                        left = rect.right - dropdownWidth;
+                        originX = 'right';
+                    } else {
+                        left = rect.left;
+                        originX = 'left';
+                    }
+                }
+
+                // Clamp horizontally to stay safely within viewport
                 if (left + dropdownWidth > viewportWidth - margin) {
                     left = viewportWidth - dropdownWidth - margin;
                 }
@@ -92,21 +139,12 @@ const GlobalDatePicker = ({
                     left = margin;
                 }
 
-                if (shouldOpenUp) {
-                    setDropdownPos({
-                        top: rect.top + window.scrollY - dropdownHeight - 8,
-                        left: left + window.scrollX,
-                        width: dropdownWidth,
-                        transformOrigin: 'bottom center'
-                    });
-                } else {
-                    setDropdownPos({
-                        top: rect.bottom + window.scrollY + 8,
-                        left: left + window.scrollX,
-                        width: dropdownWidth,
-                        transformOrigin: 'top center'
-                    });
-                }
+                setDropdownPos({
+                    top,
+                    left: left + window.scrollX,
+                    width: dropdownWidth,
+                    transformOrigin: `${originY} ${originX}`
+                });
             };
 
             updatePosition();
@@ -118,7 +156,7 @@ const GlobalDatePicker = ({
                 window.removeEventListener('scroll', updatePosition, true);
             };
         }
-    }, [isOpen, forceDown, type]);
+    }, [isOpen, forceDown, direction, align, type]);
 
     // Close when clicking outside
     useEffect(() => {
@@ -323,9 +361,9 @@ const GlobalDatePicker = ({
                         {isOpen && (
                             <motion.div
                                 id={`datepicker-dropdown-${label || 'global'}`}
-                                initial={{ opacity: 0, scale: 0.98, y: dropdownPos.transformOrigin === 'bottom center' ? 10 : -10 }}
+                                initial={{ opacity: 0, scale: 0.98, y: dropdownPos.transformOrigin?.startsWith('bottom') ? 8 : -8 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.98, y: dropdownPos.transformOrigin === 'bottom center' ? 10 : -10 }}
+                                exit={{ opacity: 0, scale: 0.98, y: dropdownPos.transformOrigin?.startsWith('bottom') ? 8 : -8 }}
                                 transition={{ duration: 0.15, ease: "easeOut" }}
                                 style={{
                                     position: 'absolute',
@@ -333,13 +371,14 @@ const GlobalDatePicker = ({
                                     left: dropdownPos.left,
                                     width: dropdownPos.width,
                                     zIndex: 99999,
-                                    transformOrigin: dropdownPos.transformOrigin,
+                                    transformOrigin: dropdownPos.transformOrigin || 'top center',
                                     background: 'var(--surface-primary)',
                                     border: '1px solid var(--border-primary)',
                                     borderRadius: '12px',
-                                    boxShadow: '0 -10px 25px -5px rgba(0, 0, 0, 0.15), 0 -8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.15)',
                                     padding: '16px 20px',
-                                    minWidth: '280px'
+                                    minWidth: '280px',
+                                    maxWidth: 'calc(100vw - 24px)'
                                 }}
                                 className="glass-panel"
                             >
