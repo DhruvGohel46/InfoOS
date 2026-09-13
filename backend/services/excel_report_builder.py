@@ -305,9 +305,7 @@ class ExcelReportBuilder:
         subtotal_set = set(subtotal_indices) if subtotal_indices else None
 
         for row_idx, row_data in enumerate(data_rows):
-            is_subtotal = (
-                subtotal_set is not None and row_idx in subtotal_set
-            ) or (
+            is_subtotal = (subtotal_set is not None and row_idx in subtotal_set) or (
                 row_data
                 and len(row_data) > 0
                 and isinstance(row_data[0], str)

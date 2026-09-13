@@ -2311,6 +2311,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
         elif tool_name == "get_sales_kpi_summary":
             import calendar
+
             period = args.get("period", "today")
             today = date.today()
 
@@ -3377,24 +3378,24 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
 
         elif tool_name == "propose_create_worker":
             name = args.get("name")
-            salary = float(args.get("salary"))
+            salary_val = args.get("salary")
+            salary = float(salary_val) if salary_val not in (None, "") else 0.0
             role = args.get("role", "Staff")
             desc_text = args.get("description")
             phone = args.get("phone")
             j_date = args.get("join_date") or date.today().isoformat()
 
-            w = Worker(
-                name=name,
-                salary=salary,
-                role=role,
-                description=desc_text,
-                phone=phone,
-                join_date=datetime.strptime(j_date, "%Y-%m-%d").date(),
-                status="active",
-            )
-            db.session.add(w)
-            db.session.commit()
-            return {"success": True, "worker_id": w.worker_id, "name": name, "role": role}
+            worker_data = {
+                "name": name,
+                "salary": salary,
+                "role": role,
+                "description": desc_text,
+                "phone": phone,
+                "join_date": j_date,
+                "status": "active",
+            }
+            w = WorkerService.create_worker(worker_data)
+            return {"success": True, "worker_id": w.worker_id, "name": w.name, "role": w.role}
 
         elif tool_name == "propose_update_worker":
             w_id = args.get("worker_id")

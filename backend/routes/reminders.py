@@ -60,19 +60,32 @@ def create_reminder():
 @safe_route
 def snooze_reminder(id):
     """Snooze a reminder by N minutes."""
-    data = request.json
-    minutes = data.get("minutes", 5)
+    data = request.json or {}
+    minutes = int(data.get("minutes", 5))
 
     reminder = Reminder.query.get(id)
     if not reminder:
         raise NotFoundError("Reminder not found", code="REMINDER_NOT_FOUND")
 
-    new_time = datetime.utcnow() + timedelta(minutes=minutes)
+    now = datetime.now()
+    new_time = now + timedelta(minutes=minutes)
     reminder.reminder_time = new_time
     reminder.status = "pending"
     reminder.is_dismissed = False
 
+    # Dismiss existing unread notifications so next trigger creates a fresh notification
+    try:
+        from models import Notification
+
+        notifs = Notification.query.filter_by(related_id=reminder.id, status="unread").all()
+        for notif in notifs:
+            notif.status = "dismissed"
+            notif.dismissed_at = now
+    except Exception as ne:
+        logger.warning(f"Failed to dismiss notification for snoozed reminder {id}: {ne}")
+
     db.session.commit()
+    logger.info(f"Reminder {id} snoozed for {minutes}m until {new_time}")
     return jsonify(reminder.to_dict())
 
 
@@ -103,10 +116,13 @@ def dismiss_reminder(id):
             return base_time.replace(year=year, month=month, day=day)
         return None
 
-    if reminder.repeat_type and reminder.repeat_type != "none":
+    if reminder.repeat_type in ("daily", "weekly", "monthly"):
         base_time = reminder.reminder_time or now
         while base_time <= now:
-            base_time = next_time(base_time, reminder.repeat_type)
+            advanced = next_time(base_time, reminder.repeat_type)
+            if not advanced:
+                break
+            base_time = advanced
         reminder.reminder_time = base_time
         reminder.status = "pending"
         reminder.is_dismissed = False

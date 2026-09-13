@@ -35,7 +35,7 @@ if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(local_appdata, "ms-playwright")
 
 
-def start_dashboard_refresher():
+def start_dashboard_refresher(app=None):
     """Start the dashboard refresher and reminder checker in a separate thread"""
     from dashboard_refresher import DashboardRefresher
     from models import db, Reminder
@@ -56,13 +56,11 @@ def start_dashboard_refresher():
     # Start reminder checker loop
     # Re-using the same background logic structure for reminders
     def check_reminders_loop():
-        # Access application instance through create_app inside thread
         from app import create_app
         import traceback
 
-        local_app = create_app("default")  # Re-create or use existing?
-        # Better: use current_app context or create a context once.
-        with local_app.app_context():
+        target_app = app if app is not None else create_app("default")
+        with target_app.app_context():
             while True:
                 try:
                     # Use local time since reminders are stored as local datetime strings.
@@ -1033,7 +1031,7 @@ if __name__ == "__main__":
         # Continue anyway, might be permission issue handled by user
 
     # Start dashboard refresher in background thread
-    refresher_thread = threading.Thread(target=start_dashboard_refresher, daemon=True)
+    refresher_thread = threading.Thread(target=start_dashboard_refresher, args=(app,), daemon=True)
     refresher_thread.start()
 
     _log.info("Starting InfoBill POS Backend...")

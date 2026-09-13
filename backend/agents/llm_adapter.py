@@ -36,17 +36,20 @@ class LLMAdapterError(Exception):
 
 def _log_raw_llm_request(provider: str, model: str, payload: Dict[str, Any]):
     try:
-        _log.info("RAW LLM REQUEST [%s - %s]: %s", provider, model, json.dumps(payload, default=str))
+        _log.info(
+            "RAW LLM REQUEST [%s - %s]: %s", provider, model, json.dumps(payload, default=str)
+        )
     except Exception as e:
         _log.warning("Failed to log raw LLM request: %s", e)
 
 
 def _log_raw_llm_response(provider: str, model: str, res_data: Dict[str, Any]):
     try:
-        _log.info("RAW LLM RESPONSE [%s - %s]: %s", provider, model, json.dumps(res_data, default=str))
+        _log.info(
+            "RAW LLM RESPONSE [%s - %s]: %s", provider, model, json.dumps(res_data, default=str)
+        )
     except Exception as e:
         _log.warning("Failed to log raw LLM response: %s", e)
-
 
 
 class LLMAdapter:

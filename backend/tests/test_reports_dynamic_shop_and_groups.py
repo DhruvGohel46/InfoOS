@@ -345,15 +345,23 @@ def test_group_subtotals_in_reports(app, setup_catalog_and_bills):
             if found_gc:
                 first_cell = ws_sum.cell(row=r, column=1).value
                 if first_cell == "TOTAL":
-                    rows_data.append((first_cell, ws_sum.cell(row=r, column=3).value, ws_sum.cell(row=r, column=4).value))
+                    rows_data.append(
+                        (
+                            first_cell,
+                            ws_sum.cell(row=r, column=3).value,
+                            ws_sum.cell(row=r, column=4).value,
+                        )
+                    )
                     break
                 if first_cell:
-                    rows_data.append((
-                        first_cell,
-                        ws_sum.cell(row=r, column=2).value,
-                        ws_sum.cell(row=r, column=3).value,  # Qty
-                        ws_sum.cell(row=r, column=4).value,  # Revenue
-                    ))
+                    rows_data.append(
+                        (
+                            first_cell,
+                            ws_sum.cell(row=r, column=2).value,
+                            ws_sum.cell(row=r, column=3).value,  # Qty
+                            ws_sum.cell(row=r, column=4).value,  # Revenue
+                        )
+                    )
 
         # Check that Beverages Subtotal row exists
         bev_subtotals = [row for row in rows_data if row[0] == "Beverages Subtotal"]
@@ -372,4 +380,3 @@ def test_group_subtotals_in_reports(app, setup_catalog_and_bills):
         assert len(grand_totals) == 1
         assert grand_totals[0][1] == 5.0  # total units
         assert grand_totals[0][2] == 280.0  # total sales
-

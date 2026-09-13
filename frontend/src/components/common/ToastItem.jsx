@@ -49,7 +49,7 @@ const ICONS = {
     info: InfoIcon,
 };
 
-const ToastItem = forwardRef(({ toast, onClose }, ref) => {
+const ToastItem = forwardRef(({ toast, onClose, index = 0, total = 1, isHovered = false }, ref) => {
     const { type, title, description, duration, action, timestamp } = toast;
     const [isPaused, setIsPaused] = useState(false);
     const startTimeRef = useRef(Date.now());
@@ -88,7 +88,6 @@ const ToastItem = forwardRef(({ toast, onClose }, ref) => {
         if (duration <= 0) return;
         setIsPaused(true);
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        // Save how much time is left
         const elapsed = Date.now() - startTimeRef.current;
         remainingRef.current = Math.max(0, remainingRef.current - elapsed);
     };
@@ -98,14 +97,33 @@ const ToastItem = forwardRef(({ toast, onClose }, ref) => {
         setIsPaused(false);
     };
 
+    // Stacking offset, scale, and z-index calculation
+    const yOffset = isHovered ? index * 74 : Math.min(index * 12, 32);
+    const scaleVal = isHovered ? 1 : Math.max(0.82, 1 - index * 0.05);
+    const opacityVal = isHovered ? 1 : Math.max(0.45, 1 - index * 0.18);
+    const zIndexVal = 50 - index;
+
     return (
         <motion.div
             ref={ref}
             layout
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{
+                opacity: opacityVal,
+                y: yOffset,
+                scale: scaleVal,
+                zIndex: zIndexVal,
+            }}
+            exit={{ opacity: 0, y: -20, scale: 0.88 }}
+            transition={{ type: 'spring', damping: 24, stiffness: 280 }}
+            style={{
+                position: total > 1 ? 'absolute' : 'relative',
+                top: 0,
+                left: 0,
+                width: '100%',
+                zIndex: zIndexVal,
+                cursor: total > 1 && !isHovered ? 'pointer' : 'default',
+            }}
             className={`rb-toast rb-toast--${type}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -132,6 +150,13 @@ const ToastItem = forwardRef(({ toast, onClose }, ref) => {
                     </button>
                 )}
             </div>
+
+            {/* Stack counter badge on front item */}
+            {index === 0 && total > 1 && !isHovered && (
+                <span className="rb-toast__stack-count" title={`${total} bills created`}>
+                    +{total - 1}
+                </span>
+            )}
 
             {/* Close */}
             <button className="rb-toast__close" onClick={onClose} aria-label="Close notification">

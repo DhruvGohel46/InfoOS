@@ -639,22 +639,6 @@ export default function AgentChatPanel() {
                       ENTERPRISE COPILOT
                     </span>
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: '#22C55E',
-                        boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)',
-                        display: 'inline-block',
-                      }}
-                    />
-                    <span style={{ fontSize: 11.5, fontWeight: 500, color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#64748B' }}>
-                      Connected to Live Store Database (10,000+ Orders/Day Engine)
-                    </span>
-                  </div>
                 </div>
               </div>
 

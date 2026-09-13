@@ -51,6 +51,7 @@ import { useTheme } from './context/ThemeContext';
 import './styles/typography.css'; // Import global typography system
 
 import { formatCurrency } from './utils/api';
+import { playNotificationSound } from './utils/soundService';
 import './styles/fonts.css';
 import './styles/global.css';
 
@@ -79,8 +80,10 @@ import Attendance from './components/workers/Attendance';
 import SalaryManager from './components/workers/SalaryManager';
 import { workerAPI } from './api/workers';
 
-// Reminders
+// Reminders & Celebrations
 import { ReminderProvider } from './context/ReminderContext';
+import ReminderAlert from './components/ui/ReminderAlert';
+import OrderCelebrationModal from './components/common/OrderCelebrationModal';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import NotificationCenterDrawer from './components/system/NotificationCenterDrawer';
 import Reminders from './components/screens/Reminders';
@@ -558,6 +561,9 @@ function AppContent() {
       description: `Bill ${bill.bill_no} — Total: ${formatCurrency(bill.total)}`,
       duration: 5000,
     });
+
+    // Play notification chime on successful bill creation
+    playNotificationSound().catch(() => {});
   };
 
   return (
@@ -1183,6 +1189,9 @@ function AppContent() {
       {/* Global Notification System */}
       <NotificationSystem />
 
+      {/* Global Ringing Reminder Alert Overlay */}
+      <ReminderAlert />
+
       {/* Global Notification Center Drawer */}
       <NotificationCenterDrawer />
 
@@ -1445,7 +1454,11 @@ function AppContent() {
         </div>
       )}
 
-      {/* Global Reminders are now integrated into NotificationSystem */}
+      {/* Active Reminder Alarm Modal */}
+      <ReminderAlert />
+
+      {/* Exciting Order Milestone Celebration Modal & Confetti */}
+      <OrderCelebrationModal />
 
       {/* Offline Badge */}
       <OfflineBadge />

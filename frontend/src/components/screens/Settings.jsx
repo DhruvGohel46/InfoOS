@@ -13,6 +13,7 @@ import GlobalDatePicker from '../ui/GlobalDatePicker';
 import Card from '../ui/Card'; // Import Shared Card Component
 import PageContainer from '../layout/PageContainer';
 import Button from '../ui/Button';
+import { previewSoundFile } from '../../utils/soundService';
 import {
     IoStorefrontOutline,
     IoCardOutline,
@@ -28,7 +29,8 @@ import {
     IoCloudUploadOutline,
     IoConstructOutline,
     IoInformationCircleOutline,
-    IoSparklesOutline
+    IoSparklesOutline,
+    IoLogOutOutline
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
@@ -1355,9 +1357,7 @@ const Settings = () => {
     };
 
     const previewSound = () => {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
-        const audio = new Audio(`${apiUrl}/api/sounds/${formSettings.reminder_sound}?v=${Date.now()}`);
-        audio.play().catch(e => showError('Cannot play sound: ' + e.message));
+        previewSoundFile(formSettings.reminder_sound).catch(e => showError('Cannot play sound: ' + e.message));
     };
 
     const handleSave = async () => {
@@ -1410,9 +1410,39 @@ const Settings = () => {
         <PageContainer>
             <div className="stPage">
                 <div className="stStickyHeader">
-                    {/* Header */}
-                    <div className="stHeader">
-                        <div className="stTitle">System Settings</div>
+                    {/* Top Bar with Title, Logout, and Save Actions */}
+                    <div className="stTopBar">
+                        <div className="stTopBarLeft">
+                            <div className="stTitle">System Settings</div>
+                            <Button 
+                                variant="secondary" 
+                                style={{ borderColor: '#ef4444', color: '#ef4444', height: '36px', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} 
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('licensing-logout'));
+                                }}
+                            >
+                                <IoLogOutOutline size={16} />
+                                Logout
+                            </Button>
+                        </div>
+
+                        <div className="stTopBarRight">
+                            <Button 
+                                variant="secondary" 
+                                style={{ height: '36px', padding: '0 16px' }}
+                                onClick={handleDiscard}
+                            >
+                                Discard Changes
+                            </Button>
+                            <Button
+                                variant="primary"
+                                style={{ height: '36px', padding: '0 18px' }}
+                                onClick={handleSave}
+                                loading={saving}
+                            >
+                                {saving ? 'Saving...' : 'Save Settings'}
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="stTabs">
@@ -2007,6 +2037,85 @@ const Settings = () => {
                                             />
                                             <span className="stSlider"></span>
                                         </label>
+                                    </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Order Milestone Celebrations</span>
+                                            <span className="stLabelDesc">Exciting confetti and victory fanfare audio on 10, 25, 50, 100, 200, 300 orders</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    window.dispatchEvent(new CustomEvent('celebrate-order-milestone', {
+                                                        detail: {
+                                                            count: 50,
+                                                            tier: 'orange',
+                                                            icon: 'star',
+                                                            is_grand: false,
+                                                            title: 'Half-Century Milestone!',
+                                                            subtitle: '50 orders completed today. Outstanding work!'
+                                                        }
+                                                    }));
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    background: 'rgba(249, 115, 22, 0.12)',
+                                                    color: '#f97316',
+                                                    border: '1px solid rgba(249, 115, 22, 0.3)',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                title="Test Standard Milestone Celebration"
+                                            >
+                                                Test 50 Orders
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    window.dispatchEvent(new CustomEvent('celebrate-order-milestone', {
+                                                        detail: {
+                                                            count: 500,
+                                                            tier: 'gold',
+                                                            icon: 'trophy',
+                                                            is_grand: true,
+                                                            title: 'Grand Order Milestone!',
+                                                            subtitle: '500 orders completed today! Legendary achievement!'
+                                                        }
+                                                    }));
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    background: 'rgba(245, 158, 11, 0.14)',
+                                                    color: '#d97706',
+                                                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                title="Test Grand Milestone Celebration"
+                                            >
+                                                Test 500 Orders
+                                            </button>
+                                            <label className="stToggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formSettings.milestone_celebrations_enabled !== 'false'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.checked ? 'true' : 'false';
+                                                        handleChange('milestone_celebrations_enabled', val);
+                                                        localStorage.setItem('disable_milestone_celebrations', e.target.checked ? 'false' : 'true');
+                                                    }}
+                                                />
+                                                <span className="stSlider"></span>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {window.electronAPI && (
@@ -4136,26 +4245,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         )}
-
-                        <div className="stActions">
-                            <Button 
-                                variant="secondary" 
-                                style={{ marginRight: 'auto', borderColor: '#ef4444', color: '#ef4444' }} 
-                                onClick={() => {
-                                    window.dispatchEvent(new CustomEvent('licensing-logout'));
-                                }}
-                            >
-                                Logout
-                            </Button>
-                            <Button variant="secondary" onClick={handleDiscard}>Discard Changes</Button>
-                            <Button
-                                variant="primary"
-                                onClick={handleSave}
-                                loading={saving}
-                            >
-                                {saving ? 'Saving...' : 'Save Settings'}
-                            </Button>
-                        </div>
                     </motion.div>
                 </Card>
             </div>

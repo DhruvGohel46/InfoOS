@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { notificationAPI } from '../api/notificationAPI';
+import { playNotificationSound } from '../utils/soundService';
 
 const NotificationContext = createContext();
 
@@ -49,6 +50,9 @@ export const NotificationProvider = ({ children }) => {
     const popupItem = { ...notif, popupId };
 
     setActivePopups(prev => [popupItem, ...prev.slice(0, 4)]);
+
+    // Play pleasant notification sound chime
+    playNotificationSound().catch(() => {});
 
     // Auto-remove temporary popup after 6 seconds (DOES NOT DELETE FROM NOTIFICATION CENTER)
     setTimeout(() => {

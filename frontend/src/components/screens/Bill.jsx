@@ -53,6 +53,51 @@ const TrashIcon = ({ color }) => (
 
 
 
+// ── Category Color System for Favorites & POS ──
+const CATEGORY_COLORS = [
+  { hex: '#10B981', name: 'Emerald' },
+  { hex: '#0284C7', name: 'Sky' },
+  { hex: '#8B5CF6', name: 'Violet' },
+  { hex: '#F59E0B', name: 'Amber' },
+  { hex: '#EC4899', name: 'Pink' },
+  { hex: '#0D9488', name: 'Teal' },
+  { hex: '#F43F5E', name: 'Rose' },
+  { hex: '#6366F1', name: 'Indigo' },
+  { hex: '#FF6B1A', name: 'Orange' },
+  { hex: '#06B6D4', name: 'Cyan' },
+  { hex: '#16A34A', name: 'Green' },
+  { hex: '#A855F7', name: 'Purple' },
+  { hex: '#2563EB', name: 'Blue' },
+  { hex: '#E11D48', name: 'Crimson' },
+  { hex: '#D97706', name: 'Ochre' },
+  { hex: '#059669', name: 'Forest' }
+];
+
+const getCategoryColor = (category, allCategories = []) => {
+  if (!category) {
+    return { hex: '#64748B', name: 'Slate' };
+  }
+  if (category.color && typeof category.color === 'string' && category.color.startsWith('#')) {
+    return { hex: category.color, name: category.name || 'Custom' };
+  }
+  const cleanCats = Array.isArray(allCategories)
+    ? allCategories.filter(c => c && c.id !== 'favorites')
+    : [];
+  const catIdx = cleanCats.findIndex(
+    c => c && (String(c.id) === String(category.id) || c.name === category.name)
+  );
+  if (catIdx !== -1) {
+    return CATEGORY_COLORS[catIdx % CATEGORY_COLORS.length];
+  }
+  const str = String(category.name || category.id || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+};
+
 const WorkingPOSInterface = ({ onBillCreated }) => {
   const { currentTheme, isDark } = useTheme();
 
@@ -948,7 +993,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         const response = await billingAPI.createBill(billData);
         resetBillState();
-        window.dispatchEvent(new CustomEvent('bill-created', { detail: response.data.bill }));
+        const createdBillData = { ...response.data.bill, milestone: response.data.milestone };
+        window.dispatchEvent(new CustomEvent('bill-created', { detail: createdBillData }));
+        if (response.data.milestone && response.data.milestone.reached) {
+          window.dispatchEvent(new CustomEvent('celebrate-order-milestone', { detail: response.data.milestone }));
+        }
         window.dispatchEvent(new CustomEvent('live-orders-refresh'));
         if (onBillCreated) {
           onBillCreated({
@@ -1155,7 +1204,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         const response = await billingAPI.createBill(billData);
         billNo = response.data.bill.bill_no;
-        window.dispatchEvent(new CustomEvent('bill-created', { detail: response.data.bill }));
+        const createdBillData = { ...response.data.bill, milestone: response.data.milestone };
+        window.dispatchEvent(new CustomEvent('bill-created', { detail: createdBillData }));
+        if (response.data.milestone && response.data.milestone.reached) {
+          window.dispatchEvent(new CustomEvent('celebrate-order-milestone', { detail: response.data.milestone }));
+        }
         window.dispatchEvent(new CustomEvent('live-orders-refresh'));
       }
 
@@ -1419,45 +1472,59 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                 {/* Draggable categories list */}
                 <Reorder.Group axis="y" values={editableCategories} onReorder={setEditableCategories} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: 0, margin: 0, listStyle: 'none' }}>
-                  {editableCategories.map((category) => (
-                    <Reorder.Item key={category.id} value={category} style={{ listStyleType: 'none' }}>
-                      <div
-                        className="rounded-lg glass-card"
-                        style={{
-                          position: 'relative',
-                          width: '100%',
-                          height: '40px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          padding: '0 16px',
-                          backgroundColor: isDark ? '#2B2B2B' : '#F1F5F9',
-                          border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed #CBD5E1',
-                          borderRadius: '16px',
-                          cursor: 'grab',
-                          color: 'var(--text-secondary)',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        <IoMoveOutline style={{ opacity: 0.6, fontSize: '18px', color: '#FF8A00' }} />
-                        <span style={{
-                          fontSize: '16px',
-                          fontWeight: '500',
-                          color: 'var(--text-secondary)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {category.name}
-                        </span>
-                      </div>
-                    </Reorder.Item>
-                  ))}
+                  {editableCategories.map((category) => {
+                    const catColor = getCategoryColor(category, bootstrapCategories);
+                    return (
+                      <Reorder.Item key={category.id} value={category} style={{ listStyleType: 'none' }}>
+                        <div
+                          className="rounded-lg glass-card"
+                          style={{
+                            position: 'relative',
+                            width: '100%',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '0 16px',
+                            backgroundColor: isDark ? '#2B2B2B' : '#F1F5F9',
+                            border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed #CBD5E1',
+                            borderRadius: '16px',
+                            cursor: 'grab',
+                            color: 'var(--text-secondary)',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <IoMoveOutline style={{ opacity: 0.6, fontSize: '18px', color: '#FF8A00' }} />
+                          <span
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: catColor.hex,
+                              flexShrink: 0
+                            }}
+                          />
+                          <span style={{
+                            fontSize: '16px',
+                            fontWeight: '500',
+                            color: 'var(--text-secondary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {category.name}
+                          </span>
+                        </div>
+                      </Reorder.Item>
+                    );
+                  })}
                 </Reorder.Group>
               </>
             ) : (
               categories.map((category) => {
                 const isActive = selectedCategory === category.id;
+                const isFav = category.id === 'favorites';
+                const catColor = !isFav ? getCategoryColor(category, bootstrapCategories) : null;
                 return (
                   <button
                     key={category.id}
@@ -1479,7 +1546,6 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       fontWeight: isActive ? 700 : 600,
                       transition: 'all 180ms cubic-bezier(0.16, 1, 0.3, 1)',
                       textAlign: 'left',
-                      overflow: 'hidden',
                       boxShadow: isActive ? '0 6px 18px rgba(255,107,0,0.30)' : (isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)')
                     }}
                     onMouseEnter={(e) => {
@@ -1511,20 +1577,37 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           height: '20px',
                           backgroundColor: '#ffffff',
                           borderRadius: '0 2px 2px 0',
+                          zIndex: 0,
                         }}
                       />
                     )}
 
                     <div style={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
-                      flex: 1
+                      alignItems: 'center',
+                      gap: '8px',
+                      flex: 1,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      zIndex: 1,
                     }}>
+                      {!isFav && catColor && (
+                        <span
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: isActive ? '#ffffff' : catColor.hex,
+                            flexShrink: 0,
+                            boxShadow: isActive ? '0 0 0 2px rgba(255,255,255,0.3)' : `0 0 8px ${catColor.hex}80`,
+                            opacity: isActive ? 0.9 : 1,
+                          }}
+                        />
+                      )}
                       <span style={{
                         fontSize: '16px',
                         fontWeight: '500',
-                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                        color: isActive ? '#ffffff' : (isDark ? 'var(--text-secondary)' : '#334155'),
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
@@ -1852,6 +1935,11 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
               {(isEditMode ? editableProducts : displayedProducts).map((product) => {
                 const productVariations = getProductVariations(product);
                 const hasTwoVariations = productVariations.length === 2;
+                const isFavoritesView = selectedCategory === 'favorites';
+                const productCategory = bootstrapCategories.find(
+                  c => String(c.id) === String(product.category_id) || c.name === product.category
+                );
+                const catColor = isFavoritesView ? getCategoryColor(productCategory, bootstrapCategories) : null;
 
                 return (
                   <motion.div
@@ -1882,23 +1970,64 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         position: 'relative',
                         boxSizing: 'border-box',
                         borderRadius: '20px',
-                        background: isDark ? '#212121b3' : '#FFFFFF',
-                        border: isEditMode ? '1.5px dashed #FF8A00' : (isDark ? '1px solid #4a4a4a' : '1px solid #CBD5E1'),
-                        boxShadow: isEditMode ? '0 8px 24px rgba(255,138,0,0.15)' : (isDark ? '0 2px 8px rgba(0,0,0,0.25)' : '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05)'),
+                        background: isFavoritesView && catColor
+                          ? (isDark
+                              ? `linear-gradient(180deg, ${catColor.hex}18 0%, #212121e6 50%)`
+                              : `linear-gradient(180deg, ${catColor.hex}12 0%, #FFFFFF 50%)`)
+                          : (isDark ? '#212121b3' : '#FFFFFF'),
+                        border: isEditMode
+                          ? '1.5px dashed #FF8A00'
+                          : (isFavoritesView && catColor
+                              ? (isDark ? `1.5px solid ${catColor.hex}45` : `1.5px solid ${catColor.hex}55`)
+                              : (isDark ? '1px solid #4a4a4a' : '1px solid #CBD5E1')),
+                        borderTop: !isEditMode && isFavoritesView && catColor
+                          ? `3.5px solid ${catColor.hex}`
+                          : undefined,
+                        boxShadow: isEditMode
+                          ? '0 8px 24px rgba(255,138,0,0.15)'
+                          : (isFavoritesView && catColor
+                              ? (isDark
+                                  ? `0 4px 14px ${catColor.hex}22, 0 2px 8px rgba(0,0,0,0.25)`
+                                  : `0 4px 14px ${catColor.hex}18, 0 2px 8px -2px rgba(15, 23, 42, 0.08)`)
+                              : (isDark ? '0 2px 8px rgba(0,0,0,0.25)' : '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05)')),
                         transition: 'border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease',
                         transform: isEditMode ? 'scale(1.03)' : 'none'
                       }}
                       onMouseEnter={(e) => {
                         if (!isEditMode) {
-                          e.currentTarget.style.borderColor = isDark ? '#5a5a5a' : '#FF8A00';
-                          e.currentTarget.style.boxShadow = isDark ? '0 6px 16px rgba(0,0,0,0.30)' : '0 8px 20px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 107, 0, 0.25)';
+                          if (isFavoritesView && catColor) {
+                            e.currentTarget.style.borderTopColor = catColor.hex;
+                            e.currentTarget.style.borderRightColor = `${catColor.hex}90`;
+                            e.currentTarget.style.borderBottomColor = `${catColor.hex}90`;
+                            e.currentTarget.style.borderLeftColor = `${catColor.hex}90`;
+                            e.currentTarget.style.boxShadow = isDark
+                              ? `0 8px 24px ${catColor.hex}35, 0 2px 8px rgba(0,0,0,0.3)`
+                              : `0 8px 24px -2px ${catColor.hex}28, 0 2px 8px rgba(15, 23, 42, 0.08)`;
+                          } else {
+                            e.currentTarget.style.borderColor = isDark ? '#5a5a5a' : '#FF8A00';
+                            e.currentTarget.style.boxShadow = isDark
+                              ? '0 6px 16px rgba(0,0,0,0.30)'
+                              : '0 8px 20px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 107, 0, 0.25)';
+                          }
                           e.currentTarget.style.transform = 'translateY(-2px)';
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isEditMode) {
-                          e.currentTarget.style.borderColor = isDark ? '#4a4a4a' : '#CBD5E1';
-                          e.currentTarget.style.boxShadow = isDark ? '0 2px 8px rgba(0,0,0,0.25)' : '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05)';
+                          if (isFavoritesView && catColor) {
+                            e.currentTarget.style.borderTopColor = catColor.hex;
+                            e.currentTarget.style.borderRightColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
+                            e.currentTarget.style.borderBottomColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
+                            e.currentTarget.style.borderLeftColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
+                            e.currentTarget.style.boxShadow = isDark
+                              ? `0 4px 14px ${catColor.hex}22, 0 2px 8px rgba(0,0,0,0.25)`
+                              : `0 4px 14px ${catColor.hex}18, 0 2px 8px -2px rgba(15, 23, 42, 0.08)`;
+                          } else {
+                            e.currentTarget.style.borderColor = isDark ? '#4a4a4a' : '#CBD5E1';
+                            e.currentTarget.style.boxShadow = isDark
+                              ? '0 2px 8px rgba(0,0,0,0.25)'
+                              : '0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05)';
+                          }
                           e.currentTarget.style.transform = 'none';
                         }
                       }}
@@ -1938,6 +2067,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           zIndex: 10
                         }}>OUT</div>
                       )}
+
 
                       {/* Image Container */}
                       {settings?.show_product_images !== 'false' && (
@@ -2038,8 +2168,8 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isEditMode) {
-                                    e.currentTarget.style.borderColor = isDark ? '#777' : '#FF8A00';
-                                    e.currentTarget.style.boxShadow = isDark ? 'none' : '0 2px 6px rgba(255, 107, 0, 0.2)';
+                                    e.currentTarget.style.borderColor = isFavoritesView && catColor ? catColor.hex : (isDark ? '#777' : '#FF8A00');
+                                    e.currentTarget.style.boxShadow = isDark ? 'none' : (isFavoritesView && catColor ? `0 2px 6px ${catColor.hex}30` : '0 2px 6px rgba(255, 107, 0, 0.2)');
                                   }
                                 }}
                                 onMouseLeave={(e) => {
@@ -2067,7 +2197,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                                 <div style={{
                                   fontWeight: 700,
                                   fontSize: '14px',
-                                  color: '#ff6b00',
+                                  color: isFavoritesView && catColor ? catColor.hex : '#ff6b00',
                                   textAlign: 'right'
                                 }}>
                                   {formatCurrency(variation.price)}
@@ -2081,7 +2211,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           <span style={{
                             fontWeight: 700,
                             fontSize: '14px',
-                            color: '#ff6b00',
+                            color: isFavoritesView && catColor ? catColor.hex : '#ff6b00',
                             fontFamily: 'Inter, system-ui'
                           }}>
                             {formatProductPriceLabel(product, formatCurrency, orderType)}
@@ -2091,13 +2221,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                             style={{
                               width: '26px',
                               height: '26px',
-                              backgroundColor: '#ff6b00',
+                              backgroundColor: isFavoritesView && catColor ? catColor.hex : '#ff6b00',
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               color: 'white',
-                              cursor: isEditMode ? 'default' : 'pointer'
+                              cursor: isEditMode ? 'default' : 'pointer',
+                              boxShadow: isFavoritesView && catColor ? `0 2px 8px ${catColor.hex}55` : 'none',
+                              transition: 'all 0.2s ease'
                             }}
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">

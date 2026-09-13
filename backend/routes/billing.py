@@ -162,16 +162,134 @@ def create_bill():
 
     logger.info(f"Bill #{bill_no} created — Total: {total:.2f} ({len(validated_products)} items)")
 
+    # Check milestone count for today
+    today_count = db.get_todays_bills_count()
+    milestone_data = _get_milestone_info(today_count)
+
     return (
         jsonify(
             {
                 "success": True,
                 "message": "Bill created successfully",
                 "bill": bill_response,
+                "today_order_count": today_count,
+                "milestone": milestone_data,
             }
         ),
         201,
     )
+
+
+def _get_milestone_info(count: int):
+    """
+    Returns milestone data based on order count.
+    Rules:
+    - Specific tiers up to 300: 10, 25, 50, 100, 150, 200, 300
+    - Multiples of 500 (500, 1000, 1500, 2000, 2500...): Special GRAND LEGENDARY celebration
+    - After 300, every 100 orders (400, 600, 700, 800, 900, 1100...): Century milestone celebration
+    """
+    if count <= 0:
+        return None
+
+    UP_TO_300 = {
+        10: {
+            "count": 10,
+            "tier": "bronze",
+            "icon": "flame",
+            "title": "Fast Start!",
+            "subtitle": "10 orders completed today. Great momentum!",
+        },
+        25: {
+            "count": 25,
+            "tier": "silver",
+            "icon": "flash",
+            "title": "Silver Quarter!",
+            "subtitle": "25 orders successfully served today!",
+        },
+        50: {
+            "count": 50,
+            "tier": "gold",
+            "icon": "star",
+            "title": "Half-Century!",
+            "subtitle": "50 orders completed today. Outstanding work!",
+        },
+        100: {
+            "count": 100,
+            "tier": "platinum",
+            "icon": "rocket",
+            "title": "Century Club!",
+            "subtitle": "100 orders smashed today! You are crushing it!",
+        },
+        150: {
+            "count": 150,
+            "tier": "diamond",
+            "icon": "gem",
+            "title": "Unstoppable Momentum!",
+            "subtitle": "150 orders completed today! Exceptional speed!",
+        },
+        200: {
+            "count": 200,
+            "tier": "ruby",
+            "icon": "trophy",
+            "title": "Double Century!",
+            "subtitle": "200 orders completed today! Remarkable achievement!",
+        },
+        300: {
+            "count": 300,
+            "tier": "master",
+            "icon": "crown",
+            "title": "Retail Royalty!",
+            "subtitle": "300 orders completed today! High-speed masterclass!",
+        },
+    }
+
+    if count in UP_TO_300:
+        return {"reached": True, "is_grand": False, **UP_TO_300[count]}
+
+    # For multiples of 500 (500, 1000, 1500, 2000, etc.) -> GRAND LEGENDARY Celebration!
+    if count % 500 == 0:
+        return {
+            "reached": True,
+            "count": count,
+            "tier": "legendary",
+            "icon": "crown",
+            "is_grand": True,
+            "title": f"Grand Milestone: {count} Orders!",
+            "subtitle": f"Historic landmark reached! An incredible {count} orders served today! Phenomenal performance!",
+        }
+
+    # After 300, every 100 orders (400, 600, 700, 800, 900, 1100, 1200...) -> Century milestone celebration!
+    if count > 300 and count % 100 == 0:
+        return {
+            "reached": True,
+            "count": count,
+            "tier": "platinum",
+            "icon": "rocket",
+            "is_grand": False,
+            "title": f"Milestone: {count} Orders!",
+            "subtitle": f"Spectacular! Another 100 orders served today — {count} total!",
+        }
+
+    return None
+
+
+@billing_bp.route("/milestone/preview", methods=["GET", "POST"])
+@safe_route
+def preview_order_milestone():
+    """Return milestone data for preview/testing purposes."""
+    req_count = request.args.get("count", type=int) or 50
+    info = _get_milestone_info(req_count)
+    if not info:
+        info = {
+            "reached": True,
+            "count": req_count,
+            "tier": "gold",
+            "icon": "star",
+            "is_grand": False,
+            "title": f"Milestone: {req_count} Orders!",
+            "subtitle": f"Target milestone of {req_count} orders reached today!",
+        }
+    return jsonify({"success": True, "milestone": info}), 200
 
 
 @billing_bp.route("/<int:bill_no>", methods=["GET"])

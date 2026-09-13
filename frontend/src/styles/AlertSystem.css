@@ -20,6 +20,32 @@
   font-family: var(--font-primary), inherit;
 }
 
+/* ─── Stack Mode Container (Overlapping Cards) ─── */
+.rb-toast-container--stacked {
+  width: 340px;
+  display: block !important;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rb-toast__stack-count {
+  position: absolute;
+  top: 12px;
+  right: 38px;
+  background: linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(255, 107, 26, 0.35);
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
 /* ─── Individual Toast ─── */
 .rb-toast {
   pointer-events: auto;

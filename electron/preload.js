@@ -87,7 +87,10 @@ const rawAPI = {
   openUserDataFolder: () => ipcRenderer.invoke('developer:openUserDataFolder'),
   clearCache: () => ipcRenderer.invoke('developer:clearCache'),
   readLogs: (lines) => ipcRenderer.invoke('developer:readLogs', lines),
-  getDiagnosticInfo: () => ipcRenderer.invoke('developer:getDiagnosticInfo')
+  getDiagnosticInfo: () => ipcRenderer.invoke('developer:getDiagnosticInfo'),
+
+  // Sound APIs
+  playNotificationSound: () => ipcRenderer.invoke('system:playNotificationSound')
 };
 
 // Instrument rawAPI wrapper functions

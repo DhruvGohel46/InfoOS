@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAlert } from '../../context/AlertContext';
+import { playNotificationSound } from '../../utils/soundService';
 
 // ─── Icons ─────────────────────────────────────────────────────────────────--
 const BellIcon = () => (
@@ -78,31 +79,9 @@ const SimpleReminderModal = ({
     }, [isOpen, reminder]);
 
     const playSystemSound = useCallback(() => {
-        try {
-            if (window.electronAPI && window.electronAPI.playNotificationSound) {
-                window.electronAPI.playNotificationSound();
-                return;
-            }
-            
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
-            
-        } catch (error) {
+        playNotificationSound().catch((error) => {
             console.log('Sound notification failed:', error);
-        }
+        });
     }, []);
 
     // ─── Action Handlers ─────────────────────────────────────────────────────--

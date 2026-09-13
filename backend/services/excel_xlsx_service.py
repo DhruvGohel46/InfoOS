@@ -255,9 +255,7 @@ class ExcelXLSXService:
                 sub_profit += gc_profit
 
             sub_share = (sub_rev / total_sales) if total_sales > 0 else 0.0
-            grp_cat_rows.append(
-                [f"{g_name} Subtotal", "", sub_qty, sub_rev, sub_share, sub_profit]
-            )
+            grp_cat_rows.append([f"{g_name} Subtotal", "", sub_qty, sub_rev, sub_share, sub_profit])
 
             tot_grp_qty += sub_qty
             tot_grp_rev += sub_rev
@@ -692,9 +690,7 @@ class ExcelXLSXService:
                 sub_rev += gc_rev
 
             sub_share = (sub_rev / total_sales) if total_sales > 0 else 0.0
-            overview_gc_rows.append(
-                [f"{g_name} Subtotal", "", sub_units, sub_rev, sub_share]
-            )
+            overview_gc_rows.append([f"{g_name} Subtotal", "", sub_units, sub_rev, sub_share])
             tot_gc_units += sub_units
 
         overview_gc_totals = [
@@ -758,11 +754,15 @@ class ExcelXLSXService:
             if sub_prior_rev > 0:
                 sub_pct_change = ((sub_rev - sub_prior_rev) / sub_prior_rev) * 100.0
                 sub_trend = (
-                    f"▲ {sub_pct_change:+.1f}%" if sub_pct_change >= 0 else f"▼ {abs(sub_pct_change):.1f}%"
+                    f"▲ {sub_pct_change:+.1f}%"
+                    if sub_pct_change >= 0
+                    else f"▼ {abs(sub_pct_change):.1f}%"
                 )
             else:
                 sub_trend = "NEW" if sub_rev > 0 else "-"
-            gc_sheet_rows.append([f"{g_name} Subtotal", "", sub_units, sub_rev, sub_share, sub_trend])
+            gc_sheet_rows.append(
+                [f"{g_name} Subtotal", "", sub_units, sub_rev, sub_share, sub_trend]
+            )
 
         gc_sheet_totals = [
             "TOTAL",
@@ -1031,7 +1031,9 @@ class ExcelXLSXService:
             for c_name, gc_val in cat_list:
                 profit = gc_val["rev"] - gc_val["cog"]
                 share = (gc_val["rev"] / total_sales) if total_sales > 0 else 0.0
-                gc_overview_rows.append([g_name, c_name, gc_val["qty"], gc_val["rev"], profit, share])
+                gc_overview_rows.append(
+                    [g_name, c_name, gc_val["qty"], gc_val["rev"], profit, share]
+                )
                 sub_units += gc_val["qty"]
                 sub_rev += gc_val["rev"]
                 sub_profit += profit

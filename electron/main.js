@@ -1,6 +1,9 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Disable autoplay restrictions so notification and reminder sounds can play seamlessly
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const { spawn, spawnSync } = require('child_process');
 const http = require('http');
 const { autoUpdater } = require('electron-updater');
@@ -906,3 +909,13 @@ ipcMain.handle('developer:getDiagnosticInfo', () => {
   }
 });
 
+// Sound notification IPC handler
+ipcMain.handle('system:playNotificationSound', async () => {
+  try {
+    shell.beep();
+    return true;
+  } catch (err) {
+    console.error('[main] playNotificationSound error:', err.message);
+    return false;
+  }
+});

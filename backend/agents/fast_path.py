@@ -148,7 +148,9 @@ def classify_intent_deterministic(
 
     # Disambiguation Step 0: Explicit reminder commands take precedence over topics mentioned within
     # (e.g. "Remind me to call supplier at 4 PM" -> reminder, not expense)
-    if re.search(r"\b(reminders?|tasks?|alerts?|alarms?|schedules?|notify\s+me|remind\s+me|todo)\b", text):
+    if re.search(
+        r"\b(reminders?|tasks?|alerts?|alarms?|schedules?|notify\s+me|remind\s+me|todo)\b", text
+    ):
         return "reminder"
 
     # Disambiguation Step 1: Vendor expenses take precedence over incidental worker words

@@ -1,106 +1,48 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAlert } from "./AlertContext";
 import { reminderAPI } from "../api/reminderAPI";
 import { useSettings } from "./SettingsContext";
+import { startReminderSound, stopReminderSound } from "../utils/soundService";
 
 const ReminderContext = createContext();
 
 export const ReminderProvider = ({ children }) => {
     const [reminders, setReminders] = useState([]);
     const [activeAlerts, setActiveAlerts] = useState([]);
-    const audioRef = useRef(null);
     const { addToast } = useAlert();
     const { settings } = useSettings();
 
     // Sound management
     useEffect(() => {
-        const soundFile = settings?.reminder_sound || "reminder.mp3";
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
-        
-        // Stop currently playing audio before creating a new one
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-
-        const audioUrl = `${apiUrl}/api/sounds/${soundFile}?v=${new Date().getTime()}`;
-        const audio = new Audio(audioUrl);
-        audio.loop = true;
-        audio.playbackRate = 1.0;
-
-        // Fallback to default sound if custom sound fails to load
-        if (soundFile !== "reminder.mp3") {
-            audio.addEventListener('error', () => {
-                console.warn(`Custom sound ${soundFile} failed to load, falling back to default.`);
-                const defaultUrl = `${apiUrl}/api/sounds/reminder.mp3?v=${new Date().getTime()}`;
-                if (audioRef.current) {
-                    audioRef.current.src = defaultUrl;
-                    audioRef.current.load();
-                    if (activeAlerts.length > 0) {
-                        audioRef.current.play().catch(() => {});
-                    }
-                }
-            });
-        }
-
-        audioRef.current = audio;
-
-        // If alerts are already active, start playing the new audio immediately
         if (activeAlerts.length > 0) {
-            audio.play().catch(() => {});
+            startReminderSound(settings?.reminder_sound);
+        } else {
+            stopReminderSound();
         }
 
         return () => {
-            audio.pause();
+            stopReminderSound();
         };
-    }, [settings?.reminder_sound, activeAlerts.length]);
-
-    const playAlertSound = useCallback(() => {
-        if (audioRef.current && activeAlerts.length > 0) {
-            audioRef.current.play().catch(() => {
-                // Ignore autoplay block; sound will play on next interaction
-            });
-        }
-    }, [activeAlerts]);
-
-    const stopAlertSound = useCallback(() => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-    }, []);
-
-    useEffect(() => {
-        if (activeAlerts.length > 0) {
-            playAlertSound();
-        } else {
-            stopAlertSound();
-        }
-    }, [activeAlerts, playAlertSound, stopAlertSound]);
+    }, [activeAlerts.length, settings?.reminder_sound]);
 
     // Data fetch + alert sync
     const fetchReminders = useCallback(async () => {
         try {
             const data = await reminderAPI.getReminders();
-            setReminders(data);
-
-            const triggered = data.filter(r => r.status === "triggered" && !r.is_dismissed);
-            if (triggered.length > 0) {
-                setActiveAlerts(prev => {
-                    const existing = new Set(prev.map(a => a.id));
-                    const newOnes = triggered.filter(a => !existing.has(a.id));
-                    return [...prev, ...newOnes];
-                });
+            if (Array.isArray(data)) {
+                setReminders(data);
+                const triggered = data.filter(r => r.status === "triggered" && !r.is_dismissed);
+                setActiveAlerts(triggered);
             }
         } catch (error) {
             console.error("Failed to fetch reminders:", error);
-            addToast("Reminder fetch failed", "Unable to load reminders right now");
         }
-    }, [addToast]);
+    }, []);
 
     const createReminder = async (data) => {
         const created = await reminderAPI.createReminder(data);
         setReminders(prev => [...prev, created]);
+        fetchReminders();
         return created;
     };
 
@@ -114,7 +56,7 @@ export const ReminderProvider = ({ children }) => {
         setActiveAlerts(prev => prev.filter(a => a.id !== id));
         try {
             await reminderAPI.snoozeReminder(id, minutes);
-            fetchReminders();
+            await fetchReminders();
         } catch (error) {
             console.error("Snooze failed:", error);
             addToast("Snooze failed", "Could not snooze reminder");
@@ -125,17 +67,17 @@ export const ReminderProvider = ({ children }) => {
         setActiveAlerts(prev => prev.filter(a => a.id !== id));
         try {
             await reminderAPI.completeReminder(id);
-            fetchReminders();
+            await fetchReminders();
         } catch (error) {
             console.error("Dismiss failed:", error);
             addToast("Dismiss failed", "Could not dismiss reminder");
         }
     };
 
-    // Poll every 60s to stay in sync
+    // Poll every 15s to stay in sync with background checker
     useEffect(() => {
         fetchReminders();
-        const interval = setInterval(fetchReminders, 60000);
+        const interval = setInterval(fetchReminders, 15000);
         return () => clearInterval(interval);
     }, [fetchReminders]);
 

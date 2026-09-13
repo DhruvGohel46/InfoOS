@@ -242,18 +242,33 @@ export const AlertProvider = ({ children }) => {
         showConfirm,
     };
 
+    const [isHoveringStack, setIsHoveringStack] = useState(false);
+
     return (
         <AlertContext.Provider value={value}>
             {children}
 
             {/* Toast Portal */}
             {createPortal(
-                <div className="rb-toast-container">
+                <div
+                    className={`rb-toast-container ${toasts.length > 1 ? 'rb-toast-container--stacked' : ''}`}
+                    style={{
+                        height: toasts.length > 1
+                            ? (isHoveringStack ? `${toasts.length * 78 + 12}px` : '85px')
+                            : undefined,
+                        pointerEvents: 'auto',
+                    }}
+                    onMouseEnter={() => setIsHoveringStack(true)}
+                    onMouseLeave={() => setIsHoveringStack(false)}
+                >
                     <AnimatePresence mode="popLayout" initial={false}>
-                        {toasts.map((toast) => (
+                        {toasts.map((toast, index) => (
                             <ToastItem
                                 key={toast.id}
                                 toast={toast}
+                                index={index}
+                                total={toasts.length}
+                                isHovered={isHoveringStack}
                                 onClose={() => removeToast(toast.id)}
                             />
                         ))}
