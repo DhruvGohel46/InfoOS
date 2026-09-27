@@ -626,14 +626,15 @@ function AppContent() {
               setPosKey(prev => prev + 1);
               navigate('/', { replace: true, state: {} });
             }}
-            className="liquid-glass-button"
+            className="liquid-glass-button header-btn-newbill"
             style={{
               fontSize: 'var(--text-sm)',
               fontWeight: 'var(--font-medium)',
               flexShrink: 0,
             }}
           >
-            Start New Bill
+            <span className="header-newbill-full">Start New Bill</span>
+            <span className="header-newbill-short">New Bill</span>
           </button>
 
           {/* Calculator Toggle Button */}
@@ -641,7 +642,7 @@ function AppContent() {
             id="calc-toggle-btn"
             onClick={() => setShowCalculator(prev => !prev)}
             title="Calculator (Alt)"
-            className="liquid-glass-button"
+            className="liquid-glass-button header-btn-calc"
             style={{
               background: showCalculator ? 'rgba(249,115,22,0.2)' : 'var(--bg-secondary)',
               border: showCalculator ? '1px solid var(--primary-500)' : '1px solid var(--glass-border)',
@@ -669,7 +670,7 @@ function AppContent() {
               <line x1="8" y1="18" x2="8" y2="18" />
               <line x1="12" y1="18" x2="16" y2="18" />
             </svg>
-            Calculator
+            <span className="header-calc-label">Calculator</span>
           </button>
 
           {/* AI Assistant Header Button (Owner / Admin Only) with Custom Outline */}
@@ -834,7 +835,7 @@ function AppContent() {
         </div>
 
         {/* Center - Title (True Center Aligned with InfoOS Logo Symbol) */}
-        <div style={{
+        <div className="header-center-branding" style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
@@ -842,7 +843,7 @@ function AppContent() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          maxWidth: 'calc(100% - 660px)',
+          maxWidth: 'calc(100% - 500px)',
           pointerEvents: 'none',
           zIndex: 1,
         }}>
@@ -878,8 +879,8 @@ function AppContent() {
                 filter: 'drop-shadow(0 2px 6px rgba(249, 115, 22, 0.35))'
               }}
             />
-            <span>InfoOS</span>
-            <span style={{
+            <span className="header-brand-name">InfoOS</span>
+            <span className="header-shop-subtitle" style={{
               fontSize: 'calc(0.85rem * var(--display-zoom))',
               fontWeight: 'var(--font-normal)',
               color: 'var(--text-secondary)',
@@ -895,16 +896,17 @@ function AppContent() {
         </div>
 
         {/* Right Side - Date & Theme */}
-        <div style={{
-          width: '300px',
+        <div className="header-right-group" style={{
+          width: 'auto',
           display: 'flex',
           justifyContent: 'flex-end',
           alignItems: 'center',
-          gap: 'var(--spacing-4)'
+          gap: 'var(--spacing-4)',
+          flexShrink: 0
         }}>
           {/* Date Chip */}
           <div
-            className="rounded-pill"
+            className="rounded-pill header-date-chip"
             style={{
               height: 'calc(42px * var(--display-zoom))',
               display: 'flex',
@@ -923,19 +925,22 @@ function AppContent() {
               WebkitBackdropFilter: 'var(--glass-blur)',
               boxShadow: 'var(--shadow-sm)',
               whiteSpace: 'nowrap',
-              gap: 'calc(8px * var(--display-zoom))'
+              gap: 'calc(8px * var(--display-zoom))',
+              flexShrink: 0
             }}
             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--glass-header)'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
           >
             <IoCalendarOutline size={16} style={{ opacity: 0.7 }} />
-            <span>{todayLabel}</span>
+            <span className="header-date-text-full">{todayLabel}</span>
+            <span className="header-date-text-short">{todayLabel.replace(/^[A-Za-z]+,\s*/, '')}</span>
           </div>
 
           {/* Notification & Theme */}
           <div style={{ display: 'flex', gap: '8px', position: 'relative' }}>
             {/* Owner/Worker pill toggle */}
             <div
+              className="header-role-switch"
               title={isAdmin ? 'Admin mode active' : 'Worker mode active'}
               style={{
                 position: 'relative',
@@ -948,8 +953,9 @@ function AppContent() {
                 WebkitBackdropFilter: 'var(--glass-blur)',
                 display: 'flex',
                 alignItems: 'center',
-                padding: 'calc(8px * var(--display-zoom))',
+                padding: 'calc(4px * var(--display-zoom))',
                 boxShadow: 'var(--shadow-card)',
+                flexShrink: 0
               }}
             >
               {/* Sliding Indicator (CSS-transition driven for zoom scaling correctness) */}
@@ -957,8 +963,8 @@ function AppContent() {
                 style={{
                   position: 'absolute',
                   top: 'calc(4px * var(--display-zoom))',
-                  left: isAdmin ? 'calc(4px * var(--display-zoom))' : 'calc(120px * var(--display-zoom))',
-                  width: 'calc(116px * var(--display-zoom))',
+                  left: isAdmin ? 'calc(4px * var(--display-zoom))' : 'calc(50% + 1px)',
+                  width: 'calc(50% - calc(5px * var(--display-zoom)))',
                   height: 'calc(34px * var(--display-zoom))',
                   borderRadius: 'calc(48px* var(--display-zoom))',
                   background: 'var(--primary-500)',

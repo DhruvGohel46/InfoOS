@@ -5,6 +5,7 @@ import { useAlert } from '../../context/AlertContext';
 import { useTheme } from '../../context/ThemeContext';
 import { agentsAPI } from '../../api/agents';
 import DynamicAiMascot from '../common/DynamicAiMascot';
+import { jsPDF } from 'jspdf';
 
 /**
  * InfoOS AI — Production-Grade Multi-Agent Interface with Structured Card System
@@ -241,6 +242,50 @@ export default function AgentChatPanel() {
         localStorage.removeItem(STORAGE_KEY);
       } catch (e) {}
       startNewChat();
+    }
+  };
+
+  // ── Download AI Chat as PDF Routine ──────────────────────────────────────
+  const handleExportPDF = async () => {
+    if (!messages || messages.length === 0 || isOnlyWelcome) {
+      showError('No conversation to download yet. Ask a question first!');
+      return;
+    }
+
+    try {
+      const dateStr = new Date().toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const exportFilename = `InfoOS_AI_Chat_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      // 1. Generate clean, sharp vector PDF directly
+      const doc = generateChatPdfDoc({
+        messages,
+        dateStr,
+        userRole: isAdmin ? 'Admin' : 'Operator',
+      });
+
+      // 2. Direct save in Windows Explorer with specific filename (no popup window)
+      if (window.electronAPI && typeof window.electronAPI.saveFile === 'function') {
+        const base64Data = doc.output('datauristring').split(',')[1];
+        const res = await window.electronAPI.saveFile(exportFilename, base64Data);
+        if (res?.success) {
+          showSuccess(`AI chat transcript saved successfully to Windows Explorer!`);
+        } else if (!res?.cancelled) {
+          showError(res?.error || 'Failed to save PDF.');
+        }
+      } else {
+        // Direct browser file download into Downloads folder with specific filename
+        doc.save(exportFilename);
+        showSuccess(`AI chat transcript downloaded to your Downloads folder!`);
+      }
+    } catch (err) {
+      console.error('PDF export error:', err);
+      showError('Failed to export PDF: ' + err.message);
     }
   };
 
@@ -688,6 +733,36 @@ export default function AgentChatPanel() {
                 >
                   <PlusIcon size={14} color={isDark ? 'currentColor' : '#64748B'} />
                   <span style={{ fontSize: 12.5, fontWeight: 600 }}>New Chat</span>
+                </button>
+
+                {/* Download PDF Button */}
+                <button
+                  onClick={handleExportPDF}
+                  title="Download Conversation as PDF"
+                  style={{
+                    background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.09)' : '1px solid #CBD5E1',
+                    color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#334155',
+                    borderRadius: 10,
+                    padding: '0 12px',
+                    height: 36,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    gap: 6,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#FF8A3D';
+                    e.currentTarget.style.color = '#FF8A3D';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.09)' : '#CBD5E1';
+                    e.currentTarget.style.color = isDark ? 'rgba(255, 255, 255, 0.85)' : '#334155';
+                  }}
+                >
+                  <DownloadIcon size={14} color="currentColor" />
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>PDF</span>
                 </button>
 
                 {/* Close Button */}
@@ -2453,33 +2528,141 @@ function TableCellRenderer({ cell, isDark = true }) {
   return str;
 }
 
+// ── Incomplete JSON Auto-Repair ──────────────────────────────────────────────
+function repairIncompleteJson(str) {
+  if (!str || typeof str !== 'string') return null;
+  let s = str.trim();
+
+  // Strip leading non-JSON preamble if any
+  const firstBrace = s.indexOf('{');
+  if (firstBrace === -1) return null;
+  s = s.substring(firstBrace);
+
+  // Quick direct try
+  try {
+    const direct = JSON.parse(s);
+    if (direct && (direct.title || direct.sections)) return direct;
+  } catch (e) {
+    // continue to repair
+  }
+
+  // Iteratively trim broken trailing properties, keys, or truncated tokens
+  for (let cut = 0; cut < 15; cut++) {
+    // If inside a string (odd number of unescaped quotes), close it
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === '\\') {
+        escaped = !escaped;
+      } else if (c === '"' && !escaped) {
+        inString = !inString;
+      } else {
+        escaped = false;
+      }
+    }
+    let testStr = inString ? s + '"' : s;
+
+    // Remove dangling commas, colons, or incomplete key/values at the end
+    testStr = testStr.replace(/,\s*$/, '').replace(/:\s*"?$/, '').replace(/,\s*"?$/, '');
+
+    // Count open braces and brackets
+    const stack = [];
+    inString = false;
+    escaped = false;
+    for (let i = 0; i < testStr.length; i++) {
+      const c = testStr[i];
+      if (c === '\\') {
+        escaped = !escaped;
+      } else if (c === '"' && !escaped) {
+        inString = !inString;
+      } else if (!inString) {
+        if (c === '{') stack.push('}');
+        else if (c === '[') stack.push(']');
+        else if (c === '}' || c === ']') {
+          if (stack.length > 0 && stack[stack.length - 1] === c) {
+            stack.pop();
+          }
+        }
+      } else {
+        escaped = false;
+      }
+    }
+
+    // Append closing tokens in reverse order
+    let candidate = testStr;
+    while (stack.length > 0) {
+      candidate += stack.pop();
+    }
+
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && (parsed.title || parsed.sections)) {
+        return parsed;
+      }
+    } catch (err) {
+      // Trim back to previous comma or brace and try again
+      const lastComma = s.lastIndexOf(',');
+      const lastCloseBrace = s.lastIndexOf('}');
+      const trimPoint = Math.max(lastComma, lastCloseBrace);
+      if (trimPoint > firstBrace + 10) {
+        s = s.substring(0, trimPoint);
+      } else {
+        break;
+      }
+    }
+  }
+  return null;
+}
+
 // ── Universal Structured Schema Parser & Markdown Sanitizer ────────────────
 function parseToStructuredSchema(rawText, rawData) {
   // 1. Direct JSON data object
   if (rawData && typeof rawData === 'object' && (rawData.sections || rawData.title)) {
     return rawData;
   }
+  if (typeof rawText === 'object' && rawText !== null && (rawText.sections || rawText.title)) {
+    return rawText;
+  }
 
-  const text = typeof rawText === 'string' ? rawText.trim() : '';
+  let text = typeof rawText === 'string' ? rawText.trim() : '';
+  if (!text) {
+    return {
+      title: { icon: 'ai_review', text: 'Assistant Response' },
+      sections: [],
+      meta: { status: 'normal', statusIcon: 'status_normal' }
+    };
+  }
+
+  // Strip <thought>...</thought> tags and thought prefixes
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim();
+  text = text.replace(/^thought\s*\{/i, '{').trim();
+  text = text.replace(/^thought[:\s]*\n?/i, '').trim();
 
   // 2. Try JSON Parse from text (including ```json code blocks)
   const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/;
   const match = text.match(jsonBlockRegex);
-  const targetJsonStr = match ? match[1].trim() : text;
+  let targetJsonStr = match ? match[1].trim() : text;
+  targetJsonStr = targetJsonStr.replace(/^thought\s*\{/i, '{').trim();
 
-  if (targetJsonStr.startsWith('{') && targetJsonStr.endsWith('}')) {
+  const firstBrace = targetJsonStr.indexOf('{');
+  if (firstBrace !== -1) {
+    const candidate = targetJsonStr.substring(firstBrace);
     try {
-      const parsed = JSON.parse(targetJsonStr);
+      const parsed = JSON.parse(candidate);
       if (parsed && (parsed.sections || parsed.title)) {
         return parsed;
       }
     } catch (e) {
-      // ignore
+      // Attempt incomplete JSON repair
+      const repaired = repairIncompleteJson(candidate);
+      if (repaired) {
+        return repaired;
+      }
     }
   }
 
   // 3. Fallback: Universal Markdown-to-Structured Converter
-  // Strips all emojis and parses raw markdown headers/tables into the structured schema
   return sanitizeMarkdownToStructured(text);
 }
 
@@ -2643,14 +2826,38 @@ function sanitizeMarkdownToStructured(rawText) {
     sections.push(currentInsight);
   }
 
+  let defaultBody = cleanText.replace(/###/g, '').replace(/---/g, '').trim();
+  let defaultHeading = 'Store Summary';
+  let defaultTitle = title;
+
+  // Prevent raw JSON from ever being displayed directly as plain text
+  if (defaultBody.startsWith('{') || defaultBody.startsWith('thought{') || defaultBody.includes('"title"') || defaultBody.includes('"sections"')) {
+    const titleMatch = defaultBody.match(/"text"\s*:\s*"([^"]+)"/);
+    const bodyMatch = defaultBody.match(/"body"\s*:\s*"([^"]+)"/);
+    const headingMatch = defaultBody.match(/"heading"\s*:\s*"([^"]+)"/);
+    if (bodyMatch) {
+      defaultBody = bodyMatch[1];
+    } else if (titleMatch) {
+      defaultBody = titleMatch[1];
+    } else {
+      defaultBody = defaultBody.replace(/["{}[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    if (headingMatch && headingMatch[1]) {
+      defaultHeading = headingMatch[1];
+    }
+    if (titleMatch && titleMatch[1]) {
+      defaultTitle = { icon: title.icon || 'ai_review', text: titleMatch[1] };
+    }
+  }
+
   return {
-    title,
+    title: defaultTitle,
     sections: sections.length > 0 ? sections : [
       {
         type: 'insight_block',
         icon: 'ai_review',
-        heading: 'Store Summary',
-        body: cleanText.replace(/###/g, '').replace(/---/g, '').trim(),
+        heading: defaultHeading,
+        body: defaultBody,
       }
     ],
     meta: { status: 'normal', statusIcon: 'status_normal' },
@@ -2912,6 +3119,797 @@ function UndoIcon({ size = 12, color = 'currentColor' }) {
       <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
     </svg>
   );
+}
+
+function DownloadIcon({ size = 14, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+// ── HTML Document Generator for Clean Executive PDF Export ─────────────────
+// ── Direct Vector PDF Document Generator using jsPDF ────────────────────────
+function generateChatPdfDoc({ messages, dateStr, userRole }) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 36;
+  const contentWidth = pageWidth - margin * 2;
+  const bottomLimit = pageHeight - margin - 32;
+
+  let y = margin;
+
+  const renderHeader = (isFirstPage = false) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 107, 26); // InfoOS Orange #FF6B1A
+    doc.text('InfoOS Copilot', margin, y + 14);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('ENTERPRISE AI INTELLIGENCE & STORE CONSULTATION REPORT', margin, y + 25);
+
+    if (isFirstPage) {
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      const rightMeta = [
+        `Date: ${dateStr}`,
+        `Operator: ${userRole}`,
+        `Total Interactions: ${messages.filter(m => m && m.role === 'user').length}`
+      ];
+      rightMeta.forEach((line, idx) => {
+        doc.text(line, pageWidth - margin, y + 11 + idx * 10, { align: 'right' });
+      });
+      y += 36;
+    } else {
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Continued • ${dateStr}`, pageWidth - margin, y + 18, { align: 'right' });
+      y += 26;
+    }
+
+    doc.setDrawColor(255, 138, 61);
+    doc.setLineWidth(1.2);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 14;
+  };
+
+  const checkPageBreak = (neededHeight) => {
+    if (y + neededHeight > bottomLimit) {
+      doc.addPage();
+      y = margin;
+      renderHeader(false);
+      return true;
+    }
+    return false;
+  };
+
+  // Render initial page header
+  renderHeader(true);
+
+  const filtered = messages.filter((m) => m && m.id !== 'welcome');
+
+  for (const m of filtered) {
+    const rawText = m.text || m.content || '';
+
+    if (m.role === 'user') {
+      const userTextLines = doc.splitTextToSize(String(rawText), contentWidth - 28);
+      const bubbleHeight = Math.max(30, 16 + userTextLines.length * 12);
+
+      checkPageBreak(bubbleHeight + 20);
+
+      // Badge
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(margin, y, 76, 13, 3, 3, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text('OWNER QUERY', margin + 6, y + 9.5);
+
+      // Bubble
+      const bubbleY = y + 15;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(margin, bubbleY, contentWidth, bubbleHeight, 5, 5, 'FD');
+
+      // Orange left accent
+      doc.setFillColor(255, 107, 26);
+      doc.roundedRect(margin, bubbleY, 3.5, bubbleHeight, 2, 2, 'F');
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(userTextLines, margin + 12, bubbleY + 13);
+
+      y = bubbleY + bubbleHeight + 12;
+    } else {
+      const agentKey = m.agent || 'orchestrator';
+      const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
+
+      let card = m.structured_card;
+      if (!card && typeof m.text === 'object' && m.text !== null) {
+        card = m.text;
+      }
+      if (!card && m.data && typeof m.data === 'object') {
+        card = m.data;
+      }
+      if (!card && rawText) {
+        card = parseToStructuredSchema(rawText, m.data);
+      }
+
+      const cardTitleText = (card?.title?.text) || 'Analysis Summary';
+
+      checkPageBreak(50);
+
+      // Agent Badge
+      doc.setFillColor(255, 247, 237);
+      doc.setDrawColor(255, 237, 213);
+      doc.roundedRect(margin, y, 95, 14, 3, 3, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(194, 65, 12);
+      doc.text(agentTitle.toUpperCase(), margin + 6, y + 10);
+
+      // Verified Chip
+      doc.setFillColor(240, 253, 244);
+      doc.setDrawColor(187, 247, 208);
+      doc.roundedRect(margin + 101, y, 48, 14, 3, 3, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(22, 101, 52);
+      doc.text('VERIFIED', margin + 108, y + 10);
+
+      y += 18;
+
+      // Card Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(cardTitleText, margin, y + 4);
+      y += 14;
+
+      if (card && Array.isArray(card.sections) && card.sections.length > 0) {
+        for (const sec of card.sections) {
+          if (sec.type === 'metric_list' && Array.isArray(sec.items) && sec.items.length > 0) {
+            checkPageBreak(46);
+            const items = sec.items.slice(0, 4);
+            const colWidth = (contentWidth - (items.length - 1) * 8) / items.length;
+            const boxHeight = 36;
+
+            for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              const xPos = margin + i * (colWidth + 8);
+              doc.setFillColor(248, 250, 252);
+              doc.setDrawColor(226, 232, 240);
+              doc.roundedRect(xPos, y, colWidth, boxHeight, 4, 4, 'FD');
+
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(7);
+              doc.setTextColor(100, 116, 139);
+              doc.text(String(item.label || '').toUpperCase(), xPos + 8, y + 12);
+
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(12);
+              doc.setTextColor(15, 23, 42);
+              doc.text(String(item.value || '0'), xPos + 8, y + 27);
+            }
+            y += boxHeight + 10;
+          } else if (sec.type === 'table' && Array.isArray(sec.columns) && Array.isArray(sec.rows)) {
+            checkPageBreak(50);
+            if (sec.heading) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(9);
+              doc.setTextColor(51, 65, 85);
+              doc.text(sec.heading, margin, y + 2);
+              y += 12;
+            }
+
+            const cols = sec.columns;
+            const rows = sec.rows;
+            const numCols = cols.length || 1;
+            const colWidth = contentWidth / numCols;
+            const rowHeight = 17;
+
+            // Draw table header helper
+            // eslint-disable-next-line no-loop-func
+            const renderTableCols = () => {
+              doc.setFillColor(241, 245, 249);
+              doc.setDrawColor(203, 213, 225);
+              doc.rect(margin, y, contentWidth, rowHeight, 'FD');
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(7.5);
+              doc.setTextColor(30, 41, 59);
+
+              for (let ci = 0; ci < cols.length; ci++) {
+                doc.text(String(cols[ci]), margin + ci * colWidth + 6, y + 11.5);
+              }
+              y += rowHeight;
+            };
+
+            renderTableCols();
+
+            for (let ri = 0; ri < rows.length; ri++) {
+              if (checkPageBreak(rowHeight + 4)) {
+                renderTableCols();
+              }
+              if (ri % 2 === 1) {
+                doc.setFillColor(250, 250, 250);
+                doc.rect(margin, y, contentWidth, rowHeight, 'F');
+              }
+              doc.setDrawColor(241, 245, 249);
+              doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
+
+              const rowCells = Array.isArray(rows[ri]) ? rows[ri] : [];
+              for (let ci = 0; ci < rowCells.length; ci++) {
+                const cell = rowCells[ci];
+                let cellText = '';
+                if (typeof cell === 'object' && cell !== null) {
+                  cellText = String(cell.text || cell.value || '');
+                } else {
+                  cellText = String(cell ?? '');
+                }
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7.5);
+                doc.setTextColor(51, 65, 85);
+                const maxChars = Math.floor(colWidth / 5.2);
+                if (cellText.length > maxChars) {
+                  cellText = cellText.substring(0, maxChars - 2) + '..';
+                }
+                doc.text(cellText, margin + ci * colWidth + 6, y + 11.5);
+              }
+              y += rowHeight;
+            }
+            y += 8;
+          } else if (sec.type === 'insight_block') {
+            const bodyLines = doc.splitTextToSize(String(sec.body || ''), contentWidth - 24);
+            const boxH = Math.max(30, 16 + bodyLines.length * 11);
+            checkPageBreak(boxH + 8);
+
+            doc.setFillColor(238, 242, 255);
+            doc.setDrawColor(199, 210, 254);
+            doc.roundedRect(margin, y, contentWidth, boxH, 4, 4, 'FD');
+
+            doc.setFillColor(79, 70, 229);
+            doc.roundedRect(margin, y, 3, boxH, 1, 1, 'F');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(55, 48, 163);
+            doc.text(sec.heading || 'Store Insight', margin + 10, y + 11);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(bodyLines, margin + 10, y + 22);
+
+            y += boxH + 8;
+          } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {
+            checkPageBreak(26);
+            if (sec.heading) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(8.5);
+              doc.setTextColor(51, 65, 85);
+              doc.text(sec.heading, margin, y + 2);
+              y += 11;
+            }
+
+            for (let ai = 0; ai < sec.items.length; ai++) {
+              const act = sec.items[ai];
+              const actTitle = act.title || '';
+              const actDesc = act.body || act.desc || '';
+              const textLines = doc.splitTextToSize(`${actTitle}: ${actDesc}`, contentWidth - 32);
+              const itemH = Math.max(16, textLines.length * 10 + 4);
+
+              checkPageBreak(itemH + 3);
+
+              doc.setFillColor(255, 107, 26);
+              doc.circle(margin + 5, y + 6, 4, 'F');
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(6);
+              doc.setTextColor(255, 255, 255);
+              doc.text(String(ai + 1), margin + 3.8, y + 8);
+
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(7.5);
+              doc.setTextColor(30, 41, 59);
+              doc.text(textLines, margin + 16, y + 8);
+
+              y += itemH;
+            }
+            y += 6;
+          } else if (sec.type === 'divider') {
+            doc.setDrawColor(241, 245, 249);
+            doc.line(margin, y + 3, margin + contentWidth, y + 3);
+            y += 6;
+          }
+        }
+      } else {
+        const plainLines = doc.splitTextToSize(String(rawText), contentWidth - 20);
+        const boxH = Math.max(26, 12 + plainLines.length * 10.5);
+        checkPageBreak(boxH + 8);
+
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, y, contentWidth, boxH, 4, 4, 'FD');
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+        doc.text(plainLines, margin + 10, y + 13);
+
+        y += boxH + 8;
+      }
+
+      // Bottom separator
+      doc.setDrawColor(241, 245, 249);
+      doc.line(margin, y + 4, margin + contentWidth, y + 4);
+      y += 12;
+    }
+  }
+
+  // Add Footers to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, pageHeight - margin + 8, pageWidth - margin, pageHeight - margin + 8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Generated by InfoOS POS System • Confidential Store Record', margin, pageHeight - margin + 18);
+    doc.text(`Executive Consultation Transcript • Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - margin + 18, { align: 'right' });
+  }
+
+  return doc;
+}
+
+// ── HTML Document Generator for Clean Executive PDF Export ─────────────────
+// eslint-disable-next-line no-unused-vars
+function generateChatPdfHtml({ messages, dateStr, userRole }) {
+
+  const sanitize = (text) => {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  };
+
+  let messagesHtml = '';
+  const filtered = messages.filter((m) => m && m.id !== 'welcome');
+
+  for (const m of filtered) {
+    const rawText = m.text || m.content || '';
+
+    if (m.role === 'user') {
+      messagesHtml += `
+        <div class="pdf-msg-user">
+          <div class="pdf-msg-badge user-badge">Owner Query</div>
+          <div class="pdf-msg-bubble user-bubble">${sanitize(rawText)}</div>
+        </div>
+      `;
+    } else {
+      const agentKey = m.agent || 'orchestrator';
+      const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
+
+      let card = m.structured_card;
+      if (!card && typeof m.text === 'object' && m.text !== null) {
+        card = m.text;
+      }
+      if (!card && m.data && typeof m.data === 'object') {
+        card = m.data;
+      }
+      if (!card && rawText) {
+        card = parseToStructuredSchema(rawText, m.data);
+      }
+
+      let cardSectionsHtml = '';
+
+      if (card && Array.isArray(card.sections)) {
+        for (const sec of card.sections) {
+          if (sec.type === 'metric_list' && Array.isArray(sec.items)) {
+            const itemsHtml = sec.items.map(it => `
+              <div class="metric-card">
+                <div class="metric-label">${sanitize(it.label)}</div>
+                <div class="metric-value">${sanitize(it.value)}</div>
+              </div>
+            `).join('');
+            cardSectionsHtml += `<div class="metric-grid">${itemsHtml}</div>`;
+          } else if (sec.type === 'table' && Array.isArray(sec.columns) && Array.isArray(sec.rows)) {
+            const thHtml = sec.columns.map(c => `<th>${sanitize(c)}</th>`).join('');
+            const trHtml = sec.rows.map(row => {
+              const tds = (Array.isArray(row) ? row : []).map(cell => {
+                if (typeof cell === 'object' && cell !== null) {
+                  const statusClass = cell.status === 'present' ? 'status-present' : (cell.status === 'warning' ? 'status-warning' : 'status-default');
+                  return `<td><span class="badge ${statusClass}">${sanitize(cell.text || cell.value || '')}</span></td>`;
+                }
+                return `<td>${sanitize(cell)}</td>`;
+              }).join('');
+              return `<tr>${tds}</tr>`;
+            }).join('');
+            cardSectionsHtml += `
+              <div class="table-container">
+                <div class="section-heading">${sanitize(sec.heading || 'Report Data')}</div>
+                <table class="pdf-table">
+                  <thead><tr>${thHtml}</tr></thead>
+                  <tbody>${trHtml}</tbody>
+                </table>
+              </div>
+            `;
+          } else if (sec.type === 'insight_block') {
+            cardSectionsHtml += `
+              <div class="insight-box">
+                <div class="insight-title">${sanitize(sec.heading || 'Store Insight')}</div>
+                <div class="insight-body">${sanitize(sec.body || '')}</div>
+              </div>
+            `;
+          } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {
+            const actionsHtml = sec.items.map((act, i) => `
+              <div class="action-item">
+                <div class="action-number">${i + 1}</div>
+                <div class="action-content">
+                  <div class="action-title">${sanitize(act.title || '')}</div>
+                  <div class="action-desc">${sanitize(act.body || act.desc || '')}</div>
+                </div>
+              </div>
+            `).join('');
+            cardSectionsHtml += `
+              <div class="actions-container">
+                <div class="section-heading">${sanitize(sec.heading || 'Recommended Actions')}</div>
+                ${actionsHtml}
+              </div>
+            `;
+          } else if (sec.type === 'divider') {
+            cardSectionsHtml += `<hr class="pdf-divider" />`;
+          }
+        }
+      } else if (rawText) {
+        cardSectionsHtml = `<div class="plain-text-response">${sanitize(typeof rawText === 'object' ? JSON.stringify(rawText, null, 2) : rawText)}</div>`;
+      }
+
+      let actionsHtml = '';
+      if (m.pending_actions && m.pending_actions.length > 0) {
+        actionsHtml += m.pending_actions.map(a => `
+          <div class="mutation-box pending">
+            <strong>Proposed Mutation (Staged):</strong> ${sanitize(a.diff_summary || a.tool_name)}
+          </div>
+        `).join('');
+      }
+      if (m.executed_actions && m.executed_actions.length > 0) {
+        actionsHtml += m.executed_actions.map(a => `
+          <div class="mutation-box executed">
+            <strong>Action Executed:</strong> ${sanitize(a.diff_summary || a.tool_name)}
+          </div>
+        `).join('');
+      }
+
+      messagesHtml += `
+        <div class="pdf-msg-assistant">
+          <div class="assistant-header">
+            <span class="pdf-msg-badge agent-badge">${sanitize(agentTitle)}</span>
+            <span class="status-chip">VERIFIED</span>
+          </div>
+          <div class="card-title">${sanitize(card?.title?.text || 'Analysis Summary')}</div>
+          <div class="card-body">
+            ${cardSectionsHtml}
+            ${actionsHtml}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>InfoOS AI Consultation Transcript</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0F172A;
+      background: #FFFFFF;
+      margin: 0;
+      padding: 0;
+      font-size: 10.5pt;
+      line-height: 1.5;
+    }
+    .header {
+      border-bottom: 2px solid #FF8A3D;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .header-brand {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #FF6B1A;
+      letter-spacing: -0.02em;
+    }
+    .header-subtitle {
+      font-size: 9.5pt;
+      color: #64748B;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+    .meta-info {
+      text-align: right;
+      font-size: 8.5pt;
+      color: #475569;
+      line-height: 1.4;
+    }
+    .pdf-msg-user {
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .pdf-msg-badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    .user-badge {
+      background: #F1F5F9;
+      color: #334155;
+      border: 1px solid #E2E8F0;
+    }
+    .agent-badge {
+      background: #FFF7ED;
+      color: #C2410C;
+      border: 1px solid #FFEDD5;
+    }
+    .status-chip {
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: #16A34A;
+      background: #F0FDF4;
+      border: 1px solid #DCFCE7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .user-bubble {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 9px 13px;
+      font-weight: 600;
+      color: #1E293B;
+      font-size: 10.5pt;
+    }
+    .pdf-msg-assistant {
+      margin-bottom: 18px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-left: 4px solid #FF8A3D;
+      border-radius: 8px;
+      padding: 12px 15px;
+      page-break-inside: avoid;
+    }
+    .assistant-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 12pt;
+      font-weight: 750;
+      color: #0F172A;
+      margin-bottom: 10px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .metric-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .metric-label {
+      font-size: 7.5pt;
+      color: #64748B;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .metric-value {
+      font-size: 12pt;
+      font-weight: 750;
+      color: #0F172A;
+      margin-top: 2px;
+    }
+    .section-heading {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .pdf-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 9pt;
+    }
+    .pdf-table th {
+      background: #F1F5F9;
+      color: #334155;
+      text-align: left;
+      padding: 6px 9px;
+      font-weight: 700;
+      border-bottom: 2px solid #CBD5E1;
+    }
+    .pdf-table td {
+      padding: 6px 9px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .pdf-table tr:nth-child(even) td {
+      background: #F8FAFC;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .status-present {
+      background: #DCFCE7;
+      color: #166534;
+    }
+    .status-warning {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+    .status-default {
+      background: #F1F5F9;
+      color: #475569;
+    }
+    .insight-box {
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      border-radius: 6px;
+      padding: 9px 12px;
+      margin-bottom: 10px;
+    }
+    .insight-title {
+      font-weight: 700;
+      color: #92400E;
+      font-size: 9.5pt;
+      margin-bottom: 3px;
+    }
+    .insight-body {
+      font-size: 9pt;
+      color: #78350F;
+      line-height: 1.45;
+    }
+    .action-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .action-number {
+      background: #FF8A3D;
+      color: #FFFFFF;
+      font-size: 8pt;
+      font-weight: 750;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .action-title {
+      font-weight: 700;
+      font-size: 9.5pt;
+      color: #0F172A;
+    }
+    .action-desc {
+      font-size: 9pt;
+      color: #475569;
+    }
+    .pdf-divider {
+      border: 0;
+      border-top: 1px dashed #CBD5E1;
+      margin: 10px 0;
+    }
+    .mutation-box {
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 8.5pt;
+      margin-top: 8px;
+    }
+    .mutation-box.pending {
+      background: #FFF7ED;
+      border: 1px solid #FDBA74;
+      color: #9A3412;
+    }
+    .mutation-box.executed {
+      background: #F0FDF4;
+      border: 1px solid #86EFAC;
+      color: #166534;
+    }
+    .plain-text-response {
+      font-size: 9.5pt;
+      color: #334155;
+      line-height: 1.5;
+    }
+    .footer {
+      margin-top: 20px;
+      border-top: 1px solid #E2E8F0;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="header-brand">InfoOS Copilot</div>
+      <div class="header-subtitle">Enterprise AI Intelligence &amp; Store Consultation Report</div>
+    </div>
+    <div class="meta-info">
+      <div><strong>Date:</strong> ${dateStr}</div>
+      <div><strong>Operator Role:</strong> ${sanitize(userRole)}</div>
+      <div><strong>Total Interactions:</strong> ${filtered.filter(m => m.role === 'user').length}</div>
+    </div>
+  </div>
+
+  <div class="content">
+    ${messagesHtml || '<p style="color: #64748B; font-style: italic;">No conversation messages to display.</p>'}
+  </div>
+
+  <div class="footer">
+    <div>Generated by InfoOS POS System • Confidential Store Record</div>
+    <div>Executive Consultation Transcript</div>
+  </div>
+</body>
+</html>`;
 }
 
 

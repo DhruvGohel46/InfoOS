@@ -52,6 +52,24 @@ def _log_raw_llm_response(provider: str, model: str, res_data: Dict[str, Any]):
         _log.warning("Failed to log raw LLM response: %s", e)
 
 
+def _clean_llm_content(content: Optional[str]) -> Optional[str]:
+    if not content or not isinstance(content, str):
+        return content
+    import re
+
+    cleaned = content.strip()
+    # Strip <thought>...</thought> tags from reasoning models (e.g. DeepSeek-R1)
+    cleaned = re.sub(r"<thought>[\s\S]*?</thought>", "", cleaned, flags=re.DOTALL).strip()
+    # Strip thought{ or thought\n{ prefixes
+    if cleaned.startswith("thought{"):
+        cleaned = "{" + cleaned[8:].lstrip()
+    elif cleaned.startswith("thought\n{") or cleaned.startswith("thought:\n{"):
+        cleaned = "{" + cleaned.split("{", 1)[1]
+    elif cleaned.lower().startswith("thought:") or cleaned.lower().startswith("thought\n"):
+        cleaned = cleaned.split("\n", 1)[1].strip()
+    return cleaned
+
+
 class LLMAdapter:
     """Base abstract adapter for BYO-Key LLM providers."""
 
@@ -161,7 +179,7 @@ class OpenAIAdapter(LLMAdapter):
                 tool_calls.append(ToolCall(id=tc.get("id", name), name=name, args=parsed_args))
 
             return AgentResponse(
-                content=content,
+                content=_clean_llm_content(content),
                 tool_calls=tool_calls,
                 finish_reason=choice.get("finish_reason"),
                 input_tokens=input_tokens,
@@ -290,7 +308,7 @@ class AnthropicAdapter(LLMAdapter):
 
             content_str = "\n".join(text_pieces) if text_pieces else None
             return AgentResponse(
-                content=content_str,
+                content=_clean_llm_content(content_str),
                 tool_calls=tool_calls,
                 finish_reason=res_data.get("stop_reason"),
                 input_tokens=input_tokens,
@@ -323,7 +341,19 @@ class GoogleAdapter(LLMAdapter):
         temperature: float = 0.2,
         max_tokens: Optional[int] = None,
     ) -> AgentResponse:
-        use_model = model or "gemini-1.5-flash"
+        import time
+        import re
+
+        use_model = model or "gemini-3.8-flash"
+        # Auto-migrate deprecated models to supported production model
+        if use_model in [
+            "gemini-1.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-pro",
+        ]:
+            use_model = "gemini-3.8-flash"
+
         endpoint = (
             f"{self.base_url.rstrip('/')}/models/{use_model}:generateContent?key={self.api_key}"
         )
@@ -341,9 +371,15 @@ class GoogleAdapter(LLMAdapter):
             elif role in ["assistant", "model"]:
                 contents.append({"role": "model", "parts": [{"text": text}]})
 
-        gen_config = {"temperature": temperature}
-        if max_tokens:
-            gen_config["maxOutputTokens"] = max_tokens
+        # Ensure adequate tokens for structured JSON cards (at least 2048)
+        output_tokens_limit = max(max_tokens or 2048, 2048)
+
+        gen_config: Dict[str, Any] = {
+            "temperature": temperature,
+            "maxOutputTokens": output_tokens_limit,
+            # Turn off internal thoughts so thinking tokens do not consume response token budget
+            "thinkingConfig": {"thinkingBudget": 0},
+        }
 
         payload: Dict[str, Any] = {
             "contents": contents,
@@ -367,59 +403,94 @@ class GoogleAdapter(LLMAdapter):
             payload["tools"] = [{"functionDeclarations": declarations}]
 
         headers = {"Content-Type": "application/json"}
+        ctx = ssl.create_default_context()
 
-        try:
-            _log_raw_llm_request("google", use_model, payload)
-            req = urllib.request.Request(
-                endpoint, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
-            )
-            ctx = ssl.create_default_context()
-            with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as response:
-                res_data = json.loads(response.read().decode("utf-8"))
-            _log_raw_llm_response("google", use_model, res_data)
+        last_err = None
+        for attempt in range(2):
+            try:
+                _log_raw_llm_request("google", use_model, payload)
+                req = urllib.request.Request(
+                    endpoint,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as response:
+                    res_data = json.loads(response.read().decode("utf-8"))
+                _log_raw_llm_response("google", use_model, res_data)
 
-            candidates = res_data.get("candidates", [{}])
-            if not candidates:
-                return AgentResponse(content="No response received from Google Gemini.")
+                candidates = res_data.get("candidates", [{}])
+                if not candidates:
+                    return AgentResponse(content="No response received from Google Gemini.")
 
-            candidate = candidates[0]
-            content_obj = candidate.get("content", {})
-            parts = content_obj.get("parts", [])
+                candidate = candidates[0]
+                content_obj = candidate.get("content", {})
+                parts = content_obj.get("parts", [])
 
-            text_pieces = []
-            tool_calls = []
+                text_pieces = []
+                tool_calls = []
 
-            for p in parts:
-                if "text" in p:
-                    text_pieces.append(p["text"])
-                elif "functionCall" in p:
-                    fc = p["functionCall"]
-                    name = fc.get("name")
-                    args = fc.get("args", {})
-                    tool_calls.append(ToolCall(id=name, name=name, args=args))
+                for p in parts:
+                    if "text" in p:
+                        # Skip thinking/reasoning parts to prevent leaking thought tokens
+                        if p.get("thought"):
+                            continue
+                        text_pieces.append(p["text"])
+                    elif "functionCall" in p:
+                        fc = p["functionCall"]
+                        name = fc.get("name")
+                        args = fc.get("args", {})
+                        tool_calls.append(ToolCall(id=name, name=name, args=args))
 
-            usage_meta = res_data.get("usageMetadata", {})
-            input_tokens = usage_meta.get("promptTokenCount", 0)
-            output_tokens = usage_meta.get("candidatesTokenCount", 0)
-            cost = calculate_cost("google", use_model, input_tokens, output_tokens)
+                usage_meta = res_data.get("usageMetadata", {})
+                input_tokens = usage_meta.get("promptTokenCount", 0)
+                output_tokens = usage_meta.get("candidatesTokenCount", 0)
+                cost = calculate_cost("google", use_model, input_tokens, output_tokens)
 
-            content_str = "\n".join(text_pieces) if text_pieces else None
-            return AgentResponse(
-                content=content_str,
-                tool_calls=tool_calls,
-                finish_reason=candidate.get("finishReason"),
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                estimated_cost=cost,
-                raw=res_data,
-            )
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8", errors="replace")
-            _log.error("Google Gemini API HTTPError %s: %s", e.code, err_body)
-            raise LLMAdapterError(f"Google Gemini API Error ({e.code}): {err_body}")
-        except Exception as e:
-            _log.error("Google Gemini request failed: %s", e)
-            raise LLMAdapterError(f"Google Gemini request failed: {str(e)}")
+                content_str = "\n".join(text_pieces) if text_pieces else None
+                if content_str:
+                    # Strip any internal thought wrappers
+                    content_str = re.sub(
+                        r"<thought>[\s\S]*?</thought>", "", content_str, flags=re.DOTALL
+                    ).strip()
+                    if content_str.startswith("thought{"):
+                        content_str = "{" + content_str[8:].lstrip()
+                    elif content_str.startswith("thought\n{") or content_str.startswith("thought:\n{"):
+                        content_str = "{" + content_str.split("{", 1)[1]
+                    elif content_str.lower().startswith("thought:") or content_str.lower().startswith("thought\n"):
+                        content_str = content_str.split("\n", 1)[1].strip()
+
+                return AgentResponse(
+                    content=content_str,
+                    tool_calls=tool_calls,
+                    finish_reason=candidate.get("finishReason"),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    estimated_cost=cost,
+                    raw=res_data,
+                )
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8", errors="replace")
+                _log.error("Google Gemini API HTTPError %s: %s (attempt %d/2)", e.code, err_body, attempt + 1)
+                last_err = f"Google Gemini API Error ({e.code}): {err_body}"
+                # If thinkingConfig was rejected with 400, retry without thinkingConfig
+                if e.code == 400 and "thinkingConfig" in err_body and "thinkingConfig" in payload.get("generationConfig", {}):
+                    payload["generationConfig"].pop("thinkingConfig", None)
+                    continue
+                # Retry once on 503 Service Unavailable or 429
+                if attempt == 0 and e.code in [503, 429]:
+                    time.sleep(1.0)
+                    continue
+                raise LLMAdapterError(last_err)
+            except Exception as e:
+                _log.error("Google Gemini request failed: %s", e)
+                last_err = f"Google Gemini request failed: {str(e)}"
+                if attempt == 0:
+                    time.sleep(1.0)
+                    continue
+                raise LLMAdapterError(last_err)
+
+        raise LLMAdapterError(last_err or "Google Gemini call failed.")
 
 
 def get_adapter(provider: str, api_key: str, base_url: Optional[str] = None) -> LLMAdapter:

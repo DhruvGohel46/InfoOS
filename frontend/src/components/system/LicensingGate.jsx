@@ -9,7 +9,7 @@ import {
   IoMailOutline,
   IoKeyOutline
 } from 'react-icons/io5';
-import { cloudAuthAPI, cloudLicenseAPI, setCloudAuthToken } from '../../api/cloudApi';
+import { cloudAuthAPI, cloudLicenseAPI, setCloudAuthToken, restoreAuthSessionFromDisk, isTokenExpired } from '../../api/cloudApi';
 import '../../styles/Licensing.css';
 import infoosDevice3d from '../../assets/infoos_device_3d.png';
 import infoosLogo from '../../assets/logo.png';
@@ -56,7 +56,8 @@ export default function LicensingGate({ children }) {
         subscription_id: subscription.id,
         subscription_expiry: subscription.expiry_date,
         device_fingerprint: fingerprint,
-        last_validation_time: new Date().toISOString()
+        last_validation_time: new Date().toISOString(),
+        validated_at: new Date().toISOString()
       };
 
       const plainText = JSON.stringify(activationData);
@@ -68,7 +69,18 @@ export default function LicensingGate({ children }) {
       }
 
       localStorage.setItem('infoos_activation_cache', encrypted);
-      localStorage.setItem('cloud_user_email', localStorage.getItem('cloud_user_email') || email);
+      const userEmail = localStorage.getItem('cloud_user_email') || email;
+      localStorage.setItem('cloud_user_email', userEmail);
+
+      // Persist to disk so activation survives updates and restarts
+      if (window.electronAPI?.saveAuthSession) {
+        window.electronAPI.saveAuthSession({
+          cloud_auth_token: localStorage.getItem('cloud_auth_token') || '',
+          cloud_refresh_token: localStorage.getItem('cloud_refresh_token') || '',
+          cloud_user_email: userEmail,
+          infoos_activation_cache: encrypted
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Failed to write local activation cache:', err);
     }
@@ -132,7 +144,10 @@ export default function LicensingGate({ children }) {
   const runStartupChecks = useCallback(async () => {
     setLicensingState(prev => ({ ...prev, status: 'checking', errorMessage: '' }));
 
-    // Refresh cloud session on startup if online
+    // 1. Recover session from disk if localStorage is empty (after app update or restart)
+    await restoreAuthSessionFromDisk();
+
+    // 2. Refresh cloud session on startup if online
     if (navigator.onLine) {
       try {
         await cloudAuthAPI.refreshSession();
@@ -159,10 +174,28 @@ export default function LicensingGate({ children }) {
 
         // Validation 1: Match device fingerprint
         if (data.device_fingerprint !== fingerprint) {
-          console.warn('Local cache fingerprint mismatch. Forcing online revalidation.');
-          localStorage.removeItem('infoos_activation_cache');
-          setLicensingState({ status: 'login', errorMessage: 'Device fingerprint changed. Please log in again.' });
-          return;
+          console.warn('Local cache fingerprint mismatch. Attempting online verification before clearing.');
+          let cloudToken = localStorage.getItem('cloud_auth_token');
+          let revalidated = false;
+          if (navigator.onLine && cloudToken) {
+            try {
+              if (isTokenExpired(cloudToken)) {
+                const refreshed = await cloudAuthAPI.refreshSession();
+                if (refreshed) cloudToken = refreshed;
+              }
+              const result = await checkSubscriptionStatus(data.user_id, cloudToken, true);
+              if (result.status === 'active') {
+                revalidated = true;
+              }
+            } catch (e) {
+              console.warn('Online device revalidation error:', e);
+            }
+          }
+          if (!revalidated) {
+            localStorage.removeItem('infoos_activation_cache');
+            setLicensingState({ status: 'login', errorMessage: 'Device configuration changed. Please log in again.' });
+            return;
+          }
         }
 
         // Validation 2: Expiration check
@@ -178,7 +211,8 @@ export default function LicensingGate({ children }) {
         }
 
         // Validation 3: Offline grace period checks
-        const lastValidated = new Date(data.validated_at);
+        const lastValidatedStr = data.last_validation_time || data.validated_at || data.last_validation;
+        const lastValidated = lastValidatedStr ? new Date(lastValidatedStr) : new Date();
         const diffTime = Math.abs(now - lastValidated);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -195,19 +229,27 @@ export default function LicensingGate({ children }) {
 
         // If online and in production, perform background refresh of license
         if (isProduction && navigator.onLine) {
-          const cloudToken = localStorage.getItem('cloud_auth_token');
+          let cloudToken = localStorage.getItem('cloud_auth_token');
           if (cloudToken) {
             try {
+              if (isTokenExpired(cloudToken)) {
+                const refreshed = await cloudAuthAPI.refreshSession();
+                if (refreshed) cloudToken = refreshed;
+              }
               const result = await checkSubscriptionStatus(data.user_id, cloudToken);
               if (result.status && result.status !== 'active') {
-                // License state changed (expired/disabled) - enforce immediately
-                setLicensingState({ 
-                  status: result.status, 
-                  expiryDate: result.expiryDate, 
-                  registeredDevice: result.registeredDevice,
-                  errorMessage: result.error 
-                });
-                return;
+                if (result.status === 'error' || result.status === 'login') {
+                  console.log('Allowing access via cached activation due to background verification issue.');
+                } else {
+                  // Truly expired or suspended
+                  setLicensingState({ 
+                    status: result.status, 
+                    expiryDate: result.expiryDate, 
+                    registeredDevice: result.registeredDevice,
+                    errorMessage: result.error 
+                  });
+                  return;
+                }
               }
             } catch (e) {
               console.error('Background license refresh failed:', e);

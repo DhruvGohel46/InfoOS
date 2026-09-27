@@ -17,12 +17,68 @@ export const cloudApi = axios.create({
   timeout: 20000, // 20s timeout
 });
 
-// Request interceptor to dynamically attach the cloud JWT
+// Helper: Determine if a JWT token is expired or close to expiry (within 60s)
+export const isTokenExpired = (token) => {
+  if (!token || typeof token !== 'string') return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return false;
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return false;
+    return (Date.now() / 1000) + 60 >= payload.exp;
+  } catch (e) {
+    return false;
+  }
+};
+
+// Helper: Restore auth session from Electron disk persistence if localStorage is empty
+export const restoreAuthSessionFromDisk = async () => {
+  if (window.electronAPI?.loadAuthSession) {
+    try {
+      const diskSession = await window.electronAPI.loadAuthSession();
+      if (diskSession) {
+        if (!localStorage.getItem('cloud_auth_token') && diskSession.cloud_auth_token) {
+          localStorage.setItem('cloud_auth_token', diskSession.cloud_auth_token);
+          _cloudToken = diskSession.cloud_auth_token;
+          cloudApi.defaults.headers.common['Authorization'] = `Bearer ${diskSession.cloud_auth_token}`;
+        }
+        if (!localStorage.getItem('cloud_refresh_token') && diskSession.cloud_refresh_token) {
+          localStorage.setItem('cloud_refresh_token', diskSession.cloud_refresh_token);
+        }
+        if (!localStorage.getItem('cloud_user_email') && diskSession.cloud_user_email) {
+          localStorage.setItem('cloud_user_email', diskSession.cloud_user_email);
+        }
+        if (!localStorage.getItem('infoos_activation_cache') && diskSession.infoos_activation_cache) {
+          localStorage.setItem('infoos_activation_cache', diskSession.infoos_activation_cache);
+        }
+        return diskSession;
+      }
+    } catch (e) {
+      console.warn('[cloudApi] Failed to restore auth session from disk:', e);
+    }
+  }
+  return null;
+};
+
+// Request interceptor to dynamically attach and proactively refresh the cloud JWT
 let _cloudToken = localStorage.getItem('cloud_auth_token') || null;
 
 cloudApi.interceptors.request.use(
-  (config) => {
-    const token = _cloudToken || localStorage.getItem('cloud_auth_token');
+  async (config) => {
+    let token = _cloudToken || localStorage.getItem('cloud_auth_token');
+    
+    // If token is expired or close to expiring, attempt refresh before sending request
+    if (token && isTokenExpired(token) && localStorage.getItem('cloud_refresh_token')) {
+      try {
+        const refreshedToken = await cloudAuthAPI.refreshSession();
+        if (refreshedToken) {
+          token = refreshedToken;
+        }
+      } catch (e) {
+        // Continue with existing token on network failure
+      }
+    }
+
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -48,6 +104,22 @@ export const setCloudAuthToken = (token, refreshToken) => {
   } else if (token === null) {
     localStorage.removeItem('cloud_refresh_token');
   }
+
+  // Backup to disk in Electron so sessions survive restarts and updates
+  if (window.electronAPI?.saveAuthSession) {
+    if (token) {
+      const email = localStorage.getItem('cloud_user_email') || '';
+      const cache = localStorage.getItem('infoos_activation_cache') || '';
+      window.electronAPI.saveAuthSession({
+        cloud_auth_token: token,
+        cloud_refresh_token: refreshToken || localStorage.getItem('cloud_refresh_token') || '',
+        cloud_user_email: email,
+        infoos_activation_cache: cache
+      }).catch(() => {});
+    } else {
+      window.electronAPI.clearAuthSession().catch(() => {});
+    }
+  }
 };
 
 // Initialize authorization headers if token exists on load
@@ -65,6 +137,9 @@ const supabaseApi = axios.create({
   },
   timeout: 15000,
 });
+
+// Active in-flight refresh promise for concurrency locking
+let _activeRefreshPromise = null;
 
 // 3. Supabase direct Auth REST endpoints
 export const cloudAuthAPI = {
@@ -141,42 +216,76 @@ export const cloudAuthAPI = {
   
   /**
    * Refresh the access token using the stored refresh token
+   * Includes concurrency lock and safe transient error handling.
    */
   refreshSession: async () => {
-    const refreshToken = localStorage.getItem('cloud_refresh_token');
-    if (!refreshToken) {
-      return null;
+    // If a refresh is already in-flight, return the active promise to avoid duplicate rotation
+    if (_activeRefreshPromise) {
+      return _activeRefreshPromise;
     }
 
-    if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
-      console.log('Using dummy Supabase URL. Bypassing token refresh.');
-      return localStorage.getItem('cloud_auth_token');
-    }
-
-    try {
-      const response = await axios.post(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        refresh_token: refreshToken
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY
+    _activeRefreshPromise = (async () => {
+      let refreshToken = localStorage.getItem('cloud_refresh_token');
+      if (!refreshToken) {
+        // Try recovering from disk
+        const disk = await restoreAuthSessionFromDisk();
+        if (disk?.cloud_refresh_token) {
+          refreshToken = disk.cloud_refresh_token;
         }
-      });
-
-      if (response.data?.access_token) {
-        const token = response.data.access_token;
-        const newRefreshToken = response.data.refresh_token;
-        setCloudAuthToken(token, newRefreshToken);
-        return token;
       }
-    } catch (error) {
-      console.error('Failed to refresh Supabase session:', error.response?.data || error.message);
-      // Clean up invalid session
-      setCloudAuthToken(null, null);
-      localStorage.removeItem('cloud_user_email');
-      localStorage.removeItem('infoos_activation_cache');
-    }
-    return null;
+
+      if (!refreshToken) {
+        return null;
+      }
+
+      if (SUPABASE_URL.includes('dummy-project.supabase.co')) {
+        console.log('Using dummy Supabase URL. Bypassing token refresh.');
+        return localStorage.getItem('cloud_auth_token');
+      }
+
+      try {
+        const response = await axios.post(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          refresh_token: refreshToken
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY
+          },
+          timeout: 12000
+        });
+
+        if (response.data?.access_token) {
+          const token = response.data.access_token;
+          const newRefreshToken = response.data.refresh_token;
+          setCloudAuthToken(token, newRefreshToken);
+          return token;
+        }
+      } catch (error) {
+        console.warn('[cloudApi] Failed to refresh Supabase session:', error.response?.data || error.message);
+        const status = error.response?.status;
+        const errData = error.response?.data;
+        const errDesc = (errData?.error_description || errData?.msg || errData?.error || '').toLowerCase();
+
+        // STRICT SAFETY: ONLY clear session if server explicitly returned 400 with invalid/revoked refresh token.
+        // NEVER clear on network errors, timeouts, 5xx, or offline states!
+        if (status === 400 && (errDesc.includes('invalid') || errDesc.includes('revoked') || errDesc.includes('not found') || errDesc.includes('already used'))) {
+          console.warn('[cloudApi] Refresh token is permanently invalid/revoked. Clearing session.');
+          setCloudAuthToken(null, null);
+          localStorage.removeItem('cloud_user_email');
+          localStorage.removeItem('infoos_activation_cache');
+          if (window.electronAPI?.clearAuthSession) {
+            window.electronAPI.clearAuthSession().catch(() => {});
+          }
+        } else {
+          console.log('[cloudApi] Preserving cached credentials due to transient error or offline state.');
+        }
+      }
+      return null;
+    })().finally(() => {
+      _activeRefreshPromise = null;
+    });
+
+    return _activeRefreshPromise;
   }
 };
 

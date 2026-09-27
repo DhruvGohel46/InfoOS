@@ -23,6 +23,9 @@ MODEL_PRICING = {
     "gemini-1.5-flash": (0.075, 0.30),
     "gemini-1.5-pro": (1.25, 5.00),
     "gemini-2.0-flash": (0.10, 0.40),
+    "gemini-3.5-flash": (0.10, 0.40),
+    "gemini-3.8-flash": (0.10, 0.40),
+    "gemini-flash-latest": (0.10, 0.40),
     # DeepSeek / Groq / OpenRouter / Local
     "deepseek-chat": (0.14, 0.28),
     "deepseek-reasoner": (0.55, 2.19),

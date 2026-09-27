@@ -35,7 +35,7 @@ import {
 import { settingsAPI } from '../../api/settings';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
-import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI, cloudAuthAPI } from '../../api/cloudApi';
+import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI, cloudAuthAPI, restoreAuthSessionFromDisk } from '../../api/cloudApi';
 import api, { summaryAPI } from '../../utils/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
@@ -738,10 +738,13 @@ const Settings = () => {
     };
 
     const loadCloudProfile = async () => {
-        let token = localStorage.getItem('cloud_auth_token');
-        const email = localStorage.getItem('cloud_user_email') || '';
+        // 1. Recover session from disk if localStorage is empty (after app update or restart)
+        await restoreAuthSessionFromDisk();
 
-        // Refresh cloud session if online before reading status to prevent stale token display
+        let token = localStorage.getItem('cloud_auth_token');
+        let email = localStorage.getItem('cloud_user_email') || '';
+
+        // 2. Proactively refresh cloud session if online or if token is expired
         if (navigator.onLine && localStorage.getItem('cloud_refresh_token')) {
             try {
                 const refreshedToken = await cloudAuthAPI.refreshSession();
@@ -753,57 +756,86 @@ const Settings = () => {
             }
         }
 
-        if (!token) {
+        // 3. Check for local activation cache as offline/transient fallback
+        const cache = localStorage.getItem('infoos_activation_cache');
+        let cachedSub = null;
+        if (cache) {
+            try {
+                let decrypted = '';
+                if (window.electronAPI?.secureDecrypt) {
+                    decrypted = await window.electronAPI.secureDecrypt(cache);
+                } else {
+                    decrypted = atob(cache);
+                }
+                cachedSub = JSON.parse(decrypted);
+            } catch (e) {
+                console.warn('Failed to parse cached activation:', e);
+            }
+        }
+
+        if (!token && !cachedSub) {
             setCloudStatus(prev => ({ ...prev, loggedIn: false, loading: false }));
             return;
         }
 
         setCloudStatus(prev => ({ ...prev, loading: true }));
-        setCloudAuthToken(token);
+        if (token) setCloudAuthToken(token);
 
-        // Fetch subscription status and franchise profile independently
-        // so one failure doesn't prevent the other from displaying
         let subStatus = 'inactive';
         let subExpiry = null;
         let role = 'standalone';
 
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const userId = payload.sub;
-            
-            // Use cloudLicenseAPI for more robust subscription checking
-            const subscription = await cloudLicenseAPI.getSubscription(userId, token);
-            if (subscription) {
-                subStatus = subscription.status || 'inactive';
-                if (subscription.expiry_date) {
-                    subExpiry = new Date(subscription.expiry_date).toLocaleDateString();
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const userId = payload.sub;
+                
+                // Use cloudLicenseAPI for robust subscription checking
+                const subscription = await cloudLicenseAPI.getSubscription(userId, token);
+                if (subscription) {
+                    subStatus = subscription.status || 'inactive';
+                    if (subscription.expiry_date) {
+                        subExpiry = new Date(subscription.expiry_date).toLocaleDateString();
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load subscription status:', err);
+                try {
+                    const sub = await cloudSyncAPI.getSubscriptionStatus();
+                    subStatus = sub.subscriptionStatus || 'inactive';
+                    subExpiry = sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null;
+                } catch (fallbackErr) {
+                    console.error('Fallback subscription check also failed:', fallbackErr);
                 }
             }
-        } catch (err) {
-            console.error('Failed to load subscription status:', err);
-            // Fallback to cloudSyncAPI if cloudLicenseAPI fails
+
             try {
-                const sub = await cloudSyncAPI.getSubscriptionStatus();
-                subStatus = sub.subscriptionStatus || 'inactive';
-                subExpiry = sub.subscriptionExpiry ? new Date(sub.subscriptionExpiry).toLocaleDateString() : null;
-            } catch (fallbackErr) {
-                console.error('Fallback subscription check also failed:', fallbackErr);
+                const prof = await cloudSyncAPI.getFranchiseProfile();
+                role = prof.role || 'standalone';
+            } catch (err) {
+                console.error('Failed to load franchise profile:', err);
             }
         }
 
-        try {
-            const prof = await cloudSyncAPI.getFranchiseProfile();
-            role = prof.role || 'standalone';
-        } catch (err) {
-            console.error('Failed to load franchise profile:', err);
+        // If network fetch failed or returned inactive (e.g. offline/timeout), fallback to valid local activation cache
+        if (subStatus === 'inactive' && cachedSub && cachedSub.subscription_expiry) {
+            const expiryDate = new Date(cachedSub.subscription_expiry);
+            if (expiryDate > new Date()) {
+                subStatus = 'active';
+                subExpiry = expiryDate.toLocaleDateString();
+            }
         }
 
         let userId = null;
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            userId = payload.sub;
-        } catch (e) {
-            console.error('Failed to parse token payload:', e);
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                userId = payload.sub;
+            } catch (e) {
+                console.error('Failed to parse token payload:', e);
+            }
+        } else if (cachedSub) {
+            userId = cachedSub.user_id;
         }
 
         setCloudStatus({

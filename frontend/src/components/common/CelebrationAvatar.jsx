@@ -256,23 +256,19 @@ const CelebrationAvatar = ({
                         {/* Expressive Big Cartoon Eyes (With Natural Blinking) */}
                         <g className="oc-cartoon-eyes">
                             {/* Left Eye */}
-                            <g className="oc-eye oc-eye-left" transform="translate(80, 84)">
-                                <ellipse cx="0" cy="0" rx="8" ry="11" fill="#1e293b" />
-                                {/* Pupil Star Catchlight */}
-                                <circle cx="-2.5" cy="-3.5" r="3.2" fill="#ffffff" />
-                                <circle cx="2.5" cy="3" r="1.5" fill="#ffffff" />
-                                {/* Bottom Iris Warm Glow */}
-                                <ellipse cx="0" cy="4" rx="5" ry="3" fill="#f97316" opacity="0.75" />
+                            <g className="oc-eye oc-eye-left">
+                                <ellipse cx="80" cy="84" rx="7.5" ry="10.5" fill="#1e293b" />
+                                <ellipse cx="80" cy="88" rx="5" ry="3" fill="#ea580c" opacity="0.8" />
+                                <circle cx="77.5" cy="80.5" r="3" fill="#ffffff" />
+                                <circle cx="82.5" cy="87" r="1.4" fill="#ffffff" />
                             </g>
 
                             {/* Right Eye */}
-                            <g className="oc-eye oc-eye-right" transform="translate(120, 84)">
-                                <ellipse cx="0" cy="0" rx="8" ry="11" fill="#1e293b" />
-                                {/* Pupil Star Catchlight */}
-                                <circle cx="-2.5" cy="-3.5" r="3.2" fill="#ffffff" />
-                                <circle cx="2.5" cy="3" r="1.5" fill="#ffffff" />
-                                {/* Bottom Iris Warm Glow */}
-                                <ellipse cx="0" cy="4" rx="5" ry="3" fill="#f97316" opacity="0.75" />
+                            <g className="oc-eye oc-eye-right">
+                                <ellipse cx="120" cy="84" rx="7.5" ry="10.5" fill="#1e293b" />
+                                <ellipse cx="120" cy="88" rx="5" ry="3" fill="#ea580c" opacity="0.8" />
+                                <circle cx="117.5" cy="80.5" r="3" fill="#ffffff" />
+                                <circle cx="122.5" cy="87" r="1.4" fill="#ffffff" />
                             </g>
 
                             {/* Happy Eyebrows */}

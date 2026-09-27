@@ -268,17 +268,24 @@
     }
 }
 
-/* Eye Blinking */
-.oc-eye-left,
+/* Eye Blinking — Smooth natural cartoon blinking centered on each eye */
+.oc-eye-left {
+    transform-origin: 80px 84px;
+    animation: ocCartoonBlink 3.8s ease-in-out infinite;
+}
+
 .oc-eye-right {
-    animation: ocCartoonBlink 3.8s infinite;
-    transform-box: fill-box;
-    transform-origin: center;
+    transform-origin: 120px 84px;
+    animation: ocCartoonBlink 3.8s ease-in-out infinite;
 }
 
 @keyframes ocCartoonBlink {
-    0%, 93%, 100% { transform: scaleY(1); }
-    95%, 97%      { transform: scaleY(0.08); }
+    0%, 93%, 100% {
+        transform: scaleY(1);
+    }
+    95%, 97% {
+        transform: scaleY(0.08);
+    }
 }
 
 /* Blushing Cheeks Glow */
@@ -512,17 +519,7 @@
     height: 16px;
 }
 
-/* ── Auto-dismiss Timer Bar ── */
-.oc-dismiss-timer {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    background: var(--primary-500);
-    border-radius: 0 0 0 var(--radius-modal);
-    transition: width 0.1s linear;
-    opacity: 0.7;
-}
+
 
 /* ── Close Button ── */
 .oc-close-x {
@@ -601,9 +598,7 @@
     background: linear-gradient(135deg, #d97706, #b45309);
 }
 
-.oc-tier-grand .oc-dismiss-timer {
-    background: #f59e0b;
-}
+
 
 /* Subtle top accent line for grand tier */
 .oc-tier-grand .oc-modal::before {

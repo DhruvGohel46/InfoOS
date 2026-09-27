@@ -576,6 +576,21 @@ ipcMain.handle('is-production', () => !isDev);
 
 // Licensing Device Fingerprinting & OS-Level Encryption
 ipcMain.handle('license:getFingerprint', () => {
+  // Check if we already have a persistent device ID saved on disk in userData
+  const deviceIdFile = path.join(app.getPath('userData'), 'device_id.json');
+  try {
+    if (fs.existsSync(deviceIdFile)) {
+      const data = JSON.parse(fs.readFileSync(deviceIdFile, 'utf8'));
+      if (data && data.fingerprint) {
+        const deviceName = os.hostname() || 'Desktop-Device';
+        const operatingSystem = process.platform === 'win32' ? 'Windows 11 Pro' : (process.platform === 'darwin' ? 'macOS' : 'Linux');
+        return { fingerprint: data.fingerprint, deviceName, operatingSystem };
+      }
+    }
+  } catch (err) {
+    console.error('[main] Error reading device_id.json:', err.message);
+  }
+
   let rawId = '';
   try {
     if (process.platform === 'win32') {
@@ -618,7 +633,56 @@ ipcMain.handle('license:getFingerprint', () => {
   const fingerprint = crypto.createHash('sha256').update(rawId).digest('hex');
   const deviceName = os.hostname() || 'Desktop-Device';
   const operatingSystem = process.platform === 'win32' ? 'Windows 11 Pro' : (process.platform === 'darwin' ? 'macOS' : 'Linux');
+
+  // Persist the generated fingerprint to disk so it NEVER changes even if wmic disappears or Windows updates
+  try {
+    fs.writeFileSync(deviceIdFile, JSON.stringify({ fingerprint, rawId, createdAt: new Date().toISOString() }), 'utf8');
+  } catch (saveErr) {
+    console.error('[main] Error saving device_id.json:', saveErr.message);
+  }
+
   return { fingerprint, deviceName, operatingSystem };
+});
+
+// Auth Session Disk Persistence (Guarantees login survives restarts, updates, and storage clears)
+ipcMain.handle('auth:saveSession', (event, sessionData) => {
+  try {
+    const sessionFile = path.join(app.getPath('userData'), 'auth_session.json');
+    fs.writeFileSync(sessionFile, JSON.stringify({
+      ...sessionData,
+      updatedAt: new Date().toISOString()
+    }), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[main] Failed to save auth_session.json:', err.message);
+    return false;
+  }
+});
+
+ipcMain.handle('auth:loadSession', () => {
+  try {
+    const sessionFile = path.join(app.getPath('userData'), 'auth_session.json');
+    if (fs.existsSync(sessionFile)) {
+      const data = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+      return data;
+    }
+  } catch (err) {
+    console.error('[main] Failed to load auth_session.json:', err.message);
+  }
+  return null;
+});
+
+ipcMain.handle('auth:clearSession', () => {
+  try {
+    const sessionFile = path.join(app.getPath('userData'), 'auth_session.json');
+    if (fs.existsSync(sessionFile)) {
+      fs.unlinkSync(sessionFile);
+    }
+    return true;
+  } catch (err) {
+    console.error('[main] Failed to clear auth_session.json:', err.message);
+    return false;
+  }
 });
 
 ipcMain.handle('secure:encrypt', (event, plainText) => {
@@ -708,6 +772,7 @@ ipcMain.handle('file:save', async (event, filename, base64Data) => {
       title: 'Save Report',
       buttonLabel: 'Save',
       filters: [
+        { name: 'PDF Documents', extensions: ['pdf'] },
         { name: 'Excel Files', extensions: ['xlsx'] },
         { name: 'CSV Files', extensions: ['csv'] },
         { name: 'XML Files', extensions: ['xml'] },
@@ -718,12 +783,73 @@ ipcMain.handle('file:save', async (event, filename, base64Data) => {
     if (filePath) {
       const buffer = Buffer.from(base64Data, 'base64');
       fs.writeFileSync(filePath, buffer);
-      return { success: true };
+      return { success: true, filePath };
     }
     return { success: false, cancelled: true };
   } catch (err) {
     console.error('[main] file:save error:', err.message);
     return { success: false, error: err.message };
+  }
+});
+
+// AI Chat PDF Export IPC — renders HTML to vector PDF and saves to user-chosen path
+ipcMain.handle('chat:exportPDF', async (event, { filename, htmlContent }) => {
+  let printWin = null;
+  try {
+    const parentWindow = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    const defaultName = filename || `InfoOS_AI_Chat_${new Date().toISOString().split('T')[0]}.pdf`;
+    const { filePath } = await dialog.showSaveDialog(parentWindow, {
+      defaultPath: defaultName,
+      title: 'Save AI Chat as PDF',
+      buttonLabel: 'Save PDF',
+      filters: [
+        { name: 'PDF Document', extensions: ['pdf'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (!filePath) {
+      return { success: false, cancelled: true };
+    }
+
+    printWin = new BrowserWindow({
+      show: false,
+      width: 1024,
+      height: 768,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    // Load data URI directly
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+
+    // Give browser a short tick to complete layout calculation
+    await new Promise((r) => setTimeout(r, 250));
+
+    const pdfBuffer = await printWin.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      preferCSSPageSize: true,
+      margins: {
+        marginType: 'custom',
+        top: 0.35,
+        bottom: 0.35,
+        left: 0.35,
+        right: 0.35
+      }
+    });
+
+    fs.writeFileSync(filePath, pdfBuffer);
+    return { success: true, filePath };
+  } catch (err) {
+    console.error('[main] chat:exportPDF error:', err.message);
+    return { success: false, error: err.message };
+  } finally {
+    if (printWin && !printWin.isDestroyed()) {
+      printWin.close();
+    }
   }
 });
 

@@ -27,6 +27,9 @@ const rawAPI = {
   getDeviceFingerprint: () => ipcRenderer.invoke('license:getFingerprint'),
   secureEncrypt: (plainText) => ipcRenderer.invoke('secure:encrypt', plainText),
   secureDecrypt: (cipherText) => ipcRenderer.invoke('secure:decrypt', cipherText),
+  saveAuthSession: (sessionData) => ipcRenderer.invoke('auth:saveSession', sessionData),
+  loadAuthSession: () => ipcRenderer.invoke('auth:loadSession'),
+  clearAuthSession: () => ipcRenderer.invoke('auth:clearSession'),
 
   // Auto-Updater
   onUpdateAvailable: (callback) => {
@@ -72,6 +75,7 @@ const rawAPI = {
 
   // File Operations
   saveFile: (filename, base64Data) => ipcRenderer.invoke('file:save', filename, base64Data),
+  exportChatPDF: (options) => ipcRenderer.invoke('chat:exportPDF', options),
 
   // Auto-Start
   getAutoStart: () => ipcRenderer.invoke('autostart:get'),

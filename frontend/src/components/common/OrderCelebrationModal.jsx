@@ -14,15 +14,12 @@ const OrderCelebrationModal = () => {
     const [milestone, setMilestone] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
     const [particlesActive, setParticlesActive] = useState(false);
-    const [progressPercent, setProgressPercent] = useState(100);
     const timerRef = useRef(null);
-    const progressIntervalRef = useRef(null);
 
     const handleDismiss = useCallback(() => {
         setIsOpen(false);
         setParticlesActive(false);
         if (timerRef.current) clearTimeout(timerRef.current);
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     }, []);
 
     const triggerCelebration = useCallback((milestoneData) => {
@@ -39,25 +36,12 @@ const OrderCelebrationModal = () => {
         setMilestone(milestoneData);
         setIsOpen(true);
         setParticlesActive(true);
-        setProgressPercent(100);
 
         // Play refined chime audio
         playCelebrationFanfare(isGrand);
 
-        // Setup auto-dismiss progress bar and timer
+        // Setup auto-dismiss timer
         if (timerRef.current) clearTimeout(timerRef.current);
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-
-        const startTime = Date.now();
-        progressIntervalRef.current = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const remaining = Math.max(0, 100 - (elapsed / durationMs) * 100);
-            setProgressPercent(remaining);
-            if (elapsed >= durationMs) {
-                clearInterval(progressIntervalRef.current);
-            }
-        }, 50);
-
         timerRef.current = setTimeout(() => {
             handleDismiss();
         }, durationMs);
@@ -189,12 +173,6 @@ const OrderCelebrationModal = () => {
                                 <span>Continue</span>
                                 <IoArrowForward />
                             </button>
-
-                            {/* Auto-dismiss Timer */}
-                            <div
-                                className="oc-dismiss-timer"
-                                style={{ width: `${progressPercent}%` }}
-                            />
                         </motion.div>
                     </div>
                 )}

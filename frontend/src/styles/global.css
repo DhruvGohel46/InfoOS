@@ -1569,3 +1569,91 @@ table {
     scroll-behavior: auto;
   }
 }
+
+/* ==========================================================================
+   RESPONSIVE HEADER SYSTEM — PREVENTS OVERLAY & ADAPTS TO ALL SCREEN SIZES
+   ========================================================================== */
+
+/* Button label responsive toggles */
+.header-newbill-short {
+  display: none;
+}
+.header-newbill-full {
+  display: inline;
+}
+
+.ai-btn-text-short {
+  display: none;
+}
+.ai-btn-text-full {
+  display: inline;
+}
+
+.header-date-text-short {
+  display: none;
+}
+.header-date-text-full {
+  display: inline;
+}
+
+/* ── Screen Width <= 1420px: Compact Title Subtitle & Shorter AI Text ── */
+@media (max-width: 1420px) {
+  .header-shop-subtitle {
+    display: none !important;
+  }
+  .ai-btn-text-full {
+    display: none;
+  }
+  .ai-btn-text-short {
+    display: inline;
+  }
+}
+
+/* ── Screen Width <= 1280px: Shorten Date, Start New Bill, and Calc Label ── */
+@media (max-width: 1280px) {
+  .header-date-text-full {
+    display: none;
+  }
+  .header-date-text-short {
+    display: inline;
+  }
+  .header-calc-label {
+    display: none !important;
+  }
+  .header-btn-newbill .header-newbill-full {
+    display: none;
+  }
+  .header-btn-newbill .header-newbill-short {
+    display: inline;
+  }
+  .header-role-switch {
+    width: calc(185px * var(--display-zoom)) !important;
+  }
+  .header-role-switch button {
+    font-size: calc(11.5px * var(--display-zoom)) !important;
+    padding: 0 4px !important;
+  }
+}
+
+/* ── Screen Width <= 1120px: Compact AI Mascot Orb & Hide Date Chip ── */
+@media (max-width: 1120px) {
+  .ai-header-btn-label {
+    display: none !important;
+  }
+  .header-date-chip {
+    display: none !important;
+  }
+  .glass-header {
+    padding: 0 var(--spacing-3) !important;
+  }
+}
+
+/* ── Screen Width <= 992px: Hide Center Branding on Narrow Laptop/Tablet ── */
+@media (max-width: 992px) {
+  .header-center-branding {
+    display: none !important;
+  }
+  .header-role-switch {
+    width: calc(160px * var(--display-zoom)) !important;
+  }
+}
