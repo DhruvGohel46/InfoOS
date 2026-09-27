@@ -3238,18 +3238,9 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
       const agentKey = m.agent || 'orchestrator';
       const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
 
-      let card = m.structured_card;
-      if (!card && typeof m.text === 'object' && m.text !== null) {
-        card = m.text;
-      }
-      if (!card && m.data && typeof m.data === 'object') {
-        card = m.data;
-      }
-      if (!card && rawText) {
-        card = parseToStructuredSchema(rawText, m.data);
-      }
-
-      const cardTitleText = (card?.title?.text) || 'Analysis Summary';
+      // Always parse through parseToStructuredSchema to get structured sections and title
+      const card = m.structured_card || parseToStructuredSchema(m.text || m.content, m.data);
+      const cardTitleText = (card?.title?.text) || (typeof card?.title === 'string' ? card.title : null) || 'Analysis Summary';
 
       checkPageBreak(50);
 
@@ -3437,7 +3428,17 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
           }
         }
       } else {
-        const plainLines = doc.splitTextToSize(String(rawText), contentWidth - 20);
+        // Plain text fallback — ensure raw JSON syntax never leaks to the PDF
+        let plainContent = typeof rawText === 'string' ? rawText : '';
+        if (plainContent.trim().startsWith('{')) {
+          try {
+            const parsedFallback = JSON.parse(plainContent);
+            plainContent = parsedFallback.body || parsedFallback.message || parsedFallback.text || parsedFallback.title?.text || plainContent;
+          } catch (e) {}
+        }
+        plainContent = plainContent.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+        const plainLines = doc.splitTextToSize(plainContent, contentWidth - 20);
         const boxH = Math.max(26, 12 + plainLines.length * 10.5);
         checkPageBreak(boxH + 8);
 
@@ -3508,16 +3509,7 @@ function generateChatPdfHtml({ messages, dateStr, userRole }) {
       const agentKey = m.agent || 'orchestrator';
       const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
 
-      let card = m.structured_card;
-      if (!card && typeof m.text === 'object' && m.text !== null) {
-        card = m.text;
-      }
-      if (!card && m.data && typeof m.data === 'object') {
-        card = m.data;
-      }
-      if (!card && rawText) {
-        card = parseToStructuredSchema(rawText, m.data);
-      }
+      const card = m.structured_card || parseToStructuredSchema(m.text || m.content, m.data);
 
       let cardSectionsHtml = '';
 
@@ -3580,7 +3572,15 @@ function generateChatPdfHtml({ messages, dateStr, userRole }) {
           }
         }
       } else if (rawText) {
-        cardSectionsHtml = `<div class="plain-text-response">${sanitize(typeof rawText === 'object' ? JSON.stringify(rawText, null, 2) : rawText)}</div>`;
+        let plainContent = typeof rawText === 'string' ? rawText : '';
+        if (plainContent.trim().startsWith('{')) {
+          try {
+            const parsedFallback = JSON.parse(plainContent);
+            plainContent = parsedFallback.body || parsedFallback.message || parsedFallback.text || parsedFallback.title?.text || plainContent;
+          } catch (e) {}
+        }
+        plainContent = plainContent.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        cardSectionsHtml = `<div class="plain-text-response">${sanitize(plainContent)}</div>`;
       }
 
       let actionsHtml = '';
