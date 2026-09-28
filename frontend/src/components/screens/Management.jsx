@@ -1080,7 +1080,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               <div style={{
                 padding: 'var(--spacing-6) var(--spacing-8)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #E2E8F0',
                 flexShrink: 0,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
@@ -1113,12 +1113,12 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                     <div style={{
                       padding: '6px 14px', borderRadius: '30px',
                       fontSize: '12px', fontWeight: '600',
-                      background: importStep === step.key ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.03)',
+                      background: importStep === step.key ? 'rgba(249,115,22,0.15)' : (isDark ? 'rgba(255,255,255,0.03)' : '#F1F5F9'),
                       color: importStep === step.key ? '#f97316' : 'var(--text-secondary)',
-                      border: importStep === step.key ? '1px solid rgba(249,115,22,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                      border: importStep === step.key ? '1px solid rgba(249,115,22,0.3)' : (isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #CBD5E1'),
                       transition: 'all 0.2s',
                     }}>{step.label}</div>
-                    {i < 2 && <div style={{ width: '24px', height: '1px', background: 'rgba(255,255,255,0.1)' }} />}
+                    {i < 2 && <div style={{ width: '24px', height: '1px', background: isDark ? 'rgba(255,255,255,0.1)' : '#CBD5E1' }} />}
                   </div>
                 ))}
               </div>
@@ -1131,8 +1131,8 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   <div>
                     {/* Downloads Section */}
                     <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#F8FAFC',
+                      border: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1.5px solid #E2E8F0',
                       borderRadius: 'var(--radius-xl)',
                       padding: 'var(--spacing-5)',
                       marginBottom: 'var(--spacing-6)',
@@ -1148,12 +1148,12 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <a href={importMenuAPI.getSampleCsvUrl()} download style={{
-                          padding: '8px 16px', background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                          padding: '8px 16px', background: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+                          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #CBD5E1', borderRadius: '8px',
                           color: 'var(--text-primary)', fontSize: '12px', fontWeight: '600',
                           textDecoration: 'none', transition: 'all 0.2s'
-                        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                        }} onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#F1F5F9'}
+                          onMouseLeave={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF'}>
                           CSV Template
                         </a>
                         <a href={importMenuAPI.getSampleXlsxUrl()} download style={{
@@ -1170,8 +1170,8 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
 
                     {/* Guideline Rules */}
                     <div style={{
-                      background: 'rgba(255,255,255,0.01)',
-                      border: '1px solid rgba(255,255,255,0.04)',
+                      background: isDark ? 'rgba(255,255,255,0.01)' : '#F8FAFC',
+                      border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1.5px solid #E2E8F0',
                       borderRadius: 'var(--radius-xl)',
                       padding: 'var(--spacing-6)',
                       color: 'var(--text-secondary)',
@@ -1183,7 +1183,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                         <li>File must contain these exact headers: <strong style={{ color: 'var(--text-primary)' }}>Item Name</strong>, <strong style={{ color: 'var(--text-primary)' }}>Category</strong>, <strong style={{ color: 'var(--text-primary)' }}>Group</strong>, and <strong style={{ color: 'var(--text-primary)' }}>Price</strong>.</li>
                         <li>New <strong style={{ color: '#f97316' }}>Groups</strong> and <strong style={{ color: '#f97316' }}>Categories</strong> are automatically created on import.</li>
                         <li>Existing products with the same name are skipped to prevent duplicates.</li>
-                        <li>Variations (e.g. Regular/Large) can be added via <code style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>variation(1)</code>. Set as <strong style={{ color: '#f59e0b' }}>None</strong> for standalone items.</li>
+                        <li>Variations (e.g. Regular/Large) can be added via <code style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0', padding: '2px 6px', borderRadius: '4px' }}>variation(1)</code>. Set as <strong style={{ color: '#f59e0b' }}>None</strong> for standalone items.</li>
                         <li>Currency characters like ₹ and $ are auto-stripped during ingestion.</li>
                       </ul>
                     </div>
@@ -1199,7 +1199,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                       onDrop={handleImportFileDrop}
                       onClick={() => importFileInputRef.current?.click()}
                       style={{
-                        border: `2px dashed ${importDragging ? '#f97316' : importFile ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        border: `2px dashed ${importDragging ? '#f97316' : importFile ? 'rgba(52,211,153,0.4)' : (isDark ? 'rgba(255,255,255,0.1)' : '#CBD5E1')}`,
                         borderRadius: 'var(--radius-2xl)',
                         padding: 'var(--spacing-5)',
                         display: 'flex',
@@ -1208,7 +1208,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                         flexDirection: 'column',
                         gap: '8px',
                         cursor: 'pointer',
-                        background: importDragging ? 'rgba(249,115,22,0.04)' : importFile ? 'rgba(52,211,153,0.02)' : 'rgba(255,255,255,0.01)',
+                        background: importDragging ? 'rgba(249,115,22,0.04)' : importFile ? 'rgba(52,211,153,0.02)' : (isDark ? 'rgba(255,255,255,0.01)' : '#F8FAFC'),
                         transition: 'all 0.2s',
                         marginBottom: 'var(--spacing-6)'
                       }}
@@ -1274,9 +1274,9 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                         ].map(s => (
                           <div key={s.label} style={{
                             textAlign: 'center', padding: '16px 8px',
-                            background: 'rgba(255,255,255,0.02)',
+                            background: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC',
                             borderRadius: 'var(--radius-xl)',
-                            border: '1px solid rgba(255,255,255,0.05)'
+                            border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1.5px solid #E2E8F0'
                           }}>
                             <div style={{ fontSize: '24px', fontWeight: '800', color: s.color }}>{s.value}</div>
                             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>{s.label}</div>
@@ -1326,20 +1326,21 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               {/* Footer Buttons */}
               <div style={{
                 padding: 'var(--spacing-5) var(--spacing-8)',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.01)',
+                borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E2E8F0',
+                background: isDark ? 'rgba(255,255,255,0.01)' : '#F8FAFC',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 flexShrink: 0,
               }}>
                 <button
                   onClick={closeImportModal}
                   style={{
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    background: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1.5px solid #CBD5E1',
                     borderRadius: '8px', padding: '10px 20px', color: 'var(--text-secondary)',
                     cursor: 'pointer', fontSize: '13px', fontWeight: '600', transition: 'all 0.2s'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9'}
+                  onMouseLeave={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF'}
                 >
                   {importStep === 'result' ? 'Close' : 'Cancel'}
                 </button>
@@ -1348,7 +1349,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   {importStep === 'upload' && (
                     <button
                       onClick={() => setImportStep('guide')}
-                      style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '10px 20px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                      style={{ background: isDark ? 'transparent' : '#FFFFFF', border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1.5px solid #CBD5E1', borderRadius: '8px', padding: '10px 20px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
                     >
                       Back
                     </button>
@@ -2055,29 +2056,31 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: 'rgba(22, 26, 32, 0.8)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)'
+              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.65)' : 'rgba(15, 23, 42, 0.45)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
             }}
           >
             <motion.div
               className="liquid-glass-card"
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+              exit={{ opacity: 0, y: 10, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: 'relative',
                 width: '90%',
                 maxWidth: '460px',
                 padding: 'var(--spacing-8)',
-                borderRadius: '20px',
-                backgroundColor: 'rgba(22, 26, 32, 0.8)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+                borderRadius: '24px',
+                backgroundColor: isDark ? 'rgba(22, 26, 32, 0.95)' : '#FFFFFF',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1.5px solid #FECACA',
+                boxShadow: isDark
+                  ? '0 25px 60px -10px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.08)'
+                  : '0 20px 50px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(226, 232, 240, 0.8)'
               }}
             >
               <div style={{
@@ -2087,14 +2090,15 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 marginBottom: 'var(--spacing-5)'
               }}>
                 <div style={{
-                  width: 'calc(48px * var(--display-zoom))',
-                  height: 'calc(48px * var(--display-zoom))',
-                  borderRadius: 'calc(14px * var(--display-zoom))',
-                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  width: 'calc(58px * var(--display-zoom))',
+                  height: 'calc(58px * var(--display-zoom))',
+                  borderRadius: 'calc(18px * var(--display-zoom))',
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.14)' : '#FEF2F2',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'var(--error-500)',
+                  color: '#EF4444',
+                  border: isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1.5px solid #FECACA',
                   flexShrink: 0
                 }}>
                   <IconTrash style={{ width: 'calc(24px * var(--display-zoom))', height: 'calc(24px * var(--display-zoom))' }} />
@@ -2102,19 +2106,19 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h3 style={{
                     margin: 0,
-                    color: 'var(--text-primary)',
+                    color: isDark ? '#FFFFFF' : '#0F172A',
                     fontSize: 'calc(var(--text-xl) * 1)',
-                    fontWeight: 'var(--font-semibold)',
-                    letterSpacing: '0.2px',
+                    fontWeight: '700',
+                    letterSpacing: '-0.01em',
                     lineHeight: '1.3'
                   }}>
                     Permanent Deletion
                   </h3>
                   <p style={{
                     margin: 'calc(var(--spacing-1) * 1) 0 0 0',
-                    color: 'var(--text-tertiary)',
+                    color: isDark ? '#94A3B8' : '#64748B',
                     fontSize: 'calc(var(--text-sm) * 1)',
-                    fontWeight: 'var(--font-medium)'
+                    fontWeight: '600'
                   }}>
                     Admin authentication required
                   </p>
@@ -2123,30 +2127,30 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
 
               <div style={{ marginBottom: 'var(--spacing-6)' }}>
                 <p style={{
-                  color: 'var(--text-secondary)',
+                  color: isDark ? '#CBD5E1' : '#334155',
                   fontSize: 'var(--text-base)',
                   lineHeight: '1.6',
                   margin: '0 0 var(--spacing-4) 0',
-                  fontWeight: 'var(--font-normal)'
+                  fontWeight: '400'
                 }}>
-                  You are about to <strong style={{ color: 'var(--error-500)' }}>permanently delete</strong> "{itemToDelete?.name}".
+                  You are about to <strong style={{ color: '#EF4444', fontWeight: '700' }}>permanently delete</strong> "{itemToDelete?.name}".
                 </p>
 
                 <div style={{
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.15)',
+                  background: isDark ? 'rgba(239, 68, 68, 0.08)' : '#FEF2F2',
+                  border: isDark ? '1px solid rgba(239, 68, 68, 0.2)' : '1.5px solid #FECACA',
                   padding: 'var(--spacing-3)',
                   borderRadius: 'var(--radius-lg)',
                   marginTop: 'var(--spacing-3)',
                   fontSize: 'var(--text-sm)',
-                  color: 'var(--error-600)',
+                  color: isDark ? '#F87171' : '#B91C1C',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: 'var(--spacing-2)'
                 }}>
                   <span style={{ fontSize: '1rem', marginTop: '1px' }}>⚠️</span>
                   <div>
-                    <strong style={{ display: 'block', marginBottom: 'var(--spacing-1)', fontWeight: 'var(--font-semibold)' }}>
+                    <strong style={{ display: 'block', marginBottom: 'var(--spacing-1)', fontWeight: '700' }}>
                       Irreversible Action
                     </strong>
                     This will remove the product, all sales history, and inventory records. This cannot be undone.
@@ -2158,8 +2162,8 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                     display: 'block',
                     fontSize: 'var(--text-sm)',
                     marginBottom: 'var(--spacing-2)',
-                    fontWeight: 'var(--font-semibold)',
-                    color: 'var(--text-primary)'
+                    fontWeight: '600',
+                    color: isDark ? '#F1F5F9' : '#0F172A'
                   }}>
                     Enter Owner PIN
                   </label>
@@ -2177,9 +2181,11 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                       padding: 'var(--spacing-3)',
                       fontSize: 'var(--text-base)',
                       borderRadius: 'var(--radius-lg)',
-                      border: error && error.includes('Password') ? '1px solid var(--error-500)' : '1px solid var(--glass-border)',
-                      backgroundImage: 'var(--glass-card)',
-                      color: 'var(--text-primary)',
+                      border: error && error.includes('Password')
+                        ? '1px solid var(--error-500)'
+                        : isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1.5px solid #CBD5E1',
+                      background: isDark ? '#1C1D22' : '#F8FAFC',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
                       transition: 'all var(--transition-normal) var(--ease-out)',
                       outline: 'none'
                     }}
@@ -2191,7 +2197,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                     }}
                     onBlur={(e) => {
                       if (!error || !error.includes('Password')) {
-                        e.target.style.borderColor = 'var(--glass-border)';
+                        e.target.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : '#CBD5E1';
                         e.target.style.boxShadow = 'none';
                       }
                     }}
@@ -2207,14 +2213,15 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 <button
                   onClick={cancelPermanentDelete}
                   style={{
-                    padding: 'var(--spacing-3) var(--spacing-5)',
+                    padding: 'calc(10px * var(--display-zoom)) calc(20px * var(--display-zoom))',
                     fontSize: 'var(--text-sm)',
-                    fontWeight: 'var(--font-medium)',
-                    borderRadius: 'var(--radius-lg)',
-                    backgroundImage: 'var(--glass-card)',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--glass-border)',
+                    fontWeight: '600',
+                    borderRadius: '14px',
+                    background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+                    color: isDark ? '#E2E8F0' : '#334155',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #CBD5E1',
                     cursor: 'pointer',
+                    boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
                     transition: 'all var(--transition-normal) var(--ease-out)'
                   }}
                 >
@@ -2223,16 +2230,16 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 <button
                   onClick={confirmPermanentDelete}
                   style={{
-                    padding: 'var(--spacing-3) var(--spacing-5)',
+                    padding: 'calc(10px * var(--display-zoom)) calc(22px * var(--display-zoom))',
                     fontSize: 'var(--text-sm)',
-                    fontWeight: 'var(--font-semibold)',
-                    borderRadius: 'var(--radius-lg)',
-                    background: 'var(--error-500)',
+                    fontWeight: '700',
+                    borderRadius: '14px',
+                    background: '#EF4444',
                     color: 'white',
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all var(--transition-normal) var(--ease-out)',
-                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)'
+                    boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)'
                   }}
                 >
                   Delete Permanently

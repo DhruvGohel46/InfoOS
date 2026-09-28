@@ -3131,7 +3131,60 @@ function DownloadIcon({ size = 14, color = 'currentColor' }) {
   );
 }
 
-// ── HTML Document Generator for Clean Executive PDF Export ─────────────────
+// ── Clean Text Helper for jsPDF (WinAnsi/Latin-1 encoding safe) ────────────
+function cleanPdfText(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    // Strip markdown formatting markers
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    // Replace Indian Rupee symbol or corrupted superscript 1 with Rs.
+    .replace(/[₹\u20B9]\s*/g, 'Rs. ')
+    .replace(/¹\s*(\d)/g, 'Rs. $1')
+    // Normalize quotes and dashes to standard ASCII for Helvetica
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/\u00A0/g, ' ')
+    // Strip emojis and non-standard unicode symbols that corrupt PDF output
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu, '')
+    .trim();
+}
+
+// ── Measure Full Card Height for Atomic Page Break Protection ───────────────
+function measureCardHeight(doc, card, contentWidth) {
+  let h = 24; // badge (12) + title (10) + gaps (15 + 9 = 24)
+  if (!card || !Array.isArray(card.sections) || card.sections.length === 0) {
+    return h + 30; // fallback plain text height
+  }
+
+  for (const sec of card.sections) {
+    if (sec.type === 'metric_list' && Array.isArray(sec.items) && sec.items.length > 0) {
+      h += 34 + 6; // boxHeight (34) + gap (6) = 40
+    } else if (sec.type === 'table' && Array.isArray(sec.columns) && Array.isArray(sec.rows)) {
+      const headingH = sec.heading ? 10 : 0;
+      h += headingH + 17 + sec.rows.length * 15 + 8;
+    } else if (sec.type === 'insight_block') {
+      const lines = doc.splitTextToSize(cleanPdfText(sec.body || ''), contentWidth - 24);
+      const boxH = Math.max(24, 15 + lines.length * 10);
+      h += boxH + 6;
+    } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {
+      const headingH = sec.heading ? 9 : 0;
+      let itemsH = 0;
+      for (const act of sec.items) {
+        const fullText = `${cleanPdfText(act.title || '')}: ${cleanPdfText(act.body || act.desc || '')}`;
+        const lines = doc.splitTextToSize(fullText, contentWidth - 26);
+        itemsH += Math.max(13, lines.length * 9.5 + 3);
+      }
+      h += headingH + itemsH + 6;
+    } else if (sec.type === 'divider') {
+      h += 4;
+    }
+  }
+  return h + 8; // plus bottom separator
+}
+
 // ── Direct Vector PDF Document Generator using jsPDF ────────────────────────
 function generateChatPdfDoc({ messages, dateStr, userRole }) {
   const doc = new jsPDF({
@@ -3150,38 +3203,38 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
 
   const renderHeader = (isFirstPage = false) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setTextColor(255, 107, 26); // InfoOS Orange #FF6B1A
-    doc.text('InfoOS Copilot', margin, y + 14);
+    doc.text('InfoOS Copilot', margin, y + 13);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(100, 116, 139);
-    doc.text('ENTERPRISE AI INTELLIGENCE & STORE CONSULTATION REPORT', margin, y + 25);
+    doc.text('ENTERPRISE AI INTELLIGENCE & STORE CONSULTATION REPORT', margin, y + 23);
 
     if (isFirstPage) {
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(71, 85, 105);
       const rightMeta = [
-        `Date: ${dateStr}`,
-        `Operator: ${userRole}`,
-        `Total Interactions: ${messages.filter(m => m && m.role === 'user').length}`
+        `Date: ${cleanPdfText(dateStr)}`,
+        `Operator: ${cleanPdfText(userRole)}`,
+        `Interactions: ${messages.filter(m => m && m.role === 'user').length}`
       ];
       rightMeta.forEach((line, idx) => {
-        doc.text(line, pageWidth - margin, y + 11 + idx * 10, { align: 'right' });
+        doc.text(line, pageWidth - margin, y + 10 + idx * 9.5, { align: 'right' });
       });
-      y += 36;
+      y += 32;
     } else {
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);
-      doc.text(`Continued • ${dateStr}`, pageWidth - margin, y + 18, { align: 'right' });
-      y += 26;
+      doc.text(`Continued • ${cleanPdfText(dateStr)}`, pageWidth - margin, y + 16, { align: 'right' });
+      y += 24;
     }
 
     doc.setDrawColor(255, 138, 61);
-    doc.setLineWidth(1.2);
+    doc.setLineWidth(1.0);
     doc.line(margin, y, pageWidth - margin, y);
-    y += 14;
+    y += 10;
   };
 
   const checkPageBreak = (neededHeight) => {
@@ -3199,147 +3252,239 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
 
   const filtered = messages.filter((m) => m && m.id !== 'welcome');
 
-  for (const m of filtered) {
+  for (let idx = 0; idx < filtered.length; idx++) {
+    const m = filtered[idx];
+    const nextM = filtered[idx + 1];
     const rawText = m.text || m.content || '';
 
     if (m.role === 'user') {
-      const userTextLines = doc.splitTextToSize(String(rawText), contentWidth - 28);
-      const bubbleHeight = Math.max(30, 16 + userTextLines.length * 12);
+      const cleanUserText = cleanPdfText(rawText);
+      const userTextLines = doc.splitTextToSize(cleanUserText, contentWidth - 24);
+      const isSingleLine = userTextLines.length === 1;
+      const bubbleHeight = isSingleLine ? 26 : Math.max(26, 12 + userTextLines.length * 10.5);
 
-      checkPageBreak(bubbleHeight + 20);
+      // Check if this query AND the following assistant card can stay together
+      let neededSpace = bubbleHeight + 8;
+      if (nextM && nextM.role !== 'user') {
+        const nextCard = nextM.structured_card || parseToStructuredSchema(nextM.text || nextM.content, nextM.data);
+        const nextCardH = measureCardHeight(doc, nextCard, contentWidth);
+        const maxSinglePageSpace = bottomLimit - margin;
+        if (neededSpace + nextCardH <= maxSinglePageSpace && y + neededSpace + nextCardH > bottomLimit) {
+          checkPageBreak(neededSpace + nextCardH);
+        } else {
+          checkPageBreak(neededSpace + 30);
+        }
+      } else {
+        checkPageBreak(neededSpace + 10);
+      }
 
-      // Badge
-      doc.setFillColor(241, 245, 249);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(margin, y, 76, 13, 3, 3, 'FD');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text('OWNER QUERY', margin + 6, y + 9.5);
-
-      // Bubble
-      const bubbleY = y + 15;
+      // Unified Callout box with solid flush left accent
+      const bubbleY = y + 1;
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.8);
-      doc.roundedRect(margin, bubbleY, contentWidth, bubbleHeight, 5, 5, 'FD');
+      doc.setLineWidth(0.6);
+      doc.roundedRect(margin, bubbleY, contentWidth, bubbleHeight, 3, 3, 'FD');
 
-      // Orange left accent
+      // Left Accent Line flush with box
       doc.setFillColor(255, 107, 26);
-      doc.roundedRect(margin, bubbleY, 3.5, bubbleHeight, 2, 2, 'F');
+      doc.roundedRect(margin, bubbleY, 2.5, bubbleHeight, 1, 1, 'F');
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text(userTextLines, margin + 12, bubbleY + 13);
-
-      y = bubbleY + bubbleHeight + 12;
-    } else {
-      const agentKey = m.agent || 'orchestrator';
-      const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
-
-      // Always parse through parseToStructuredSchema to get structured sections and title
-      const card = m.structured_card || parseToStructuredSchema(m.text || m.content, m.data);
-      const cardTitleText = (card?.title?.text) || (typeof card?.title === 'string' ? card.title : null) || 'Analysis Summary';
-
-      checkPageBreak(50);
-
-      // Agent Badge
-      doc.setFillColor(255, 247, 237);
-      doc.setDrawColor(255, 237, 213);
-      doc.roundedRect(margin, y, 95, 14, 3, 3, 'FD');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(194, 65, 12);
-      doc.text(agentTitle.toUpperCase(), margin + 6, y + 10);
-
-      // Verified Chip
-      doc.setFillColor(240, 253, 244);
-      doc.setDrawColor(187, 247, 208);
-      doc.roundedRect(margin + 101, y, 48, 14, 3, 3, 'FD');
+      // Label inside the box
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.5);
-      doc.setTextColor(22, 101, 52);
-      doc.text('VERIFIED', margin + 108, y + 10);
+      doc.setTextColor(194, 65, 12);
+      doc.text('OWNER QUERY', margin + 8, bubbleY + 8.5);
 
-      y += 18;
-
-      // Card Title
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
+      // Query Text
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
       doc.setTextColor(15, 23, 42);
-      doc.text(cardTitleText, margin, y + 4);
-      y += 14;
+      const textStartY = isSingleLine ? bubbleY + 18.5 : bubbleY + 17;
+      doc.text(userTextLines, margin + 8, textStartY);
+
+      y = bubbleY + bubbleHeight + 7;
+    } else {
+      const agentKey = (m.agent || 'orchestrator').toLowerCase();
+      const agentTitle = (agentKey.charAt(0).toUpperCase() + agentKey.slice(1)) + ' Agent';
+
+      const card = m.structured_card || parseToStructuredSchema(m.text || m.content, m.data);
+      const rawCardTitle = (card?.title?.text) || (typeof card?.title === 'string' ? card.title : null) || 'Analysis Summary';
+      const cardTitleText = cleanPdfText(rawCardTitle);
+
+      // ── CRITICAL: ATOMIC CARD PROTECTION ──
+      // If the entire card fits on an A4 page, NEVER let it split across pages!
+      const totalCardH = measureCardHeight(doc, card, contentWidth);
+      const maxPageH = bottomLimit - margin;
+      if (totalCardH <= maxPageH) {
+        checkPageBreak(totalCardH);
+      } else {
+        checkPageBreak(50);
+      }
+
+      // Semantic Palette for Agent Badges
+      let badgeBg = [255, 247, 237]; // Orange default
+      let badgeBorder = [255, 237, 213];
+      let badgeTextCol = [194, 65, 12];
+
+      if (agentKey.includes('system')) {
+        badgeBg = [236, 253, 245]; // Emerald
+        badgeBorder = [167, 243, 208];
+        badgeTextCol = [4, 120, 87];
+      } else if (agentKey.includes('worker') || agentKey.includes('staff')) {
+        badgeBg = [254, 243, 199]; // Amber
+        badgeBorder = [253, 230, 138];
+        badgeTextCol = [180, 83, 9];
+      } else if (agentKey.includes('analytics') || agentKey.includes('sales')) {
+        badgeBg = [255, 247, 237]; // InfoOS Orange
+        badgeBorder = [255, 237, 213];
+        badgeTextCol = [194, 65, 12];
+      } else if (agentKey.includes('inventory') || agentKey.includes('stock')) {
+        badgeBg = [240, 249, 255]; // Sky
+        badgeBorder = [186, 230, 253];
+        badgeTextCol = [3, 105, 161];
+      } else if (agentKey.includes('finance') || agentKey.includes('expense')) {
+        badgeBg = [240, 253, 244]; // Green
+        badgeBorder = [187, 247, 208];
+        badgeTextCol = [21, 128, 61];
+      }
+
+      const badgeStr = cleanPdfText(agentTitle).toUpperCase();
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      const badgeWidth = Math.max(65, doc.getTextWidth(badgeStr) + 10);
+
+      // Agent Badge (compact 12pt height)
+      doc.setFillColor(...badgeBg);
+      doc.setDrawColor(...badgeBorder);
+      doc.setLineWidth(0.6);
+      doc.roundedRect(margin, y, badgeWidth, 12, 2, 2, 'FD');
+      doc.setTextColor(...badgeTextCol);
+      doc.text(badgeStr, margin + 5, y + 8.5);
+
+      y += 15;
+
+      // Card Title (clean 10pt bold)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(cardTitleText, margin, y + 2);
+      y += 8;
 
       if (card && Array.isArray(card.sections) && card.sections.length > 0) {
         for (const sec of card.sections) {
           if (sec.type === 'metric_list' && Array.isArray(sec.items) && sec.items.length > 0) {
-            checkPageBreak(46);
             const items = sec.items.slice(0, 4);
-            const colWidth = (contentWidth - (items.length - 1) * 8) / items.length;
-            const boxHeight = 36;
+            const colWidth = (contentWidth - (items.length - 1) * 6) / items.length;
+            const boxHeight = 34;
 
             for (let i = 0; i < items.length; i++) {
               const item = items[i];
-              const xPos = margin + i * (colWidth + 8);
+              const xPos = margin + i * (colWidth + 6);
               doc.setFillColor(248, 250, 252);
               doc.setDrawColor(226, 232, 240);
-              doc.roundedRect(xPos, y, colWidth, boxHeight, 4, 4, 'FD');
+              doc.setLineWidth(0.6);
+              doc.roundedRect(xPos, y, colWidth, boxHeight, 3, 3, 'FD');
 
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(7);
+              const labelClean = cleanPdfText(item.label || '').toUpperCase();
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(6.2);
               doc.setTextColor(100, 116, 139);
-              doc.text(String(item.label || '').toUpperCase(), xPos + 8, y + 12);
+              doc.text(labelClean, xPos + 7, y + 10);
+
+              const valClean = cleanPdfText(item.value || '0');
+              const maxValWidth = colWidth - 14;
+              let valFontSize = 9.5;
+              if (valClean.length > 28) valFontSize = 6.8;
+              else if (valClean.length > 18) valFontSize = 7.5;
+              else if (valClean.length > 12) valFontSize = 8.5;
 
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(12);
+              doc.setFontSize(valFontSize);
               doc.setTextColor(15, 23, 42);
-              doc.text(String(item.value || '0'), xPos + 8, y + 27);
+
+              const valLines = doc.splitTextToSize(valClean, maxValWidth);
+              if (valLines.length === 1) {
+                doc.text(valLines[0], xPos + 7, y + 23);
+              } else {
+                doc.text(valLines[0], xPos + 7, y + 19);
+                doc.text(valLines[1], xPos + 7, y + 27.5);
+              }
             }
-            y += boxHeight + 10;
+            y += boxHeight + 6;
           } else if (sec.type === 'table' && Array.isArray(sec.columns) && Array.isArray(sec.rows)) {
-            checkPageBreak(50);
             if (sec.heading) {
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(9);
+              doc.setFontSize(8);
               doc.setTextColor(51, 65, 85);
-              doc.text(sec.heading, margin, y + 2);
-              y += 12;
+              doc.text(cleanPdfText(sec.heading), margin, y + 2);
+              y += 10;
             }
 
             const cols = sec.columns;
             const rows = sec.rows;
-            const numCols = cols.length || 1;
-            const colWidth = contentWidth / numCols;
-            const rowHeight = 17;
+
+            // Compute smart weighted column widths (text columns get more width)
+            const colWeights = cols.map((colHeader) => {
+              const h = String(colHeader || '').toLowerCase();
+              if (h.includes('name') || h.includes('item') || h.includes('category') || h.includes('desc') || h.includes('product')) {
+                return 1.6;
+              }
+              return 1.0;
+            });
+            const totalWeight = colWeights.reduce((sum, w) => sum + w, 0);
+            const colWidths = colWeights.map((w) => (w / totalWeight) * contentWidth);
+            const colXPositions = [];
+            let currentX = margin;
+            for (let ci = 0; ci < cols.length; ci++) {
+              colXPositions.push(currentX);
+              currentX += colWidths[ci];
+            }
+
+            const isNumericCol = (ci) => {
+              const h = String(cols[ci] || '').toLowerCase();
+              return h.includes('revenue') || h.includes('price') || h.includes('amount') ||
+                     h.includes('cost') || h.includes('share') || h.includes('%') ||
+                     h.includes('total') || h.includes('profit') || h.includes('qty');
+            };
+
+            const headerHeight = 17;
+            const rowHeight = 15;
 
             // Draw table header helper
             // eslint-disable-next-line no-loop-func
             const renderTableCols = () => {
               doc.setFillColor(241, 245, 249);
               doc.setDrawColor(203, 213, 225);
-              doc.rect(margin, y, contentWidth, rowHeight, 'FD');
+              doc.setLineWidth(0.6);
+              doc.rect(margin, y, contentWidth, headerHeight, 'FD');
+
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(7.5);
+              doc.setFontSize(7);
               doc.setTextColor(30, 41, 59);
 
               for (let ci = 0; ci < cols.length; ci++) {
-                doc.text(String(cols[ci]), margin + ci * colWidth + 6, y + 11.5);
+                const headerText = cleanPdfText(cols[ci]);
+                if (isNumericCol(ci)) {
+                  doc.text(headerText, colXPositions[ci] + colWidths[ci] - 6, y + 11.5, { align: 'right' });
+                } else {
+                  doc.text(headerText, colXPositions[ci] + 6, y + 11.5);
+                }
               }
-              y += rowHeight;
+              y += headerHeight;
             };
 
             renderTableCols();
 
             for (let ri = 0; ri < rows.length; ri++) {
-              if (checkPageBreak(rowHeight + 4)) {
-                renderTableCols();
-              }
               if (ri % 2 === 1) {
-                doc.setFillColor(250, 250, 250);
+                doc.setFillColor(248, 250, 252);
+                doc.rect(margin, y, contentWidth, rowHeight, 'F');
+              } else {
+                doc.setFillColor(255, 255, 255);
                 doc.rect(margin, y, contentWidth, rowHeight, 'F');
               }
-              doc.setDrawColor(241, 245, 249);
+              doc.setDrawColor(226, 232, 240);
+              doc.setLineWidth(0.4);
               doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
 
               const rowCells = Array.isArray(rows[ri]) ? rows[ri] : [];
@@ -3351,80 +3496,115 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
                 } else {
                   cellText = String(cell ?? '');
                 }
+                cellText = cleanPdfText(cellText);
 
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(7.5);
-                doc.setTextColor(51, 65, 85);
-                const maxChars = Math.floor(colWidth / 5.2);
+                doc.setFont('helvetica', isNumericCol(ci) ? 'bold' : 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(30, 41, 59);
+
+                const maxChars = Math.floor(colWidths[ci] / 4.8);
                 if (cellText.length > maxChars) {
                   cellText = cellText.substring(0, maxChars - 2) + '..';
                 }
-                doc.text(cellText, margin + ci * colWidth + 6, y + 11.5);
+
+                if (isNumericCol(ci)) {
+                  doc.text(cellText, colXPositions[ci] + colWidths[ci] - 6, y + 10.5, { align: 'right' });
+                } else {
+                  doc.text(cellText, colXPositions[ci] + 6, y + 10.5);
+                }
               }
               y += rowHeight;
             }
             y += 8;
           } else if (sec.type === 'insight_block') {
-            const bodyLines = doc.splitTextToSize(String(sec.body || ''), contentWidth - 24);
-            const boxH = Math.max(30, 16 + bodyLines.length * 11);
-            checkPageBreak(boxH + 8);
+            const headingText = cleanPdfText(sec.heading || 'Store Insight');
+            const lowerHeading = headingText.toLowerCase();
 
-            doc.setFillColor(238, 242, 255);
-            doc.setDrawColor(199, 210, 254);
-            doc.roundedRect(margin, y, contentWidth, boxH, 4, 4, 'FD');
+            // Semantic coloring based on message intent
+            let boxFill = [238, 242, 255]; // Indigo default (store intelligence)
+            let boxBorder = [199, 210, 254];
+            let accentColor = [79, 70, 229];
+            let headingColor = [55, 48, 163];
 
-            doc.setFillColor(79, 70, 229);
-            doc.roundedRect(margin, y, 3, boxH, 1, 1, 'F');
+            if (lowerHeading.includes('commit') || lowerHeading.includes('executed') || lowerHeading.includes('success') || lowerHeading.includes('confirmed')) {
+              // Emerald / Success / Verified DB Commit
+              boxFill = [240, 253, 244];
+              boxBorder = [187, 247, 208];
+              accentColor = [22, 163, 74];
+              headingColor = [21, 128, 61];
+            } else if (lowerHeading.includes('approval') || lowerHeading.includes('pending') || lowerHeading.includes('warning') || lowerHeading.includes('caution') || lowerHeading.includes('attention') || lowerHeading.includes('validation')) {
+              // Amber / Action Required / Awaiting Approval
+              boxFill = [255, 251, 235];
+              boxBorder = [253, 230, 138];
+              accentColor = [217, 119, 6];
+              headingColor = [180, 83, 9];
+            } else if (lowerHeading.includes('not found') || lowerHeading.includes('error') || lowerHeading.includes('alert') || lowerHeading.includes('denied') || lowerHeading.includes('not allowed') || lowerHeading.includes('needed')) {
+              // Rose / Alert / Missing Record
+              boxFill = [255, 241, 242];
+              boxBorder = [254, 205, 211];
+              accentColor = [225, 29, 72];
+              headingColor = [190, 18, 60];
+            }
+
+            const bodyLines = doc.splitTextToSize(cleanPdfText(sec.body || ''), contentWidth - 24);
+            const boxH = Math.max(24, 15 + bodyLines.length * 10);
+
+            doc.setFillColor(...boxFill);
+            doc.setDrawColor(...boxBorder);
+            doc.setLineWidth(0.6);
+            doc.roundedRect(margin, y, contentWidth, boxH, 3, 3, 'FD');
+
+            // Left accent bar flush with box
+            doc.setFillColor(...accentColor);
+            doc.roundedRect(margin, y, 2.5, boxH, 1, 1, 'F');
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.setTextColor(55, 48, 163);
-            doc.text(sec.heading || 'Store Insight', margin + 10, y + 11);
+            doc.setFontSize(7.5);
+            doc.setTextColor(...headingColor);
+            doc.text(headingText, margin + 8, y + 9.5);
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7.5);
+            doc.setFontSize(7);
             doc.setTextColor(30, 41, 59);
-            doc.text(bodyLines, margin + 10, y + 22);
+            doc.text(bodyLines, margin + 8, y + 19);
 
-            y += boxH + 8;
+            y += boxH + 6;
           } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {
-            checkPageBreak(26);
             if (sec.heading) {
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(8.5);
+              doc.setFontSize(7.5);
               doc.setTextColor(51, 65, 85);
-              doc.text(sec.heading, margin, y + 2);
-              y += 11;
+              doc.text(cleanPdfText(sec.heading), margin, y + 2);
+              y += 9;
             }
 
             for (let ai = 0; ai < sec.items.length; ai++) {
               const act = sec.items[ai];
-              const actTitle = act.title || '';
-              const actDesc = act.body || act.desc || '';
-              const textLines = doc.splitTextToSize(`${actTitle}: ${actDesc}`, contentWidth - 32);
-              const itemH = Math.max(16, textLines.length * 10 + 4);
-
-              checkPageBreak(itemH + 3);
+              const actTitle = cleanPdfText(act.title || '');
+              const actDesc = cleanPdfText(act.body || act.desc || '');
+              const fullText = actTitle && actDesc ? `${actTitle}: ${actDesc}` : (actTitle || actDesc);
+              const textLines = doc.splitTextToSize(fullText, contentWidth - 26);
+              const itemH = Math.max(13, textLines.length * 9.5 + 3);
 
               doc.setFillColor(255, 107, 26);
-              doc.circle(margin + 5, y + 6, 4, 'F');
+              doc.circle(margin + 4.5, y + 5, 3.2, 'F');
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(6);
+              doc.setFontSize(5.5);
               doc.setTextColor(255, 255, 255);
-              doc.text(String(ai + 1), margin + 3.8, y + 8);
+              doc.text(String(ai + 1), margin + 3.4, y + 6.8);
 
               doc.setFont('helvetica', 'normal');
-              doc.setFontSize(7.5);
+              doc.setFontSize(7);
               doc.setTextColor(30, 41, 59);
-              doc.text(textLines, margin + 16, y + 8);
+              doc.text(textLines, margin + 13, y + 6.8);
 
               y += itemH;
             }
             y += 6;
           } else if (sec.type === 'divider') {
             doc.setDrawColor(241, 245, 249);
-            doc.line(margin, y + 3, margin + contentWidth, y + 3);
-            y += 6;
+            doc.line(margin, y + 2, margin + contentWidth, y + 2);
+            y += 4;
           }
         }
       } else {
@@ -3437,27 +3617,29 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
           } catch (e) {}
         }
         plainContent = plainContent.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        const cleanContent = cleanPdfText(plainContent);
 
-        const plainLines = doc.splitTextToSize(plainContent, contentWidth - 20);
-        const boxH = Math.max(26, 12 + plainLines.length * 10.5);
-        checkPageBreak(boxH + 8);
+        const plainLines = doc.splitTextToSize(cleanContent, contentWidth - 20);
+        const boxH = Math.max(22, 12 + plainLines.length * 9.5);
 
         doc.setFillColor(248, 250, 252);
         doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(margin, y, contentWidth, boxH, 4, 4, 'FD');
+        doc.setLineWidth(0.6);
+        doc.roundedRect(margin, y, contentWidth, boxH, 3, 3, 'FD');
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(30, 41, 59);
-        doc.text(plainLines, margin + 10, y + 13);
+        doc.text(plainLines, margin + 8, y + 11.5);
 
-        y += boxH + 8;
+        y += boxH + 7;
       }
 
-      // Bottom separator
-      doc.setDrawColor(241, 245, 249);
-      doc.line(margin, y + 4, margin + contentWidth, y + 4);
-      y += 12;
+      // Bottom separator between conversational turns
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.line(margin, y + 1, margin + contentWidth, y + 1);
+      y += 7;
     }
   }
 
@@ -3603,7 +3785,6 @@ function generateChatPdfHtml({ messages, dateStr, userRole }) {
         <div class="pdf-msg-assistant">
           <div class="assistant-header">
             <span class="pdf-msg-badge agent-badge">${sanitize(agentTitle)}</span>
-            <span class="status-chip">VERIFIED</span>
           </div>
           <div class="card-title">${sanitize(card?.title?.text || 'Analysis Summary')}</div>
           <div class="card-body">

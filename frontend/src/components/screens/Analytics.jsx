@@ -2232,41 +2232,43 @@ const Analytics = () => {
                                 exit={{ scale: 0.9, opacity: 0 }}
                                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                                 style={{
-                                    background: 'var(--surface-primary)',
-                                    borderRadius: '16px',
+                                    background: isDark ? '#16181D' : '#FFFFFF',
+                                    borderRadius: '20px',
                                     padding: '32px',
-                                    maxWidth: '400px',
+                                    maxWidth: '420px',
                                     width: '90%',
-                                    border: '1px solid var(--border-primary)',
+                                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
                                     boxShadow: isDark
-                                        ? '0 25px 50px -12px rgba(0,0,0,0.5)'
-                                        : '0 25px 50px -12px rgba(0,0,0,0.25)',
+                                        ? '0 25px 50px -12px rgba(0,0,0,0.6)'
+                                        : '0 20px 45px -10px rgba(15, 23, 42, 0.18)',
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
                                     <div style={{
-                                        width: '48px', height: '48px', borderRadius: '12px',
-                                        background: 'rgba(239,68,68,0.1)',
+                                        width: '48px', height: '48px', borderRadius: '14px',
+                                        background: isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2',
+                                        border: isDark ? '1px solid rgba(239,68,68,0.25)' : '1.5px solid #FECACA',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        flexShrink: 0
                                     }}>
                                         <IoTrashOutline size={22} color="#ef4444" />
                                     </div>
                                     <div>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, marginBottom: '4px' }}>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: isDark ? '#FFFFFF' : '#0F172A', margin: 0, marginBottom: '2px' }}>
                                             Cancel Bill
                                         </h3>
-                                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                            Caution: This affects sales reports
+                                        <p style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94A3B8' : '#64748B', margin: 0 }}>
+                                            Caution: Affects sales records
                                         </p>
                                     </div>
                                 </div>
 
                                 <div style={{ marginBottom: '24px' }}>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                    <p style={{ fontSize: '0.92rem', color: isDark ? '#CBD5E1' : '#334155', lineHeight: 1.5, margin: 0 }}>
                                         Are you sure you want to cancel <strong>Bill {selectedBill?.bill_no}</strong>?
                                     </p>
-                                    <ul style={{ margin: '12px 0 0 12px', paddingLeft: '16px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                    <ul style={{ margin: '10px 0 0 12px', paddingLeft: '16px', fontSize: '0.875rem', color: isDark ? '#94A3B8' : '#475569' }}>
                                         <li>Bill amount will be deducted from sales totals.</li>
                                         <li>Bill status will change to "CANCELLED".</li>
                                     </ul>
@@ -2277,12 +2279,12 @@ const Analytics = () => {
                                         onClick={() => setShowCancelConfirm(false)}
                                         variant="secondary"
                                         style={{
-                                            background: 'var(--bg-primary)',
-                                            border: '1px solid var(--border-primary)',
-                                            color: 'var(--text-secondary)',
+                                            background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+                                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #CBD5E1',
+                                            color: isDark ? '#E2E8F0' : '#334155',
                                             borderRadius: '12px',
-                                            padding: '12px 24px',
-                                            fontWeight: 500,
+                                            padding: '10px 20px',
+                                            fontWeight: 600,
                                         }}
                                     >
                                         Keep Bill

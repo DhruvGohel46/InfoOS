@@ -265,8 +265,13 @@
   /* Text Colors (will be set by theme) */
   --text-primary: #171717;
   --text-secondary: #525252;
+  --text-tertiary: #64748b;
   --text-muted: #737373;
   --text-inverse: #ffffff;
+
+  /* Surfaces & Panels */
+  --surface-primary: #ffffff;
+  --glass-panel: #ffffff;
 
   /* Border Colors */
   --border-primary: var(--glass-border);
@@ -292,6 +297,7 @@
   --glass-sidebar: var(--glass-dark-sidebar);
   --glass-modal: var(--glass-dark-modal);
   --glass-border: var(--glass-dark-border);
+  --glass-panel: rgba(22, 26, 32, 0.85);
   
   --shadow-sm: 0 2px 6px -1px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --shadow-card: var(--shadow-dark-card);
@@ -302,8 +308,11 @@
 
   --text-primary: #fafafa;
   --text-secondary: #d4d4d4;
+  --text-tertiary: #94a3b8;
   --text-muted: #a3a3a3;
   --text-inverse: #171717;
+
+  --surface-primary: #16181d;
 
   --border-primary: var(--glass-border);
   --border-subtle: rgba(255,255,255,0.06);

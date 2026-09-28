@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useTheme } from '../../context/ThemeContext';
 
 // ─── Default Icons ───
 const TrashIcon = () => (
@@ -40,13 +41,14 @@ const DEFAULT_ICONS = {
 const ConfirmModal = ({
     title,
     description,
-    confirmLabel,
-    cancelLabel,
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
     variant = 'danger',
     icon: CustomIcon,
     onConfirm,
     onCancel,
 }) => {
+    const { isDark } = useTheme();
     const Icon = CustomIcon || DEFAULT_ICONS[variant] || TrashIcon;
 
     // Keyboard: Enter = confirm, Escape = cancel
@@ -68,9 +70,49 @@ const ConfirmModal = ({
 
     // Map variant to button class
     const btnVariantClass = `rb-confirm__btn--${variant}`;
-    const iconVariantClass = variant === 'danger' || variant === 'primary'
-        ? `rb-confirm__icon--${variant}`
-        : `rb-confirm__icon--${variant}`;
+    const iconVariantClass = `rb-confirm__icon--${variant}`;
+
+    const getIconBorder = () => {
+        if (variant === 'danger') return isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1.5px solid #FECACA';
+        if (variant === 'warning') return isDark ? '1px solid rgba(245, 158, 11, 0.25)' : '1.5px solid #FDE68A';
+        if (variant === 'primary') return isDark ? '1px solid rgba(255, 106, 0, 0.25)' : '1.5px solid #FED7AA';
+        return isDark ? '1px solid rgba(14, 165, 233, 0.25)' : '1.5px solid #BAE6FD';
+    };
+
+    const getIconBg = () => {
+        if (variant === 'danger') return isDark ? 'rgba(239, 68, 68, 0.14)' : '#FEF2F2';
+        if (variant === 'warning') return isDark ? 'rgba(245, 158, 11, 0.14)' : '#FFFBEB';
+        if (variant === 'primary') return isDark ? 'rgba(255, 106, 0, 0.14)' : '#FFF7ED';
+        return isDark ? 'rgba(14, 165, 233, 0.14)' : '#F0F9FF';
+    };
+
+    const getIconColor = () => {
+        if (variant === 'danger') return '#EF4444';
+        if (variant === 'warning') return '#F59E0B';
+        if (variant === 'primary') return '#FF6A00';
+        return '#0EA5E9';
+    };
+
+    const getCardBorder = () => {
+        if (variant === 'danger') return isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1.5px solid #FECACA';
+        if (variant === 'warning') return isDark ? '1px solid rgba(245, 158, 11, 0.25)' : '1.5px solid #FDE68A';
+        if (variant === 'primary') return isDark ? '1px solid rgba(255, 106, 0, 0.25)' : '1.5px solid #FED7AA';
+        return isDark ? '1px solid rgba(14, 165, 233, 0.25)' : '1.5px solid #BAE6FD';
+    };
+
+    const getConfirmBtnBg = () => {
+        if (variant === 'danger') return '#EF4444';
+        if (variant === 'warning') return '#F59E0B';
+        if (variant === 'primary') return '#FF6A00';
+        return '#0EA5E9';
+    };
+
+    const getConfirmBtnShadow = () => {
+        if (variant === 'danger') return '0 4px 14px rgba(239, 68, 68, 0.35)';
+        if (variant === 'warning') return '0 4px 14px rgba(245, 158, 11, 0.35)';
+        if (variant === 'primary') return '0 4px 14px rgba(255, 106, 0, 0.35)';
+        return '0 4px 14px rgba(14, 165, 233, 0.35)';
+    };
 
     return (
         <motion.div
@@ -87,80 +129,71 @@ const ConfirmModal = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)'
+                backgroundColor: isDark ? 'rgba(0, 0, 0, 0.65)' : 'rgba(15, 23, 42, 0.45)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)'
             }}
         >
             <motion.div
                 className="rb-confirm-card liquid-glass-card"
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                initial={{ opacity: 0, y: 16, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+                exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 onClick={(e) => e.stopPropagation()}
                 style={{
                     position: 'relative',
-                    width: 'calc(460px * var(--display-zoom))', 
-                    maxWidth: '90vw', 
-                    padding: 'var(--spacing-8)',
-                    borderRadius: '20px',
-                    backgroundColor: 'rgba(22, 26, 32, 0.8)',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
-                    border: variant === 'danger' ? '1px solid rgba(239, 68, 68, 0.2)' : 
-                           variant === 'warning' ? '1px solid rgba(245, 158, 11, 0.2)' :
-                           variant === 'primary' ? '1px solid rgba(255, 106, 0, 0.2)' :
-                           '1px solid rgba(14, 165, 233, 0.2)',
-                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+                    width: 'calc(460px * var(--display-zoom, 1))', 
+                    maxWidth: '92vw', 
+                    padding: 'var(--spacing-8, 32px)',
+                    borderRadius: '24px',
+                    backgroundColor: isDark ? 'rgba(22, 26, 32, 0.95)' : '#FFFFFF',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: getCardBorder(),
+                    boxShadow: isDark
+                        ? '0 25px 60px -10px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.08)'
+                        : '0 20px 50px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(226, 232, 240, 0.8)'
                 }}
             >
                 {/* Icon + Title Section */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 'var(--spacing-4)',
-                    marginBottom: 'var(--spacing-5)'
+                    gap: 'var(--spacing-4, 16px)',
+                    marginBottom: 'var(--spacing-5, 20px)'
                 }}>
                     <div className={`rb-confirm__icon ${iconVariantClass}`} style={{
-                        width: 'calc(64px * var(--display-zoom))', 
-                        height: 'calc(64px * var(--display-zoom))', 
-                        borderRadius: 'calc(20px * var(--display-zoom))',
-                        backgroundColor: variant === 'danger' ? 'rgba(239, 68, 68, 0.12)' :
-                                  variant === 'warning' ? 'rgba(245, 158, 11, 0.12)' :
-                                  variant === 'primary' ? 'rgba(255, 106, 0, 0.12)' :
-                                  'rgba(14, 165, 233, 0.12)',
+                        width: 'calc(58px * var(--display-zoom, 1))', 
+                        height: 'calc(58px * var(--display-zoom, 1))', 
+                        borderRadius: 'calc(18px * var(--display-zoom, 1))',
+                        backgroundColor: getIconBg(),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: variant === 'danger' ? 'var(--error-500)' :
-                               variant === 'warning' ? 'var(--warning-500)' :
-                               variant === 'primary' ? 'var(--primary-500)' :
-                               'var(--info-500)',
+                        color: getIconColor(),
                         flexShrink: 0,
-                        border: variant === 'danger' ? '1px solid rgba(239, 68, 68, 0.25)' :
-                                variant === 'warning' ? '1px solid rgba(245, 158, 11, 0.25)' :
-                                variant === 'primary' ? '1px solid rgba(255, 106, 0, 0.25)' :
-                                '1px solid rgba(14, 165, 233, 0.25)'
+                        border: getIconBorder(),
+                        marginBottom: 0
                     }}>
                         <Icon />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <h3 className="rb-confirm__title" style={{
                             margin: 0,
-                            color: 'var(--text-primary)',
-                            fontSize: 'var(--text-xl)',
-                            fontWeight: 'var(--font-semibold)',
-                            letterSpacing: '0.2px',
+                            color: isDark ? '#FFFFFF' : '#0F172A',
+                            fontSize: 'calc(var(--text-xl, 20px) * var(--display-zoom, 1))',
+                            fontWeight: '700',
+                            letterSpacing: '-0.01em',
                             lineHeight: '1.3'
                         }}>
                             {title}
                         </h3>
-                        <p style={{
-                            margin: 'var(--spacing-1) 0 0 0',
-                            color: 'var(--text-tertiary)',
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--font-medium)'
+                        <p className="rb-confirm__subtitle" style={{
+                            margin: '4px 0 0 0',
+                            color: isDark ? '#94A3B8' : '#64748B',
+                            fontSize: 'calc(var(--text-sm, 14px) * var(--display-zoom, 1))',
+                            fontWeight: '600'
                         }}>
                             {variant === 'danger' ? 'Destructive action' :
                              variant === 'warning' ? 'Please confirm' :
@@ -173,11 +206,11 @@ const ConfirmModal = ({
                 {/* Description */}
                 {description && (
                     <p className="rb-confirm__description" style={{
-                        color: 'var(--text-secondary)',
-                        fontSize: 'var(--text-base)',
+                        color: isDark ? '#CBD5E1' : '#334155',
+                        fontSize: 'calc(var(--text-base, 15px) * var(--display-zoom, 1))',
                         lineHeight: '1.6',
-                        margin: '0 0 var(--spacing-6) 0',
-                        fontWeight: 'var(--font-normal)'
+                        margin: '0 0 var(--spacing-6, 24px) 0',
+                        fontWeight: '400'
                     }}>
                         {description}
                     </p>
@@ -186,22 +219,23 @@ const ConfirmModal = ({
                 {/* Actions */}
                 <div className="rb-confirm__actions" style={{
                     display: 'flex',
-                    gap: 'var(--spacing-3)',
+                    gap: 'var(--spacing-3, 12px)',
                     justifyContent: 'flex-end'
                 }}>
                     <button
                         className="rb-confirm__btn rb-confirm__btn--cancel"
                         onClick={onCancel}
                         style={{
-                            padding: 'var(--spacing-3) var(--spacing-5)',
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--font-medium)',
-                            borderRadius: 'var(--radius-lg)',
-                            backgroundImage: 'var(--glass-card)',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--glass-border)',
+                            padding: 'calc(10px * var(--display-zoom, 1)) calc(20px * var(--display-zoom, 1))',
+                            fontSize: 'calc(var(--text-sm, 14px) * var(--display-zoom, 1))',
+                            fontWeight: '600',
+                            borderRadius: '14px',
+                            background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+                            color: isDark ? '#E2E8F0' : '#334155',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #CBD5E1',
                             cursor: 'pointer',
-                            transition: 'all var(--transition-normal) var(--ease-out)'
+                            boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.05)',
+                            transition: 'all 0.15s ease'
                         }}
                     >
                         {cancelLabel}
@@ -211,22 +245,16 @@ const ConfirmModal = ({
                         onClick={onConfirm}
                         autoFocus
                         style={{
-                            padding: 'var(--spacing-3) var(--spacing-5)',
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--font-semibold)',
-                            borderRadius: 'var(--radius-lg)',
+                            padding: 'calc(10px * var(--display-zoom, 1)) calc(22px * var(--display-zoom, 1))',
+                            fontSize: 'calc(var(--text-sm, 14px) * var(--display-zoom, 1))',
+                            fontWeight: '700',
+                            borderRadius: '14px',
                             border: 'none',
                             cursor: 'pointer',
-                            transition: 'all var(--transition-normal) var(--ease-out)',
-                            backgroundColor: variant === 'danger' ? 'var(--error-500)' :
-                                      variant === 'warning' ? 'var(--warning-500)' :
-                                      variant === 'primary' ? 'var(--primary-500)' :
-                                      'var(--info-500)',
-                            color: 'white',
-                            boxShadow: variant === 'danger' ? '0 4px 12px rgba(239, 68, 68, 0.25)' :
-                                     variant === 'warning' ? '0 4px 12px rgba(245, 158, 11, 0.25)' :
-                                     variant === 'primary' ? '0 4px 12px rgba(255, 106, 0, 0.25)' :
-                                     '0 4px 12px rgba(14, 165, 233, 0.25)'
+                            transition: 'all 0.15s ease',
+                            backgroundColor: getConfirmBtnBg(),
+                            color: '#FFFFFF',
+                            boxShadow: getConfirmBtnShadow()
                         }}
                     >
                         {confirmLabel}
