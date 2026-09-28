@@ -455,9 +455,13 @@ class GoogleAdapter(LLMAdapter):
                     ).strip()
                     if content_str.startswith("thought{"):
                         content_str = "{" + content_str[8:].lstrip()
-                    elif content_str.startswith("thought\n{") or content_str.startswith("thought:\n{"):
+                    elif content_str.startswith("thought\n{") or content_str.startswith(
+                        "thought:\n{"
+                    ):
                         content_str = "{" + content_str.split("{", 1)[1]
-                    elif content_str.lower().startswith("thought:") or content_str.lower().startswith("thought\n"):
+                    elif content_str.lower().startswith(
+                        "thought:"
+                    ) or content_str.lower().startswith("thought\n"):
                         content_str = content_str.split("\n", 1)[1].strip()
 
                 return AgentResponse(
@@ -471,10 +475,19 @@ class GoogleAdapter(LLMAdapter):
                 )
             except urllib.error.HTTPError as e:
                 err_body = e.read().decode("utf-8", errors="replace")
-                _log.error("Google Gemini API HTTPError %s: %s (attempt %d/2)", e.code, err_body, attempt + 1)
+                _log.error(
+                    "Google Gemini API HTTPError %s: %s (attempt %d/2)",
+                    e.code,
+                    err_body,
+                    attempt + 1,
+                )
                 last_err = f"Google Gemini API Error ({e.code}): {err_body}"
                 # If thinkingConfig was rejected with 400, retry without thinkingConfig
-                if e.code == 400 and "thinkingConfig" in err_body and "thinkingConfig" in payload.get("generationConfig", {}):
+                if (
+                    e.code == 400
+                    and "thinkingConfig" in err_body
+                    and "thinkingConfig" in payload.get("generationConfig", {})
+                ):
                     payload["generationConfig"].pop("thinkingConfig", None)
                     continue
                 # Retry once on 503 Service Unavailable or 429

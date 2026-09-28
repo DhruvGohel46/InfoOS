@@ -211,7 +211,9 @@ GLOBAL_FORMATTING_AND_REVIEW_INSTRUCTIONS = (
 )
 
 
-def _build_data_fallback_card(agent_name: str, last_data: Any, steps: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_data_fallback_card(
+    agent_name: str, last_data: Any, steps: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     """Synthesize a structured card directly from raw tool data if LLM synthesis turn failed."""
     sections = []
     card_title = {"icon": agent_name, "text": f"{agent_name.capitalize()} Report"}
@@ -225,25 +227,35 @@ def _build_data_fallback_card(agent_name: str, last_data: Any, steps: List[Dict[
             for w in att_list:
                 status_str = w.get("status", "Not Marked")
                 is_present = "present" in status_str.lower()
-                rows.append([
-                    w.get("name", "Staff Member"),
-                    w.get("role", "Staff"),
-                    {"text": status_str, "status": "present" if is_present else "warning", "icon": "alert_success" if is_present else "alert_warning"}
-                ])
+                rows.append(
+                    [
+                        w.get("name", "Staff Member"),
+                        w.get("role", "Staff"),
+                        {
+                            "text": status_str,
+                            "status": "present" if is_present else "warning",
+                            "icon": "alert_success" if is_present else "alert_warning",
+                        },
+                    ]
+                )
             if rows:
-                sections.append({
-                    "type": "table",
-                    "icon": "attendance",
-                    "heading": f"Attendance Records ({last_data.get('date', 'Today')})",
-                    "columns": ["Staff Member", "Designation", "Attendance Status"],
-                    "rows": rows
-                })
-            sections.append({
-                "type": "insight_block",
-                "icon": "ai_review",
-                "heading": "Attendance Summary",
-                "body": f"{last_data.get('marked_count', 0)} of {last_data.get('total_staff', len(rows))} staff members marked present for {last_data.get('date', 'today')}."
-            })
+                sections.append(
+                    {
+                        "type": "table",
+                        "icon": "attendance",
+                        "heading": f"Attendance Records ({last_data.get('date', 'Today')})",
+                        "columns": ["Staff Member", "Designation", "Attendance Status"],
+                        "rows": rows,
+                    }
+                )
+            sections.append(
+                {
+                    "type": "insight_block",
+                    "icon": "ai_review",
+                    "heading": "Attendance Summary",
+                    "body": f"{last_data.get('marked_count', 0)} of {last_data.get('total_staff', len(rows))} staff members marked present for {last_data.get('date', 'today')}.",
+                }
+            )
 
         # 2. Top Selling Products
         elif "top_products" in last_data and isinstance(last_data["top_products"], list):
@@ -253,25 +265,31 @@ def _build_data_fallback_card(agent_name: str, last_data: Any, steps: List[Dict[
             for p in top_list:
                 qty = p.get("quantity") or p.get("estimated_volume") or p.get("count") or "-"
                 price = p.get("price") or 0
-                rows.append([
-                    p.get("name", "Product"),
-                    f"₹{price:.2f}" if isinstance(price, (int, float)) else str(price),
-                    str(qty)
-                ])
+                rows.append(
+                    [
+                        p.get("name", "Product"),
+                        f"₹{price:.2f}" if isinstance(price, (int, float)) else str(price),
+                        str(qty),
+                    ]
+                )
             if rows:
-                sections.append({
-                    "type": "table",
-                    "icon": "sales_comparison",
-                    "heading": "Top Products by Volume",
-                    "columns": ["Product Name", "Unit Price", "Volume / Qty Sold"],
-                    "rows": rows
-                })
-            sections.append({
-                "type": "insight_block",
-                "icon": "ai_review",
-                "heading": "Sales Performance",
-                "body": f"Identified {len(rows)} top performing products from live store sales records."
-            })
+                sections.append(
+                    {
+                        "type": "table",
+                        "icon": "sales_comparison",
+                        "heading": "Top Products by Volume",
+                        "columns": ["Product Name", "Unit Price", "Volume / Qty Sold"],
+                        "rows": rows,
+                    }
+                )
+            sections.append(
+                {
+                    "type": "insight_block",
+                    "icon": "ai_review",
+                    "heading": "Sales Performance",
+                    "body": f"Identified {len(rows)} top performing products from live store sales records.",
+                }
+            )
 
         # 3. Low Stock Items
         elif "low_stock_items" in last_data and isinstance(last_data["low_stock_items"], list):
@@ -281,26 +299,32 @@ def _build_data_fallback_card(agent_name: str, last_data: Any, steps: List[Dict[
             for it in stock_list:
                 stock_val = f"{it.get('stock', 0)} {it.get('unit', '')}".strip()
                 thresh_val = f"{it.get('alert_threshold', 0)} {it.get('unit', '')}".strip()
-                rows.append([
-                    it.get("name", "Item"),
-                    stock_val,
-                    thresh_val,
-                    {"text": "Restock Needed", "status": "warning", "icon": "alert_warning"}
-                ])
+                rows.append(
+                    [
+                        it.get("name", "Item"),
+                        stock_val,
+                        thresh_val,
+                        {"text": "Restock Needed", "status": "warning", "icon": "alert_warning"},
+                    ]
+                )
             if rows:
-                sections.append({
-                    "type": "table",
-                    "icon": "inventory",
-                    "heading": "Items Below Threshold",
-                    "columns": ["Item Name", "Current Stock", "Min Threshold", "Alert Status"],
-                    "rows": rows
-                })
-            sections.append({
-                "type": "insight_block",
-                "icon": "alert_warning",
-                "heading": "Inventory Restock Recommended",
-                "body": f"Found {len(rows)} items at or below alert thresholds. Consider issuing restock purchase orders."
-            })
+                sections.append(
+                    {
+                        "type": "table",
+                        "icon": "inventory",
+                        "heading": "Items Below Threshold",
+                        "columns": ["Item Name", "Current Stock", "Min Threshold", "Alert Status"],
+                        "rows": rows,
+                    }
+                )
+            sections.append(
+                {
+                    "type": "insight_block",
+                    "icon": "alert_warning",
+                    "heading": "Inventory Restock Recommended",
+                    "body": f"Found {len(rows)} items at or below alert thresholds. Consider issuing restock purchase orders.",
+                }
+            )
 
         # 4. Sales KPI Summary
         elif last_data.get("gross_sales") is not None or last_data.get("total_sales") is not None:
@@ -308,34 +332,40 @@ def _build_data_fallback_card(agent_name: str, last_data: Any, steps: List[Dict[
             orders_cnt = last_data.get("orders_count", last_data.get("bills_count", 0))
             profit_val = last_data.get("net_profit", 0)
             card_title = {"icon": "sales_comparison", "text": "Sales & Revenue Summary"}
-            sections.append({
-                "type": "metric_list",
-                "items": [
-                    {"label": "Gross Sales", "value": f"₹{sales_val:,.2f}"},
-                    {"label": "Total Orders", "value": str(orders_cnt)},
-                    {"label": "Net Profit", "value": f"₹{profit_val:,.2f}"},
-                ]
-            })
-            sections.append({
-                "type": "insight_block",
-                "icon": "ai_review",
-                "heading": "Financial Performance",
-                "body": f"Total sales revenue of ₹{sales_val:,.2f} across {orders_cnt} completed transactions."
-            })
+            sections.append(
+                {
+                    "type": "metric_list",
+                    "items": [
+                        {"label": "Gross Sales", "value": f"₹{sales_val:,.2f}"},
+                        {"label": "Total Orders", "value": str(orders_cnt)},
+                        {"label": "Net Profit", "value": f"₹{profit_val:,.2f}"},
+                    ],
+                }
+            )
+            sections.append(
+                {
+                    "type": "insight_block",
+                    "icon": "ai_review",
+                    "heading": "Financial Performance",
+                    "body": f"Total sales revenue of ₹{sales_val:,.2f} across {orders_cnt} completed transactions.",
+                }
+            )
 
     if not sections:
         step_desc = steps[0].get("details") if steps else "Successfully retrieved store data."
-        sections.append({
-            "type": "insight_block",
-            "icon": "ai_review",
-            "heading": "Data Retrieved",
-            "body": step_desc,
-        })
+        sections.append(
+            {
+                "type": "insight_block",
+                "icon": "ai_review",
+                "heading": "Data Retrieved",
+                "body": step_desc,
+            }
+        )
 
     return {
         "title": card_title,
         "sections": sections,
-        "meta": {"status": "normal", "statusIcon": "status_normal"}
+        "meta": {"status": "normal", "statusIcon": "status_normal"},
     }
 
 
@@ -536,7 +566,9 @@ class DomainAgent:
 
             try:
                 second_res = adapter.chat(
-                    messages=follow_up_messages, model=model_name, max_tokens=max(max_tokens or 2048, 2048)
+                    messages=follow_up_messages,
+                    model=model_name,
+                    max_tokens=max(max_tokens or 2048, 2048),
                 )
                 total_input_tokens += second_res.input_tokens
                 total_output_tokens += second_res.output_tokens
@@ -546,9 +578,12 @@ class DomainAgent:
                 _log.error("Follow-up LLM turn failed for %s agent: %s", self.name, e)
                 try:
                     import time
+
                     time.sleep(1.0)
                     second_res = adapter.chat(
-                        messages=follow_up_messages, model=model_name, max_tokens=max(max_tokens or 2048, 2048)
+                        messages=follow_up_messages,
+                        model=model_name,
+                        max_tokens=max(max_tokens or 2048, 2048),
                     )
                     total_input_tokens += second_res.input_tokens
                     total_output_tokens += second_res.output_tokens
@@ -618,12 +653,17 @@ class DomainAgent:
                 final_text = json.dumps(fallback_obj)
         else:
             import re
-            cleaned_text = re.sub(r"<thought>[\s\S]*?</thought>", "", raw_candidate, flags=re.DOTALL).strip()
+
+            cleaned_text = re.sub(
+                r"<thought>[\s\S]*?</thought>", "", raw_candidate, flags=re.DOTALL
+            ).strip()
             if cleaned_text.startswith("thought{"):
                 cleaned_text = "{" + cleaned_text[8:].lstrip()
             elif cleaned_text.startswith("thought\n{") or cleaned_text.startswith("thought:\n{"):
                 cleaned_text = "{" + cleaned_text.split("{", 1)[1]
-            elif cleaned_text.lower().startswith("thought:") or cleaned_text.lower().startswith("thought\n"):
+            elif cleaned_text.lower().startswith("thought:") or cleaned_text.lower().startswith(
+                "thought\n"
+            ):
                 cleaned_text = cleaned_text.split("\n", 1)[1].strip()
             final_text = cleaned_text
 
