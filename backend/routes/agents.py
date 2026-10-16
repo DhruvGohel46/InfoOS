@@ -197,6 +197,30 @@ def approve_action(action_id):
                         approved=True,
                         adapter=adapter,
                     )
+                    db.session.refresh(action_log)
+                    executed = final_state.get("executed_actions", [])
+                    exec_ok = bool(executed and executed[-1].get("success"))
+                    if not exec_ok:
+                        err_msg = (
+                            executed[-1].get("error")
+                            if executed
+                            else action_log.error_message or "Execution failed during graph resume."
+                        )
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "action_id": action_id,
+                                    "status": "failed",
+                                    "error": err_msg,
+                                    "response": final_state.get("final_response") or "",
+                                    "executed_actions": executed,
+                                    "conversation_id": conversation_id,
+                                }
+                            ),
+                            400,
+                        )
+
                     return (
                         jsonify(
                             {

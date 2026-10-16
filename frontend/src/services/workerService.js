@@ -12,6 +12,7 @@ export const workerService = {
   addAdvance: (id, data) => workerAPI.addAdvance(id, data),
   getAdvances: (id) => workerAPI.getAdvances(id),
   generateSalary: (id, month, year) => workerAPI.generateSalary(id, month, year),
+  generateSpecificSalary: (id, month, year) => workerAPI.generateSalary(id, month, year),
   getSalaryHistory: (id) => workerAPI.getSalaryHistory(id),
   markPaid: (paymentId) => workerAPI.markPaid(paymentId),
   getWorkerAttendance: (id) => workerAPI.getWorkerAttendance(id),

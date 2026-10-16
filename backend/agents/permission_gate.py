@@ -1,9 +1,19 @@
 import json
 import logging
-from datetime import datetime
-from typing import Dict, Any, Tuple
-from models import db, AgentConfig, AgentPermission, AgentActionLog
-from agents.tools import execute_read_tool, execute_mutating_tool
+from datetime import datetime, date
+from typing import Dict, Any, Tuple, List, Optional
+from models import (
+    db,
+    AgentConfig,
+    AgentPermission,
+    AgentActionLog,
+    Product,
+    Inventory,
+    Category,
+    Worker,
+    Bill,
+)
+from agents.tools import execute_read_tool, execute_mutating_tool, AgentToolRegistry
 from agents.delete_policy import (
     DELETE_POLICY,
     BLOCKED_REASONS,
@@ -29,7 +39,136 @@ HARDCODED_CONFIRMATION_TOOLS = {
     "propose_bulk_delete_reminders",
     "propose_bulk_delete_categories",
     "propose_bulk_delete_item_groups",
+    "restore_deleted_item",
+    "restore_last_bulk_delete",
+    "delete_notification",
+    "propose_export",
 }
+
+_TYPE_MAP = {
+    "string": str,
+    "integer": int,
+    "number": (int, float),
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+}
+
+
+def validate_tool_args(tool_name: str, args: Dict[str, Any]) -> List[str]:
+    """Validate incoming tool arguments against registry parameter schemas."""
+    spec = AgentToolRegistry.get_tool_spec(tool_name)
+    if not spec:
+        return []
+
+    params = spec.get("parameters", {})
+    required = params.get("required", [])
+    props = params.get("properties", {})
+    errs = []
+
+    for req_field in required:
+        val = args.get(req_field)
+        if val is None or val == "":
+            errs.append(f"Missing required parameter '{req_field}'")
+
+    for k, v in args.items():
+        if k.startswith("_"):
+            continue
+        p_spec = props.get(k)
+        if not p_spec:
+            continue
+        expected_type_name = p_spec.get("type")
+        expected_type = _TYPE_MAP.get(expected_type_name)
+        if expected_type and v is not None:
+            if isinstance(v, bool) and expected_type_name != "boolean":
+                errs.append(f"Parameter '{k}' must be of type {expected_type_name}")
+            elif not isinstance(v, expected_type):
+                if expected_type_name in ("number", "integer"):
+                    try:
+                        if expected_type_name == "integer":
+                            int(v)
+                        else:
+                            float(v)
+                    except (ValueError, TypeError):
+                        errs.append(f"Parameter '{k}' must be of type {expected_type_name}")
+                else:
+                    errs.append(f"Parameter '{k}' must be of type {expected_type_name}")
+        if "enum" in p_spec and v not in p_spec["enum"]:
+            errs.append(f"Parameter '{k}' must be one of {p_spec['enum']}")
+
+    return errs
+
+
+def dry_run_tool(tool_name: str, args: Dict[str, Any]) -> Optional[str]:
+    """Pre-proposal dry run verification against real database entities."""
+    if tool_name in ("propose_adjust_stock", "propose_reset_stock_count"):
+        inv_id = args.get("inventory_id")
+        prod_id = args.get("product_id")
+        if inv_id or prod_id:
+            item = None
+            if inv_id:
+                try:
+                    item = db.session.get(Inventory, int(inv_id))
+                except Exception:
+                    pass
+            elif prod_id:
+                item = Inventory.query.filter_by(product_id=prod_id).first()
+
+            if not item:
+                return "No matching inventory item found. Call lookup_product or get_inventory_status first."
+
+            if tool_name == "propose_adjust_stock":
+                try:
+                    delta = float(args.get("delta_quantity", 0))
+                    if item.stock + delta < 0:
+                        return f"Stock adjustment of {delta} would take '{item.name}' below zero (current stock: {item.stock})."
+                except (ValueError, TypeError):
+                    return "Invalid delta_quantity."
+
+    elif tool_name in (
+        "propose_record_advance",
+        "propose_mark_attendance",
+        "propose_update_worker",
+    ):
+        w_id = args.get("worker_id")
+        if w_id and not Worker.query.get(w_id):
+            return f"Worker '{w_id}' does not exist. Call list_workers first to find the valid worker_id."
+
+    elif tool_name in (
+        "propose_void_bill",
+        "propose_apply_bill_discount",
+        "propose_recall_hold_bill",
+    ):
+        b_no = args.get("bill_no")
+        if b_no:
+            try:
+                b_int = int(b_no)
+            except (ValueError, TypeError):
+                return f"Invalid bill_no: '{b_no}'"
+            bill = Bill.query.filter_by(bill_no=b_int).first()
+            if not bill:
+                return f"Bill #{b_int} not found."
+            if tool_name == "propose_void_bill" and bill.created_at.date() != date.today():
+                return f"Bill #{b_int} was created on {bill.created_at.date()} (not today). Only same-day bills can be voided via agent."
+
+    elif tool_name in ("propose_delete_category", "propose_update_category"):
+        cat_id = args.get("category_id")
+        if cat_id and not Category.query.get(cat_id):
+            return f"Category #{cat_id} not found."
+
+    elif tool_name in ("propose_bulk_update_prices", "propose_bulk_toggle_products"):
+        cat_id = args.get("category_id")
+        p_ids = args.get("product_ids") or []
+        if cat_id or p_ids:
+            query = Product.query
+            if cat_id:
+                query = query.filter_by(category_id=cat_id)
+            if p_ids:
+                query = query.filter(Product.product_id.in_(p_ids))
+            if query.count() == 0:
+                return "No products match the specified category/product criteria."
+
+    return None
 
 
 def generate_diff_summary(tool_name: str, args: Dict[str, Any]) -> str:
@@ -174,11 +313,37 @@ def generate_diff_summary(tool_name: str, args: Dict[str, Any]) -> str:
         pct = args.get("percentage_change")
         flat = args.get("flat_change")
         desc = f"{pct}%" if pct is not None else f"₹{flat}" if flat is not None else "custom"
-        return f"Bulk update menu prices ({desc})"
+        cat_id = args.get("category_id")
+        p_ids = args.get("product_ids") or []
+        query = Product.query
+        if cat_id:
+            query = query.filter_by(category_id=cat_id)
+        if p_ids:
+            query = query.filter(Product.product_id.in_(p_ids))
+        count = query.count()
+        scope = (
+            f"category #{cat_id}"
+            if cat_id
+            else f"{len(p_ids)} selected products" if p_ids else "all products"
+        )
+        return f"Bulk update prices ({desc}) across {count} items in {scope}"
 
     elif tool_name == "propose_bulk_toggle_products":
-        stat = "active" if args.get("active") else "disabled"
-        return f"Bulk toggle products status to {stat}"
+        stat = "Active" if args.get("active") else "Disabled"
+        cat_id = args.get("category_id")
+        p_ids = args.get("product_ids") or []
+        query = Product.query
+        if cat_id:
+            query = query.filter_by(category_id=cat_id)
+        if p_ids:
+            query = query.filter(Product.product_id.in_(p_ids))
+        count = query.count()
+        scope = (
+            f"category #{cat_id}"
+            if cat_id
+            else f"{len(p_ids)} selected products" if p_ids else "all products"
+        )
+        return f"Bulk toggle products status to {stat} across {count} items in {scope}"
 
     elif tool_name == "propose_hold_bill":
         return f"Hold / park bill for {args.get('customer_name', 'customer')} ({len(args.get('items', []))} items)"
@@ -309,9 +474,35 @@ class PermissionGate:
                     },
                 }
 
+        # Check agent tool allowlist if agent has one registered
+        allowed_tools = AgentToolRegistry.get_agent_tool_names(agent_name)
+        if allowed_tools and tool_name not in allowed_tools:
+            return {
+                "blocked": True,
+                "error": f"Tool '{tool_name}' is not permitted for the {agent_name} agent.",
+            }
+
         # Read-only tools bypass mutation gates
-        if not tool_name.startswith("propose_") and tool_name != "delete_notification":
+        if not AgentToolRegistry.is_mutating(tool_name):
             return execute_read_tool(tool_name, args)
+
+        # Pre-proposal schema validation
+        arg_errors = validate_tool_args(tool_name, args)
+        if arg_errors:
+            return {
+                "status": "invalid",
+                "error": f"Validation failed for {tool_name}: {'; '.join(arg_errors)}",
+                "blocked": False,
+            }
+
+        # Pre-proposal entity existence / constraint dry run
+        dry_error = dry_run_tool(tool_name, args)
+        if dry_error:
+            return {
+                "status": "invalid",
+                "error": dry_error,
+                "blocked": False,
+            }
 
         tier = cls.get_agent_tier(agent_name)
 

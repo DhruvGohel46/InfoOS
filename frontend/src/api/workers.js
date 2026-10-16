@@ -50,6 +50,11 @@ export const workerAPI = {
         return response.data;
     },
 
+    generateSpecificSalary: async (id, month, year) => {
+        const response = await api.post(`/api/workers/${id}/generate-salary`, { month, year });
+        return response.data;
+    },
+
     getSalaryHistory: async (id) => {
         const response = await api.get(`/api/workers/${id}/salary-history`);
         return response.data;

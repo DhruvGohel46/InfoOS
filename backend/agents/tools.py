@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, date, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from sqlalchemy import func, desc, or_
 from models import (
     db,
@@ -1556,9 +1556,9 @@ class AgentToolRegistry:
         ]
 
     @classmethod
-    def all_tool_names(cls) -> List[str]:
-        """Return a list of all tool names across all domain agents."""
-        tools = (
+    def all_tools(cls) -> List[Dict[str, Any]]:
+        """Return a list of all tool schemas across all domain agents."""
+        return (
             cls.get_billing_tools()
             + cls.get_inventory_tools()
             + cls.get_product_tools()
@@ -1567,7 +1567,47 @@ class AgentToolRegistry:
             + cls.get_analytics_tools()
             + cls.get_reminder_tools()
         )
-        return [t["name"] for t in tools]
+
+    @classmethod
+    def all_tool_names(cls) -> List[str]:
+        """Return a list of all tool names across all domain agents."""
+        return [t["name"] for t in cls.all_tools()]
+
+    @classmethod
+    def get_tool_spec(cls, tool_name: str) -> Optional[Dict[str, Any]]:
+        """Retrieve schema dictionary for a specific tool by name."""
+        for t in cls.all_tools():
+            if t["name"] == tool_name:
+                return t
+        return None
+
+    @classmethod
+    def get_agent_tool_names(cls, agent_name: str) -> Set[str]:
+        """Return the set of tool names allowed for the given domain agent."""
+        mapping = {
+            "billing": cls.get_billing_tools,
+            "inventory": cls.get_inventory_tools,
+            "product": cls.get_product_tools,
+            "worker": cls.get_worker_tools,
+            "expense": cls.get_expense_tools,
+            "analytics": cls.get_analytics_tools,
+            "reminder": cls.get_reminder_tools,
+        }
+        getter = mapping.get(str(agent_name).lower())
+        if not getter:
+            return set()
+        return {t["name"] for t in getter()}
+
+    @classmethod
+    def is_mutating(cls, tool_name: str) -> bool:
+        """Classify tool as mutating vs read-only by registry convention."""
+        if tool_name.startswith("propose_"):
+            return True
+        return tool_name in {
+            "delete_notification",
+            "restore_deleted_item",
+            "restore_last_bulk_delete",
+        }
 
 
 # =============================================================================
@@ -1716,7 +1756,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             if not bills:
                 return {"found": False, "message": f"No order history found for '{q}'"}
 
-            total_spend = sum(b.total_amount for b in bills if b.status != "VOIDED")
+            total_spend = sum(
+                b.total_amount for b in bills if b.status not in ("VOIDED", "CANCELLED")
+            )
             avg_spend = total_spend / len(bills) if bills else 0.0
 
             return {
@@ -2522,7 +2564,10 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
         elif tool_name == "get_payment_mode_breakdown":
             today = date.today()
-            bills = Bill.query.filter(func.date(Bill.created_at) == today).all()
+            bills = Bill.query.filter(
+                func.date(Bill.created_at) == today,
+                Bill.status.notin_(["VOIDED", "CANCELLED"]),
+            ).all()
             breakdown = {}
             for b in bills:
                 mode = (b.payment_method or "CASH").upper()
@@ -2541,7 +2586,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
             bills = Bill.query.filter(
                 func.date(Bill.created_at) >= start_date,
-                Bill.status != "VOIDED",
+                Bill.status.notin_(["VOIDED", "CANCELLED"]),
             ).all()
 
             cat_sales = {}
@@ -2588,7 +2633,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
             bills = Bill.query.filter(
                 func.date(Bill.created_at) >= start_date,
-                Bill.status != "VOIDED",
+                Bill.status.notin_(["VOIDED", "CANCELLED"]),
             ).all()
 
             order_types = {}
@@ -2716,7 +2761,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 ),
             }
 
-        elif tool_name == "list_reminders":
+        elif tool_name in ("list_reminders", "get_pending_reminders"):
             status = args.get("status", "pending")
             limit = min(int(args.get("limit", 20)), 30)
             query = Reminder.query
@@ -2775,7 +2820,7 @@ def execute_read_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
 # =============================================================================
 
 
-def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_mutating_tool_impl(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a validated mutating tool and flush tool cache."""
     clear_tool_cache()
 
@@ -2795,8 +2840,14 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
             if not item:
                 return {"success": False, "error": "Inventory item not found"}
 
+            if item.stock + delta < 0:
+                return {
+                    "success": False,
+                    "error": f"Stock adjustment of {delta} would take '{item.name}' below zero (current stock: {item.stock}).",
+                }
+
             old_stock = item.stock
-            item.stock = max(0.0, item.stock + delta)
+            item.stock = round(item.stock + delta, 2)
             db.session.commit()
             return {
                 "success": True,
@@ -3163,58 +3214,43 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
             items = args.get("items", [])
             pmethod = args.get("payment_method", "CASH").upper()
             otype = args.get("order_type", "dine-in")
-            cname = args.get("customer_name")
-            cphone = args.get("customer_mobile")
-            table = args.get("table_no")
+            cname = args.get("customer_name") or ""
+            cphone = args.get("customer_mobile") or ""
+            table = args.get("table_no") or ""
 
-            tot = 0.0
-            enriched = []
-            for it in items:
-                p_id = it.get("product_id")
-                qty = float(it.get("quantity", 1))
-                prod = Product.query.get(p_id)
-                price = prod.price if prod else 0.0
-                name = prod.name if prod else it.get("name", "Item")
-                tot += price * qty
-                enriched.append(
-                    {
-                        "product_id": p_id,
-                        "name": name,
-                        "price": price,
-                        "quantity": qty,
-                        "subtotal": price * qty,
-                    }
-                )
+            from services.db_service import DatabaseService
+            from routes.billing import _validate_bill_products
 
-            today = date.today()
-            max_token = (
-                db.session.query(func.max(Bill.today_token))
-                .filter(func.date(Bill.created_at) == today)
-                .scalar()
-                or 0
-            )
-            max_bill_no = db.session.query(func.max(Bill.bill_no)).scalar() or 1000
+            _db_svc_inst = DatabaseService()
 
-            bill = Bill(
-                bill_no=max_bill_no + 1,
-                today_token=max_token + 1,
-                customer_name=cname,
-                customer_mobile=cphone,
-                total_amount=round(tot, 2),
-                payment_method=pmethod,
-                items=json.dumps(enriched),
-                order_type=otype,
-                table_no=table,
-                status="CONFIRMED",
-            )
-            db.session.add(bill)
-            db.session.commit()
+            try:
+                validated_products, total = _validate_bill_products(items, otype)
+            except Exception as val_err:
+                return {"success": False, "error": str(val_err)}
+
+            bill_data = {
+                "customer_name": cname,
+                "customer_mobile": cphone,
+                "total_amount": total,
+                "items": validated_products,
+                "payment_method": pmethod,
+                "payment_status": "paid",
+                "order_type": otype,
+                "table_no": table,
+            }
+            new_bill_no = _db_svc_inst.create_bill(bill_data)
+            if not new_bill_no:
+                return {"success": False, "error": "Failed to create bill in database."}
+
+            created_bill = Bill.query.filter_by(bill_no=new_bill_no).first()
+            token_no = created_bill.today_token if created_bill else 0
+
             return {
                 "success": True,
-                "bill_no": bill.bill_no,
-                "token_no": bill.today_token,
-                "total_amount": bill.total_amount,
-                "payment_method": bill.payment_method,
+                "bill_no": new_bill_no,
+                "token_no": token_no,
+                "total_amount": total,
+                "payment_method": pmethod,
             }
 
         elif tool_name == "propose_split_payment_bill":
@@ -3222,47 +3258,42 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
             cash = float(args.get("cash_amount", 0))
             online = float(args.get("online_amount", 0))
             otype = args.get("order_type", "dine-in")
-            cname = args.get("customer_name")
-            cphone = args.get("customer_mobile")
-            table = args.get("table_no")
+            cname = args.get("customer_name") or ""
+            cphone = args.get("customer_mobile") or ""
+            table = args.get("table_no") or ""
 
-            enriched = []
-            for it in items:
-                p_id = it.get("product_id")
-                qty = float(it.get("quantity", 1))
-                prod = Product.query.get(p_id)
-                price = prod.price if prod else 0.0
-                name = prod.name if prod else "Item"
-                enriched.append({"product_id": p_id, "name": name, "price": price, "quantity": qty})
+            from services.db_service import DatabaseService
+            from routes.billing import _validate_bill_products
 
-            today = date.today()
-            max_token = (
-                db.session.query(func.max(Bill.today_token))
-                .filter(func.date(Bill.created_at) == today)
-                .scalar()
-                or 0
-            )
-            max_bill_no = db.session.query(func.max(Bill.bill_no)).scalar() or 1000
+            _db_svc_inst = DatabaseService()
 
-            bill = Bill(
-                bill_no=max_bill_no + 1,
-                today_token=max_token + 1,
-                customer_name=cname,
-                customer_mobile=cphone,
-                total_amount=round(cash + online, 2),
-                payment_method=f"SPLIT (Cash: ₹{cash}, Online: ₹{online})",
-                items=json.dumps(enriched),
-                order_type=otype,
-                table_no=table,
-                status="CONFIRMED",
-            )
-            db.session.add(bill)
-            db.session.commit()
+            try:
+                validated_products, total = _validate_bill_products(items, otype)
+            except Exception as val_err:
+                return {"success": False, "error": str(val_err)}
+
+            bill_data = {
+                "customer_name": cname,
+                "customer_mobile": cphone,
+                "total_amount": round(cash + online, 2) or total,
+                "items": validated_products,
+                "payment_method": f"SPLIT (Cash: ₹{cash}, Online: ₹{online})",
+                "payment_status": "paid",
+                "order_type": otype,
+                "table_no": table,
+            }
+            new_bill_no = _db_svc_inst.create_bill(bill_data)
+            if not new_bill_no:
+                return {"success": False, "error": "Failed to create split bill in database."}
+
+            created_bill = Bill.query.filter_by(bill_no=new_bill_no).first()
+            token_no = created_bill.today_token if created_bill else 0
+
             return {
                 "success": True,
-                "bill_no": bill.bill_no,
-                "token_no": bill.today_token,
-                "total_amount": bill.total_amount,
+                "bill_no": new_bill_no,
+                "token_no": token_no,
+                "total_amount": round(cash + online, 2) or total,
             }
 
         elif tool_name == "propose_hold_bill":
@@ -3368,13 +3399,25 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
         elif tool_name == "propose_void_bill":
             b_no = int(args.get("bill_no"))
             reason = args.get("reason", "Voided by admin")
-            bill = Bill.query.filter_by(bill_no=b_no).first()
-            if not bill:
-                return {"success": False, "error": f"Bill #{b_no} not found"}
 
-            bill.status = "VOIDED"
-            db.session.commit()
-            return {"success": True, "bill_no": b_no, "status": "VOIDED", "reason": reason}
+            bill = Bill.query.filter(
+                Bill.bill_no == b_no,
+                func.date(Bill.created_at) == date.today(),
+            ).first()
+            if not bill:
+                return {
+                    "success": False,
+                    "error": f"Bill #{b_no} is not a valid same-day bill or was not found; please cancel manually in Settings > Billing if past-date.",
+                }
+
+            from services.db_service import DatabaseService
+
+            _db_svc_inst = DatabaseService()
+            cancelled = _db_svc_inst.cancel_bill(bill.id)
+            if not cancelled:
+                return {"success": False, "error": f"Failed to cancel bill #{b_no}"}
+
+            return {"success": True, "bill_no": b_no, "status": "CANCELLED", "reason": reason}
 
         elif tool_name == "propose_create_worker":
             name = args.get("name")
@@ -3471,10 +3514,14 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
             if not w:
                 return {"success": False, "error": f"Worker {w_id} not found"}
 
-            adv = Advance(worker_id=w_id, amount=amt, reason=reason)
-            db.session.add(adv)
-            db.session.commit()
-            return {"success": True, "worker_name": w.name, "amount": amt, "reason": reason}
+            adv = WorkerService.add_advance(w_id, amt, reason)
+            return {
+                "success": True,
+                "worker_name": w.name,
+                "amount": amt,
+                "reason": reason,
+                "advance_id": adv.advance_id if adv else None,
+            }
 
         elif tool_name == "propose_create_worker_role":
             name = args.get("name")
@@ -3945,7 +3992,16 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
             if res.get("success"):
                 action.status = "restored"
                 db.session.commit()
-            return res
+        elif tool_name == "propose_export":
+            rep_type = args.get("report_type", "sales")
+            period = args.get("period", "this_month")
+            return {
+                "success": True,
+                "report_type": rep_type,
+                "period": period,
+                "download_url": f"/api/reports/export?type={rep_type}&period={period}",
+                "message": f"Export report for {rep_type} ({period}) prepared successfully.",
+            }
 
         return {"success": False, "error": f"Unrecognized mutating tool {tool_name}"}
 
@@ -3953,3 +4009,56 @@ def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any
         db.session.rollback()
         _log.error("Error executing mutating tool %s: %s", tool_name, e)
         return {"success": False, "error": f"Execution failed: {str(e)}"}
+
+
+_SUMMARY_TOOLS = {
+    "propose_create_bill",
+    "propose_split_payment_bill",
+    "propose_void_bill",
+    "propose_log_expense",
+    "propose_delete_expense",
+    "propose_record_advance",
+}
+
+_CATALOG_TOOLS = {
+    "propose_create_product",
+    "propose_update_product",
+    "propose_bulk_update_prices",
+    "propose_bulk_toggle_products",
+    "propose_adjust_stock",
+    "propose_bulk_stock_adjustment",
+    "propose_reset_stock_count",
+    "propose_create_category",
+    "propose_update_category",
+    "propose_delete_category",
+    "propose_create_item_group",
+    "propose_toggle_group_status",
+    "propose_group_reorder",
+    "propose_delete_item_group",
+    "propose_variation_update",
+    "restore_deleted_item",
+    "restore_last_bulk_delete",
+}
+
+
+def execute_mutating_tool(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a validated mutating tool, flush tool cache, and run post-commit hooks."""
+    result = _execute_mutating_tool_impl(tool_name, args)
+    if result.get("success"):
+        if tool_name in _SUMMARY_TOOLS:
+            try:
+                from services.aggregation_service import update_daily_summary
+
+                update_daily_summary()
+            except Exception as e:
+                _log.warning("Post-tool update_daily_summary failed: %s", e)
+        if tool_name in _CATALOG_TOOLS:
+            try:
+                import time
+
+                _db_svc.update_settings_bulk(
+                    [{"key": "catalog_version", "value": str(int(time.time()))}]
+                )
+            except Exception as e:
+                _log.warning("Post-tool catalog_version update failed: %s", e)
+    return result

@@ -517,7 +517,7 @@ def try_zero_cost_fast_path(query: str) -> Optional[Dict[str, Any]]:
 
     # 5. Active Reminders
     if re.search(r"^(show|list|check|what are)?\s*(my )?(active )?reminders( list)?$", text):
-        res = execute_read_tool("get_pending_reminders", {"limit": 5})
+        res = execute_read_tool("list_reminders", {"limit": 5})
         if "reminders" in res:
             rems = res.get("reminders", [])
             action_items = [
@@ -574,7 +574,7 @@ def try_zero_cost_fast_path(query: str) -> Optional[Dict[str, Any]]:
                     {
                         "title": "Queried Active Reminders",
                         "details": "Read pending task alerts from local SQLite database",
-                        "tool": "get_pending_reminders",
+                        "tool": "list_reminders",
                         "status": "completed",
                     }
                 ],

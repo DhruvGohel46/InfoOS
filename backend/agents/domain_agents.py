@@ -470,30 +470,50 @@ class DomainAgent:
         # Multi-turn tool execution loop with strict max_tool_rounds ceiling
         steps = []
         last_data = None
+        current_messages = list(messages)
 
         while res.tool_calls and current_round < max_tool_rounds:
             current_round += 1
             tool_call_messages = []
 
+            has_read_calls = any(
+                not AgentToolRegistry.is_mutating(tc.name) for tc in res.tool_calls
+            )
+            has_mutating_calls = any(
+                AgentToolRegistry.is_mutating(tc.name) for tc in res.tool_calls
+            )
+
             for tc in res.tool_calls:
                 tool_label = get_status_label(tc.name)
                 yield ("status", {"label": tool_label, "tool": tc.name})
 
-                _log.info(
-                    "Agent %s dispatching tool %s with args %s (round %s/%s)",
-                    self.name,
-                    tc.name,
-                    tc.args,
-                    current_round,
-                    max_tool_rounds,
-                )
-                dispatch_res = PermissionGate.dispatch_tool(
-                    agent_name=self.name,
-                    tool_name=tc.name,
-                    args=tc.args,
-                    actor_sub=actor_sub,
-                    user_message=user_message,
-                )
+                # Defer mutating tool if paired with read tools in the same round
+                if has_read_calls and has_mutating_calls and AgentToolRegistry.is_mutating(tc.name):
+                    _log.info(
+                        "Agent %s deferring mutating tool %s because read tools are executing in the same turn",
+                        self.name,
+                        tc.name,
+                    )
+                    dispatch_res = {
+                        "status": "deferred",
+                        "message": "Read results are needed first. Re-issue this tool call in the next round with real entity IDs from the read results.",
+                    }
+                else:
+                    _log.info(
+                        "Agent %s dispatching tool %s with args %s (round %s/%s)",
+                        self.name,
+                        tc.name,
+                        tc.args,
+                        current_round,
+                        max_tool_rounds,
+                    )
+                    dispatch_res = PermissionGate.dispatch_tool(
+                        agent_name=self.name,
+                        tool_name=tc.name,
+                        args=tc.args,
+                        actor_sub=actor_sub,
+                        user_message=user_message,
+                    )
                 last_data = dispatch_res
 
                 step_title, step_desc = get_step_human_summary(tc.name, tc.args)
@@ -524,15 +544,15 @@ class DomainAgent:
                     }
                 )
 
-            # Append assistant message and tool results to follow-up context
-            follow_up_messages = list(messages)
+            # Append assistant message and tool results to accumulated context
             if res.content:
-                follow_up_messages.append({"role": "assistant", "content": res.content})
+                current_messages.append({"role": "assistant", "content": res.content})
             else:
-                follow_up_messages.append(
+                first_tool = res.tool_calls[0].name if res.tool_calls else "tool"
+                current_messages.append(
                     {
                         "role": "assistant",
-                        "content": f"I am executing the tool {res.tool_calls[0].name}...",
+                        "content": f"I am executing the tool {first_tool}...",
                     }
                 )
 
@@ -546,7 +566,7 @@ class DomainAgent:
                         "- State in the insight_block: 'Action proposal prepared. Please review the details and click Approve & Apply below to save changes to the database.'\n"
                         "- Synthesize a clean, structured JSON object adhering strictly to the specified schema."
                     )
-                else:
+                elif current_round >= max_tool_rounds:
                     synth_content = (
                         f"[Tool Result for '{tm['name']}']:\n{tm['content']}\n\n"
                         "Please synthesize your answer for the shop owner as a clean, structured JSON object adhering strictly to the specified schema:\n"
@@ -554,19 +574,30 @@ class DomainAgent:
                         "- If no mutating tool was executed, DO NOT claim that any database change was made.\n"
                         "- Always include an 'insight_block' with icon 'ai_review' offering intelligent store recommendations."
                     )
+                else:
+                    synth_content = (
+                        f"[Tool Result for '{tm['name']}']:\n{tm['content']}\n\n"
+                        "You may call additional tools (e.g. proposing an action using verified IDs) or synthesize your answer as a clean, structured JSON object adhering to the specified schema."
+                    )
 
-                follow_up_messages.append(
+                current_messages.append(
                     {
                         "role": "user",
                         "content": synth_content,
                     }
                 )
 
-            yield ("status", {"label": SYNTHESIS_LABEL})
+            tools_to_pass = (
+                None if (pending_actions or current_round >= max_tool_rounds) else self.tools
+            )
+
+            status_label = SYNTHESIS_LABEL if not tools_to_pass else LLM_CALL_LABEL
+            yield ("status", {"label": status_label})
 
             try:
                 second_res = adapter.chat(
-                    messages=follow_up_messages,
+                    messages=current_messages,
+                    tools=tools_to_pass,
                     model=model_name,
                     max_tokens=max(max_tokens or 2048, 2048),
                 )
@@ -581,7 +612,8 @@ class DomainAgent:
 
                     time.sleep(1.0)
                     second_res = adapter.chat(
-                        messages=follow_up_messages,
+                        messages=current_messages,
+                        tools=tools_to_pass,
                         model=model_name,
                         max_tokens=max(max_tokens or 2048, 2048),
                     )

@@ -347,10 +347,16 @@ def node_append_tool_result(
     # Clear flushed pending tool messages
     state["_pending_tool_messages"] = []
 
-    # Make the synthesis LLM call (mirrors run_stream() lines 415-425)
+    # Make the follow-up / synthesis LLM call (mirrors run_stream() lines 415-425)
+    tools_to_pass = (
+        None
+        if (has_pending or (state.get("current_round", 0) + 1 >= state.get("max_tool_rounds", 3)))
+        else (state.get("tools") or None)
+    )
     try:
         second_res = adapter.chat(
             messages=follow_up_messages,
+            tools=tools_to_pass,
             model=state["model_name"],
             max_tokens=state["max_tokens"],
         )

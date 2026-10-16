@@ -304,7 +304,7 @@ const WorkerList = () => {
                                         fontWeight: 600,
                                         color: isDark ? '#FFFFFF' : '#0F172A'
                                     }}>
-                                        {worker.advance ? formatCurrency(worker.advance) : '—'}
+                                        {(worker.current_advance != null ? worker.current_advance : worker.advance) ? formatCurrency(worker.current_advance ?? worker.advance) : '—'}
                                     </div>
                                 </div>
 

@@ -94,10 +94,18 @@ export default function WorkerProfile() {
     const salaryDay = effectiveSalaryDay;
 
     advances.forEach((adv) => {
-      const d = new Date(adv.date);
-      const advDay = d.getDate();
-      const advMonth = d.getMonth() + 1;
-      const advYear = d.getFullYear();
+      let advDay, advMonth, advYear;
+      if (typeof adv.date === 'string' && adv.date.includes('-')) {
+        const parts = adv.date.split('T')[0].split('-');
+        advYear = parseInt(parts[0], 10);
+        advMonth = parseInt(parts[1], 10);
+        advDay = parseInt(parts[2], 10);
+      } else {
+        const d = new Date(adv.date);
+        advDay = d.getDate();
+        advMonth = d.getMonth() + 1;
+        advYear = d.getFullYear();
+      }
 
       let cycleMonth, cycleYear;
       if (advDay <= salaryDay) {
@@ -211,7 +219,11 @@ export default function WorkerProfile() {
 
   const handleGenerateSpecificSalary = async (month, year) => {
     try {
-      await workerAPI.generateSpecificSalary(worker.worker_id, month, year);
+      if (typeof workerAPI.generateSalary === 'function') {
+        await workerAPI.generateSalary(worker.worker_id, month, year);
+      } else if (typeof workerAPI.generateSpecificSalary === 'function') {
+        await workerAPI.generateSpecificSalary(worker.worker_id, month, year);
+      }
       showSuccess('Salary cycle generated');
       loadData();
     } catch (e) {
@@ -272,9 +284,16 @@ export default function WorkerProfile() {
     const missing = [];
     if (!worker || !worker.current_cycle) return missing;
 
-    const currentStart = new Date(worker.current_cycle.start);
-    const currentMonth = currentStart.getMonth() + 1;
-    const currentYear = currentStart.getFullYear();
+    let currentEndYear, currentEndMonth;
+    if (worker.current_cycle.end) {
+      const parts = String(worker.current_cycle.end).split('T')[0].split('-');
+      currentEndYear = parseInt(parts[0], 10);
+      currentEndMonth = parseInt(parts[1], 10);
+    } else {
+      const now = new Date();
+      currentEndYear = now.getFullYear();
+      currentEndMonth = now.getMonth() + 1;
+    }
 
     let latestYear = 0;
     let latestMonth = 0;
@@ -283,7 +302,8 @@ export default function WorkerProfile() {
       latestYear = salaryHistory[0].year;
       latestMonth = salaryHistory[0].month;
     } else {
-      const joinDate = new Date(worker.join_date || worker.joinDate);
+      const joinDateStr = worker.join_date || worker.joinDate;
+      const joinDate = joinDateStr ? new Date(joinDateStr) : new Date();
       latestYear = joinDate.getFullYear();
       latestMonth = joinDate.getMonth();
       if (latestMonth === 0) {
@@ -303,9 +323,9 @@ export default function WorkerProfile() {
       return salaryHistory.some((p) => p.month === monthVal && p.year === yearVal);
     };
 
-    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+    while (y < currentEndYear || (y === currentEndYear && m <= currentEndMonth)) {
       if (!hasSalaryFor(m, y)) {
-        missing.push({ month: m, year: y, isCurrent: y === currentYear && m === currentMonth });
+        missing.push({ month: m, year: y, isCurrent: y === currentEndYear && m === currentEndMonth });
       }
       m++;
       if (m > 12) {
@@ -314,8 +334,8 @@ export default function WorkerProfile() {
       }
     }
 
-    if (!missing.some((p) => p.month === currentMonth && p.year === currentYear) && !hasSalaryFor(currentMonth, currentYear)) {
-      missing.push({ month: currentMonth, year: currentYear, isCurrent: true });
+    if (!missing.some((p) => p.month === currentEndMonth && p.year === currentEndYear) && !hasSalaryFor(currentEndMonth, currentEndYear)) {
+      missing.push({ month: currentEndMonth, year: currentEndYear, isCurrent: true });
     }
 
     if (missing.length > 12) {
@@ -1112,64 +1132,73 @@ export default function WorkerProfile() {
             {/* 3. SALARY HISTORY (Rich Cards) */}
             {activeTab === 'salary' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {getMissingCycles().map((cycle) => (
-                  <div
-                    key={`missing-${cycle.year}-${cycle.month}`}
-                    style={{
-                      padding: '18px 24px',
-                      background: isDark ? 'linear-gradient(165deg, rgba(255,107,26,0.08) 0%, #18191D 100%)' : '#FFF7ED',
-                      border: '1.5px solid rgba(255,107,26,0.3)',
-                      borderRadius: '22px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '16px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 850, color: isDark ? '#FFFFFF' : '#0F172A' }}>
-                          {new Date(cycle.year, cycle.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
-                        </span>
-                        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, background: 'rgba(255, 107, 26, 0.2)', color: '#FF6B1A' }}>
-                          {cycle.isCurrent ? 'Current Cycle' : 'Pending Cycle'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px', fontSize: '0.82rem', color: isDark ? '#94A3B8' : '#64748B' }}>
-                        <span>Base: {formatCurrency(worker.salary)}</span>
-                        <span>•</span>
-                        <span style={{ color: '#EF4444' }}>Advances: -{formatCurrency(cycle.isCurrent ? worker.current_cycle?.advance || 0 : 0)}</span>
-                      </div>
-                    </div>
+                {getMissingCycles().map((cycle) => {
+                  const cycleGroup = groupedAdvances.find(g => g.year === cycle.year && g.month === cycle.month);
+                  const cycleAdvance = cycleGroup ? cycleGroup.total : (cycle.isCurrent ? (worker.current_cycle?.advance || 0) : 0);
+                  const baseSalary = Number(worker.salary) || 0;
+                  const cycleNetPayable = cycle.isCurrent && worker.current_cycle?.net_payable !== undefined
+                    ? worker.current_cycle.net_payable
+                    : Math.max(0, baseSalary - cycleAdvance);
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 750, textTransform: 'uppercase', color: isDark ? '#64748B' : '#94A3B8' }}>Estimated Payout</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#10B981' }}>
-                          {cycle.isCurrent ? formatCurrency(worker.current_cycle?.net_payable || worker.salary) : 'TBD'}
+                  return (
+                    <div
+                      key={`missing-${cycle.year}-${cycle.month}`}
+                      style={{
+                        padding: '18px 24px',
+                        background: isDark ? 'linear-gradient(165deg, rgba(255,107,26,0.08) 0%, #18191D 100%)' : '#FFF7ED',
+                        border: '1.5px solid rgba(255,107,26,0.3)',
+                        borderRadius: '22px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '16px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 850, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                            {new Date(cycle.year, cycle.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                          </span>
+                          <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, background: 'rgba(255, 107, 26, 0.2)', color: '#FF6B1A' }}>
+                            {cycle.isCurrent ? 'Current Cycle' : 'Pending Cycle'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.82rem', color: isDark ? '#94A3B8' : '#64748B' }}>
+                          <span>Base: {formatCurrency(worker.salary)}</span>
+                          <span>•</span>
+                          <span style={{ color: '#EF4444' }}>Advances: -{formatCurrency(cycleAdvance)}</span>
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleGenerateSpecificSalary(cycle.month, cycle.year)}
-                        style={{
-                          padding: '8px 20px',
-                          borderRadius: '12px',
-                          border: 'none',
-                          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                          color: '#FFFFFF',
-                          fontWeight: 800,
-                          fontSize: '0.84rem',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
-                        }}
-                      >
-                        Generate Slip
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 750, textTransform: 'uppercase', color: isDark ? '#64748B' : '#94A3B8' }}>Estimated Payout</div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#10B981' }}>
+                            {formatCurrency(cycleNetPayable)}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleGenerateSpecificSalary(cycle.month, cycle.year)}
+                          style={{
+                            padding: '8px 20px',
+                            borderRadius: '12px',
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                            color: '#FFFFFF',
+                            fontWeight: 800,
+                            fontSize: '0.84rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
+                          }}
+                        >
+                          Generate Slip
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {salaryHistory.map((pay, i) => (
                   <div

@@ -66,6 +66,7 @@ def get_workers():
                 "status": w.status,
                 "today_attendance": attendance_map.get(w.worker_id, "Not Marked"),
                 "current_advance": float(w_advance),
+                "advance": float(w_advance),
                 "cycle_start": w_start.isoformat(),
                 "cycle_end": w_end.isoformat(),
             }
