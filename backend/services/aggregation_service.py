@@ -34,12 +34,16 @@ def update_daily_summary(target_date=None):
     This is designed to be called frequently (after every bill/expense)
     so it must be fast.  It does a single aggregation query per table.
     """
+    from services.business_day_service import BusinessDayService
+
     if target_date is None:
-        target_date = date.today()
+        target_date = BusinessDayService.get_business_date()
     elif isinstance(target_date, str):
         target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
     elif isinstance(target_date, datetime):
         target_date = target_date.date()
+
+    w_start, w_end = BusinessDayService.get_business_day_window(target_date)
 
     try:
         # --- Sales aggregation (only PAID bills count as collected revenue) ---
@@ -49,7 +53,8 @@ def update_daily_summary(target_date=None):
                 func.coalesce(func.sum(Bill.total_amount), 0).label("total_sales"),
             )
             .filter(
-                func.date(Bill.created_at) == target_date,
+                Bill.created_at >= w_start,
+                Bill.created_at < w_end,
                 ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
                 Bill.payment_status == "paid",
             )
@@ -66,7 +71,8 @@ def update_daily_summary(target_date=None):
                 func.coalesce(func.sum(Bill.amount_pending), 0).label("pending_revenue"),
             )
             .filter(
-                func.date(Bill.created_at) == target_date,
+                Bill.created_at >= w_start,
+                Bill.created_at < w_end,
                 ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
                 Bill.payment_status.in_(["pending", "partial"]),
             )
@@ -119,9 +125,13 @@ def _compute_top_products(target_date) -> str:
     """
     Return a JSON string of top 10 products by revenue for the given date.
     """
+    from services.business_day_service import BusinessDayService
+
+    w_start, w_end = BusinessDayService.get_business_day_window(target_date)
     try:
         bills = Bill.query.filter(
-            func.date(Bill.created_at) == target_date,
+            Bill.created_at >= w_start,
+            Bill.created_at < w_end,
             ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_BILL_STATUSES),
         ).all()
 

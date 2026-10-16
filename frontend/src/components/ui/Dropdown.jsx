@@ -26,8 +26,12 @@ const Dropdown = ({
     placeholder = 'Select an option',
     disabled = false,
     className = '',
-    zIndex = 50
+    zIndex = 50,
+    direction = 'down', // 'down' | 'up'
+    dropUp = false,
+    placement = 'bottom'
 }) => {
+    const isUp = direction === 'up' || dropUp || placement === 'top';
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
@@ -55,7 +59,7 @@ const Dropdown = ({
     const dropdownVariants = {
         hidden: {
             opacity: 0,
-            y: -10,
+            y: isUp ? 10 : -10,
             scale: 0.95,
             transition: { duration: 0.2 }
         },
@@ -67,7 +71,7 @@ const Dropdown = ({
         },
         exit: {
             opacity: 0,
-            y: -10,
+            y: isUp ? 10 : -10,
             scale: 0.95,
             transition: { duration: 0.15 }
         }
@@ -131,20 +135,24 @@ const Dropdown = ({
                         exit="exit"
                         style={{
                             position: 'absolute',
-                            top: '100%',
+                            ...(isUp
+                                ? { bottom: '100%', marginBottom: '6px' }
+                                : { top: '100%', marginTop: '4px' }),
                             left: 0,
                             right: 0,
-                            marginTop: '4px',
                             borderRadius: '8px',
                             overflow: 'hidden',
-                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
+                            boxShadow: isUp
+                                ? '0 -10px 25px -5px rgba(0, 0, 0, 0.3), 0 -8px 10px -6px rgba(0, 0, 0, 0.2)'
+                                : '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
                             zIndex: zIndex,
                             maxHeight: '240px',
                             overflowY: 'auto',
                             border: '1px solid var(--glass-border)',
                             background: 'var(--glass-dropdown)',
                             backdropFilter: 'var(--glass-blur)',
-                            WebkitBackdropFilter: 'var(--glass-blur)'
+                            WebkitBackdropFilter: 'var(--glass-blur)',
+                            transformOrigin: isUp ? 'bottom center' : 'top center'
                         }}
                     >
                         <div style={{ padding: '4px' }}>

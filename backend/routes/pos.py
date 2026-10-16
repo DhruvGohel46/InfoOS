@@ -74,10 +74,12 @@ def bootstrap():
         cache.set("settings", "all", settings)
 
     # 5. Next bill number (always fresh — lightweight query)
-    today = date.today()
+    from services.business_day_service import BusinessDayService
+
+    w_start, w_end = BusinessDayService.get_business_day_window()
     max_bill = (
         db.session.query(func.max(Bill.bill_no))
-        .filter(func.date(Bill.created_at) == today)
+        .filter(Bill.created_at >= w_start, Bill.created_at < w_end)
         .scalar()
     )
     next_bill_number = (max_bill or 0) + 1

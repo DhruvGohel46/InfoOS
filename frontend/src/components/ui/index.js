@@ -7,3 +7,4 @@ export { default as Input } from './Input';
 export { default as GlobalDatePicker } from './GlobalDatePicker';
 export { default as GlobalSelect } from './GlobalSelect';
 export { default as GlobalTimePicker } from './GlobalTimePicker';
+export { default as InfoTooltip } from './InfoTooltip';

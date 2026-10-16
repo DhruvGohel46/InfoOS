@@ -13,6 +13,7 @@ import GlobalDatePicker from '../ui/GlobalDatePicker';
 import Card from '../ui/Card'; // Import Shared Card Component
 import PageContainer from '../layout/PageContainer';
 import Button from '../ui/Button';
+import InfoTooltip from '../ui/InfoTooltip';
 import { previewSoundFile } from '../../utils/soundService';
 import {
     IoStorefrontOutline,
@@ -28,11 +29,17 @@ import {
     IoVolumeHighOutline,
     IoCloudUploadOutline,
     IoConstructOutline,
-    IoInformationCircleOutline,
     IoSparklesOutline,
-    IoLogOutOutline
+    IoLogOutOutline,
+    IoCalendarOutline,
+    IoAddOutline,
+    IoTrashOutline,
+    IoAlertCircleOutline,
+    IoSunnyOutline,
+    IoMoonOutline
 } from 'react-icons/io5';
 import { settingsAPI } from '../../api/settings';
+import { businessDayAPI } from '../../api/businessDay';
 import { getLocalDateString } from '../../utils/api';
 import { setupPin, getAuthStatus, resetPin } from '../../api/auth';
 import { cloudSyncAPI, setCloudAuthToken, cloudLicenseAPI, cloudAuthAPI, restoreAuthSessionFromDisk } from '../../api/cloudApi';
@@ -44,7 +51,7 @@ import { agentsAPI } from '../../api/agents';
 
 const Settings = () => {
     const { showSuccess, showError, showConfirm } = useToast();
-    const { isDark } = useTheme();
+    const { isDark, setTheme } = useTheme();
     const { settings: globalSettings, loading, updateSettings } = useSettings();
     const location = useLocation();
 
@@ -82,6 +89,128 @@ const Settings = () => {
     const [expenseEditMode, setExpenseEditMode] = useState(false);
     const [editingExpenseType, setEditingExpenseType] = useState(null);
     const [expenseTypeForm, setExpenseTypeForm] = useState({ name: '', description: '', is_active: true });
+
+    // ── Business Day & Working Hours State ────────────────────────────────
+    // eslint-disable-next-line no-unused-vars
+    const [businessDayStatus, setBusinessDayStatus] = useState(null);
+    // eslint-disable-next-line no-unused-vars
+    const [businessDayLoading, setBusinessDayLoading] = useState(false);
+    const [overridesList, setOverridesList] = useState([]);
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [editingOverride, setEditingOverride] = useState(null);
+    const [overrideForm, setOverrideForm] = useState({
+        name: '',
+        start_date: '',
+        end_date: '',
+        open_time: '10:00',
+        close_time: '02:00',
+        cutoff_time: '02:30',
+        is_active: true
+    });
+
+    const loadBusinessDayData = useCallback(async () => {
+        try {
+            setBusinessDayLoading(true);
+            const [statusRes, settingsRes] = await Promise.all([
+                businessDayAPI.getStatus(),
+                businessDayAPI.getSettings()
+            ]);
+            if (statusRes?.success) {
+                setBusinessDayStatus(statusRes);
+            }
+            if (settingsRes?.success) {
+                setOverridesList(settingsRes.overrides || []);
+            }
+        } catch (err) {
+            console.error('Failed to load business day configuration:', err);
+        } finally {
+            setBusinessDayLoading(false);
+        }
+    }, []);
+
+    const calculateEffectiveCutoff = useCallback((closeStr, cutoffStr) => {
+        if (!closeStr || !cutoffStr) return cutoffStr || '00:00';
+        try {
+            const parseShiftMins = (tStr) => {
+                const parts = (tStr || '00:00').split(':');
+                const h = parseInt(parts[0], 10) || 0;
+                const m = parseInt(parts[1], 10) || 0;
+                const total = (h * 60) + m;
+                return total >= 360 ? (total - 360) : (total + 1080);
+            };
+            const closeShift = parseShiftMins(closeStr);
+            let cutoffShift = parseShiftMins(cutoffStr);
+            if (cutoffShift < closeShift + 30) {
+                cutoffShift = closeShift + 30;
+                const linearTotal = (cutoffShift + 360) % 1440;
+                const h = Math.floor(linearTotal / 60);
+                const m = linearTotal % 60;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            }
+            return cutoffStr;
+        } catch {
+            return cutoffStr;
+        }
+    }, []);
+
+    const handleSaveOverride = async () => {
+        if (!overrideForm.name.trim()) {
+            showError('Please enter a name or reason for this schedule (e.g. Diwali Extended Hours).');
+            return;
+        }
+        if (!overrideForm.start_date || !overrideForm.end_date) {
+            showError('Please select both Start Date and End Date.');
+            return;
+        }
+        if (overrideForm.end_date < overrideForm.start_date) {
+            showError('End Date cannot be before Start Date.');
+            return;
+        }
+        try {
+            const payload = {
+                ...overrideForm,
+                id: editingOverride?.id || undefined
+            };
+            const res = await businessDayAPI.saveOverride(payload);
+            if (res.success) {
+                showSuccess(res.message || 'Special schedule saved successfully.');
+                setShowOverrideModal(false);
+                setEditingOverride(null);
+                setOverrideForm({
+                    name: '',
+                    start_date: '',
+                    end_date: '',
+                    open_time: '10:00',
+                    close_time: '02:00',
+                    cutoff_time: '02:30',
+                    is_active: true
+                });
+                loadBusinessDayData();
+            }
+        } catch (err) {
+            showError(err?.response?.data?.error || 'Failed to save special schedule');
+        }
+    };
+
+    const handleDeleteOverride = async (overrideItem) => {
+        const confirmed = await showConfirm({
+            title: 'Delete Schedule Override?',
+            description: `Remove "${overrideItem.name}" (${overrideItem.start_date} to ${overrideItem.end_date})?`,
+            confirmLabel: 'Delete',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        try {
+            const res = await businessDayAPI.deleteOverride(overrideItem.id);
+            if (res.success) {
+                showSuccess(`Schedule "${overrideItem.name}" removed.`);
+                loadBusinessDayData();
+            }
+        } catch (err) {
+            showError(err?.response?.data?.error || 'Failed to delete schedule override');
+        }
+    };
     
     // Text scale state
     const [textScale, setTextScale] = useState(() => {
@@ -216,18 +345,14 @@ const Settings = () => {
         daily_request_limit: 100
     });
     const [agentPermissions, setAgentPermissions] = useState([]);
-    const [agentLogs, setAgentLogs] = useState([]);
     const [testingConnection, setTestingConnection] = useState(false);
     const [agentSaving, setAgentSaving] = useState(false);
-    const [logFilterAgent, setLogFilterAgent] = useState('');
-    const [logFilterStatus, setLogFilterStatus] = useState('');
 
     const loadAgentData = useCallback(async () => {
         try {
-            const [configRes, permRes, logsRes] = await Promise.all([
+            const [configRes, permRes] = await Promise.all([
                 agentsAPI.getConfig(),
-                agentsAPI.getPermissions(),
-                agentsAPI.getAuditLogs({ limit: 50 })
+                agentsAPI.getPermissions()
             ]);
             if (configRes.success && configRes.config) {
                 setAgentConfig(prev => ({
@@ -245,9 +370,6 @@ const Settings = () => {
             }
             if (permRes.success && permRes.permissions) {
                 setAgentPermissions(permRes.permissions);
-            }
-            if (logsRes.success && logsRes.logs) {
-                setAgentLogs(logsRes.logs);
             }
         } catch (err) {
             console.error('Failed to load agent settings:', err);
@@ -330,7 +452,6 @@ const Settings = () => {
     };
 
     const [showAdvancedTiers, setShowAdvancedTiers] = useState(false);
-    const [showAuditLogs, setShowAuditLogs] = useState(false);
 
     // Derive active preset
     const currentPreset = (() => {
@@ -375,20 +496,6 @@ const Settings = () => {
         } catch (err) {
             showError('Failed to update agent autonomy preset.');
             loadAgentData();
-        }
-    };
-
-    const handleFilterAuditLogs = async (agent = logFilterAgent, status = logFilterStatus) => {
-        try {
-            const params = { limit: 50 };
-            if (agent) params.agent = agent;
-            if (status) params.status = status;
-            const res = await agentsAPI.getAuditLogs(params);
-            if (res.success && res.logs) {
-                setAgentLogs(res.logs);
-            }
-        } catch (err) {
-            console.error('Failed to filter logs:', err);
         }
     };
 
@@ -1049,6 +1156,13 @@ const Settings = () => {
         }
     }, [activeTab, expenseSubTab, loadExpenseTypes]);
 
+    // Load business day configuration when billing or shop tab is active
+    useEffect(() => {
+        if (activeTab === 'billing' || activeTab === 'shop') {
+            loadBusinessDayData();
+        }
+    }, [activeTab, loadBusinessDayData]);
+
     const handleCreateWorkerType = async () => {
         if (!workerTypeForm.name.trim()) {
             showError('Worker type name is required');
@@ -1309,6 +1423,7 @@ const Settings = () => {
 
         // Billing
         bill_reset_daily: 'true',
+        business_day_cutoff_time: '00:00',
         default_tax_rate: '0',
         tax_enabled: 'false',
         default_order_type: 'dine-in',
@@ -1401,6 +1516,16 @@ const Settings = () => {
                 setFormSettings(prev => ({ ...prev, require_pin_login: 'false' }));
             }
             await updateSettings(finalSettings);
+            try {
+                await businessDayAPI.updateSettings({
+                    cutoff_time: finalSettings.business_day_cutoff_time || '00:00',
+                    open_time: finalSettings.shop_open_time || '09:00',
+                    close_time: finalSettings.shop_close_time || '23:00'
+                });
+                await loadBusinessDayData();
+            } catch (bdErr) {
+                console.error('Failed to sync business day settings:', bdErr);
+            }
             showSuccess('Settings saved successfully');
             if (finalSettings.require_pin_login === 'false') {
                 setPinStatus({ enabled: false, is_setup: false, loading: false });
@@ -1750,6 +1875,198 @@ const Settings = () => {
                                         </label>
                                     </div>
 
+                                    {/* ── Working Day Cutoff & Daily Reset Time ── */}
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span className="stLabelTitle">Working Day Cutoff & Reset Time</span>
+                                                <InfoTooltip
+                                                    title="Turnover Rule"
+                                                    content="If shop closing time is ever after or within 30 minutes of the reset cutoff, the system will automatically push the bill reset 30 minutes past closing time."
+                                                />
+                                            </div>
+                                            <span className="stLabelDesc">
+                                                Bills created after 12:00 AM midnight remain counted in today's shift until this cutoff time.
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                <div style={{ width: '160px' }}>
+                                                    <GlobalTimePicker
+                                                        value={formSettings.business_day_cutoff_time || '00:00'}
+                                                        onChange={(val) => handleChange('business_day_cutoff_time', val)}
+                                                        placeholder="Cutoff Time"
+                                                    />
+                                                </div>
+                                                {/* Quick Preset Buttons */}
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                    {[
+                                                        { label: '12:00 AM', value: '00:00' },
+                                                        { label: '01:00 AM', value: '01:00' },
+                                                        { label: '02:00 AM', value: '02:00' },
+                                                        { label: '03:00 AM', value: '03:00' },
+                                                        { label: '04:00 AM', value: '04:00' },
+                                                    ].map(preset => {
+                                                        const isSelected = (formSettings.business_day_cutoff_time || '00:00') === preset.value;
+                                                        return (
+                                                            <button
+                                                                key={preset.value}
+                                                                type="button"
+                                                                onClick={() => handleChange('business_day_cutoff_time', preset.value)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.15s ease',
+                                                                    background: isSelected
+                                                                        ? 'var(--primary, #f97316)'
+                                                                        : (isDark ? '#252830' : '#E2E8F0'),
+                                                                    color: isSelected ? '#FFFFFF' : 'var(--text-secondary)',
+                                                                    border: isSelected
+                                                                        ? '1px solid var(--primary, #f97316)'
+                                                                        : (isDark ? '1px solid #3A3E48' : '1px solid #CBD5E1')
+                                                                }}
+                                                            >
+                                                                {preset.label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* 30-Minute Post Closing Buffer Active Tooltip */}
+                                                {(() => {
+                                                    const currentClose = formSettings.shop_close_time || '23:00';
+                                                    const configuredCutoff = formSettings.business_day_cutoff_time || '00:00';
+                                                    const effectiveCutoff = calculateEffectiveCutoff(currentClose, configuredCutoff);
+                                                    if (effectiveCutoff === configuredCutoff) return null;
+
+                                                    return (
+                                                        <InfoTooltip
+                                                            icon={<IoAlertCircleOutline color="#f97316" size={18} />}
+                                                            title="Safety Rule Active"
+                                                            content={`Closing at ${currentClose}: daily reset is automatically moved to ${effectiveCutoff} (30 min after closing).`}
+                                                        />
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ── Temporary Schedule Overrides ── */}
+                                    <div className="stFormGroup" style={{ alignItems: 'flex-start' }}>
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Temporary Schedule Overrides</span>
+                                            <span className="stLabelDesc">
+                                                Special shop hours and reset times for festivals or events. Automatically reverts once expired.
+                                            </span>
+                                            <div style={{ marginTop: '10px' }}>
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={() => {
+                                                        setEditingOverride(null);
+                                                        setOverrideForm({
+                                                            name: '',
+                                                            start_date: getLocalDateString(),
+                                                            end_date: getLocalDateString(),
+                                                            open_time: formSettings.shop_open_time || '10:00',
+                                                            close_time: '02:00',
+                                                            cutoff_time: '02:30',
+                                                            is_active: true
+                                                        });
+                                                        setShowOverrideModal(true);
+                                                    }}
+                                                    style={{ height: '32px', fontSize: '12px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                                >
+                                                    <IoAddOutline size={16} />
+                                                    Add Special Schedule
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div style={{ width: '100%' }}>
+                                            {overridesList.length === 0 ? (
+                                                <div style={{
+                                                    padding: '16px',
+                                                    textAlign: 'center',
+                                                    borderRadius: '10px',
+                                                    background: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                                                    border: isDark ? '1px dashed #3A3E48' : '1px dashed #CBD5E1',
+                                                    color: 'var(--text-muted)',
+                                                    fontSize: '12.5px'
+                                                }}>
+                                                    No temporary schedule overrides configured. Standard daily timings apply.
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    borderRadius: '10px',
+                                                    overflow: 'hidden',
+                                                    border: isDark ? '1px solid #2C2F36' : '1px solid #E2E8F0'
+                                                }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+                                                        <thead>
+                                                            <tr style={{ background: isDark ? '#1F2228' : '#F8FAFC', borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #E2E8F0' }}>
+                                                                <th style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Name</th>
+                                                                <th style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Dates</th>
+                                                                <th style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Hours</th>
+                                                                <th style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Effective Reset</th>
+                                                                <th style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {overridesList.map((item) => {
+                                                                const eff = calculateEffectiveCutoff(item.close_time, item.cutoff_time);
+                                                                return (
+                                                                    <tr key={item.id} style={{ borderBottom: isDark ? '1px solid #23262E' : '1px solid #F1F5F9' }}>
+                                                                        <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                            {item.name}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                                                                            {item.start_date} → {item.end_date}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                                                                            {item.open_time || '--'} - {item.close_time || '--'}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 12px', color: 'var(--primary, #f97316)', fontWeight: 600 }}>
+                                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                                <span>{eff}</span>
+                                                                                {eff !== item.cutoff_time && (
+                                                                                    <InfoTooltip
+                                                                                        icon={<IoAlertCircleOutline color="#f97316" size={15} />}
+                                                                                        title="30m Safety Buffer"
+                                                                                        content={`Shop closing at ${item.close_time} shifts reset cutoff to ${eff} (30 min after closing).`}
+                                                                                        placement="left"
+                                                                                    />
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDeleteOverride(item)}
+                                                                                style={{
+                                                                                    background: 'transparent',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    color: '#EF4444',
+                                                                                    padding: '4px 6px',
+                                                                                    borderRadius: '6px'
+                                                                                }}
+                                                                                title="Delete Override"
+                                                                            >
+                                                                                <IoTrashOutline size={15} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     <div className="stFormGroup">
                                         <div className="stLabel">
                                             <span className="stLabelTitle">Enable Tax</span>
@@ -2043,17 +2360,128 @@ const Settings = () => {
 
                                     <div className="stFormGroup">
                                         <div className="stLabel">
-                                            <span className="stLabelTitle">Dark Mode (Default)</span>
-                                            <span className="stLabelDesc">Set dark mode as default on startup</span>
+                                            <span className="stLabelTitle">Default Theme</span>
+                                            <span className="stLabelDesc">Choose system appearance and default theme on startup</span>
                                         </div>
-                                        <label className="stToggle">
-                                            <input
-                                                type="checkbox"
-                                                checked={formSettings.dark_mode === 'true'}
-                                                onChange={(e) => handleChange('dark_mode', e.target.checked ? 'true' : 'false')}
-                                            />
-                                            <span className="stSlider"></span>
-                                        </label>
+                                        <div style={{
+                                            position: 'relative',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            background: isDark ? '#1F2228' : '#E2E8F0',
+                                            padding: '4px',
+                                            borderRadius: '14px',
+                                            border: isDark ? '1px solid #3A3E48' : '1px solid #CBD5E1',
+                                            userSelect: 'none',
+                                            width: 'fit-content'
+                                        }}>
+                                            {/* Light Option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange('dark_mode', 'false');
+                                                    setTheme('light');
+                                                }}
+                                                style={{
+                                                    position: 'relative',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '8px 20px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    border: 'none',
+                                                    background: 'transparent',
+                                                    color: formSettings.dark_mode === 'false'
+                                                        ? (isDark ? '#FFFFFF' : '#0F172A')
+                                                        : (isDark ? '#94A3B8' : '#64748B'),
+                                                    transition: 'color 0.2s ease',
+                                                    zIndex: 2
+                                                }}
+                                            >
+                                                {formSettings.dark_mode === 'false' && (
+                                                    <motion.div
+                                                        layoutId="themeSlidingPill"
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            right: 0,
+                                                            bottom: 0,
+                                                            background: '#FFFFFF',
+                                                            borderRadius: '10px',
+                                                            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+                                                            zIndex: -1
+                                                        }}
+                                                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                                                    />
+                                                )}
+                                                <IoSunnyOutline
+                                                    size={17}
+                                                    style={{
+                                                        color: formSettings.dark_mode === 'false' ? '#F59E0B' : 'currentColor',
+                                                        transition: 'color 0.2s ease'
+                                                    }}
+                                                />
+                                                <span>Light</span>
+                                            </button>
+
+                                            {/* Dark Option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange('dark_mode', 'true');
+                                                    setTheme('dark');
+                                                }}
+                                                style={{
+                                                    position: 'relative',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '8px 20px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    border: 'none',
+                                                    background: 'transparent',
+                                                    color: formSettings.dark_mode === 'true'
+                                                        ? '#FFFFFF'
+                                                        : (isDark ? '#94A3B8' : '#64748B'),
+                                                    transition: 'color 0.2s ease',
+                                                    zIndex: 2
+                                                }}
+                                            >
+                                                {formSettings.dark_mode === 'true' && (
+                                                    <motion.div
+                                                        layoutId="themeSlidingPill"
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            right: 0,
+                                                            bottom: 0,
+                                                            background: isDark ? 'linear-gradient(135deg, #FF8A00 0%, #FF6500 100%)' : '#1E293B',
+                                                            borderRadius: '10px',
+                                                            boxShadow: isDark
+                                                                ? '0 4px 14px rgba(255, 122, 0, 0.35)'
+                                                                : '0 2px 10px rgba(15, 23, 42, 0.25)',
+                                                            zIndex: -1
+                                                        }}
+                                                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                                                    />
+                                                )}
+                                                <IoMoonOutline
+                                                    size={16}
+                                                    style={{
+                                                        color: formSettings.dark_mode === 'true' ? '#FFFFFF' : 'currentColor',
+                                                        transition: 'color 0.2s ease'
+                                                    }}
+                                                />
+                                                <span>Dark</span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="stFormGroup">
@@ -2076,52 +2504,35 @@ const Settings = () => {
                                             <span className="stLabelTitle">Order Milestone Celebrations</span>
                                             <span className="stLabelDesc">Exciting confetti and victory fanfare audio on 10, 25, 50, 100, 200, 300 orders</span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'space-between', justifyContent: 'space-between', gap: '50px' }}>
+                                                    <label className="stToggle">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formSettings.milestone_celebrations_enabled !== 'false'}
+                                                            onChange={(e) => {
+                                                                const val = e.target.checked ? 'true' : 'false';
+                                                                handleChange('milestone_celebrations_enabled', val);
+                                                                localStorage.setItem('disable_milestone_celebrations', e.target.checked ? 'false' : 'true');
+                                                            }}
+                                                        />
+                                                        <span className="stSlider"></span>
+                                                    </label>
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     window.dispatchEvent(new CustomEvent('celebrate-order-milestone', {
                                                         detail: {
-                                                            count: 50,
-                                                            tier: 'orange',
-                                                            icon: 'star',
-                                                            is_grand: false,
-                                                            title: 'Half-Century Milestone!',
-                                                            subtitle: '50 orders completed today. Outstanding work!'
-                                                        }
-                                                    }));
-                                                }}
-                                                style={{
-                                                    padding: '6px 12px',
-                                                    borderRadius: '10px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 700,
-                                                    cursor: 'pointer',
-                                                    background: 'rgba(249, 115, 22, 0.12)',
-                                                    color: '#f97316',
-                                                    border: '1px solid rgba(249, 115, 22, 0.3)',
-                                                    transition: 'all 0.15s ease'
-                                                }}
-                                                title="Test Standard Milestone Celebration"
-                                            >
-                                                Test 50 Orders
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    window.dispatchEvent(new CustomEvent('celebrate-order-milestone', {
-                                                        detail: {
-                                                            count: 500,
+                                                            count: 100,
                                                             tier: 'gold',
                                                             icon: 'trophy',
                                                             is_grand: true,
-                                                            title: 'Grand Order Milestone!',
-                                                            subtitle: '500 orders completed today! Legendary achievement!'
+                                                            title: 'Century Milestone!',
+                                                            subtitle: '100 orders completed today! Outstanding achievement!'
                                                         }
                                                     }));
                                                 }}
                                                 style={{
-                                                    padding: '6px 12px',
+                                                    padding: '6px 14px',
                                                     borderRadius: '10px',
                                                     fontSize: '12px',
                                                     fontWeight: 700,
@@ -2129,24 +2540,15 @@ const Settings = () => {
                                                     background: 'rgba(245, 158, 11, 0.14)',
                                                     color: '#d97706',
                                                     border: '1px solid rgba(245, 158, 11, 0.35)',
-                                                    transition: 'all 0.15s ease'
+                                                    transition: 'all 0.15s ease',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
                                                 }}
-                                                title="Test Grand Milestone Celebration"
+                                                title="Demo 100 Orders Celebration"
                                             >
-                                                Test 500 Orders
+                                                Demo Celebration
                                             </button>
-                                            <label className="stToggle">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formSettings.milestone_celebrations_enabled !== 'false'}
-                                                    onChange={(e) => {
-                                                        const val = e.target.checked ? 'true' : 'false';
-                                                        handleChange('milestone_celebrations_enabled', val);
-                                                        localStorage.setItem('disable_milestone_celebrations', e.target.checked ? 'false' : 'true');
-                                                    }}
-                                                />
-                                                <span className="stSlider"></span>
-                                            </label>
                                         </div>
                                     </div>
 
@@ -2250,9 +2652,9 @@ const Settings = () => {
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
                                             <Dropdown
                                                 options={[
-                                                    { label: '1x (Even Smaller)', value: '0.6' },
-                                                    { label: '2x (Small)', value: '0.8' },
-                                                    { label: '3x (Normal)', value: '1' }
+                                                    { label: 'Small', value: '0.6' },
+                                                    { label: 'Normal', value: '0.8' },
+                                                    { label: 'Large', value: '1' }
                                                 ]}
                                                 value={textScale.toString()}
                                                 onChange={(val) => setTextScale(parseFloat(val))}
@@ -2260,16 +2662,6 @@ const Settings = () => {
                                                 className="stDropdown"
                                                 zIndex={40}
                                             />
-                                            <div style={{ 
-                                                fontSize: 'var(--font-sm)', 
-                                                color: isDark ? '#94a3b8' : '#64748b',
-                                                marginLeft: '8px',
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)'
-                                            }}>
-                                                Scale: {textScale === 0.6 ? '1x' : textScale === 0.8 ? '2x' : '3x'} ({(textScale * 100).toFixed(0)}%)
-                                            </div>
                                         </div>
                                     </div>
 
@@ -2282,9 +2674,9 @@ const Settings = () => {
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
                                             <Dropdown
                                                 options={[
-                                                    { label: '1x (Even Smaller)', value: '0.6' },
-                                                    { label: '2x (Small)', value: '0.8' },
-                                                    { label: '3x (Normal)', value: '1' }
+                                                    { label: 'Small', value: '0.6' },
+                                                    { label: 'Normal', value: '0.8' },
+                                                    { label: 'Large', value: '1' }
                                                 ]}
                                                 value={displayZoom.toString()}
                                                 onChange={(val) => setDisplayZoom(parseFloat(val))}
@@ -2292,16 +2684,6 @@ const Settings = () => {
                                                 className="stDropdown"
                                                 zIndex={39}
                                             />
-                                            <div style={{ 
-                                                fontSize: 'var(--font-sm)', 
-                                                color: isDark ? '#94a3b8' : '#64748b',
-                                                marginLeft: '8px',
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)'
-                                            }}>
-                                                Zoom: {displayZoom === 0.6 ? '1x' : displayZoom === 0.8 ? '2x' : '3x'} ({(displayZoom * 100).toFixed(0)}%)
-                                            </div>
                                         </div>
                                     </div>
 
@@ -2311,7 +2693,7 @@ const Settings = () => {
                                             <span className="stLabelTitle">Notification Auto-Cleanup</span>
                                             <span className="stLabelDesc">Automatically delete notification history older than selected timeframe</span>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px', }}>
                                             <Dropdown
                                                 options={[
                                                     { label: '7 Days', value: '7' },
@@ -2332,6 +2714,7 @@ const Settings = () => {
                                                 placeholder="Select retention timeframe"
                                                 className="stDropdown"
                                                 zIndex={38}
+                                                direction="up"
                                             />
                                         </div>
                                     </div>
@@ -2356,9 +2739,31 @@ const Settings = () => {
                                     flexDirection: 'column',
                                     gap: '20px'
                                 }}>
-                                    <div>
-                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Salary Settings</h3>
-                                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>Configure how worker salary payout dates are determined</p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Salary Settings</h3>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>Configure how worker salary payout dates are determined</p>
+                                        </div>
+                                        {(formSettings.salary_date_mode || 'GLOBAL') !== 'GLOBAL' && (
+                                            <div style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '6px 12px',
+                                                background: isDark ? 'rgba(249, 115, 22, 0.1)' : '#FFF7ED',
+                                                border: isDark ? '1px solid rgba(249, 115, 22, 0.25)' : '1px solid #FDBA74',
+                                                borderRadius: '20px',
+                                                flexShrink: 0
+                                            }}>
+                                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#F97316' }}>
+                                                    Individual Worker Salary Dates Active
+                                                </span>
+                                                <InfoTooltip
+                                                    title="Individual Worker Salary Dates"
+                                                    content="Advance partitions are calculated dynamically using each worker's individual salary date (configured on their worker profile). If a worker does not have an individual salary date set, the system automatically falls back to that worker's Start Date (day of month)."
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Toggle: Use Common Salary Date For All Workers */}
@@ -2372,8 +2777,14 @@ const Settings = () => {
                                         borderRadius: '14px'
                                     }}>
                                         <div style={{ flex: 1, paddingRight: '16px' }}>
-                                            <div style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                Use Common Salary Date For All Workers
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    Use Common Salary Date For All Workers
+                                                </div>
+                                                <InfoTooltip
+                                                    title="Salary Payout Mode"
+                                                    content="When common date is enabled, all workers share a single monthly salary date. When disabled, salary payout dates and advance partitions are determined individually per worker profile."
+                                                />
                                             </div>
                                             <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
                                                 {(formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL'
@@ -2426,7 +2837,7 @@ const Settings = () => {
 
                                     {/* Dynamic Fields with Smooth Framer Motion Animations */}
                                     <AnimatePresence mode="wait">
-                                        {(formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL' ? (
+                                        {(formSettings.salary_date_mode || 'GLOBAL') === 'GLOBAL' && (
                                             <motion.div
                                                 key="global-salary-picker"
                                                 initial={{ opacity: 0, y: -8 }}
@@ -2457,28 +2868,6 @@ const Settings = () => {
                                                     <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
                                                         Selected: <strong style={{ color: 'var(--text-primary)' }}>Day {formSettings.global_salary_day || formSettings.salary_day || 10}</strong> of every month
                                                     </div>
-                                                </div>
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div
-                                                key="worker-salary-info"
-                                                initial={{ opacity: 0, y: -8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -8 }}
-                                                transition={{ duration: 0.18 }}
-                                                style={{
-                                                    padding: '14px 18px',
-                                                    background: isDark ? 'rgba(249, 115, 22, 0.08)' : '#FFF7ED',
-                                                    border: isDark ? '1px solid rgba(249, 115, 22, 0.2)' : '1px solid #FDBA74',
-                                                    borderRadius: '12px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px'
-                                                }}
-                                            >
-                                                <IoInformationCircleOutline size={24} color="#F97316" style={{ flexShrink: 0 }} />
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                                                    <strong>Individual Worker Salary Dates Active:</strong> Advance partitions are calculated dynamically using each worker's individual salary date (configured on their worker profile). If a worker does not have an individual salary date set, the system automatically falls back to that worker's Start Date (day of month).
                                                 </div>
                                             </motion.div>
                                         )}
@@ -3060,560 +3449,360 @@ const Settings = () => {
                                             </div>
                                         </div>
                                     )}
-
-                                    {/* Protected Areas Info */}
-                                    <div style={{
-                                        padding: '20px 24px',
-                                        background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
-                                        border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
-                                        borderRadius: '16px',
-                                        boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)'
-                                    }}>
-                                        <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>Protected Areas (Restricted to Owner)</div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                            {['Inventory Management', 'Sales & Analytics', 'Store Settings', 'Worker Payroll Records'].map((item, idx) => (
-                                                <span key={idx} style={{
-                                                    padding: '6px 14px',
-                                                    background: isDark ? 'var(--bg-secondary)' : '#F1F5F9',
-                                                    border: isDark ? '1px solid #3A3E48' : '1px solid #CBD5E1',
-                                                    borderRadius: '10px',
-                                                    fontSize: '12.5px',
-                                                    fontWeight: 600,
-                                                    color: isDark ? '#E2E8F0' : '#334155'
-                                                }}>
-                                                    🔒 {item}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'agents' && (
-                            <div className="stSectionContainer">
-                                <div className="stSectionTitle">
-                                    <IoSparklesOutline size={22} color="var(--primary)" />
-                                    AI Agents & Autonomous Assistants (BYO-Key)
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ marginBottom: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                                            AI Agents & Autonomous Assistants
+                                        </h2>
+                                        <InfoTooltip
+                                            title="Zero-Bypass Architecture & Local Encryption"
+                                            content="Agents operate strictly through validated service layers — never touching SQLite directly. Provider API keys are encrypted locally at rest and never shared with third parties. Workers are restricted from accessing agent features."
+                                        />
+                                    </div>
+                                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                                        Configure autonomous intelligence, LLM provider credentials, and permission tiers
+                                    </p>
                                 </div>
 
-                                <div className="stSectionContent" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    {/* Data Safety & Privacy Guarantee Banner */}
-                                    <div style={{
-                                        padding: '16px 20px',
-                                        borderRadius: '14px',
-                                        background: isDark ? 'rgba(249, 115, 22, 0.08)' : '#FFF7ED',
-                                        border: isDark ? '1px solid rgba(249, 115, 22, 0.25)' : '1px solid #FDBA74',
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '14px',
-                                    }}>
-                                        <div style={{ fontSize: '24px', flexShrink: 0 }}>🛡️</div>
-                                        <div style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
-                                            <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
-                                                Zero-Bypass Architecture & Local Key Encryption
-                                            </strong>
-                                            Agents never touch SQLite directly; all actions pass through the exact same validated service layers as the UI.
-                                            API keys are encrypted locally at rest and never transmitted to any third party other than your chosen provider.
-                                            <strong> Workers can never access agent features under any configuration.</strong>
+                                {/* Master Switch */}
+                                <div style={{
+                                    padding: '20px 24px',
+                                    background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
+                                    border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
+                                    borderRadius: '16px',
+                                    boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            Autonomous AI Intelligence
+                                        </div>
+                                        <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                            {agentConfig.enabled
+                                                ? 'Active — Autonomous assistants are enabled across billing, inventory, and operations.'
+                                                : 'Disabled — All autonomous AI capabilities and assistant actions are deactivated.'}
                                         </div>
                                     </div>
+                                    <label className="stToggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={agentConfig.enabled}
+                                            onChange={(e) => setAgentConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                                        />
+                                        <span className="stSlider"></span>
+                                    </label>
+                                </div>
 
-                                    {/* Master Agent Switch */}
-                                    <div style={{
-                                        padding: '20px 24px',
-                                        borderRadius: '16px',
-                                        background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
-                                        border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
-                                        boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                    }}>
+                                {/* Provider & Credentials */}
+                                <div style={{
+                                    padding: '24px',
+                                    background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
+                                    border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
+                                    borderRadius: '16px',
+                                    boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '20px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                Master Agent Kill Switch
-                                            </div>
-                                            <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                Instantly activate or deactivate all autonomous agent features across the entire system.
-                                            </div>
+                                            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                                                Model & Provider Credentials
+                                            </h3>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                                Configure your Bring-Your-Own-Key (BYO-Key) LLM provider for all agent operations
+                                            </p>
                                         </div>
-                                        <label className="stToggle">
-                                            <input
-                                                type="checkbox"
-                                                checked={agentConfig.enabled}
-                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, enabled: e.target.checked }))}
-                                            />
-                                            <span className="stSlider"></span>
-                                        </label>
-                                    </div>
-
-                                    {/* Card 1 — Connect */}
-                                    <div style={{
-                                        padding: '24px',
-                                        borderRadius: '16px',
-                                        background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
-                                        border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
-                                        boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
-                                    }}>
-                                        <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                            Card 1 — Connect
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '18px' }}>
-                                            Configure your LLM provider credentials. This one model applies to all agents throughout the entire system.
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                                            <div className="stFormGroup">
-                                                <div className="stLabel">
-                                                    <span className="stLabelTitle">Provider</span>
-                                                    <span className="stLabelDesc">Choose your AI provider</span>
-                                                </div>
-                                                <GlobalSelect
-                                                    options={[
-                                                        { value: 'openai', label: 'OpenAI' },
-                                                        { value: 'anthropic', label: 'Claude (Anthropic)' },
-                                                        { value: 'google', label: 'Gemini (Google)' },
-                                                        { value: 'custom_openai', label: 'Custom (Local or other)' }
-                                                    ]}
-                                                    value={agentConfig.provider}
-                                                    onChange={(val) => {
-                                                        const p = val;
-                                                        let defModel = 'gpt-4o-mini';
-                                                        if (p === 'anthropic') defModel = 'claude-3-5-sonnet-20241022';
-                                                        else if (p === 'google') defModel = 'gemini-1.5-flash';
-                                                        else if (p === 'custom_openai') defModel = 'llama3';
-                                                        setAgentConfig(prev => ({ ...prev, provider: p, model_name: defModel }));
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div className="stFormGroup">
-                                                <div className="stLabel">
-                                                    <span className="stLabelTitle">Model Name</span>
-                                                    <span className="stLabelDesc">User-specified model identifier</span>
-                                                </div>
-                                                <input
-                                                    className="stInput"
-                                                    value={agentConfig.model_name}
-                                                    onChange={(e) => setAgentConfig(prev => ({ ...prev, model_name: e.target.value }))}
-                                                    placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet, gemini-1.5-flash"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {agentConfig.provider === 'custom_openai' && (
-                                            <div className="stFormGroup" style={{ marginBottom: '16px' }}>
-                                                <div className="stLabel">
-                                                    <span className="stLabelTitle">Base URL</span>
-                                                    <span className="stLabelDesc">Local or custom endpoint URL</span>
-                                                </div>
-                                                <input
-                                                    className="stInput"
-                                                    value={agentConfig.base_url}
-                                                    onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
-                                                    placeholder="e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1"
-                                                />
-                                            </div>
+                                        {agentConfig.has_api_key && (
+                                            <span style={{
+                                                fontSize: '11.5px',
+                                                fontWeight: 600,
+                                                color: '#10B981',
+                                                background: 'rgba(16, 185, 129, 0.12)',
+                                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                                padding: '4px 10px',
+                                                borderRadius: '12px'
+                                            }}>
+                                                Key Configured
+                                            </span>
                                         )}
+                                    </div>
 
-                                        <div className="stFormGroup" style={{ marginBottom: '18px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                                        <div className="stFormGroup">
                                             <div className="stLabel">
-                                                <span className="stLabelTitle">API Key</span>
-                                                <span className="stLabelDesc">
-                                                    {agentConfig.has_api_key ? 'Encrypted key stored securely at rest' : 'Enter your provider API key'}
-                                                </span>
+                                                <span className="stLabelTitle">Provider</span>
+                                                <span className="stLabelDesc">Choose your AI provider</span>
                                             </div>
-                                            <input
-                                                type="password"
-                                                className="stInput"
-                                                value={agentConfig.api_key}
-                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, api_key: e.target.value }))}
-                                                placeholder="sk-..."
+                                            <GlobalSelect
+                                                options={[
+                                                    { value: 'openai', label: 'OpenAI' },
+                                                    { value: 'anthropic', label: 'Claude (Anthropic)' },
+                                                    { value: 'google', label: 'Gemini (Google)' },
+                                                    { value: 'custom_openai', label: 'Custom (Local or other)' }
+                                                ]}
+                                                value={agentConfig.provider}
+                                                onChange={(val) => {
+                                                    const p = val;
+                                                    let defModel = 'gpt-4o-mini';
+                                                    if (p === 'anthropic') defModel = 'claude-3-5-sonnet-20241022';
+                                                    else if (p === 'google') defModel = 'gemini-1.5-flash';
+                                                    else if (p === 'custom_openai') defModel = 'llama3';
+                                                    setAgentConfig(prev => ({ ...prev, provider: p, model_name: defModel }));
+                                                }}
                                             />
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                            <Button
-                                                variant="secondary"
-                                                onClick={handleTestLlmConnection}
-                                                loading={testingConnection}
-                                                style={{ height: '38px' }}
-                                            >
-                                                Test Connection
-                                            </Button>
-                                            <Button
-                                                variant="primary"
-                                                onClick={handleSaveAgentConfig}
-                                                loading={agentSaving}
-                                                style={{ height: '38px' }}
-                                            >
-                                                Save AI Configuration
-                                            </Button>
+                                        <div className="stFormGroup">
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Model Identifier</span>
+                                                <span className="stLabelDesc">Specific model name for your provider</span>
+                                            </div>
+                                            <input
+                                                className="stInput"
+                                                value={agentConfig.model_name}
+                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, model_name: e.target.value }))}
+                                                placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet, gemini-1.5-flash"
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* Card 2 — What can it do without asking me? */}
-                                    <div style={{
-                                        padding: '24px',
-                                        borderRadius: '16px',
-                                        background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
-                                        border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
-                                        boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
-                                    }}>
-                                        <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                            Card 2 — What can it do without asking me?
+                                    {agentConfig.provider === 'custom_openai' && (
+                                        <div className="stFormGroup">
+                                            <div className="stLabel">
+                                                <span className="stLabelTitle">Base URL</span>
+                                                <span className="stLabelDesc">Local or custom endpoint URL</span>
+                                            </div>
+                                            <input
+                                                className="stInput"
+                                                value={agentConfig.base_url}
+                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
+                                                placeholder="e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1"
+                                            />
                                         </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '18px' }}>
-                                            Choose how autonomously the AI assistant operates before executing changes.
+                                    )}
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">API Key</span>
+                                            <span className="stLabelDesc">
+                                                {agentConfig.has_api_key ? 'Encrypted key stored securely at rest' : 'Enter your provider API key'}
+                                            </span>
                                         </div>
+                                        <input
+                                            type="password"
+                                            className="stInput"
+                                            value={agentConfig.api_key}
+                                            onChange={(e) => setAgentConfig(prev => ({ ...prev, api_key: e.target.value }))}
+                                            placeholder={agentConfig.has_api_key ? '••••••••••••••••••••••••' : 'sk-...'}
+                                        />
+                                    </div>
 
-                                        {/* Presets Radio Options */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
-                                            <label
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'flex-start',
-                                                    gap: '12px',
-                                                    padding: '16px 18px',
-                                                    borderRadius: '12px',
-                                                    background: currentPreset === 'ask_always' ? (isDark ? 'rgba(249, 115, 22, 0.12)' : '#FFF7ED') : (isDark ? 'var(--bg-secondary)' : '#F8FAFC'),
-                                                    border: currentPreset === 'ask_always' ? '1.5px solid #FF8A00' : (isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1'),
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.15s ease',
-                                                    boxShadow: currentPreset === 'ask_always' ? '0 2px 8px rgba(255, 138, 0, 0.15)' : 'none'
-                                                }}
-                                                onClick={() => handleApplyPreset('ask_always')}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="agent_preset"
-                                                    checked={currentPreset === 'ask_always'}
-                                                    onChange={() => handleApplyPreset('ask_always')}
-                                                    style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#FF8A00' }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                        Ask me before anything changes (default)
-                                                    </div>
-                                                    <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                        Every agent prepares draft actions as Suggest & Confirm cards. Nothing in the database changes until you click Approve.
-                                                    </div>
-                                                </div>
-                                            </label>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', paddingTop: '4px' }}>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleTestLlmConnection}
+                                            loading={testingConnection}
+                                            style={{ height: '38px' }}
+                                        >
+                                            Test Connection
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleSaveAgentConfig}
+                                            loading={agentSaving}
+                                            style={{ height: '38px' }}
+                                        >
+                                            Save Configuration
+                                        </Button>
+                                    </div>
+                                </div>
 
-                                            <label
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'flex-start',
-                                                    gap: '12px',
-                                                    padding: '16px 18px',
-                                                    borderRadius: '12px',
-                                                    background: currentPreset === 'small_auto' ? (isDark ? 'rgba(249, 115, 22, 0.12)' : '#FFF7ED') : (isDark ? 'var(--bg-secondary)' : '#F8FAFC'),
-                                                    border: currentPreset === 'small_auto' ? '1.5px solid #FF8A00' : (isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1'),
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.15s ease',
-                                                    boxShadow: currentPreset === 'small_auto' ? '0 2px 8px rgba(255, 138, 0, 0.15)' : 'none'
-                                                }}
-                                                onClick={() => handleApplyPreset('small_auto')}
-                                            >
-                                                <input
-                                                    type="radio"
-                                                    name="agent_preset"
-                                                    checked={currentPreset === 'small_auto'}
-                                                    onChange={() => handleApplyPreset('small_auto')}
-                                                    style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#FF8A00' }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                        Let it handle small stuff automatically
-                                                    </div>
-                                                    <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                        Reminders and Analytics execute automatically. Billing, inventory adjustments, menu updates, and expenses still ask for confirmation.
-                                                    </div>
-                                                </div>
-                                            </label>
-                                        </div>
-
-                                        {/* Non-negotiable ceiling banner */}
-                                        <div style={{
-                                            fontSize: '12px',
-                                            color: isDark ? '#E2E8F0' : '#475569',
-                                            padding: '10px 14px',
-                                            borderRadius: '10px',
-                                            background: isDark ? 'rgba(255,255,255,0.04)' : '#F1F5F9',
-                                            border: isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1',
-                                            marginBottom: '16px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            🔒 <span><strong>Non-negotiable ceiling:</strong> Payroll disbursement, old-bill voids, and hard deletes always require explicit owner confirmation regardless of preset.</span>
-                                        </div>
-
-                                        {/* Collapsible Advanced Settings Link */}
+                                {/* Autonomy & Approval Policy */}
+                                <div style={{
+                                    padding: '24px',
+                                    background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
+                                    border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
+                                    borderRadius: '16px',
+                                    boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '20px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                                         <div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowAdvancedTiers(prev => !prev)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#FF8A00',
-                                                    fontSize: '13.5px',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer',
-                                                    padding: '6px 0',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}
-                                            >
-                                                <span>{showAdvancedTiers ? '▼' : '▶'}</span>
-                                                <span>{showAdvancedTiers ? 'Hide Advanced Settings' : 'Advanced settings (Per-agent autonomy matrix)'}</span>
-                                            </button>
-
-                                            {showAdvancedTiers && (
-                                                <div style={{ marginTop: '16px', overflowX: 'auto', borderRadius: '12px', border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1' }}>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                                        <thead>
-                                                            <tr style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1', textAlign: 'left' }}>
-                                                                <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Domain Agent</th>
-                                                                <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Capabilities</th>
-                                                                <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Action Tier</th>
-                                                                <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600, textAlign: 'center' }}>Enabled</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {agentPermissions.map((perm) => {
-                                                                const isCeiling = perm.is_ceiling_locked;
-                                                                return (
-                                                                    <tr key={perm.agent_name} style={{ borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #E2E8F0' }}>
-                                                                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
-                                                                            {perm.agent_name}
-                                                                            {isCeiling && (
-                                                                                <span style={{ marginLeft: '6px', fontSize: '10px', padding: '2px 6px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 600 }}>
-                                                                                    Ceiling Locked
-                                                                                </span>
-                                                                            )}
-                                                                        </td>
-                                                                        <td style={{ padding: '12px 14px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-                                                                            {perm.agent_name === 'billing' && 'Product lookup, receipt drafts, same-day voids'}
-                                                                            {perm.agent_name === 'inventory' && 'Stock inquiries, adjustments, threshold updates'}
-                                                                            {perm.agent_name === 'product' && 'Menu item CRUD, variations, group toggles'}
-                                                                            {perm.agent_name === 'worker' && 'Attendance, salary advances, payroll review'}
-                                                                            {perm.agent_name === 'expense' && 'Operational expense logging, spend analytics'}
-                                                                            {perm.agent_name === 'analytics' && 'Sales summary, payment breakdown (Read-Only)'}
-                                                                            {perm.agent_name === 'reminder' && 'Task scheduling, snoozing, alerts'}
-                                                                        </td>
-                                                                        <td style={{ padding: '12px 14px', minWidth: '220px' }}>
-                                                                            <GlobalSelect
-                                                                                options={[
-                                                                                    { value: 'read_only', label: 'Read-Only (No Modifications)' },
-                                                                                    { value: 'suggest_confirm', label: 'Suggest & Confirm (Approve/Reject)' },
-                                                                                    ...(!isCeiling ? [{ value: 'full_autonomy', label: 'Full Autonomy (Auto-execute)' }] : [])
-                                                                                ]}
-                                                                                value={perm.tier}
-                                                                                onChange={(val) => handleUpdateAgentPermissionTier(perm.agent_name, val)}
-                                                                                style={{ width: '100%' }}
-                                                                            />
-                                                                        </td>
-                                                                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={perm.enabled}
-                                                                                onChange={(e) => handleToggleAgentEnabled(perm.agent_name, e.target.checked)}
-                                                                                style={{ width: '16px', height: '16px', accentColor: '#FF8A00' }}
-                                                                            />
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                                    Autonomy & Approval Policy
+                                                </h3>
+                                                <InfoTooltip
+                                                    title="Safety Policy"
+                                                    content="Payroll disbursement, old-bill voids, and hard database deletes always require explicit owner confirmation regardless of preset."
+                                                />
+                                            </div>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                                                Determine whether agents require confirmation before executing actions
+                                            </p>
                                         </div>
                                     </div>
 
-                                    {/* Card 3 — Usage today */}
-                                    <div style={{
-                                        padding: '24px',
-                                        borderRadius: '16px',
-                                        background: isDark ? 'var(--surface-primary)' : '#FFFFFF',
-                                        border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1',
-                                        boxShadow: isDark ? 'none' : '0 1px 4px rgba(15, 23, 42, 0.05)',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                    {/* Presets Grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                        <div
+                                            onClick={() => handleApplyPreset('ask_always')}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '12px',
+                                                padding: '16px 18px',
+                                                borderRadius: '12px',
+                                                background: currentPreset === 'ask_always' ? (isDark ? 'rgba(249, 115, 22, 0.12)' : '#FFF7ED') : (isDark ? 'var(--bg-secondary)' : '#F8FAFC'),
+                                                border: currentPreset === 'ask_always' ? '1.5px solid #FF8A00' : (isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1'),
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                boxShadow: currentPreset === 'ask_always' ? '0 2px 8px rgba(255, 138, 0, 0.15)' : 'none'
+                                            }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="agent_preset"
+                                                checked={currentPreset === 'ask_always'}
+                                                onChange={() => handleApplyPreset('ask_always')}
+                                                style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#FF8A00' }}
+                                            />
                                             <div>
-                                                <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                                    AI Engine & Multi-Agent Status
-                                                </h4>
-                                                <div style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                    Real-time status and operational health of Your Business AI.
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    Require Confirmation for All Actions
                                                 </div>
-                                            </div>
-                                            <Button variant="secondary" onClick={loadAgentData} style={{ height: '34px', fontSize: '12px' }}>
-                                                Refresh Status
-                                            </Button>
-                                        </div>
-
-                                        {/* Informative Verbal Summary */}
-                                        <div style={{
-                                            padding: '14px 18px',
-                                            marginBottom: '20px',
-                                            borderRadius: '12px',
-                                            background: isDark ? 'rgba(255, 107, 26, 0.08)' : '#FFF7ED',
-                                            border: isDark ? '1px solid rgba(255, 107, 26, 0.25)' : '1px solid #FDBA74',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '13px',
-                                            lineHeight: '1.55'
-                                        }}>
-                                            ⚡ <strong>Your Business AI:</strong> Connected and optimized for enterprise operations (handling 10,000+ daily orders with real-time multi-agent intelligence and automated audits).
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                                            <div style={{ padding: '14px 16px', background: isDark ? 'var(--bg-secondary)' : '#F8FAFC', borderRadius: '12px', border: isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1' }}>
-                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Optimization Engine</div>
-                                                <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px' }}>
-                                                    Rolling 6-turn + Tool Caching
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', lineHeight: 1.45 }}>
+                                                    Every agent prepares draft actions as Suggest & Confirm cards. Nothing in the database changes without your explicit approval.
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Collapsible Audit Log Section */}
-                                        <div style={{ borderTop: isDark ? '1px solid var(--border-secondary)' : '1px solid #E2E8F0', paddingTop: '16px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowAuditLogs(prev => !prev)}
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        color: 'var(--text-primary)',
-                                                        fontSize: '14px',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
-                                                >
-                                                    <span>{showAuditLogs ? '▼' : '▶'}</span>
-                                                    <span>Audit Action Log & Cost Ledger ({agentLogs.length})</span>
-                                                </button>
-
-                                                {showAuditLogs && (
-                                                    <div style={{ display: 'flex', gap: '8px', minWidth: '300px' }}>
-                                                        <GlobalSelect
-                                                            options={[
-                                                                { value: '', label: 'All Agents' },
-                                                                { value: 'billing', label: 'Billing' },
-                                                                { value: 'inventory', label: 'Inventory' },
-                                                                { value: 'product', label: 'Product' },
-                                                                { value: 'worker', label: 'Worker' },
-                                                                { value: 'expense', label: 'Expense' },
-                                                                { value: 'analytics', label: 'Analytics' },
-                                                                { value: 'reminder', label: 'Reminder' }
-                                                            ]}
-                                                            value={logFilterAgent}
-                                                            onChange={(val) => {
-                                                                setLogFilterAgent(val);
-                                                                handleFilterAuditLogs(val, logFilterStatus);
-                                                            }}
-                                                            style={{ minWidth: '140px' }}
-                                                        />
-                                                        <GlobalSelect
-                                                            options={[
-                                                                { value: '', label: 'All Statuses' },
-                                                                { value: 'proposed', label: 'Proposed' },
-                                                                { value: 'executed', label: 'Executed' },
-                                                                { value: 'rejected', label: 'Rejected' },
-                                                                { value: 'failed', label: 'Failed' }
-                                                            ]}
-                                                            value={logFilterStatus}
-                                                            onChange={(val) => {
-                                                                setLogFilterStatus(val);
-                                                                handleFilterAuditLogs(logFilterAgent, val);
-                                                            }}
-                                                            style={{ minWidth: '140px' }}
-                                                        />
-                                                    </div>
-                                                )}
+                                        <div
+                                            onClick={() => handleApplyPreset('small_auto')}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: '12px',
+                                                padding: '16px 18px',
+                                                borderRadius: '12px',
+                                                background: currentPreset === 'small_auto' ? (isDark ? 'rgba(249, 115, 22, 0.12)' : '#FFF7ED') : (isDark ? 'var(--bg-secondary)' : '#F8FAFC'),
+                                                border: currentPreset === 'small_auto' ? '1.5px solid #FF8A00' : (isDark ? '1px solid var(--border-secondary)' : '1px solid #CBD5E1'),
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                boxShadow: currentPreset === 'small_auto' ? '0 2px 8px rgba(255, 138, 0, 0.15)' : 'none'
+                                            }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="agent_preset"
+                                                checked={currentPreset === 'small_auto'}
+                                                onChange={() => handleApplyPreset('small_auto')}
+                                                style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#FF8A00' }}
+                                            />
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    Automate Routine Tasks
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', lineHeight: 1.45 }}>
+                                                    Reminders and Analytics execute automatically. Billing, inventory adjustments, and expenses still ask for confirmation.
+                                                </div>
                                             </div>
+                                        </div>
+                                    </div>
 
-                                            {showAuditLogs && (
-                                                <div style={{ marginTop: '14px', maxHeight: '300px', overflowY: 'auto', borderRadius: '12px', border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1' }}>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                                                        <thead>
-                                                            <tr style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1', textAlign: 'left' }}>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Timestamp</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Agent</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Action Diff</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Tokens</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Est. Cost</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
-                                                                <th style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Actor</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {agentLogs.length === 0 ? (
-                                                                <tr>
-                                                                    <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-tertiary)' }}>
-                                                                        No agent action logs recorded yet.
+                                    {/* Collapsible Advanced Matrix */}
+                                    <div style={{ borderTop: isDark ? '1px solid var(--border-secondary)' : '1px solid #E2E8F0', paddingTop: '16px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAdvancedTiers(prev => !prev)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'var(--primary, #FF8A00)',
+                                                fontSize: '13.5px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                padding: '4px 0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            <span>{showAdvancedTiers ? '▼' : '▶'}</span>
+                                            <span>{showAdvancedTiers ? 'Hide Per-Agent Permission Matrix' : 'Customize Per-Agent Permission Matrix'}</span>
+                                        </button>
+
+                                        {showAdvancedTiers && (
+                                            <div style={{ marginTop: '16px', overflowX: 'auto', borderRadius: '12px', border: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                    <thead>
+                                                        <tr style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #CBD5E1', textAlign: 'left' }}>
+                                                            <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Domain Agent</th>
+                                                            <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Capabilities</th>
+                                                            <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600 }}>Action Tier</th>
+                                                            <th style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontWeight: 600, textAlign: 'center' }}>Enabled</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {agentPermissions.map((perm) => {
+                                                            const isCeiling = perm.is_ceiling_locked;
+                                                            return (
+                                                                <tr key={perm.agent_name} style={{ borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #E2E8F0' }}>
+                                                                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                                                                        {perm.agent_name}
+                                                                        {isCeiling && (
+                                                                            <span style={{ marginLeft: '6px', fontSize: '10px', padding: '2px 6px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 600 }}>
+                                                                                Ceiling Locked
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 14px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
+                                                                        {perm.agent_name === 'billing' && 'Product lookup, receipt drafts, same-day voids'}
+                                                                        {perm.agent_name === 'inventory' && 'Stock inquiries, adjustments, threshold updates'}
+                                                                        {perm.agent_name === 'product' && 'Menu item CRUD, variations, group toggles'}
+                                                                        {perm.agent_name === 'worker' && 'Attendance, salary advances, payroll review'}
+                                                                        {perm.agent_name === 'expense' && 'Operational expense logging, spend analytics'}
+                                                                        {perm.agent_name === 'analytics' && 'Sales summary, payment breakdown (Read-Only)'}
+                                                                        {perm.agent_name === 'reminder' && 'Task scheduling, snoozing, alerts'}
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 14px', minWidth: '220px' }}>
+                                                                        <GlobalSelect
+                                                                            options={[
+                                                                                { value: 'read_only', label: 'Read-Only (No Modifications)' },
+                                                                                { value: 'suggest_confirm', label: 'Suggest & Confirm (Approve/Reject)' },
+                                                                                ...(!isCeiling ? [{ value: 'full_autonomy', label: 'Full Autonomy (Auto-execute)' }] : [])
+                                                                            ]}
+                                                                            value={perm.tier}
+                                                                            onChange={(val) => handleUpdateAgentPermissionTier(perm.agent_name, val)}
+                                                                            style={{ width: '100%' }}
+                                                                        />
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={perm.enabled}
+                                                                            onChange={(e) => handleToggleAgentEnabled(perm.agent_name, e.target.checked)}
+                                                                            style={{ width: '16px', height: '16px', accentColor: '#FF8A00', cursor: 'pointer' }}
+                                                                        />
                                                                     </td>
                                                                 </tr>
-                                                            ) : (
-                                                                agentLogs.map(l => {
-                                                                    let badgeBg = 'rgba(107, 114, 128, 0.15)';
-                                                                    let badgeColor = '#9CA3AF';
-                                                                    if (l.status === 'executed') {
-                                                                        badgeBg = 'rgba(16, 185, 129, 0.15)';
-                                                                        badgeColor = '#10B981';
-                                                                    } else if (l.status === 'proposed') {
-                                                                        badgeBg = 'rgba(249, 115, 22, 0.15)';
-                                                                        badgeColor = '#F97316';
-                                                                    } else if (l.status === 'rejected') {
-                                                                        badgeBg = 'rgba(239, 68, 68, 0.15)';
-                                                                        badgeColor = '#EF4444';
-                                                                    }
-
-                                                                    const totalTokens = (l.input_tokens || 0) + (l.output_tokens || 0);
-
-                                                                    return (
-                                                                        <tr key={l.id} style={{ borderBottom: isDark ? '1px solid #2C2F36' : '1px solid #E2E8F0' }}>
-                                                                            <td style={{ padding: '10px 12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                                                                                {l.created_at ? new Date(l.created_at).toLocaleString() : '-'}
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px', fontWeight: 600, textTransform: 'capitalize', color: 'var(--text-primary)' }}>
-                                                                                {l.agent_name}
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
-                                                                                {l.diff_summary || l.tool_name}
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                                                                                {totalTokens > 0 ? `${totalTokens.toLocaleString()} (${l.input_tokens || 0} in / ${l.output_tokens || 0} out)` : '0 (Fast-Path)'}
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px', color: '#10B981', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                                                                ${(l.estimated_cost || 0).toFixed(5)}
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px' }}>
-                                                                                <span style={{ padding: '3px 8px', borderRadius: '6px', background: badgeBg, color: badgeColor, fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>
-                                                                                    {l.status}
-                                                                                </span>
-                                                                            </td>
-                                                                            <td style={{ padding: '10px 12px', color: 'var(--text-tertiary)' }}>
-                                                                                {l.performed_by || 'admin'}
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })
-                                                            )}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </div>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -3784,6 +3973,145 @@ const Settings = () => {
                                                 style={{ flex: 1, height: '40px' }}
                                             >
                                                 {editingExpenseType ? 'Update' : 'Create'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Special Schedule Override Modal */}
+                        {showOverrideModal && (
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'rgba(15, 23, 42, 0.65)',
+                                backdropFilter: 'blur(4px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 1000
+                            }}>
+                                <div style={{
+                                    background: isDark ? '#1B1D22' : '#FFFFFF',
+                                    padding: '28px',
+                                    borderRadius: '18px',
+                                    width: '460px',
+                                    maxWidth: '92%',
+                                    border: isDark ? '1px solid #3A3E48' : '1px solid #CBD5E1',
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                                }}>
+                                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 18px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <IoCalendarOutline size={20} color="var(--primary)" />
+                                        {editingOverride ? 'Edit Special Schedule' : 'Add Temporary Schedule Override'}
+                                    </h3>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                Schedule Name / Festival Reason *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={overrideForm.name}
+                                                onChange={(e) => setOverrideForm({ ...overrideForm, name: e.target.value })}
+                                                placeholder="e.g. Diwali Night Bazaar, New Year's Eve"
+                                                className="stInput"
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                    Start Date *
+                                                </label>
+                                                <GlobalDatePicker
+                                                    value={overrideForm.start_date}
+                                                    onChange={(val) => setOverrideForm({ ...overrideForm, start_date: val })}
+                                                    placeholder="Start Date"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                    End Date *
+                                                </label>
+                                                <GlobalDatePicker
+                                                    value={overrideForm.end_date}
+                                                    onChange={(val) => setOverrideForm({ ...overrideForm, end_date: val })}
+                                                    placeholder="End Date"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                    Shop Opening Time
+                                                </label>
+                                                <GlobalTimePicker
+                                                    value={overrideForm.open_time}
+                                                    onChange={(val) => setOverrideForm({ ...overrideForm, open_time: val })}
+                                                    placeholder="Open Time"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                    Shop Closing Time *
+                                                </label>
+                                                <GlobalTimePicker
+                                                    value={overrideForm.close_time}
+                                                    onChange={(val) => setOverrideForm({ ...overrideForm, close_time: val })}
+                                                    placeholder="Close Time"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>
+                                                    Bill Reset Cutoff Time *
+                                                </label>
+                                                {(() => {
+                                                    const eff = calculateEffectiveCutoff(overrideForm.close_time, overrideForm.cutoff_time);
+                                                    if (eff !== overrideForm.cutoff_time) {
+                                                        return (
+                                                            <InfoTooltip
+                                                                icon={<IoAlertCircleOutline color="#f97316" size={16} />}
+                                                                title="30m Safety Buffer Active"
+                                                                content={`Shop closing at ${overrideForm.close_time}: effective reset will be automatically pushed to ${eff} (30 min after closing).`}
+                                                                placement="top"
+                                                            />
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </div>
+                                            <GlobalTimePicker
+                                                value={overrideForm.cutoff_time}
+                                                onChange={(val) => setOverrideForm({ ...overrideForm, cutoff_time: val })}
+                                                placeholder="Cutoff Time"
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                                            <Button
+                                                onClick={() => {
+                                                    setShowOverrideModal(false);
+                                                    setEditingOverride(null);
+                                                }}
+                                                variant="secondary"
+                                                style={{ flex: 1, height: '40px' }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                onClick={handleSaveOverride}
+                                                style={{ flex: 1, height: '40px' }}
+                                            >
+                                                Save Schedule
                                             </Button>
                                         </div>
                                     </div>

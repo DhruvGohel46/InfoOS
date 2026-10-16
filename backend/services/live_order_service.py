@@ -39,13 +39,16 @@ def get_live_orders() -> Dict[str, Any]:
 
     Also returns a version_hash for change-detection polling.
     """
-    today = date.today()
+    from services.business_day_service import BusinessDayService
+
+    w_start, w_end = BusinessDayService.get_business_day_window()
 
     # All today's non-cancelled bills that are either:
     #   1) payment_status in ('pending', 'partial'), OR
     #   2) part of an open merge group (merge_group_id is not null and group status='open')
     bills_query = Bill.query.filter(
-        func.date(Bill.created_at) == today,
+        Bill.created_at >= w_start,
+        Bill.created_at < w_end,
         ~func.upper(func.trim(Bill.status)).in_(_EXCLUDED_STATUSES),
     ).order_by(Bill.bill_no.asc())
 
@@ -297,12 +300,14 @@ def settle_bill(
     """
     bill = Bill.query.get(bill_id)
     if not bill:
-        # Fallback to bill_no lookup for today if id didn't match directly
-        today = date.today()
+        from services.business_day_service import BusinessDayService
+
+        w_start, w_end = BusinessDayService.get_business_day_window()
         bill = (
             Bill.query.filter(
                 Bill.bill_no == bill_id,
-                func.date(Bill.created_at) == today,
+                Bill.created_at >= w_start,
+                Bill.created_at < w_end,
             )
             .order_by(Bill.id.desc())
             .first()

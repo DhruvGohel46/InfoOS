@@ -1980,9 +1980,6 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           : (isFavoritesView && catColor
                               ? (isDark ? `1.5px solid ${catColor.hex}45` : `1.5px solid ${catColor.hex}55`)
                               : (isDark ? '1px solid #4a4a4a' : '1px solid #CBD5E1')),
-                        borderTop: !isEditMode && isFavoritesView && catColor
-                          ? `3.5px solid ${catColor.hex}`
-                          : undefined,
                         boxShadow: isEditMode
                           ? '0 8px 24px rgba(255,138,0,0.15)'
                           : (isFavoritesView && catColor
@@ -1996,10 +1993,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       onMouseEnter={(e) => {
                         if (!isEditMode) {
                           if (isFavoritesView && catColor) {
-                            e.currentTarget.style.borderTopColor = catColor.hex;
-                            e.currentTarget.style.borderRightColor = `${catColor.hex}90`;
-                            e.currentTarget.style.borderBottomColor = `${catColor.hex}90`;
-                            e.currentTarget.style.borderLeftColor = `${catColor.hex}90`;
+                            e.currentTarget.style.borderColor = `${catColor.hex}90`;
                             e.currentTarget.style.boxShadow = isDark
                               ? `0 8px 24px ${catColor.hex}35, 0 2px 8px rgba(0,0,0,0.3)`
                               : `0 8px 24px -2px ${catColor.hex}28, 0 2px 8px rgba(15, 23, 42, 0.08)`;
@@ -2015,10 +2009,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       onMouseLeave={(e) => {
                         if (!isEditMode) {
                           if (isFavoritesView && catColor) {
-                            e.currentTarget.style.borderTopColor = catColor.hex;
-                            e.currentTarget.style.borderRightColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
-                            e.currentTarget.style.borderBottomColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
-                            e.currentTarget.style.borderLeftColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
+                            e.currentTarget.style.borderColor = isDark ? `${catColor.hex}45` : `${catColor.hex}55`;
                             e.currentTarget.style.boxShadow = isDark
                               ? `0 4px 14px ${catColor.hex}22, 0 2px 8px rgba(0,0,0,0.25)`
                               : `0 4px 14px ${catColor.hex}18, 0 2px 8px -2px rgba(15, 23, 42, 0.08)`;

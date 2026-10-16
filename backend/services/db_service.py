@@ -267,14 +267,17 @@ class DatabaseService:
             setting = Settings.query.get("bill_reset_daily")
             reset_daily = (setting.value == "true") if setting else True
 
+            from services.business_day_service import BusinessDayService
+
+            b_date = BusinessDayService.get_business_date()
+            window_start, window_end = BusinessDayService.get_business_day_window(b_date)
+
             next_bill_no = 1
             if reset_daily:
-                # Get max bill_no for today
-                # Postgres 'date' function on timestamp works, but func.date() is safer
-                today = date.today()
+                # Get max bill_no for current operational business day window
                 max_bill = (
                     db.session.query(func.max(Bill.bill_no))
-                    .filter(func.date(Bill.created_at) == today)
+                    .filter(Bill.created_at >= window_start, Bill.created_at < window_end)
                     .scalar()
                 )
                 if max_bill:
@@ -283,6 +286,15 @@ class DatabaseService:
                 max_bill = db.session.query(func.max(Bill.bill_no)).scalar()
                 if max_bill:
                     next_bill_no = max_bill + 1
+
+            # Compute next today_token for current operational business day window
+            max_token = (
+                db.session.query(func.max(Bill.today_token))
+                .filter(Bill.created_at >= window_start, Bill.created_at < window_end)
+                .scalar()
+                or 0
+            )
+            next_token_no = max_token + 1
 
             # Create Items JSON
             # Enrich items logic mirrored from sqlite_db_service
@@ -313,6 +325,7 @@ class DatabaseService:
 
             new_bill = Bill(
                 bill_no=next_bill_no,
+                today_token=next_token_no,
                 customer_name=bill_data.get("customer_name", ""),
                 customer_mobile=bill_data.get("customer_mobile", "")
                 or bill_data.get("customer_phone", ""),
@@ -346,13 +359,15 @@ class DatabaseService:
             return 0  # Error indicator
 
     def get_bill(self, bill_no: int) -> Optional[Dict[str, Any]]:
-        """Get a specific bill by number for today"""
+        """Get a specific bill by number for current operational day or recent"""
         try:
-            today = date.today()
-            # Assuming 'bill_no' is only unique per day if reset_daily is true.
-            # So strict get_bill(bill_no) implies getting TODAY's bill with that number.
+            from services.business_day_service import BusinessDayService
+
+            window_start, window_end = BusinessDayService.get_business_day_window()
             bill = Bill.query.filter(
-                Bill.bill_no == bill_no, func.date(Bill.created_at) == today
+                Bill.bill_no == bill_no,
+                Bill.created_at >= window_start,
+                Bill.created_at < window_end,
             ).first()
 
             if not bill:
@@ -370,11 +385,14 @@ class DatabaseService:
             return None
 
     def get_todays_bills(self, limit: int = None, offset: int = None) -> List[Dict[str, Any]]:
-        """Get all bills for today with optional pagination"""
+        """Get all bills for current operational business day with optional pagination"""
         try:
-            today = date.today()
+            from services.business_day_service import BusinessDayService
+
+            window_start, window_end = BusinessDayService.get_business_day_window()
             query = Bill.query.filter(
-                func.date(Bill.created_at) == today,
+                Bill.created_at >= window_start,
+                Bill.created_at < window_end,
                 func.trim(Bill.status) != "CANCELLED",
             ).order_by(Bill.bill_no.asc())
 
@@ -390,11 +408,14 @@ class DatabaseService:
             return []
 
     def get_todays_bills_count(self) -> int:
-        """Get total count of bills for today"""
+        """Get total count of bills for current operational business day"""
         try:
-            today = date.today()
+            from services.business_day_service import BusinessDayService
+
+            window_start, window_end = BusinessDayService.get_business_day_window()
             return Bill.query.filter(
-                func.date(Bill.created_at) == today,
+                Bill.created_at >= window_start,
+                Bill.created_at < window_end,
                 func.trim(Bill.status) != "CANCELLED",
             ).count()
         except Exception:

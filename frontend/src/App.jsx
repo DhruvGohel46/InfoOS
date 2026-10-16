@@ -126,7 +126,7 @@ import LicensingGate from './components/system/LicensingGate';
 })();
 
 function AppContent() {
-  const { currentTheme, toggleTheme, isDark } = useTheme();
+  const { currentTheme, isDark } = useTheme();
   const { settings } = useSettings();
   const { isOnline } = useNetwork();
   const { isAdmin, openUnlock, lockToWorker, pendingPath } = useAuth();
@@ -1111,46 +1111,6 @@ function AppContent() {
                     transition: 'all 0.2s ease',
                   }}
                 />
-              )}
-            </button>
-
-            <button
-              onClick={toggleTheme}
-              className="rounded-lg"
-              style={{
-                width: 'calc(40px * var(--display-zoom))',
-                height: 'calc(40px * var(--display-zoom))',
-                padding: 0,
-                background: isDark ? 'var(--glass-card)' : '#FFFFFF',
-                color: isDark ? 'var(--text-primary)' : '#334155',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                border: isDark ? '1px solid var(--glass-border)' : '1px solid #CBD5E1',
-                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                transition: 'all var(--transition-normal) var(--ease-out)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                if (!isDark) {
-                  e.currentTarget.style.background = '#F8FAFC';
-                  e.currentTarget.style.borderColor = '#94A3B8';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                if (!isDark) {
-                  e.currentTarget.style.background = '#FFFFFF';
-                  e.currentTarget.style.borderColor = '#CBD5E1';
-                }
-              }}
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {isDark ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
               )}
             </button>
           </div>

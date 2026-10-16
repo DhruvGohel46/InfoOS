@@ -359,12 +359,13 @@ def get_bills_by_date(date_str):
 @billing_bp.route("/next-number", methods=["GET"])
 @safe_route
 def get_next_bill_number():
-    """Get the next bill number for today."""
-    # IMPORTANT: include CANCELLED bills too, so numbers are never reused.
-    today = date.today()
+    """Get the next bill number for today's operational business shift."""
+    from services.business_day_service import BusinessDayService
+
+    w_start, w_end = BusinessDayService.get_business_day_window()
     max_bill = (
         orm_db.session.query(func.max(Bill.bill_no))
-        .filter(func.date(Bill.created_at) == today)
+        .filter(Bill.created_at >= w_start, Bill.created_at < w_end)
         .scalar()
     )
     next_bill_no = (max_bill or 0) + 1
