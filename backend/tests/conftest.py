@@ -21,6 +21,9 @@ def app():
         {
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
+            "SQLALCHEMY_BINDS": {
+                "profile": f"sqlite:///{os.path.join(temp_dir, 'test_profile.db')}"
+            },
             "SQLALCHEMY_TRACK_MODIFICATIONS": False,
             "WTF_CSRF_ENABLED": False,
         }

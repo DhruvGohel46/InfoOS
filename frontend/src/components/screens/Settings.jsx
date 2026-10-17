@@ -47,6 +47,8 @@ import api, { summaryAPI } from '../../utils/api';
 import { expensesAPI } from '../../api/expenses';
 import { workerAPI } from '../../api/workers';
 import { agentsAPI } from '../../api/agents';
+import { profileAPI } from '../../api/profile';
+import LocationMapPicker from '../ui/LocationMapPicker';
 
 
 const Settings = () => {
@@ -1415,6 +1417,12 @@ const Settings = () => {
         shop_name: '',
         logo_url: '',
         shop_address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        country: 'India',
+        latitude: null,
+        longitude: null,
         shop_contact: '',
         gst_no: '',
         currency_symbol: '₹',
@@ -1479,6 +1487,34 @@ const Settings = () => {
         }
     }, [globalSettings]);
 
+    // Fetch and merge shop profile from profile.db (including coordinates & city/state)
+    useEffect(() => {
+        const loadShopProfile = async () => {
+            try {
+                const res = await profileAPI.getProfile();
+                if (res?.success && res.profile) {
+                    const p = res.profile;
+                    setFormSettings(prev => ({
+                        ...prev,
+                        city: p.city || prev.city || '',
+                        state: p.state || prev.state || '',
+                        pincode: p.pincode || prev.pincode || '',
+                        country: p.country || prev.country || 'India',
+                        latitude: p.latitude !== null && p.latitude !== undefined ? p.latitude : prev.latitude,
+                        longitude: p.longitude !== null && p.longitude !== undefined ? p.longitude : prev.longitude,
+                        shop_name: prev.shop_name || p.shop_name || '',
+                        shop_address: prev.shop_address || p.shop_address || '',
+                        shop_contact: prev.shop_contact || p.shop_contact || '',
+                        gst_no: prev.gst_no || p.gst_no || '',
+                    }));
+                }
+            } catch (err) {
+                console.error('Failed to load shop profile from profile.db:', err);
+            }
+        };
+        loadShopProfile();
+    }, []);
+
     const handleChange = (key, value) => {
         setFormSettings(prev => ({
             ...prev,
@@ -1516,6 +1552,26 @@ const Settings = () => {
                 setFormSettings(prev => ({ ...prev, require_pin_login: 'false' }));
             }
             await updateSettings(finalSettings);
+            try {
+                await profileAPI.updateProfile({
+                    shop_name: finalSettings.shop_name,
+                    shop_address: finalSettings.shop_address,
+                    city: finalSettings.city,
+                    state: finalSettings.state,
+                    pincode: finalSettings.pincode,
+                    country: finalSettings.country,
+                    latitude: finalSettings.latitude,
+                    longitude: finalSettings.longitude,
+                    shop_contact: finalSettings.shop_contact,
+                    gst_no: finalSettings.gst_no,
+                    logo_url: finalSettings.logo_url,
+                    shop_open_time: finalSettings.shop_open_time,
+                    shop_close_time: finalSettings.shop_close_time,
+                    currency_symbol: finalSettings.currency_symbol
+                });
+            } catch (profErr) {
+                console.error('Failed to sync profile to profile.db:', profErr);
+            }
             try {
                 await businessDayAPI.updateSettings({
                     cutoff_time: finalSettings.business_day_cutoff_time || '00:00',
@@ -1776,6 +1832,66 @@ const Settings = () => {
                                             value={formSettings.shop_address || ''}
                                             onChange={(e) => handleChange('shop_address', e.target.value)}
                                             placeholder="Shop address"
+                                        />
+                                    </div>
+
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Regional Location</span>
+                                            <span className="stLabelDesc">City, State, Pincode & Country for worldwide holiday & weather calendars</span>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', maxWidth: '640px', width: '100%' }}>
+                                            <input
+                                                className="stInput"
+                                                value={formSettings.city || ''}
+                                                onChange={(e) => handleChange('city', e.target.value)}
+                                                placeholder="City (e.g. London / New York)"
+                                            />
+                                            <input
+                                                className="stInput"
+                                                value={formSettings.state || ''}
+                                                onChange={(e) => handleChange('state', e.target.value)}
+                                                placeholder="State / Province"
+                                            />
+                                            <input
+                                                className="stInput"
+                                                value={formSettings.pincode || ''}
+                                                onChange={(e) => handleChange('pincode', e.target.value)}
+                                                placeholder="Postal / ZIP Code"
+                                            />
+                                            <input
+                                                className="stInput"
+                                                value={formSettings.country || ''}
+                                                onChange={(e) => handleChange('country', e.target.value)}
+                                                placeholder="Country (e.g. USA, UK, UAE, India)"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="stFormGroup" style={{ maxWidth: '820px', width: '100%' }}>
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Pinpoint Shop on Map</span>
+                                            <span className="stLabelDesc">Drop or drag a pin on your physical storefront anywhere in the world for hyper-accurate weather and footfall predictions</span>
+                                        </div>
+                                        <LocationMapPicker
+                                            latitude={formSettings.latitude}
+                                            longitude={formSettings.longitude}
+                                            address={formSettings.shop_address}
+                                            city={formSettings.city}
+                                            state={formSettings.state}
+                                            pincode={formSettings.pincode}
+                                            country={formSettings.country}
+                                            onChange={({ latitude, longitude, city, state, pincode, country }) => {
+                                                setFormSettings(prev => ({
+                                                    ...prev,
+                                                    latitude,
+                                                    longitude,
+                                                    ...(city && !prev.city ? { city } : {}),
+                                                    ...(state && !prev.state ? { state } : {}),
+                                                    ...(pincode && !prev.pincode ? { pincode } : {}),
+                                                    ...(country && !prev.country ? { country } : {})
+                                                }));
+                                            }}
                                         />
                                     </div>
 

@@ -1,0 +1,364 @@
+{
+  "agent": "sales_prediction",
+  "version": "1.0.0",
+  "description": "Sales Prediction Domain Agent — forecasts future sales revenue, order volume, and top-product demand using historical POS records, regional festival/holiday calendars, and live weather signals drawn from the shop's profile.db location.",
+  "meta": {
+    "source_databases": [
+      "pos.db (DailySalesSummary, Bill, Product, Category, ItemGroup)",
+      "profile.db (ShopProfile: city, state, pincode, open_time, close_time, business_type, seating_capacity, currency_symbol, store_description)"
+    ],
+    "external_apis": [
+      "Open-Meteo Weather API (primary, free, no key) + wttr.in (fallback): live multi-day weather forecast",
+      "Open-Meteo Geocoding API (primary, free) + Nominatim OpenStreetMap (fallback): live coordinate resolution from city/state/pincode",
+      "Google Calendar Indian Public Holidays Feed (primary live web request) + RandomAPI (fallback): regional and national festival calendar based on shop location"
+    ],
+    "tool_chaining_strategy": "Prediction tools call lower-level data-fetching tools internally. The agent issues one high-level tool call; that tool fans out to sub-queries in a strict sequence.",
+    "algorithm": "WARMP (Weighted Additive Regression with Multi-factor Priors)"
+  },
+
+  "profile_db_use_cases_for_prediction": {
+    "description": "profile.db is the PRIMARY configuration source that initialises the Sales Prediction agent at startup. It provides all geo-specific and business-specific parameters that drive forecast personalisation.",
+    "field_applications": {
+      "city + state + pincode": "Used to determine the geographic region for (a) fetching the correct regional holiday calendar via direct web requests (e.g., Ganesh Chaturthi in Maharashtra vs Pongal in Tamil Nadu), (b) querying live weather data from geocoded coordinates, and (c) calibrating demand models for local cultural consumption patterns.",
+      "business_type": "Determines which category of demand model to apply. A 'Bakery' uses breakfast-peak demand curves; a 'Fine Dine' uses evening/weekend demand curves; a 'QSR/Fast Food' uses lunch-rush demand curves.",
+      "open_time + close_time": "Constrains the prediction window — hourly sales distributions are normalised to the actual operating hours. Prevents erroneous 'flat' predictions for off-hours.",
+      "seating_capacity": "Acts as a hard ceiling for order predictions. If predicted_orders exceeds seating_capacity x throughput_multiplier, the model caps and flags capacity saturation risk.",
+      "currency_symbol + currency_code": "All financial predictions are formatted in the correct local currency with no ambiguity.",
+      "default_tax_rate": "Gross revenue predictions include a tax-inclusive vs tax-exclusive annotation based on the configured GST rate.",
+      "store_description": "Parsed for high-level business signals (e.g., 'family restaurant', 'delivery-focused', 'beachside cafe') to adjust seasonality curve weights.",
+      "owner_name": "Personalisation: prediction reports address the owner by name.",
+      "ai_communication_tone": "Determines whether the prediction output is 'Concise & Data-Driven' (short bullet KPIs) vs 'Friendly & Conversational' (narrative + analogies)."
+    }
+  },
+
+  "algorithm": {
+    "name": "WARMP — Weighted Additive Regression with Multi-factor Priors",
+    "description": "A lightweight, interpretable additive model that combines historical trend regression with multiplicative adjustment factors derived from contextual signals (weather, holidays, day-of-week). Designed to run entirely on SQLite data with zero ML library dependencies.",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Historical Baseline Extraction",
+        "description": "Query DailySalesSummary for the trailing 90 days. Compute a 7-day rolling average as the base demand signal (BDS). If fewer than 14 days of data exist, use simple mean. BDS is segmented by day-of-week (Sunday–Saturday) to capture weekly cyclicality.",
+        "tools_called": ["get_sales_history_for_prediction"],
+        "formula": "BDS[d] = avg(total_sales) for all historical days sharing weekday(d), over trailing 90 days"
+      },
+      {
+        "step": 2,
+        "name": "Day-of-Week Weight Calibration",
+        "description": "Compute per-weekday sales ratios relative to the weekly mean. E.g., if Saturdays average 1.45x the weekly mean, the Saturday weight W[Sat] = 1.45. These weights personalise the model to this specific store's traffic pattern.",
+        "tools_called": ["get_sales_history_for_prediction"],
+        "formula": "W[weekday] = mean_sales[weekday] / mean_sales[all_weekdays]"
+      },
+      {
+        "step": 3,
+        "name": "Festival & Holiday Signal Injection",
+        "description": "Call get_regional_festivals_and_holidays for the prediction window. Applies live web calendar lookup matching the shop's state from profile.db. Apply a holiday multiplier H[d] from a lookup table.",
+        "tools_called": ["get_regional_festivals_and_holidays"],
+        "holiday_multiplier_table": {
+          "Major National Festival (Diwali, Eid, Christmas, Holi)": 1.8,
+          "Festival Eve (day before major festival)": 1.4,
+          "Regional Festival (Navratri, Pongal, Onam, Ganesh Chaturthi)": 1.5,
+          "Public Holiday (Republic Day, Independence Day)": 1.2,
+          "Weekend + Holiday overlap": 2.1,
+          "Dry Day / Restricted Hours Day": 0.6,
+          "Long Weekend Middle Day": 1.3,
+          "Regular Weekday (no event)": 1.0
+        }
+      },
+      {
+        "step": 4,
+        "name": "Weather Signal Injection",
+        "description": "Call get_weather_forecast for the prediction window dates using coordinates resolved via direct web geocoding from profile.db city/state/pincode. Apply a weather multiplier W_weather[d] based on live forecast conditions.",
+        "tools_called": ["get_weather_forecast"],
+        "weather_multiplier_table": {
+          "Clear / Sunny": 1.05,
+          "Partly Cloudy": 1.0,
+          "Overcast": 0.95,
+          "Light Rain": 0.85,
+          "Heavy Rain / Thunderstorm": 0.65,
+          "Extreme Heat (>42C)": 0.75,
+          "Pleasant Cool (18-26C)": 1.15,
+          "Dense Fog": 0.70,
+          "Festive Season + Pleasant Weather (compound)": 1.6
+        }
+      },
+      {
+        "step": 5,
+        "name": "Top-Product Demand Disaggregation",
+        "description": "From historical Bill line items, compute each product's share of total revenue. Apply the composite multiplier to each product proportionally. Flag items with high weather/season correlation (e.g., hot beverages spike 2x in cold weather; cold beverages spike 1.8x in summer heat).",
+        "tools_called": ["get_top_products_for_prediction", "get_sales_history_for_prediction"],
+        "formula": "predicted_qty[product] = historical_avg_qty[product] * composite_multiplier * seasonal_correlation[product]"
+      },
+      {
+        "step": 6,
+        "name": "Composite Prediction Assembly",
+        "description": "Multiply the base demand signal by all factor weights to produce the final predicted revenue and order count. Apply seating_capacity ceiling check from profile.db. Compute a confidence interval based on data quality.",
+        "formula": "predicted_revenue[d] = BDS[d] * W[weekday(d)] * H[d] * W_weather[d]",
+        "confidence_formula": "confidence_interval = +/-(15% - min(10%, data_days * 0.15)) — tighter as historical data grows"
+      },
+      {
+        "step": 7,
+        "name": "Synthesis & Owner Insights",
+        "description": "Present the prediction as a structured forecast table with actionable insights: staffing recommendations, inventory pre-order suggestions, promotional opportunity flags, and risk alerts (capacity saturation, bad weather revenue dip)."
+      }
+    ]
+  },
+
+  "tools": [
+    {
+      "name": "get_sales_history_for_prediction",
+      "description": "Fetch daily sales totals, order counts, and average bill value for a given trailing period. This is the core historical baseline tool for WARMP steps 1 and 2. Queries DailySalesSummary table directly; falls back to Bill aggregation if summary rows are absent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trailing_days": {
+            "type": "integer",
+            "description": "Number of past days to fetch (default: 90, minimum: 14, maximum: 365). More days = higher confidence baseline.",
+            "default": 90
+          },
+          "group_by": {
+            "type": "string",
+            "enum": ["day", "weekday", "week", "month"],
+            "description": "Aggregation granularity. Use 'weekday' for per-day-of-week averages (Monday through Sunday), 'day' for raw daily rows.",
+            "default": "day"
+          },
+          "include_top_products": {
+            "type": "boolean",
+            "description": "If true, also returns the top 10 products by revenue share over the period (required for product-level demand disaggregation in WARMP step 5).",
+            "default": false
+          }
+        }
+      },
+      "tool_chain_note": "Always called FIRST by the prediction pipeline. Its output (BDS and weekday weights) feeds into all subsequent steps.",
+      "implementation_source": "Queries DailySalesSummary.query.filter(date >= start_date). Falls back to Bill model aggregation for dates missing from DailySalesSummary."
+    },
+    {
+      "name": "get_top_products_for_prediction",
+      "description": "Returns the top N products by historical revenue contribution, segmented by weekday and time-of-day slot (morning/lunch/evening/night). Used for product-level demand disaggregation in WARMP step 5.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "top_n": {
+            "type": "integer",
+            "description": "Number of top products to return (default: 15)",
+            "default": 15
+          },
+          "trailing_days": {
+            "type": "integer",
+            "description": "Historical window to compute product ranks (default: 60 days)",
+            "default": 60
+          },
+          "group_by_time_slot": {
+            "type": "boolean",
+            "description": "If true, returns product demand split by time slot (morning/lunch/evening/night). Useful for staff prep scheduling.",
+            "default": false
+          }
+        }
+      },
+      "tool_chain_note": "Called AFTER get_sales_history_for_prediction. Its output is multiplied by the composite multiplier to produce item-level forecast quantities.",
+      "implementation_source": "Aggregates Bill.items JSON across trailing_days. Parses line items, groups by product_id, sums quantities and revenue, returns sorted descending by revenue."
+    },
+    {
+      "name": "get_regional_festivals_and_holidays",
+      "description": "Fetch upcoming regional festivals, public holidays, and local observances directly via web request tailored to the shop's state and city from profile.db. Uses Google Calendar official Indian Holidays feed as primary web source with RandomAPI Public Holidays as fallback. Returns events with sales multiplier guidance and effect type (boost/suppress/neutral). Location (city, state) is automatically read from profile.db.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_date": {
+            "type": "string",
+            "description": "Start date for calendar lookup (YYYY-MM-DD). Defaults to tomorrow."
+          },
+          "to_date": {
+            "type": "string",
+            "description": "End date for calendar lookup (YYYY-MM-DD). Defaults to 14 days from now."
+          },
+          "include_regional": {
+            "type": "boolean",
+            "description": "If true, includes state-specific regional festivals (e.g. Ganesh Chaturthi for Maharashtra, Bihu for Assam). Location is automatically read from profile.db.",
+            "default": true
+          },
+          "include_national": {
+            "type": "boolean",
+            "description": "If true, includes national public holidays applicable to all states.",
+            "default": true
+          },
+          "include_dry_days": {
+            "type": "boolean",
+            "description": "If true, flags government-declared dry days or restricted trading hours in the region.",
+            "default": true
+          }
+        }
+      },
+      "tool_chain_note": "Called AFTER get_sales_history_for_prediction. Reads city and state from profile.db automatically. Returns {name, date, type, h_multiplier, description} list.",
+      "implementation_source": "Direct web request to Google Calendar Public Indian Holidays ICS feed (primary) or RandomAPI Public Holidays endpoint (fallback). Matches regional festival relevance using the shop's state from profile.db.",
+      "data_source_fallback": "Automatic fallback from primary Google Calendar ICS feed to RandomAPI Public Holidays endpoint."
+    },
+    {
+      "name": "get_weather_forecast",
+      "description": "Fetch multi-day weather forecast directly via web request for the shop's location. Geocoding resolves lat/lon dynamically via Open-Meteo Geocoding API (primary) or Nominatim OpenStreetMap (fallback). Weather is fetched via Open-Meteo Weather API (primary) or wttr.in JSON API (fallback) — no API keys required. Returns daily conditions and a pre-computed weather_multiplier per day for WARMP step 4.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "forecast_days": {
+            "type": "integer",
+            "description": "Number of days to forecast ahead (default: 7, max: 14).",
+            "default": 7
+          },
+          "include_historical_weather_correlation": {
+            "type": "boolean",
+            "description": "If true, also fetches historical weather data for the same date range in prior years and computes a weather-to-sales correlation coefficient. Enriches model confidence.",
+            "default": false
+          }
+        }
+      },
+      "tool_chain_note": "Called AFTER get_regional_festivals_and_holidays. Reads city, state, pincode from profile.db. Geocodes dynamically via web. Fetches weather via web API.",
+      "implementation_source": "Reads ShopProfile.city, state, pincode. Dynamically geocodes coordinates via Open-Meteo Geocoding / Nominatim OSM. Fetches weather via Open-Meteo Weather / wttr.in. Translates conditions to labels and multipliers.",
+      "api_endpoint": "https://api.open-meteo.com/v1/forecast (primary) / https://wttr.in/{target}?format=j1 (fallback)",
+      "api_key_required": false,
+      "geocoding_apis": "Open-Meteo Geocoding API (primary) + Nominatim OpenStreetMap (fallback)"
+    },
+    {
+      "name": "run_sales_prediction",
+      "description": "Execute the full WARMP prediction pipeline for a given future date range. THIS IS THE ORCHESTRATING TOOL — the agent calls this single tool for any forecast request. Internally calls get_sales_history_for_prediction, then get_top_products_for_prediction, then get_regional_festivals_and_holidays, then get_weather_forecast in strict sequence, then applies the WARMP algorithm to produce a complete day-by-day revenue, order, and product-demand forecast with confidence intervals, staffing suggestions, and inventory pre-order recommendations.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "predict_from": {
+            "type": "string",
+            "description": "Start date of the prediction window (YYYY-MM-DD). Defaults to tomorrow."
+          },
+          "predict_to": {
+            "type": "string",
+            "description": "End date of the prediction window (YYYY-MM-DD). Max 14 days ahead."
+          },
+          "include_product_forecast": {
+            "type": "boolean",
+            "description": "If true, predicts per-product demand quantities alongside revenue totals. Useful for inventory pre-ordering.",
+            "default": true
+          },
+          "include_staffing_recommendation": {
+            "type": "boolean",
+            "description": "If true, recommends minimum staff headcount per shift (morning/lunch/evening/night) based on predicted order volume and average ticket turnaround.",
+            "default": true
+          },
+          "include_confidence_intervals": {
+            "type": "boolean",
+            "description": "If true, attaches +/-% confidence ranges to revenue and order predictions.",
+            "default": true
+          }
+        }
+      },
+      "tool_chain_note": "The agent MUST call this tool for all sales prediction requests. It fans out internally in this order: history → products → holidays → weather → WARMP → synthesis. The agent does NOT call sub-tools separately unless the user explicitly requests raw sub-data.",
+      "implementation_source": "Calls _execute_read_tool for: get_sales_history_for_prediction(trailing_days=90), get_top_products_for_prediction(top_n=15), get_regional_festivals_and_holidays(from_date, to_date), get_weather_forecast(forecast_days=days_in_range). Applies WARMP formula per day. Returns structured prediction object with daily_forecast array, week_total, staffing, inventory, and insights."
+    },
+    {
+      "name": "get_prediction_accuracy_report",
+      "description": "Compares past predictions (stored in prediction_log table) against actual sales results to measure WARMP model accuracy. Returns MAE (Mean Absolute Error), MAPE (Mean Absolute Percentage Error), and highlights which signals (weather vs holiday vs baseline) contributed most to forecast errors. Useful for calibrating multiplier tables over time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "evaluation_period_days": {
+            "type": "integer",
+            "description": "How many past days to evaluate prediction accuracy over (default: 30)",
+            "default": 30
+          }
+        }
+      },
+      "tool_chain_note": "Standalone tool. Does not chain to other sub-tools. Reads from prediction_log table in pos.db. Joins with DailySalesSummary for actual values.",
+      "implementation_source": "Queries prediction_log table. Joins with DailySalesSummary for actual values. Computes MAPE per factor. Returns accuracy_by_factor breakdown."
+    }
+  ],
+
+  "system_prompt": {
+    "identity_and_scope": "You are the InfoOS Sales Prediction Assistant for a retail or restaurant shop owner. You forecast future revenue, order volume, and product demand using three converging signals: (1) historical sales from the POS database (pos.db), (2) regional festivals and public holidays matched to the shop's city and state, and (3) live multi-day weather forecasts for the shop's physical location. You use the WARMP algorithm (Weighted Additive Regression with Multi-factor Priors) and always read the shop's identity, location, operating hours, and business type from the dedicated profile.db database to personalise every forecast. You provide day-by-day prediction tables, confidence intervals, staffing recommendations, and inventory pre-order suggestions. You are strictly read-only — you never create bills, adjust stock, or modify any records.",
+
+    "data_model_context": [
+      "DailySalesSummary (pos.db): date, total_sales, total_orders, total_expenses, net_profit, average_bill_value, top_products_json — the primary historical baseline source.",
+      "Bill (pos.db): created_at, total_amount, items (JSON array of line items), order_type — used for product-level demand disaggregation.",
+      "ShopProfile (profile.db): city, state, pincode, open_time, close_time, business_type, seating_capacity, currency_symbol, default_tax_rate, store_description, ai_communication_tone — the PRIMARY configuration source for the prediction engine."
+    ],
+
+    "profile_db_grounding_instructions": "CRITICAL: Always read the following from profile.db before running any prediction: (1) city + state + pincode — to determine the correct regional holiday calendar AND weather forecast location; (2) business_type — to determine which demand curve template to apply; (3) open_time + close_time — to constrain the hourly distribution model; (4) seating_capacity — to set the hard ceiling for predicted orders; (5) default_tax_rate — to annotate gross vs net revenue in forecast outputs; (6) ai_communication_tone — to set the response style (brief/data-only vs detailed/narrative).",
+
+    "business_rules": [
+      "Always call run_sales_prediction as the primary single tool unless the user explicitly asks for raw sub-data (weather only, holidays only, or history only).",
+      "The tool call sequence inside run_sales_prediction is STRICTLY: history then products then holidays then weather then WARMP assembly. Do not reorder.",
+      "Holiday calendar is REGION-SPECIFIC. Never apply a Maharashtra festival to a Tamil Nadu shop. The tool reads city+state from profile.db automatically — do not ask the user for location.",
+      "Capacity Ceiling Rule: If predicted_orders exceeds (seating_capacity * 3.5 for QSR) or (seating_capacity * 1.8 for fine-dine), flag as 'Peak Saturation Risk — consider queue management or advance booking'.",
+      "Weather Suppression Warning: If weather_multiplier < 0.75 for any predicted day, surface a 'Revenue Dip Risk' alert and recommend activating delivery or takeaway promotions.",
+      "Festival Opportunity Flag: If H > 1.4 for any predicted day, surface a 'Festive Surge Opportunity' alert with specific staffing and inventory pre-order recommendations.",
+      "Minimum Data Requirement: If fewer than 14 days of historical data exist, add a 'Low Confidence — Less than 2 weeks of data' disclaimer. If fewer than 7 days, decline to predict and explain the limitation.",
+      "All monetary values use the currency_symbol from profile.db. Never hardcode the rupee symbol — always read from the profile.",
+      "Confidence intervals widen as forecast horizon extends: Day 1 = +/-8%, Day 7 = +/-18%, Day 14 = +/-28%."
+    ],
+
+    "worked_examples": [
+      {
+        "title": "Example 1 — Weekly Sales Forecast with Diwali",
+        "user_input": "Predict sales for next 7 days",
+        "agent_turn_1": "Calls run_sales_prediction with predict_from='2026-10-18', predict_to='2026-10-24', include_product_forecast=true, include_staffing_recommendation=true, include_confidence_intervals=true.",
+        "internal_tool_chain": [
+          "STEP 1 — get_sales_history_for_prediction(trailing_days=90, group_by='weekday'): Saturday avg 22400, Sunday avg 20100, Mon-Fri avg 14800.",
+          "STEP 2 — get_top_products_for_prediction(top_n=15): Paneer Tikka 18% rev, Butter Naan 12%, Cold Coffee 9%, Masala Chai 8%.",
+          "STEP 3 — get_regional_festivals_and_holidays(from='2026-10-18', to='2026-10-24'): Diwali on 2026-10-20 (H=2.0), Diwali Eve 2026-10-19 (H=1.4). Profile city=Pune, state=Maharashtra.",
+          "STEP 4 — get_weather_forecast(forecast_days=7): All 7 days Clear or Partly Cloudy (W=1.0 to 1.05).",
+          "STEP 5 — WARMP: predicted_revenue['2026-10-20 Diwali Tue'] = BDS[Tue=14800] * W[Tue=0.92] * H[Diwali=2.0] * W_weather[1.05] = 28600"
+        ],
+        "agent_final_response_summary": {
+          "week_total_predicted": "143500",
+          "week_confidence": "+/-12%",
+          "diwali_day_revenue": "28600",
+          "diwali_eve_revenue": "29800",
+          "peak_alert": "FESTIVE SURGE on Oct 19-20. Schedule extra kitchen staff 6PM-11PM. Pre-order Paneer +35% and Butter Naan ingredients +25% over normal.",
+          "post_diwali_dip": "Oct 21 forecast 13600 (normal post-festival slowdown — avoid large perishable restocking on Tuesday morning)."
+        }
+      },
+      {
+        "title": "Example 2 — Single Day Prediction with Weather Warning",
+        "user_input": "Will we have good sales this Sunday?",
+        "agent_turn_1": "Calls run_sales_prediction with predict_from and predict_to both set to next Sunday.",
+        "internal_tool_chain": [
+          "History: Sunday avg 20100.",
+          "Holidays: None for that Sunday.",
+          "Weather: Heavy Rain 31C, Precipitation 85% (W=0.65)."
+        ],
+        "agent_final_response_summary": {
+          "predicted_revenue": "13065",
+          "predicted_orders": 59,
+          "confidence": "+/-14%",
+          "alert": "REVENUE DIP RISK: Heavy rain expected. Predicted revenue is 35% below your average Sunday (20100). Activate delivery/takeaway promotions. Reduce perishable prep quantities."
+        }
+      },
+      {
+        "title": "Example 3 — Product-Level Prediction for Ingredient Pre-Order",
+        "user_input": "How much paneer and butter should I order for next week?",
+        "agent_turn_1": "Calls run_sales_prediction with next full week dates, include_product_forecast=true.",
+        "agent_final_response_summary": {
+          "paneer_tikka_portions": 245,
+          "paneer_total_kg": 13.6,
+          "butter_naan_portions": 340,
+          "butter_total_kg": 4.1,
+          "recommendation": "Order approximately 14 kg paneer and 5 kg butter for the week. Add 20% buffer if festival days fall within range. Calculations derived from your historical recipe portions per Bill line item quantities."
+        }
+      }
+    ],
+
+    "disambiguation_rules": [
+      "User asks 'how will sales be' or 'predict sales' → call run_sales_prediction for the next 7 days.",
+      "User asks 'what is the weather' → call get_weather_forecast standalone and report conditions only.",
+      "User asks 'what festivals are coming up' → call get_regional_festivals_and_holidays standalone.",
+      "User asks 'how accurate are your predictions' → call get_prediction_accuracy_report.",
+      "User asks 'how did last week compare to your prediction' → call get_prediction_accuracy_report with evaluation_period_days=7.",
+      "NEVER route sales prediction requests to the analytics agent — analytics handles historical actuals; this agent handles future forecasts.",
+      "If historical data is insufficient (fewer than 14 days), explain the limitation clearly, show what data exists, and advise the user to return after more data accumulates."
+    ],
+
+    "output_format_rules": [
+      "All monetary values use the currency_symbol from profile.db — never hardcode currency.",
+      "Day-by-day forecasts must be displayed as a table with columns: Date, Day, Predicted Revenue, Predicted Orders, Confidence, Key Signal, Alert.",
+      "Always include an AI Insights section at the end with 2-3 actionable recommendations.",
+      "For festival days, always surface specific inventory and staffing callouts — never leave them in the table without a dedicated recommendation block.",
+      "Confidence intervals must always be shown — never present predictions as exact values without a range."
+    ]
+  }
+}

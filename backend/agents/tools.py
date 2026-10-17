@@ -1555,6 +1555,183 @@ class AgentToolRegistry:
             },
         ]
 
+    @staticmethod
+    def get_prediction_tools() -> List[Dict[str, Any]]:
+        """Tool schemas for the Sales Prediction domain agent (WARMP pipeline)."""
+        return [
+            {
+                "name": "get_sales_history_for_prediction",
+                "description": (
+                    "Fetch daily sales totals, order counts, and average bill value for a given trailing period. "
+                    "Core historical baseline tool for WARMP steps 1 and 2. Queries DailySalesSummary directly; "
+                    "falls back to Bill aggregation when summary rows are absent."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "trailing_days": {
+                            "type": "integer",
+                            "description": "Number of past days to fetch (default: 90, min: 14, max: 365).",
+                            "default": 90,
+                        },
+                        "group_by": {
+                            "type": "string",
+                            "enum": ["day", "weekday", "week", "month"],
+                            "description": "Aggregation granularity. 'weekday' returns per-day-of-week averages (Mon–Sun).",
+                            "default": "day",
+                        },
+                        "include_top_products": {
+                            "type": "boolean",
+                            "description": "If true, also returns top 10 products by revenue share over the period.",
+                            "default": False,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_top_products_for_prediction",
+                "description": (
+                    "Returns the top N products by historical revenue contribution over a trailing period. "
+                    "Used for product-level demand disaggregation in WARMP step 5."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "top_n": {
+                            "type": "integer",
+                            "description": "Number of top products to return (default: 15)",
+                            "default": 15,
+                        },
+                        "trailing_days": {
+                            "type": "integer",
+                            "description": "Historical window to compute product ranks (default: 60 days)",
+                            "default": 60,
+                        },
+                        "group_by_time_slot": {
+                            "type": "boolean",
+                            "description": "If true, splits product demand by time slot (morning/lunch/evening/night).",
+                            "default": False,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_regional_festivals_and_holidays",
+                "description": (
+                    "Fetch upcoming regional festivals, public holidays, and dry days for the shop's city and state "
+                    "(automatically read from profile.db — do NOT pass location manually). "
+                    "Returns events with pre-computed holiday multiplier (H) values for WARMP step 3."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "from_date": {
+                            "type": "string",
+                            "description": "Start date for calendar lookup (YYYY-MM-DD). Defaults to tomorrow.",
+                        },
+                        "to_date": {
+                            "type": "string",
+                            "description": "End date for calendar lookup (YYYY-MM-DD). Defaults to 14 days from now.",
+                        },
+                        "include_regional": {
+                            "type": "boolean",
+                            "description": "Include state-specific regional festivals (e.g. Ganesh Chaturthi for Maharashtra).",
+                            "default": True,
+                        },
+                        "include_national": {
+                            "type": "boolean",
+                            "description": "Include national public holidays applicable to all states.",
+                            "default": True,
+                        },
+                        "include_dry_days": {
+                            "type": "boolean",
+                            "description": "Flag government-declared dry days or restricted trading hours.",
+                            "default": True,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_weather_forecast",
+                "description": (
+                    "Fetch a multi-day weather forecast for the shop's location (city, state, pincode from profile.db). "
+                    "Returns daily conditions and a pre-computed weather_multiplier per day for WARMP step 4. "
+                    "Uses Open-Meteo free API — no API key required. Pincode is geocoded via a bundled India pincode table."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "forecast_days": {
+                            "type": "integer",
+                            "description": "Number of days to forecast ahead (default: 7, max: 14).",
+                            "default": 7,
+                        },
+                        "include_historical_weather_correlation": {
+                            "type": "boolean",
+                            "description": "If true, compute weather-to-sales correlation from prior-year same-period weather data.",
+                            "default": False,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "run_sales_prediction",
+                "description": (
+                    "Execute the full WARMP prediction pipeline for a given future date range. "
+                    "This is the PRIMARY orchestrating tool — always call this for any forecast request. "
+                    "Internally chains: sales history → top products → regional holidays → weather forecast → WARMP assembly. "
+                    "Returns a day-by-day revenue, order, and product-demand forecast with confidence intervals, "
+                    "staffing recommendations, and inventory pre-order suggestions."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "predict_from": {
+                            "type": "string",
+                            "description": "Start date of the prediction window (YYYY-MM-DD). Defaults to tomorrow.",
+                        },
+                        "predict_to": {
+                            "type": "string",
+                            "description": "End date of the prediction window (YYYY-MM-DD). Max 14 days ahead.",
+                        },
+                        "include_product_forecast": {
+                            "type": "boolean",
+                            "description": "If true, predicts per-product demand quantities for inventory pre-ordering.",
+                            "default": True,
+                        },
+                        "include_staffing_recommendation": {
+                            "type": "boolean",
+                            "description": "If true, recommends minimum staff headcount per shift based on predicted orders.",
+                            "default": True,
+                        },
+                        "include_confidence_intervals": {
+                            "type": "boolean",
+                            "description": "If true, attaches +/-% confidence ranges to all predictions.",
+                            "default": True,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_prediction_accuracy_report",
+                "description": (
+                    "Compare past WARMP predictions against actual sales results to measure forecast accuracy. "
+                    "Returns MAE, MAPE, and a factor-level breakdown showing which signal (weather/holiday/baseline) "
+                    "contributed most to errors. Helps calibrate multiplier tables over time."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "evaluation_period_days": {
+                            "type": "integer",
+                            "description": "Number of past days to evaluate prediction accuracy over (default: 30)",
+                            "default": 30,
+                        }
+                    },
+                },
+            },
+        ]
+
     @classmethod
     def all_tools(cls) -> List[Dict[str, Any]]:
         """Return a list of all tool schemas across all domain agents."""
@@ -1566,6 +1743,7 @@ class AgentToolRegistry:
             + cls.get_expense_tools()
             + cls.get_analytics_tools()
             + cls.get_reminder_tools()
+            + cls.get_prediction_tools()
         )
 
     @classmethod
@@ -1592,6 +1770,7 @@ class AgentToolRegistry:
             "expense": cls.get_expense_tools,
             "analytics": cls.get_analytics_tools,
             "reminder": cls.get_reminder_tools,
+            "prediction": cls.get_prediction_tools,
         }
         getter = mapping.get(str(agent_name).lower())
         if not getter:
@@ -2797,7 +2976,1737 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "notifications": [n.to_dict() for n in notifs],
             }
 
+
+        # -------------------------------------------------------------------------
+        # SALES PREDICTION TOOLS (WARMP pipeline)
+        # -------------------------------------------------------------------------
+
+        elif tool_name == "get_sales_history_for_prediction":
+            trailing_days = min(int(args.get("trailing_days", 90)), 365)
+            trailing_days = max(trailing_days, 1)
+            group_by = args.get("group_by", "day")
+            include_top_products = bool(args.get("include_top_products", False))
+
+            start_date = date.today() - timedelta(days=trailing_days - 1)
+
+            # Prefer DailySalesSummary for speed; fall back to Bill aggregation
+            summaries = (
+                DailySalesSummary.query.filter(DailySalesSummary.date >= start_date)
+                .order_by(DailySalesSummary.date.asc())
+                .all()
+            )
+
+            # Build raw daily rows (prefer summary, fill gaps from Bills)
+            daily_rows = []
+            summary_dates = {s.date for s in summaries}
+            for s in summaries:
+                daily_rows.append(
+                    {
+                        "date": str(s.date),
+                        "weekday": s.date.strftime("%A"),
+                        "weekday_num": s.date.weekday(),
+                        "total_sales": float(s.total_sales or 0),
+                        "total_orders": int(s.total_orders or 0),
+                        "average_bill_value": float(s.average_bill_value or 0),
+                        "net_profit": float(s.net_profit or 0),
+                        "source": "summary",
+                    }
+                )
+
+            # Fill missing dates from Bill table
+            cursor = start_date
+            while cursor <= date.today():
+                if cursor not in summary_dates:
+                    day_bills = Bill.query.filter(
+                        func.date(Bill.created_at) == cursor
+                    ).all()
+                    tot = sum(b.total_amount for b in day_bills)
+                    cnt = len(day_bills)
+                    daily_rows.append(
+                        {
+                            "date": str(cursor),
+                            "weekday": cursor.strftime("%A"),
+                            "weekday_num": cursor.weekday(),
+                            "total_sales": round(float(tot), 2),
+                            "total_orders": cnt,
+                            "average_bill_value": round(float(tot / cnt) if cnt else 0, 2),
+                            "net_profit": 0.0,
+                            "source": "bills",
+                        }
+                    )
+                cursor += timedelta(days=1)
+
+            daily_rows.sort(key=lambda r: r["date"])
+
+            # Aggregate by requested granularity
+            if group_by == "weekday":
+                from collections import defaultdict
+
+                agg: Dict[str, List] = defaultdict(list)
+                for r in daily_rows:
+                    agg[r["weekday"]].append(r)
+                weekday_order = [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                ]
+                aggregated = []
+                all_avg = (
+                    sum(r["total_sales"] for r in daily_rows) / len(daily_rows)
+                    if daily_rows
+                    else 1.0
+                )
+                for wd in weekday_order:
+                    rows = agg.get(wd, [])
+                    if not rows:
+                        continue
+                    avg_sales = sum(r["total_sales"] for r in rows) / len(rows)
+                    avg_orders = sum(r["total_orders"] for r in rows) / len(rows)
+                    aggregated.append(
+                        {
+                            "weekday": wd,
+                            "data_points": len(rows),
+                            "avg_daily_sales": round(avg_sales, 2),
+                            "avg_daily_orders": round(avg_orders, 1),
+                            "dow_weight": round(avg_sales / all_avg, 4) if all_avg else 1.0,
+                        }
+                    )
+                result_data = {"group_by": "weekday", "weekday_averages": aggregated}
+            elif group_by == "week":
+                from collections import defaultdict
+
+                agg_w: Dict[str, List] = defaultdict(list)
+                for r in daily_rows:
+                    d_obj = date.fromisoformat(r["date"])
+                    week_key = f"{d_obj.isocalendar()[0]}-W{d_obj.isocalendar()[1]:02d}"
+                    agg_w[week_key].append(r)
+                weeks = []
+                for wk, rows in sorted(agg_w.items()):
+                    weeks.append(
+                        {
+                            "week": wk,
+                            "total_sales": round(sum(r["total_sales"] for r in rows), 2),
+                            "total_orders": sum(r["total_orders"] for r in rows),
+                            "days": len(rows),
+                        }
+                    )
+                result_data = {"group_by": "week", "weeks": weeks}
+            elif group_by == "month":
+                from collections import defaultdict
+
+                agg_m: Dict[str, List] = defaultdict(list)
+                for r in daily_rows:
+                    month_key = r["date"][:7]
+                    agg_m[month_key].append(r)
+                months = []
+                for mk, rows in sorted(agg_m.items()):
+                    months.append(
+                        {
+                            "month": mk,
+                            "total_sales": round(sum(r["total_sales"] for r in rows), 2),
+                            "total_orders": sum(r["total_orders"] for r in rows),
+                            "days": len(rows),
+                        }
+                    )
+                result_data = {"group_by": "month", "months": months}
+            else:
+                result_data = {"group_by": "day", "daily_rows": daily_rows}
+
+            result_data["trailing_days"] = trailing_days
+            result_data["data_points"] = len(daily_rows)
+            result_data["overall_avg_daily_sales"] = (
+                round(sum(r["total_sales"] for r in daily_rows) / len(daily_rows), 2)
+                if daily_rows
+                else 0
+            )
+            result_data["confidence_note"] = (
+                "HIGH — 90+ days of data"
+                if len(daily_rows) >= 90
+                else "MEDIUM — 14-89 days of data"
+                if len(daily_rows) >= 14
+                else "LOW — less than 14 days of data. Predictions will have wide uncertainty."
+            )
+
+            if include_top_products:
+                # Aggregate top products from recent Bill line items
+                from collections import defaultdict
+
+                prod_totals: Dict[str, Dict] = defaultdict(
+                    lambda: {"name": "", "qty": 0, "revenue": 0.0}
+                )
+                recent_bills = Bill.query.filter(
+                    func.date(Bill.created_at) >= start_date
+                ).all()
+                for b in recent_bills:
+                    try:
+                        items = json.loads(b.items) if b.items else []
+                        for it in items:
+                            pid = str(it.get("product_id", it.get("name", "?")))
+                            prod_totals[pid]["name"] = it.get("name", pid)
+                            prod_totals[pid]["qty"] += float(it.get("quantity", 1))
+                            prod_totals[pid]["revenue"] += float(
+                                it.get("price", 0)
+                            ) * float(it.get("quantity", 1))
+                    except Exception:
+                        pass
+                total_rev = sum(v["revenue"] for v in prod_totals.values()) or 1.0
+                top_prods = sorted(
+                    prod_totals.items(), key=lambda x: x[1]["revenue"], reverse=True
+                )[:10]
+                result_data["top_products"] = [
+                    {
+                        "product_id": k,
+                        "name": v["name"],
+                        "total_qty": round(v["qty"], 1),
+                        "total_revenue": round(v["revenue"], 2),
+                        "revenue_share_pct": round(v["revenue"] / total_rev * 100, 2),
+                    }
+                    for k, v in top_prods
+                ]
+
+            return result_data
+
+        elif tool_name == "get_top_products_for_prediction":
+            import json as _json
+            from collections import defaultdict
+
+            top_n = min(int(args.get("top_n", 15)), 30)
+            trailing_days = min(int(args.get("trailing_days", 60)), 365)
+            group_by_time_slot = bool(args.get("group_by_time_slot", False))
+
+            start_date = date.today() - timedelta(days=trailing_days - 1)
+            recent_bills = Bill.query.filter(
+                func.date(Bill.created_at) >= start_date
+            ).all()
+
+            prod_data: Dict[str, Dict] = defaultdict(
+                lambda: {
+                    "name": "",
+                    "qty": 0.0,
+                    "revenue": 0.0,
+                    "morning": 0.0,
+                    "lunch": 0.0,
+                    "evening": 0.0,
+                    "night": 0.0,
+                }
+            )
+            for b in recent_bills:
+                hour = b.created_at.hour if b.created_at else 12
+                if 6 <= hour < 11:
+                    slot = "morning"
+                elif 11 <= hour < 16:
+                    slot = "lunch"
+                elif 16 <= hour < 20:
+                    slot = "evening"
+                else:
+                    slot = "night"
+                try:
+                    items = _json.loads(b.items) if b.items else []
+                    for it in items:
+                        pid = str(it.get("product_id", it.get("name", "?")))
+                        prod_data[pid]["name"] = it.get("name", pid)
+                        qty = float(it.get("quantity", 1))
+                        price = float(it.get("price", 0))
+                        prod_data[pid]["qty"] += qty
+                        prod_data[pid]["revenue"] += qty * price
+                        prod_data[pid][slot] += qty * price
+                except Exception:
+                    pass
+
+            total_rev = sum(v["revenue"] for v in prod_data.values()) or 1.0
+            sorted_prods = sorted(
+                prod_data.items(), key=lambda x: x[1]["revenue"], reverse=True
+            )[:top_n]
+
+            products_out = []
+            for pid, v in sorted_prods:
+                entry = {
+                    "product_id": pid,
+                    "name": v["name"],
+                    "total_qty": round(v["qty"], 1),
+                    "total_revenue": round(v["revenue"], 2),
+                    "revenue_share_pct": round(v["revenue"] / total_rev * 100, 2),
+                    "avg_daily_qty": round(v["qty"] / trailing_days, 2),
+                }
+                if group_by_time_slot:
+                    slot_total = (
+                        v["morning"] + v["lunch"] + v["evening"] + v["night"]
+                    ) or 1.0
+                    entry["time_slot_split"] = {
+                        "morning_pct": round(v["morning"] / slot_total * 100, 1),
+                        "lunch_pct": round(v["lunch"] / slot_total * 100, 1),
+                        "evening_pct": round(v["evening"] / slot_total * 100, 1),
+                        "night_pct": round(v["night"] / slot_total * 100, 1),
+                    }
+                products_out.append(entry)
+
+            return {
+                "top_n": top_n,
+                "trailing_days": trailing_days,
+                "total_products_analysed": len(prod_data),
+                "products": products_out,
+            }
+
+        elif tool_name == "get_regional_festivals_and_holidays":
+            import os
+            import re
+            import ssl
+            import json as _json
+            import urllib.request
+            import urllib.parse
+            from datetime import date as _date, timedelta as _td
+
+            from_date_str = args.get(
+                "from_date", str(date.today() + timedelta(days=1))
+            )
+            to_date_str = args.get(
+                "to_date", str(date.today() + timedelta(days=14))
+            )
+            include_regional = bool(args.get("include_regional", True))
+            include_national = bool(args.get("include_national", True))
+            include_dry_days = bool(args.get("include_dry_days", True))
+
+            try:
+                from_dt = _date.fromisoformat(from_date_str)
+                to_dt = _date.fromisoformat(to_date_str)
+            except ValueError:
+                return {"error": "Invalid date format. Use YYYY-MM-DD."}
+
+            # -------------------------------------------------------------
+            # GLOBAL & REGIONAL RESOLUTION: country, state, city, pincode
+            # -------------------------------------------------------------
+            raw_country = args.get("country") or args.get("shop_country") or ""
+            raw_state = args.get("state") or args.get("shop_state") or ""
+            raw_city = args.get("city") or args.get("shop_city") or ""
+            raw_pincode = args.get("pincode") or ""
+
+            profile = None
+            try:
+                from services.profile_service import ProfileService
+
+                profile = ProfileService.get_profile()
+                if profile:
+                    if not raw_country:
+                        raw_country = profile.get("country") or ""
+                    if not raw_state:
+                        raw_state = profile.get("state") or ""
+                    if not raw_city:
+                        raw_city = profile.get("city") or ""
+                    if not raw_pincode:
+                        raw_pincode = profile.get("pincode") or ""
+            except Exception as _pe:
+                _log.warning("Could not read profile for regional holidays: %s", _pe)
+
+            # Global Country & ISO Deduction
+            def _resolve_country_and_iso(country_in: str, state_in: str, city_in: str, prof: dict = None) -> tuple:
+                c = (country_in or "").strip().lower()
+                s = (state_in or "").strip().lower()
+                cty = (city_in or "").strip().lower()
+
+                COUNTRY_MAP = {
+                    "us": ("United States", "US"), "usa": ("United States", "US"), "united states": ("United States", "US"), "united states of america": ("United States", "US"), "america": ("United States", "US"),
+                    "uk": ("United Kingdom", "GB"), "gb": ("United Kingdom", "GB"), "united kingdom": ("United Kingdom", "GB"), "great britain": ("United Kingdom", "GB"), "england": ("United Kingdom", "GB"), "scotland": ("United Kingdom", "GB"), "wales": ("United Kingdom", "GB"),
+                    "ca": ("Canada", "CA"), "canada": ("Canada", "CA"),
+                    "au": ("Australia", "AU"), "australia": ("Australia", "AU"),
+                    "sg": ("Singapore", "SG"), "singapore": ("Singapore", "SG"),
+                    "ae": ("United Arab Emirates", "AE"), "uae": ("United Arab Emirates", "AE"), "united arab emirates": ("United Arab Emirates", "AE"), "dubai": ("United Arab Emirates", "AE"), "abu dhabi": ("United Arab Emirates", "AE"),
+                    "de": ("Germany", "DE"), "germany": ("Germany", "DE"), "deutschland": ("Germany", "DE"),
+                    "fr": ("France", "FR"), "france": ("France", "FR"),
+                    "jp": ("Japan", "JP"), "japan": ("Japan", "JP"),
+                    "nz": ("New Zealand", "NZ"), "new zealand": ("New Zealand", "NZ"),
+                    "in": ("India", "IN"), "india": ("India", "IN"), "bharat": ("India", "IN"),
+                }
+
+                if c in COUNTRY_MAP:
+                    return COUNTRY_MAP[c]
+
+                US_STATES = {"california", "texas", "florida", "new york", "illinois", "pennsylvania", "ohio", "georgia", "north carolina", "michigan", "washington", "massachusetts", "arizona", "colorado", "nevada"}
+                if s in US_STATES or cty in {"new york", "los angeles", "chicago", "houston", "miami", "san francisco", "seattle", "boston", "dallas"}:
+                    return ("United States", "US")
+
+                UK_CITIES = {"london", "manchester", "birmingham", "leeds", "glasgow", "edinburgh", "liverpool"}
+                if cty in UK_CITIES:
+                    return ("United Kingdom", "GB")
+
+                CA_PROVINCES = {"ontario", "quebec", "british columbia", "alberta", "toronto", "montreal", "vancouver"}
+                if s in CA_PROVINCES or cty in CA_PROVINCES:
+                    return ("Canada", "CA")
+
+                AU_STATES = {"nsw", "new south wales", "victoria", "queensland", "sydney", "melbourne", "brisbane", "perth"}
+                if s in AU_STATES or cty in AU_STATES:
+                    return ("Australia", "AU")
+
+                AE_PLACES = {"dubai", "abu dhabi", "sharjah", "ajman"}
+                if s in AE_PLACES or cty in AE_PLACES:
+                    return ("United Arab Emirates", "AE")
+
+                if len(c) == 2:
+                    return (c.upper(), c.upper())
+
+                if prof:
+                    cur_code = str(prof.get("currency_code") or "").strip().upper()
+                    cur_sym = str(prof.get("currency_symbol") or "").strip()
+                    if cur_sym == "₹" or cur_code == "INR":
+                        return ("India", "IN")
+                    if cur_code == "USD":
+                        return ("United States", "US")
+                    if cur_code in ("GBP", "GB") or cur_sym == "£":
+                        return ("United Kingdom", "GB")
+                    if cur_code in ("EUR", "DE") or cur_sym == "€":
+                        return ("Germany", "DE")
+                    if cur_code == "AED":
+                        return ("United Arab Emirates", "AE")
+                    if cur_code == "CAD":
+                        return ("Canada", "CA")
+                    if cur_code == "AUD":
+                        return ("Australia", "AU")
+                    if cur_code == "SGD":
+                        return ("Singapore", "SG")
+                    if cur_code in ("JPY", "JP") or cur_sym == "¥":
+                        return ("Japan", "JP")
+
+                return ("India", "IN")
+
+            shop_country, shop_country_code = _resolve_country_and_iso(raw_country, raw_state, raw_city, profile)
+
+            # Indian State Normalization & Automatic Postal Deduction
+            def _normalize_indian_state(s_in: str, c_in: str, p_in: str) -> str:
+                s = (s_in or "").strip().lower()
+                c = (c_in or "").strip().lower()
+                p = str(p_in or "").strip()
+
+                state_aliases = {
+                    "mh": "Maharashtra", "maharashtra": "Maharashtra", "maharastra": "Maharashtra", "mumbai": "Maharashtra", "pune": "Maharashtra", "nagpur": "Maharashtra", "thane": "Maharashtra", "nashik": "Maharashtra",
+                    "gj": "Gujarat", "gujarat": "Gujarat", "gujrat": "Gujarat", "ahmedabad": "Gujarat", "surat": "Gujarat", "vadodara": "Gujarat", "rajkot": "Gujarat",
+                    "wb": "West Bengal", "west bengal": "West Bengal", "bengal": "West Bengal", "kolkata": "West Bengal", "howrah": "West Bengal", "siliguri": "West Bengal",
+                    "tn": "Tamil Nadu", "tamil nadu": "Tamil Nadu", "tamilnadu": "Tamil Nadu", "chennai": "Tamil Nadu", "coimbatore": "Tamil Nadu", "madurai": "Tamil Nadu",
+                    "ka": "Karnataka", "karnataka": "Karnataka", "bangalore": "Karnataka", "bengaluru": "Karnataka", "mysore": "Karnataka", "mysuru": "Karnataka", "hubli": "Karnataka",
+                    "kl": "Kerala", "kerala": "Kerala", "kochi": "Kerala", "cochin": "Kerala", "thiruvananthapuram": "Kerala", "trivandrum": "Kerala", "kozhikode": "Kerala",
+                    "dl": "Delhi", "delhi": "Delhi", "new delhi": "Delhi", "nct": "Delhi",
+                    "up": "Uttar Pradesh", "uttar pradesh": "Uttar Pradesh", "lucknow": "Uttar Pradesh", "kanpur": "Uttar Pradesh", "noida": "Uttar Pradesh", "varanasi": "Uttar Pradesh", "agra": "Uttar Pradesh",
+                    "br": "Bihar", "bihar": "Bihar", "patna": "Bihar", "gaya": "Bihar", "muzaffarpur": "Bihar",
+                    "jh": "Jharkhand", "jharkhand": "Jharkhand", "ranchi": "Jharkhand", "jamshedpur": "Jharkhand", "dhanbad": "Jharkhand",
+                    "pb": "Punjab", "punjab": "Punjab", "amritsar": "Punjab", "ludhiana": "Punjab", "jalandhar": "Punjab",
+                    "hr": "Haryana", "haryana": "Haryana", "gurgaon": "Haryana", "gurugram": "Haryana", "faridabad": "Haryana",
+                    "rj": "Rajasthan", "rajasthan": "Rajasthan", "jaipur": "Rajasthan", "jodhpur": "Rajasthan", "udaipur": "Rajasthan", "kota": "Rajasthan",
+                    "mp": "Madhya Pradesh", "madhya pradesh": "Madhya Pradesh", "indore": "Madhya Pradesh", "bhopal": "Madhya Pradesh", "gwalior": "Madhya Pradesh", "jabalpur": "Madhya Pradesh",
+                    "ap": "Andhra Pradesh", "andhra pradesh": "Andhra Pradesh", "andhra": "Andhra Pradesh", "visakhapatnam": "Andhra Pradesh", "vijayawada": "Andhra Pradesh", "guntur": "Andhra Pradesh",
+                    "ts": "Telangana", "tg": "Telangana", "telangana": "Telangana", "hyderabad": "Telangana", "warangal": "Telangana", "secunderabad": "Telangana",
+                    "od": "Odisha", "or": "Odisha", "odisha": "Odisha", "orissa": "Odisha", "bhubaneswar": "Odisha", "cuttack": "Odisha", "puri": "Odisha",
+                    "as": "Assam", "assam": "Assam", "guwahati": "Assam", "silchar": "Assam", "dibrugarh": "Assam",
+                    "ga": "Goa", "goa": "Goa", "panaji": "Goa", "margao": "Goa",
+                    "jk": "Jammu and Kashmir", "jammu": "Jammu and Kashmir", "kashmir": "Jammu and Kashmir", "srinagar": "Jammu and Kashmir",
+                    "uk": "Uttarakhand", "ua": "Uttarakhand", "uttarakhand": "Uttarakhand", "dehradun": "Uttarakhand", "haridwar": "Uttarakhand", "rishikesh": "Uttarakhand",
+                    "hp": "Himachal Pradesh", "himachal pradesh": "Himachal Pradesh", "shimla": "Himachal Pradesh", "manali": "Himachal Pradesh", "dharamshala": "Himachal Pradesh",
+                    "ch": "Chandigarh", "chandigarh": "Chandigarh",
+                    "ct": "Chhattisgarh", "cg": "Chhattisgarh", "chhattisgarh": "Chhattisgarh", "raipur": "Chhattisgarh",
+                    "py": "Puducherry", "pondicherry": "Puducherry",
+                    "tr": "Tripura", "tripura": "Tripura", "agartala": "Tripura",
+                    "ml": "Meghalaya", "meghalaya": "Meghalaya", "shillong": "Meghalaya",
+                    "mn": "Manipur", "manipur": "Manipur", "imphal": "Manipur",
+                    "mz": "Mizoram", "mizoram": "Mizoram", "aizawl": "Mizoram",
+                    "nl": "Nagaland", "nagaland": "Nagaland", "kohima": "Nagaland",
+                    "ar": "Arunachal Pradesh", "arunachal": "Arunachal Pradesh", "itanagar": "Arunachal Pradesh",
+                    "sk": "Sikkim", "sikkim": "Sikkim", "gangtok": "Sikkim",
+                }
+
+                if s in state_aliases:
+                    return state_aliases[s]
+                if c in state_aliases:
+                    return state_aliases[c]
+
+                # Deduce state from Indian postal pincode prefix (first 2 digits)
+                if len(p) >= 2 and p[:2].isdigit():
+                    pfx = int(p[:2])
+                    if pfx == 11: return "Delhi"
+                    elif 12 <= pfx <= 13: return "Haryana"
+                    elif 14 <= pfx <= 16: return "Punjab"
+                    elif pfx == 17: return "Himachal Pradesh"
+                    elif 18 <= pfx <= 19: return "Jammu and Kashmir"
+                    elif 20 <= pfx <= 28: return "Uttar Pradesh"
+                    elif 30 <= pfx <= 34: return "Rajasthan"
+                    elif 36 <= pfx <= 39: return "Gujarat"
+                    elif 40 <= pfx <= 44: return "Maharashtra"
+                    elif 45 <= pfx <= 48: return "Madhya Pradesh"
+                    elif pfx == 49: return "Chhattisgarh"
+                    elif 50 <= pfx <= 53: return "Telangana"
+                    elif 56 <= pfx <= 59: return "Karnataka"
+                    elif 60 <= pfx <= 64: return "Tamil Nadu"
+                    elif 67 <= pfx <= 69: return "Kerala"
+                    elif 70 <= pfx <= 74: return "West Bengal"
+                    elif 75 <= pfx <= 77: return "Odisha"
+                    elif pfx == 78: return "Assam"
+                    elif 80 <= pfx <= 85: return "Bihar"
+
+                return "Maharashtra"
+
+            shop_state = _normalize_indian_state(raw_state, raw_city, raw_pincode) if shop_country_code == "IN" else (raw_state.title() if raw_state else "")
+            shop_city = raw_city.title() if raw_city else ""
+
+            # Comprehensive Region-Wise Festival Multiplier and Insight Matrix (India)
+            REGIONAL_PROFILE = {
+                "Maharashtra": {
+                    "zone": "Western India",
+                    "primary_festivals": {
+                        "ganesh": {"mult": 2.2, "name": "Ganesh Chaturthi", "insight": "Maharashtra's supreme 10-day celebration. Peak demand for sweets, catering, modak, family dining, and late-night food stalls."},
+                        "gudi padwa": {"mult": 1.8, "name": "Gudi Padwa", "insight": "Maharashtrian New Year. Substantial daytime footfall surge and celebratory dining."},
+                        "shivaji": {"mult": 1.5, "name": "Chhatrapati Shivaji Maharaj Jayanti", "insight": "State public holiday with massive local processions and lunch/dinner rush."},
+                        "sharad navratri": {"mult": 1.8, "name": "Sharad Navratri", "insight": "Fasting menu demand during day; late-night post-dandiya dining surges."},
+                        "dussehra": {"mult": 1.9, "name": "Dussehra (Vijayadashami)", "insight": "Major festive dining out and gold/vehicle purchase celebrations."},
+                        "makar sankranti": {"mult": 1.4, "name": "Makar Sankranti", "insight": "Traditional sweet (Tilgul) distribution and family festive meals."},
+                    },
+                    "state_days": [("05-01", "Maharashtra Day", 1.4, "State foundation holiday; high holiday lunch and retail traffic.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day", "ashadi ekadashi", "kartiki ekadashi"],
+                },
+                "Gujarat": {
+                    "zone": "Western India",
+                    "primary_festivals": {
+                        "navratri": {"mult": 2.2, "name": "Navratri / Garba Nights", "insight": "Gujarat's #1 cultural festival (9 nights). Extraordinary surge in midnight food stalls, fast-food, desserts, and late-night dine-in."},
+                        "makar sankranti": {"mult": 2.0, "name": "Uttarayan / Kite Festival", "insight": "Rooftop gatherings, massive demand for Undhiyu, Jalebi, snacks, and catering."},
+                        "uttarayan": {"mult": 2.0, "name": "Uttarayan / Kite Festival", "insight": "Massive statewide kite flying festival with all-day festive dining."},
+                        "janmashtami": {"mult": 1.9, "name": "Janmashtami", "insight": "Major midnight celebration across Gujarat. Faraali/fasting special orders surge."},
+                        "cheti chand": {"mult": 1.5, "name": "Cheti Chand", "insight": "Sindhi New Year, observed widely in Gujarat business communities."},
+                    },
+                    "state_days": [("05-01", "Gujarat Day", 1.4, "State foundation holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "West Bengal": {
+                    "zone": "Eastern India",
+                    "primary_festivals": {
+                        "durga puja": {"mult": 2.5, "name": "Durga Puja", "insight": "Bengal's biggest festival of the year! Pandal hopping creates 24-hour restaurant footfall, street food records, and festive menus."},
+                        "maha saptami": {"mult": 2.5, "name": "Durga Puja (Maha Saptami)", "insight": "Peak pandal hopping and dining out rush across Bengal."},
+                        "maha ashtami": {"mult": 2.5, "name": "Durga Puja (Maha Ashtami)", "insight": "Peak evening and midnight dining out; Bhog and restaurant dining surges."},
+                        "maha navami": {"mult": 2.5, "name": "Durga Puja (Maha Navami)", "insight": "Carnival atmosphere, massive dining and takeaway volumes."},
+                        "kali puja": {"mult": 2.0, "name": "Kali Puja & Diwali", "insight": "Statewide illumination and late-night festive dining."},
+                        "poila boishakh": {"mult": 1.9, "name": "Poila Boishakh (Bengali New Year)", "insight": "Traditional new clothes shopping, auspicious beginnings, and heavy restaurant dining."},
+                        "vaisakhadi": {"mult": 1.9, "name": "Poila Boishakh (Bengali New Year)", "insight": "Auspicious beginnings and heavy celebratory dining in Bengal."},
+                        "dolyatra": {"mult": 1.8, "name": "Dolyatra / Holi", "insight": "Spring color festival with high afternoon takeaway and celebration orders."},
+                        "rabindranath": {"mult": 1.5, "name": "Rabindra Jayanti", "insight": "State cultural holiday with community gatherings and sweet consumption."},
+                        "bhai duj": {"mult": 1.6, "name": "Bhai Phota (Bhai Duj)", "insight": "Family feasts and high gifting/sweet box sales."},
+                    },
+                    "state_days": [("04-15", "Poila Boishakh", 1.9, "Bengali New Year holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Tamil Nadu": {
+                    "zone": "Southern India",
+                    "primary_festivals": {
+                        "pongal": {"mult": 2.2, "name": "Pongal Harvest Festival", "insight": "Tamil Nadu's 4-day harvest celebration. Massive surge in groceries, family feasts, traditional sweets, and travel dining."},
+                        "mattu pongal": {"mult": 2.0, "name": "Mattu Pongal", "insight": "Jallikattu and cultural feasts in rural and semi-urban Tamil Nadu."},
+                        "puthandu": {"mult": 1.8, "name": "Puthandu (Tamil New Year)", "insight": "New Year feasts, temple visits, and family dining out."},
+                        "mesadi": {"mult": 1.8, "name": "Tamil New Year / Mesadi", "insight": "Auspicious holiday with traditional feasts."},
+                        "deepavali": {"mult": 2.0, "name": "Deepavali", "insight": "Major festival celebrated early morning in Tamil Nadu with sweets and family feasts."},
+                        "vinayaka": {"mult": 1.5, "name": "Vinayaka Chathurthi", "insight": "Public celebration with local festive demand."},
+                    },
+                    "state_days": [("04-14", "Tamil New Year (Puthandu)", 1.8, "Tamil New Year public holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day", "thiruvalluvar day"],
+                },
+                "Kerala": {
+                    "zone": "Southern India",
+                    "primary_festivals": {
+                        "onam": {"mult": 2.4, "name": "Thiruvonam / Onam", "insight": "Kerala's harvest festival & grand celebration! Huge demand for Onasadya (traditional feast), catering, and family dining."},
+                        "thiruvonam": {"mult": 2.4, "name": "Thiruvonam (Peak Onam Day)", "insight": "Apex of festive dining in Kerala; record sales for restaurants and sweet vendors."},
+                        "vishu": {"mult": 2.0, "name": "Vishu (Malayalam New Year)", "insight": "Vishu Kani, fireworks, and lavish traditional feasts."},
+                        "attukal": {"mult": 1.6, "name": "Attukal Pongala", "insight": "Largest congregation of women devotees; huge food stall and beverage demand."},
+                    },
+                    "state_days": [("11-01", "Kerala Piravi", 1.5, "Kerala state formation day.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Punjab": {
+                    "zone": "Northern India",
+                    "primary_festivals": {
+                        "vaisakhi": {"mult": 2.2, "name": "Vaisakhi / Baisakhi", "insight": "Harvest celebration & Khalsa formation day. Massive community dining (langar), sweet sales, and Punjabi cuisine surge."},
+                        "baisakhi": {"mult": 2.2, "name": "Baisakhi", "insight": "Peak harvest celebration across Punjab and Haryana."},
+                        "lohri": {"mult": 2.0, "name": "Lohri", "insight": "Winter bonfire festival with immense demand for sweets, snacks, groundnuts, and celebration dinners."},
+                        "guru nanak": {"mult": 1.9, "name": "Guru Nanak Jayanti (Gurpurab)", "insight": "Major holy day with massive footfall at gurdwaras, public feeding, and confectionery demand."},
+                        "guru gobind": {"mult": 1.8, "name": "Guru Gobind Singh Jayanti", "insight": "State holiday with high community participation and family meals."},
+                        "guru tegh": {"mult": 1.4, "name": "Guru Tegh Bahadur Martyrdom Day", "insight": "State public holiday in Punjab."},
+                    },
+                    "state_days": [("04-14", "Vaisakhi Day", 2.2, "Harvest and religious holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Karnataka": {
+                    "zone": "Southern India",
+                    "primary_festivals": {
+                        "ugadi": {"mult": 2.0, "name": "Ugadi (Kannada New Year)", "insight": "Kannada New Year festival with traditional Holige/Obbattu sweets and heavy family dining."},
+                        "dussehra": {"mult": 2.2, "name": "Mysuru Dasara / Vijayadashami", "insight": "State festival (Naada Habba). Mysuru and Bengaluru see unprecedented tourist influx and restaurant sales."},
+                        "gowri": {"mult": 1.8, "name": "Gowri Habba & Ganesha", "insight": "Household pujas and high sales of festive ingredients and snacks."},
+                        "kannada rajyotsava": {"mult": 1.6, "name": "Kannada Rajyotsava", "insight": "Karnataka Foundation Day. Widespread cultural parades and lunch/dinner rush."},
+                    },
+                    "state_days": [("11-01", "Kannada Rajyotsava", 1.6, "Karnataka state formation day.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Andhra Pradesh": {
+                    "zone": "Southern India",
+                    "primary_festivals": {
+                        "ugadi": {"mult": 2.0, "name": "Ugadi (Telugu New Year)", "insight": "Telugu New Year celebration. High demand for festive pachadi, sweets, and celebration platters."},
+                        "sankranti": {"mult": 2.1, "name": "Makara Sankranti (3-day)", "insight": "Andhra's biggest festival (Bhogi, Sankranti, Kanuma). Massive rural homecoming and lavish feasts."},
+                    },
+                    "state_days": [("11-01", "Andhra Pradesh Formation Day", 1.4, "State formation holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Telangana": {
+                    "zone": "Southern India",
+                    "primary_festivals": {
+                        "ugadi": {"mult": 2.0, "name": "Ugadi (Telugu New Year)", "insight": "Telugu New Year with high dining and celebration orders."},
+                        "bonalu": {"mult": 1.8, "name": "Bonalu Festival", "insight": "Hyderabad and Secunderabad temple celebrations with traditional food offerings."},
+                        "bathukamma": {"mult": 1.8, "name": "Bathukamma Floral Festival", "insight": "State festival during Navratri with large public gatherings and sweet orders."},
+                        "milad": {"mult": 1.9, "name": "Milad un-Nabi", "insight": "Major cultural festival in Hyderabad with late-night food street crowds."},
+                        "sankranti": {"mult": 2.0, "name": "Sankranti", "insight": "Homecoming festival with heavy travel and dine-out traffic."},
+                    },
+                    "state_days": [("06-02", "Telangana Formation Day", 1.5, "State formation holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Bihar": {
+                    "zone": "Eastern India",
+                    "primary_festivals": {
+                        "chhat": {"mult": 2.4, "name": "Chhath Puja", "insight": "Bihar's most revered cultural festival (4 days). Immense shopping for Thekua ingredients, fruits, prasad, and family homecomings."},
+                        "chhat puja": {"mult": 2.4, "name": "Chhath Puja", "insight": "River ghat gatherings; wholesale and retail grocery volumes multiply."},
+                        "govardhan": {"mult": 1.6, "name": "Govardhan Puja & Godhan", "insight": "Post-Diwali festivities and festive home cooking."},
+                        "makar sankranti": {"mult": 1.6, "name": "Makar Sankranti (Dahi Chuda)", "insight": "Traditional Dahi-Chuda-Tilkut feast creates huge dairy and confectionery demand."},
+                        "bihar diwas": {"mult": 1.5, "name": "Bihar Diwas", "insight": "State formation holiday with public events."},
+                    },
+                    "state_days": [("03-22", "Bihar Diwas", 1.5, "Bihar state formation holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Odisha": {
+                    "zone": "Eastern India",
+                    "primary_festivals": {
+                        "rath yatra": {"mult": 2.4, "name": "Rath Yatra (Puri Chariot Festival)", "insight": "Odisha's world-famous chariot festival. Millions gather in Puri and coastal Odisha; record food and beverage consumption."},
+                        "durga puja": {"mult": 2.0, "name": "Durga Puja", "insight": "Cuttack and Bhubaneswar pandals attract enormous evening dining crowds."},
+                        "raja": {"mult": 1.8, "name": "Raja Parba", "insight": "3-day agricultural celebration with Pitha sweets and street food delicacies."},
+                    },
+                    "state_days": [("04-01", "Utkal Divas", 1.5, "Odisha state formation day.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Assam": {
+                    "zone": "North-Eastern India",
+                    "primary_festivals": {
+                        "bahag bihu": {"mult": 2.3, "name": "Bohag / Rongali Bihu", "insight": "Assam's prime harvest & New Year festival (7 days). Massive demand for Pitha, Laru, Jolpan, and community banquets."},
+                        "bihu": {"mult": 2.3, "name": "Bihu", "insight": "Peak cultural festival in Assam; heavy dining and celebration rush."},
+                        "magh bihu": {"mult": 1.9, "name": "Magh / Bhogali Bihu", "insight": "Harvest feast festival with bonfire dining and high poultry/fish/sweet sales."},
+                        "durga puja": {"mult": 2.0, "name": "Durga Puja in Assam", "insight": "Guwahati pandals create peak seasonal dining."},
+                    },
+                    "state_days": [("04-14", "Bohag Bihu Day 1", 2.3, "Assamese New Year holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Delhi": {
+                    "zone": "Northern India",
+                    "primary_festivals": {
+                        "diwali": {"mult": 2.2, "name": "Diwali", "insight": "Peak gifting, shopping, and dining week in the capital region."},
+                        "dussehra": {"mult": 1.9, "name": "Dussehra", "insight": "Ramlila fairs across Delhi draw millions to street food and family restaurants."},
+                        "holi": {"mult": 2.0, "name": "Holi", "insight": "Snack, beverage, and celebration delivery orders skyrocket."},
+                        "janmashtami": {"mult": 1.8, "name": "Janmashtami", "insight": "Midnight temple crowds at ISKCON and Birla Mandir drive fast-food surges."},
+                        "eid": {"mult": 1.9, "name": "Eid ul-Fitr & Bakrid", "insight": "Old Delhi and major commercial districts see record dining and takeaway."},
+                        "chhat": {"mult": 1.8, "name": "Chhath Puja in NCR", "insight": "Observed with public holidays and massive ghat congregations across NCR."},
+                    },
+                    "state_days": [],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Uttar Pradesh": {
+                    "zone": "Northern India",
+                    "primary_festivals": {
+                        "diwali": {"mult": 2.2, "name": "Diwali (Deepotsav)", "insight": "Statewide grand illuminations; confectionery and dining sales hit annual highs."},
+                        "holi": {"mult": 2.1, "name": "Holi (Braj/Awadh)", "insight": "Famous multi-day festivities in Mathura, Varanasi, and Lucknow; huge festive demand."},
+                        "janmashtami": {"mult": 2.0, "name": "Janmashtami (Mathura/Vrindavan)", "insight": "Unmatched religious tourism and fasting/feasting food orders."},
+                        "chhat": {"mult": 1.8, "name": "Chhath Puja (Purvanchal)", "insight": "Purvanchal region experiences highest festive gathering of the year."},
+                    },
+                    "state_days": [("01-24", "UP Diwas", 1.3, "Statehood day.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Rajasthan": {
+                    "zone": "Northern India",
+                    "primary_festivals": {
+                        "teej": {"mult": 1.8, "name": "Teej Festival", "insight": "Ghevar sweets and traditional Rajasthani dining surges."},
+                        "gangaur": {"mult": 1.8, "name": "Gangaur Festival", "insight": "Women's traditional festival with sweet gifting and festive dining."},
+                        "diwali": {"mult": 2.2, "name": "Diwali in Rajasthan", "insight": "Jaipur market illuminations draw massive tourist and local diners."},
+                    },
+                    "state_days": [("03-30", "Rajasthan Day", 1.4, "State foundation celebration.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+                "Goa": {
+                    "zone": "Western India",
+                    "primary_festivals": {
+                        "carnival": {"mult": 2.2, "name": "Goa Carnival", "insight": "4-day carnival prior to Lent. Unprecedented tourism and nightlife/restaurant surge."},
+                        "xavier": {"mult": 1.8, "name": "Feast of St. Francis Xavier", "insight": "Old Goa pilgrimage draws huge coastal crowds and food stalls."},
+                        "sao joao": {"mult": 1.7, "name": "Sao Joao Feast", "insight": "Traditional monsoon feast with heavy festive dining and catering."},
+                        "shigmo": {"mult": 1.7, "name": "Shigmo Festival", "insight": "Goan spring festival with temple parades and local dining out."},
+                    },
+                    "state_days": [("12-19", "Goa Liberation Day", 1.6, "State public holiday.")],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                },
+            }
+
+            # Worldwide Cultural Profiles & Multipliers
+            GLOBAL_CULTURAL_PROFILES = {
+                "US": {
+                    "zone": "North America",
+                    "primary_festivals": {
+                        "thanksgiving": {"mult": 2.4, "name": "Thanksgiving Day", "insight": "Supreme family dining holiday in the US. Massive surge in turkey catering, grocery sales, and takeout."},
+                        "black friday": {"mult": 2.5, "name": "Black Friday", "insight": "Largest retail footfall and shopping day of the year; unprecedented commercial footfall."},
+                        "cyber monday": {"mult": 1.8, "name": "Cyber Monday", "insight": "Online retail peak with heavy delivery/takeout dining."},
+                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Peak nationwide winter festive holiday with family feasts and gift spending."},
+                        "christmas eve": {"mult": 2.0, "name": "Christmas Eve", "insight": "High last-minute shopping and celebration dining."},
+                        "new year": {"mult": 2.0, "name": "New Year's Eve / Day", "insight": "Late-night celebrations, parties, and breakfast/brunch rush."},
+                        "independence": {"mult": 2.0, "name": "4th of July (Independence Day)", "insight": "Summer outdoor BBQ celebrations, picnics, and high beverage/dining sales."},
+                        "memorial": {"mult": 1.7, "name": "Memorial Day Weekend", "insight": "3-day holiday weekend kicking off summer retail and dining travel."},
+                        "labor day": {"mult": 1.7, "name": "Labor Day Weekend", "insight": "End-of-summer 3-day holiday weekend with elevated leisure spend."},
+                        "halloween": {"mult": 1.8, "name": "Halloween", "insight": "Confectionery, candy, festive treats, and nightlife entertainment surge."},
+                        "super bowl": {"mult": 2.1, "name": "Super Bowl Sunday", "insight": "Record-setting pizza, chicken wings, beer, and snack food delivery demand."},
+                        "st. patrick": {"mult": 1.7, "name": "St. Patrick's Day", "insight": "High bar, pub, and casual dining footfall across the nation."},
+                        "mother's day": {"mult": 1.9, "name": "Mother's Day", "insight": "Highest restaurant brunch and fine dining reservation volume of the year."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "GB": {
+                    "zone": "United Kingdom & Ireland",
+                    "primary_festivals": {
+                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Apex of UK festive dining and family celebrations."},
+                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Massive post-Christmas shopping sales rush and football hospitality."},
+                        "new year": {"mult": 2.0, "name": "New Year's Eve / Day", "insight": "Hospitality and pub peak with celebratory dining."},
+                        "bank holiday": {"mult": 1.7, "name": "Bank Holiday Weekend", "insight": "3-day long weekend driving high pub visits, dining out, and domestic leisure."},
+                        "easter": {"mult": 1.8, "name": "Easter Weekend", "insight": "Spring family gatherings, confectionery sales, and restaurant dining."},
+                        "guy fawkes": {"mult": 1.5, "name": "Bonfire Night (Guy Fawkes)", "insight": "Outdoor public fireworks gatherings and hot food/beverage demand."},
+                        "st patrick": {"mult": 1.6, "name": "St Patrick's Day", "insight": "Heavy pub and restaurant footfall across the UK."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "CA": {
+                    "zone": "North America",
+                    "primary_festivals": {
+                        "thanksgiving": {"mult": 2.2, "name": "Canadian Thanksgiving", "insight": "October harvest feast with high grocery and family dining volume."},
+                        "canada day": {"mult": 2.0, "name": "Canada Day", "insight": "July 1 nationwide celebrations, fireworks, and outdoor dining."},
+                        "victoria day": {"mult": 1.7, "name": "Victoria Day Weekend", "insight": "First major summer long weekend with strong travel and dining rush."},
+                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Peak winter festive dining and retail celebrations."},
+                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Annual shopping frenzy and high mall/restaurant footfall."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "AU": {
+                    "zone": "Oceania / Australia",
+                    "primary_festivals": {
+                        "australia day": {"mult": 2.0, "name": "Australia Day", "insight": "Summer holiday; massive demand for BBQs, beachside food, and outdoor hospitality."},
+                        "anzac": {"mult": 1.6, "name": "ANZAC Day", "insight": "Dawn services followed by busy cafes and traditional pub two-up gatherings."},
+                        "melbourne cup": {"mult": 1.8, "name": "Melbourne Cup Day", "insight": "The race that stops the nation; restaurant lunches and party catering peak."},
+                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Summer festive dining, seafood feasts, and celebrations."},
+                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Huge retail sales rush and cricket/sports hospitality."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "SG": {
+                    "zone": "Southeast Asia",
+                    "primary_festivals": {
+                        "chinese new year": {"mult": 2.5, "name": "Chinese New Year / Lunar New Year", "insight": "Singapore's supreme festival; reunion dinners, bakery, mandarin gifting, and shopping."},
+                        "lunar new year": {"mult": 2.5, "name": "Lunar New Year", "insight": "Multi-day celebratory feasts and retail peak."},
+                        "hari raya": {"mult": 2.2, "name": "Hari Raya Puasa / Aidilfitri", "insight": "Geylang Serai bazaar, festive feasting, and community open houses."},
+                        "deepavali": {"mult": 2.0, "name": "Deepavali", "insight": "Little India festive bazaar and holiday celebratory dining."},
+                        "national day": {"mult": 2.0, "name": "National Day (Aug 9)", "insight": "Marina Bay parade crowds, fireworks dining, and patriotic gatherings."},
+                        "christmas": {"mult": 2.0, "name": "Christmas in Singapore", "insight": "Orchard Road light-up, shopping, and year-end restaurant dining."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "AE": {
+                    "zone": "Middle East / GCC",
+                    "primary_festivals": {
+                        "eid al-fitr": {"mult": 2.4, "name": "Eid al-Fitr", "insight": "Grand festive dining, retail shopping festivals, and holiday travel surge."},
+                        "eid al-adha": {"mult": 2.3, "name": "Eid al-Adha", "insight": "Traditional family banquets, gifting, and hospitality rush."},
+                        "national day": {"mult": 2.2, "name": "UAE National Day (Dec 2)", "insight": "Long weekend holiday, fireworks dining, and commercial sales promotions."},
+                        "new year": {"mult": 2.2, "name": "New Year's Eve in UAE", "insight": "World-famous celebration dining and entertainment records."},
+                        "ramadan": {"mult": 1.9, "name": "Ramadan Evenings", "insight": "High night-time footfall for Iftar buffets and Suhoor gatherings."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "DE": {
+                    "zone": "Europe",
+                    "primary_festivals": {
+                        "einheit": {"mult": 1.7, "name": "Tag der Deutschen Einheit", "insight": "German Unity Day national holiday and leisure spending."},
+                        "weihnachten": {"mult": 2.2, "name": "Weihnachten (Christmas)", "insight": "Christmas markets (Weihnachtsmarkt) and festive dining peaks."},
+                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Major winter celebration with high dining and confectionery."},
+                        "silvester": {"mult": 2.0, "name": "Silvester / New Year", "insight": "Celebratory gatherings, fireworks, and restaurant parties."},
+                        "ostern": {"mult": 1.8, "name": "Ostern (Easter)", "insight": "Spring long weekend, bakery treats, and family dining."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "FR": {
+                    "zone": "Europe",
+                    "primary_festivals": {
+                        "bastille": {"mult": 2.0, "name": "Bastille Day (14 Juillet)", "insight": "French National Day celebrations, fireworks, and cafe/bistro crowds."},
+                        "fête nationale": {"mult": 2.0, "name": "Fête nationale", "insight": "Grand public festivities and dining out."},
+                        "noël": {"mult": 2.2, "name": "Noël (Christmas)", "insight": "Lavish festive gastronomy, patisserie, and family feasts."},
+                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Winter holiday dining peak."},
+                        "nouvel an": {"mult": 2.0, "name": "Jour de l'An (New Year)", "insight": "Gourmet dining and festive celebrations."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+                "JP": {
+                    "zone": "East Asia",
+                    "primary_festivals": {
+                        "golden week": {"mult": 2.3, "name": "Golden Week", "insight": "Consecutive national holidays; nationwide domestic travel, shopping, and dining surge."},
+                        "showa": {"mult": 2.0, "name": "Showa Day (Golden Week)", "insight": "Holiday travel and restaurant dining rush."},
+                        "constitution": {"mult": 2.0, "name": "Constitution Memorial Day", "insight": "Peak holiday spending during Golden Week."},
+                        "children": {"mult": 2.0, "name": "Children's Day (Kodomo no Hi)", "insight": "Family dining, confectionery, and outing surges."},
+                        "new year": {"mult": 2.4, "name": "Shogatsu (New Year)", "insight": "Japan's prime holiday season; Osechi dining, shrine visits, and family homecomings."},
+                        "obon": {"mult": 2.0, "name": "Obon Festival", "insight": "Summer homecoming holiday with high regional dining and travel."},
+                    },
+                    "state_days": [],
+                    "dry_days": [],
+                },
+            }
+
+            if shop_country_code == "IN":
+                state_info = REGIONAL_PROFILE.get(shop_state, {
+                    "zone": "Pan-India",
+                    "primary_festivals": {},
+                    "state_days": [],
+                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                })
+            else:
+                state_info = GLOBAL_CULTURAL_PROFILES.get(shop_country_code, {
+                    "zone": f"International ({shop_country})",
+                    "primary_festivals": {},
+                    "state_days": [],
+                    "dry_days": [],
+                })
+
+            major_festivals = [
+                "Diwali", "Deepavali", "Holi", "Eid", "Christmas", "New Year", "Independence Day",
+                "Republic Day", "Gandhi Jayanti", "Janmashtami", "Dussehra", "Maha Shivaratri",
+                "Thanksgiving", "Easter", "Boxing Day", "National Day", "Labor Day"
+            ]
+
+            ssl_ctx = ssl._create_unverified_context()
+            headers = {"User-Agent": "InfoOS-POS/1.0 (infoos@local.dev)"}
+            all_events = []
+            api_source = "google_calendar_public_feed (primary web request)"
+
+            # Map ISO code to official Google Calendar feeds
+            GCAL_FEED_MAP = {
+                "IN": "en.indian",
+                "US": "en.usa",
+                "GB": "en.uk",
+                "CA": "en.canadian",
+                "AU": "en.australian",
+                "SG": "en.singapore",
+            }
+
+            gcal_feed = GCAL_FEED_MAP.get(shop_country_code)
+
+            # TIER 1: Google Calendar official country feed if available
+            if gcal_feed:
+                try:
+                    gcal_url = f"https://calendar.google.com/calendar/ical/{gcal_feed}%23holiday%40group.v.calendar.google.com/public/basic.ics"
+                    req = urllib.request.Request(gcal_url, headers=headers)
+                    with urllib.request.urlopen(req, context=ssl_ctx, timeout=6) as resp:
+                        ics_content = resp.read().decode("utf-8")
+                        raw_vevents = ics_content.split("BEGIN:VEVENT")
+
+                        for raw_ev in raw_vevents[1:]:
+                            m_dt = re.search(r"DTSTART.*?:(\d{8})", raw_ev)
+                            m_sum = re.search(r"SUMMARY:(.*)", raw_ev)
+                            m_desc = re.search(r"DESCRIPTION:(.*)", raw_ev)
+                            if not m_dt or not m_sum:
+                                continue
+
+                            dt_s = m_dt.group(1)
+                            ev_d = _date(int(dt_s[:4]), int(dt_s[4:6]), int(dt_s[6:8]))
+                            if not (from_dt <= ev_d <= to_dt):
+                                continue
+
+                            ev_name = m_sum.group(1).strip().replace("\\,", ",")
+                            ev_desc = m_desc.group(1).strip().replace("\\,", ",") if m_desc else ""
+                            ev_lower = ev_name.lower()
+
+                            h_mult = 1.2
+                            ev_type = "public_holiday"
+                            scope = "national"
+                            relevance = "NATIONAL_GAZETTED"
+                            regional_insight = ""
+
+                            # 1. Match signature festivals for this country/state
+                            matched_state_fest = None
+                            for kw, f_meta in state_info["primary_festivals"].items():
+                                if kw in ev_lower:
+                                    matched_state_fest = f_meta
+                                    break
+
+                            # 2. Check other Indian state matches if in India
+                            other_state_match = None
+                            if shop_country_code == "IN" and not matched_state_fest:
+                                for other_s_name, other_s_meta in REGIONAL_PROFILE.items():
+                                    if other_s_name == shop_state:
+                                        continue
+                                    for okw, of_meta in other_s_meta["primary_festivals"].items():
+                                        if okw in ev_lower:
+                                            other_state_match = (other_s_name, of_meta)
+                                            break
+                                    if other_state_match:
+                                        break
+
+                            # 3. Check dry days
+                            is_dry_day = any(dd in ev_lower for dd in state_info.get("dry_days", []))
+                            is_major = any(mf.lower() in ev_lower for mf in major_festivals)
+
+                            if is_dry_day:
+                                h_mult = 0.8
+                                ev_type = "dry_day"
+                                scope = f"dry_day:{shop_state or shop_country}"
+                                relevance = "STATUTORY_DRY_DAY"
+                                regional_insight = f"Government-mandated Dry Day in {shop_state or shop_country}. Alcohol sales prohibited; dining and beverage volumes restricted."
+                            elif matched_state_fest:
+                                h_mult = matched_state_fest["mult"]
+                                ev_type = "regional_festival" if shop_country_code == "IN" else "national_festival"
+                                scope = f"regional:{shop_state}" if shop_country_code == "IN" else f"national:{shop_country_code}"
+                                relevance = "PRIMARY_STATE_FESTIVAL" if shop_country_code == "IN" else "NATIONAL_SIGNATURE_FESTIVAL"
+                                regional_insight = matched_state_fest["insight"]
+                            elif is_major and "eve" in ev_lower:
+                                h_mult = 1.4
+                                ev_type = "festival_eve"
+                                scope = "national"
+                                relevance = "MAJOR_FESTIVAL_EVE"
+                                regional_insight = f"Festive eve preparations across {shop_state or shop_country}. High evening takeaway and grocery demand."
+                            elif is_major:
+                                h_mult = 2.0 if any(k in ev_lower for k in ["thanksgiving", "diwali", "christmas", "new year"]) else 1.8
+                                ev_type = "major_festival"
+                                scope = "national"
+                                relevance = "MAJOR_NATIONAL_FESTIVAL"
+                                regional_insight = f"Major nationwide festival celebrated widely across {shop_state or shop_country}."
+                            elif other_state_match:
+                                other_st, other_f = other_state_match
+                                h_mult = 1.1
+                                ev_type = "regional_observance"
+                                scope = f"regional:{other_st}"
+                                relevance = "OTHER_REGION_OBSERVANCE"
+                                regional_insight = f"Celebrated primarily in {other_st}; observed with normal or light demand in {shop_state}."
+                            elif "observance" in ev_desc.lower():
+                                h_mult = 1.15
+                                ev_type = "observance"
+                                scope = "national"
+                                relevance = "NATIONAL_OBSERVANCE"
+                                regional_insight = f"National observance noted on calendar."
+                            else:
+                                h_mult = 1.2
+                                ev_type = "public_holiday"
+                                scope = "national"
+                                relevance = "GAZETTED_HOLIDAY"
+                                regional_insight = f"General public holiday in {shop_state or shop_country}."
+
+                            all_events.append({
+                                "name": ev_name,
+                                "date": str(ev_d),
+                                "type": ev_type,
+                                "scope": scope,
+                                "relevance": relevance,
+                                "h_multiplier": h_mult,
+                                "effect": "boost" if h_mult > 1.0 else "suppress" if h_mult < 1.0 else "neutral",
+                                "regional_insight": regional_insight,
+                                "description": ev_desc or f"{ev_name} celebration in {shop_state or shop_country}",
+                            })
+
+                    # Check state days if configured
+                    cur_year = from_dt.year
+                    for mmdd, s_day_name, s_mult, s_ins in state_info.get("state_days", []):
+                        try:
+                            s_date = _date(cur_year, int(mmdd[:2]), int(mmdd[3:]))
+                            if from_dt <= s_date <= to_dt:
+                                all_events.append({
+                                    "name": s_day_name,
+                                    "date": str(s_date),
+                                    "type": "regional_holiday",
+                                    "scope": f"regional:{shop_state}",
+                                    "relevance": "STATE_FOUNDATION_HOLIDAY",
+                                    "h_multiplier": s_mult,
+                                    "effect": "boost",
+                                    "regional_insight": s_ins,
+                                    "description": f"Official state holiday for {shop_state}.",
+                                })
+                        except Exception:
+                            pass
+
+                except Exception as _gcal_err:
+                    _log.warning("Primary Google Calendar holidays request failed for %s: %s", shop_country_code, _gcal_err)
+
+            # TIER 2: Nager.Date Global Public Holidays API (for all 100+ countries or when GCal returns empty)
+            if not all_events:
+                api_source = "date.nager.at (worldwide public holidays api)"
+                years_to_query = sorted(list({from_dt.year, to_dt.year}))
+                for q_year in years_to_query:
+                    try:
+                        nager_url = f"https://date.nager.at/api/v3/PublicHolidays/{q_year}/{shop_country_code}"
+                        req = urllib.request.Request(nager_url, headers=headers)
+                        with urllib.request.urlopen(req, context=ssl_ctx, timeout=6) as resp:
+                            nager_data = _json.loads(resp.read().decode("utf-8"))
+                            for h in nager_data:
+                                h_date = _date.fromisoformat(h["date"])
+                                if not (from_dt <= h_date <= to_dt):
+                                    continue
+                                h_name = h.get("name") or h.get("localName") or "Public Holiday"
+                                h_lower = h_name.lower()
+
+                                # Check matching against national profile
+                                matched_fest = None
+                                for kw, f_meta in state_info.get("primary_festivals", {}).items():
+                                    if kw in h_lower:
+                                        matched_fest = f_meta
+                                        break
+
+                                if matched_fest:
+                                    h_mult = matched_fest["mult"]
+                                    ev_type = "national_festival"
+                                    relevance = "NATIONAL_SIGNATURE_FESTIVAL"
+                                    insight = matched_fest["insight"]
+                                elif any(k in h_lower for k in ["christmas", "xmas", "noël", "weihnachten", "navidad"]):
+                                    h_mult = 2.2
+                                    ev_type = "major_festival"
+                                    relevance = "CHRISTMAS_FESTIVAL"
+                                    insight = f"Peak festive season holiday in {shop_country}."
+                                elif any(k in h_lower for k in ["new year", "silvester", "nouvel an", "shogatsu"]):
+                                    h_mult = 2.0
+                                    ev_type = "major_festival"
+                                    relevance = "NEW_YEAR_CELEBRATION"
+                                    insight = f"Celebration holiday in {shop_country}."
+                                elif any(k in h_lower for k in ["thanksgiving", "golden week", "easter", "eid"]):
+                                    h_mult = 1.9
+                                    ev_type = "major_festival"
+                                    relevance = "MAJOR_CULTURAL_FESTIVAL"
+                                    insight = f"Grand cultural holiday celebration in {shop_country}."
+                                elif any(k in h_lower for k in ["independence", "national day", "republic", "revolution", "constitution"]):
+                                    h_mult = 1.8
+                                    ev_type = "national_holiday"
+                                    relevance = "NATIONAL_DAY"
+                                    insight = f"Official patriotic national holiday in {shop_country}."
+                                else:
+                                    h_mult = 1.3
+                                    ev_type = "public_holiday"
+                                    relevance = "PUBLIC_HOLIDAY"
+                                    insight = f"Public holiday in {shop_country}."
+
+                                all_events.append({
+                                    "name": h_name,
+                                    "date": str(h_date),
+                                    "type": ev_type,
+                                    "scope": f"national:{shop_country_code}",
+                                    "relevance": relevance,
+                                    "h_multiplier": h_mult,
+                                    "effect": "boost" if h_mult > 1.0 else "neutral",
+                                    "regional_insight": insight,
+                                    "description": f"{h_name} ({h.get('localName', '')}) in {shop_country}",
+                                })
+                    except Exception as _nager_err:
+                        _log.warning("Nager.Date holiday request failed for %s/%s: %s", q_year, shop_country_code, _nager_err)
+
+            # TIER 3: Fallback web request to randomapi.dev
+            if not all_events:
+                try:
+                    api_source = "randomapi.dev (fallback web request)"
+                    fb_url = f"https://randomapi.dev/api/holidays?country={shop_country_code}&year={from_dt.year}"
+                    req = urllib.request.Request(fb_url, headers=headers)
+                    with urllib.request.urlopen(req, context=ssl_ctx, timeout=6) as resp:
+                        fb_data = _json.loads(resp.read().decode("utf-8"))
+                        for h in fb_data.get("data", []):
+                            h_date = _date.fromisoformat(h["date"])
+                            if from_dt <= h_date <= to_dt:
+                                h_name = h.get("name")
+                                is_major_fb = any(mf.lower() in h_name.lower() for mf in major_festivals)
+                                all_events.append({
+                                    "name": h_name,
+                                    "date": str(h_date),
+                                    "type": "major_festival" if is_major_fb else "public_holiday",
+                                    "scope": "national",
+                                    "relevance": "MAJOR_NATIONAL_FESTIVAL" if is_major_fb else "NATIONAL_GAZETTED",
+                                    "h_multiplier": 1.8 if is_major_fb else 1.2,
+                                    "effect": "boost",
+                                    "regional_insight": f"Public holiday recognized in {shop_country}.",
+                                    "description": h.get("localName") or h_name,
+                                })
+                except Exception as _fb_err:
+                    _log.error("Fallback holiday request failed: %s", _fb_err)
+
+            # De-duplicate by (date, name) and sort by date
+            seen = set()
+            unique_events = []
+            for ev in sorted(all_events, key=lambda e: e["date"]):
+                key = (ev["date"], ev["name"])
+                if key not in seen:
+                    seen.add(key)
+                    unique_events.append(ev)
+
+            return {
+                "shop_country": shop_country,
+                "shop_country_code": shop_country_code,
+                "shop_state": shop_state,
+                "shop_city": shop_city,
+                "shop_pincode": raw_pincode,
+                "region_zone": state_info.get("zone", shop_country),
+                "regional_festivals_tracked": list(state_info.get("primary_festivals", {}).keys()),
+                "from_date": str(from_dt),
+                "to_date": str(to_dt),
+                "event_count": len(unique_events),
+                "events": unique_events,
+                "source": api_source,
+                "note": f"Holidays & festivals fetched directly via web request ({api_source}) and dynamically calibrated for {shop_country}" + (f" ({shop_state})" if shop_state else "") + ".",
+            }
+
+        elif tool_name == "get_weather_forecast":
+            import os
+            import ssl
+            import json as _json
+            import urllib.request
+            import urllib.parse
+
+            forecast_days = min(int(args.get("forecast_days", 7)), 14)
+
+            # Read shop location from profile.db or tool args
+            country = str(args.get("country") or args.get("shop_country") or "").strip()
+            pincode = str(args.get("pincode") or "").strip()
+            city = str(args.get("city") or args.get("shop_city") or "").strip()
+            state = str(args.get("state") or args.get("shop_state") or "").strip()
+            lat = args.get("lat") or args.get("latitude")
+            lon = args.get("lon") or args.get("longitude")
+            geocoding_source = "open-meteo-geocoding (primary)"
+
+            try:
+                from services.profile_service import ProfileService
+
+                profile = ProfileService.get_profile()
+                if profile:
+                    # If caller did NOT provide explicit city/state or coords in args, prioritize profile.db pinned pin
+                    if not city and not pincode and lat is None and lon is None:
+                        p_lat = profile.get("latitude")
+                        p_lon = profile.get("longitude")
+                        if p_lat is not None and p_lon is not None:
+                            try:
+                                lat = float(p_lat)
+                                lon = float(p_lon)
+                                geocoding_source = "user-map-pin (profile.db exact)"
+                            except (ValueError, TypeError):
+                                pass
+                    if not country:
+                        country = str(profile.get("country") or "").strip()
+                    if not pincode:
+                        pincode = str(profile.get("pincode") or "").strip()
+                    if not city:
+                        city = str(profile.get("city") or "").strip()
+                    if not state:
+                        state = str(profile.get("state") or "").strip()
+            except Exception as _pe:
+                _log.warning("Could not read profile for weather: %s", _pe)
+
+            if not country:
+                country = "India"
+
+            ssl_ctx = ssl._create_unverified_context()
+            headers = {"User-Agent": "InfoOS-POS/1.0 (infoos@local.dev)"}
+
+            # -------------------------------------------------------------
+            # DIRECT WEB GEOCODING: Worldwide Open-Meteo -> Fallback Nominatim OSM
+            # (Skipped if exact coordinates were pinned by user in profile.db)
+            # -------------------------------------------------------------
+            if lat is None or lon is None:
+                # Primary: Open-Meteo Geocoding (Worldwide)
+                q_candidates = []
+                if city and country:
+                    q_candidates.append(f"{city}, {country}")
+                if city and state and country:
+                    q_candidates.append(f"{city}, {state}, {country}")
+                if city:
+                    q_candidates.append(city)
+                if pincode and country:
+                    q_candidates.append(f"{pincode}, {country}")
+
+                for q_term in q_candidates:
+                    try:
+                        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(q_term)}&count=1&language=en&format=json"
+                        req = urllib.request.Request(geo_url, headers=headers)
+                        with urllib.request.urlopen(req, context=ssl_ctx, timeout=5) as r:
+                            geo_res = _json.loads(r.read())
+                            results = geo_res.get("results")
+                            if results and len(results) > 0:
+                                lat = float(results[0]["latitude"])
+                                lon = float(results[0]["longitude"])
+                                geocoding_source = f"open-meteo-geocoding ({q_term})"
+                                break
+                    except Exception as _ge:
+                        _log.debug("Open-Meteo geocoding attempt failed for %s: %s", q_term, _ge)
+
+            # Fallback: Nominatim OpenStreetMap Geocoding (Worldwide)
+            if lat is None or lon is None:
+                geocoding_source = "nominatim-osm (fallback)"
+                osm_queries = []
+                if pincode and country:
+                    osm_queries.append(f"https://nominatim.openstreetmap.org/search?postalcode={urllib.parse.quote(pincode)}&country={urllib.parse.quote(country)}&format=json&limit=1")
+                full_addr = " ".join(filter(None, [city, state, country])).strip()
+                if full_addr:
+                    osm_queries.append(f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(full_addr)}&format=json&limit=1")
+
+                for osm_url in osm_queries:
+                    try:
+                        req = urllib.request.Request(osm_url, headers=headers)
+                        with urllib.request.urlopen(req, context=ssl_ctx, timeout=5) as r:
+                            osm_items = _json.loads(r.read())
+                            if osm_items and len(osm_items) > 0:
+                                lat = float(osm_items[0]["lat"])
+                                lon = float(osm_items[0]["lon"])
+                                break
+                    except Exception as _oe:
+                        _log.debug("Nominatim geocoding attempt failed: %s", _oe)
+
+            # Safety fallback: Global Capital / Country Centroid Coordinates
+            if lat is None or lon is None:
+                WORLD_CENTROIDS = {
+                    "us": (38.8951, -77.0364), "usa": (38.8951, -77.0364), "united states": (38.8951, -77.0364),
+                    "uk": (51.5074, -0.1278), "gb": (51.5074, -0.1278), "united kingdom": (51.5074, -0.1278), "great britain": (51.5074, -0.1278),
+                    "ca": (45.4215, -75.6972), "canada": (45.4215, -75.6972),
+                    "au": (-33.8688, 151.2093), "australia": (-33.8688, 151.2093),
+                    "sg": (1.3521, 103.8198), "singapore": (1.3521, 103.8198),
+                    "ae": (25.2048, 55.2708), "uae": (25.2048, 55.2708), "united arab emirates": (25.2048, 55.2708), "dubai": (25.2048, 55.2708),
+                    "de": (52.5200, 13.4050), "germany": (52.5200, 13.4050),
+                    "fr": (48.8566, 2.3522), "france": (48.8566, 2.3522),
+                    "jp": (35.6762, 139.6503), "japan": (35.6762, 139.6503),
+                    "nz": (-41.2865, 174.7762), "new zealand": (-41.2865, 174.7762),
+                    "in": (18.5204, 73.8567), "india": (18.5204, 73.8567),
+                }
+                c_key = country.strip().lower()
+                lat, lon = WORLD_CENTROIDS.get(c_key, (18.5204, 73.8567))
+                geocoding_source = f"default-centroid ({country})"
+
+            # WMO weather code to condition label
+            def _wmo_to_condition(code: int) -> str:
+                if code == 0:
+                    return "Clear / Sunny"
+                elif code in (1, 2):
+                    return "Partly Cloudy"
+                elif code == 3:
+                    return "Overcast"
+                elif code in (51, 53, 55, 56, 57):
+                    return "Light Rain"
+                elif code in (61, 63, 65, 66, 67, 80, 81, 82):
+                    return "Heavy Rain"
+                elif code in (71, 73, 75, 77, 85, 86):
+                    return "Snow"
+                elif code in (95, 96, 99):
+                    return "Thunderstorm"
+                elif code in (45, 48):
+                    return "Dense Fog"
+                return "Partly Cloudy"
+
+            WEATHER_MULTIPLIERS = {
+                "Clear / Sunny": 1.05,
+                "Partly Cloudy": 1.00,
+                "Overcast": 0.95,
+                "Light Rain": 0.85,
+                "Heavy Rain": 0.65,
+                "Snow": 0.70,
+                "Thunderstorm": 0.60,
+                "Dense Fog": 0.70,
+            }
+
+            forecast_rows = []
+            weather_source = "open-meteo (primary)"
+
+            # -------------------------------------------------------------
+            # DIRECT WEATHER WEB REQUEST: Primary Open-Meteo -> Fallback wttr.in
+            # -------------------------------------------------------------
+            try:
+                wm_url = (
+                    f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+                    f"&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode"
+                    f"&forecast_days={forecast_days}&timezone=Asia%2FKolkata"
+                )
+                req = urllib.request.Request(wm_url, headers=headers)
+                with urllib.request.urlopen(req, context=ssl_ctx, timeout=7) as resp:
+                    wdata = _json.loads(resp.read().decode("utf-8"))
+                    daily = wdata.get("daily", {})
+                    dates = daily.get("time", [])
+                    max_temps = daily.get("temperature_2m_max", [])
+                    min_temps = daily.get("temperature_2m_min", [])
+                    precip_probs = daily.get("precipitation_probability_max", [])
+                    weather_codes = daily.get("weathercode", [])
+
+                    for i, d_str in enumerate(dates):
+                        code = int(weather_codes[i]) if i < len(weather_codes) else 0
+                        condition = _wmo_to_condition(code)
+                        max_t = max_temps[i] if i < len(max_temps) else 0
+                        min_t = min_temps[i] if i < len(min_temps) else 0
+                        precip = precip_probs[i] if i < len(precip_probs) else 0
+
+                        w_mult = WEATHER_MULTIPLIERS.get(condition, 1.0)
+                        if max_t is not None and float(max_t) > 42:
+                            w_mult = min(w_mult, 0.75)
+                            condition = f"{condition} (Extreme Heat)"
+                        elif max_t is not None and 18 <= float(max_t) <= 26:
+                            w_mult = min(w_mult * 1.1, 1.2)
+
+                        forecast_rows.append({
+                            "date": d_str,
+                            "condition": condition,
+                            "max_temp_c": max_t,
+                            "min_temp_c": min_t,
+                            "precipitation_pct": precip,
+                            "weather_multiplier": round(w_mult, 3),
+                            "weather_note": (
+                                "Revenue Dip Risk — activate delivery/takeaway promotions"
+                                if w_mult < 0.75
+                                else "Pleasant weather — full foot traffic expected"
+                                if w_mult >= 1.1
+                                else None
+                            ),
+                        })
+            except Exception as _primary_err:
+                _log.warning("Primary Open-Meteo weather request failed: %s; attempting wttr.in fallback", _primary_err)
+                # FALLBACK: wttr.in JSON API
+                try:
+                    weather_source = "wttr.in (fallback)"
+                    wttr_target = f"{lat},{lon}" if (lat and lon) else (city or "India")
+                    wttr_url = f"https://wttr.in/{urllib.parse.quote(wttr_target)}?format=j1"
+                    req = urllib.request.Request(wttr_url, headers=headers)
+                    with urllib.request.urlopen(req, context=ssl_ctx, timeout=7) as resp:
+                        wttr_data = _json.loads(resp.read().decode("utf-8"))
+                        for d in wttr_data.get("weather", [])[:forecast_days]:
+                            d_str = d.get("date")
+                            max_t = float(d.get("maxtempC", 30))
+                            min_t = float(d.get("mintempC", 20))
+                            hourly = d.get("hourly", [])
+                            mid_slot = hourly[len(hourly) // 2] if hourly else {}
+                            cond_text = mid_slot.get("weatherDesc", [{}])[0].get("value", "Partly Cloudy").strip()
+                            precip = float(mid_slot.get("chanceofrain", "0"))
+
+                            cond_lower = cond_text.lower()
+                            if "thunder" in cond_lower:
+                                condition = "Thunderstorm"
+                            elif "heavy rain" in cond_lower or "torrential" in cond_lower:
+                                condition = "Heavy Rain"
+                            elif "rain" in cond_lower or "drizzle" in cond_lower:
+                                condition = "Light Rain"
+                            elif "fog" in cond_lower or "mist" in cond_lower:
+                                condition = "Dense Fog"
+                            elif "overcast" in cond_lower:
+                                condition = "Overcast"
+                            elif "cloud" in cond_lower:
+                                condition = "Partly Cloudy"
+                            else:
+                                condition = "Clear / Sunny"
+
+                            w_mult = WEATHER_MULTIPLIERS.get(condition, 1.0)
+                            if max_t > 42:
+                                w_mult = min(w_mult, 0.75)
+                            elif 18 <= max_t <= 26:
+                                w_mult = min(w_mult * 1.1, 1.2)
+
+                            forecast_rows.append({
+                                "date": d_str,
+                                "condition": condition,
+                                "max_temp_c": max_t,
+                                "min_temp_c": min_t,
+                                "precipitation_pct": int(precip),
+                                "weather_multiplier": round(w_mult, 3),
+                                "weather_note": (
+                                    "Revenue Dip Risk — activate delivery/takeaway promotions"
+                                    if w_mult < 0.75
+                                    else "Pleasant weather — full foot traffic expected"
+                                    if w_mult >= 1.1
+                                    else None
+                                ),
+                            })
+                except Exception as _fb_err:
+                    _log.error("Both weather APIs failed: %s", _fb_err)
+                    return {"error": f"Weather web requests failed: Primary: {_primary_err}; Fallback: {_fb_err}"}
+
+            return {
+                "city": city,
+                "state": state,
+                "pincode": pincode,
+                "lat": lat,
+                "lon": lon,
+                "geocoding_source": geocoding_source,
+                "weather_source": weather_source,
+                "forecast_days": len(forecast_rows),
+                "forecast": forecast_rows,
+                "data_source": f"Live Weather Web Request ({weather_source}) via coordinates ({lat:.4f}, {lon:.4f})",
+            }
+
+        elif tool_name == "run_sales_prediction":
+            from datetime import date as _date, timedelta as _td
+
+            predict_from_str = args.get(
+                "predict_from", str(date.today() + timedelta(days=1))
+            )
+            predict_to_str = args.get(
+                "predict_to", str(date.today() + timedelta(days=7))
+            )
+            include_product_forecast = bool(args.get("include_product_forecast", True))
+            include_staffing = bool(args.get("include_staffing_recommendation", True))
+            include_ci = bool(args.get("include_confidence_intervals", True))
+
+            try:
+                pred_from = _date.fromisoformat(predict_from_str)
+                pred_to = _date.fromisoformat(predict_to_str)
+            except ValueError:
+                return {"error": "Invalid date format. Use YYYY-MM-DD."}
+
+            if pred_from > pred_to:
+                return {"error": "predict_from must be before or equal to predict_to."}
+            if (pred_to - pred_from).days > 13:
+                return {"error": "Prediction window cannot exceed 14 days."}
+
+            forecast_days = (pred_to - pred_from).days + 1
+
+            # --- STEP 1 + 2: Historical baseline & weekday weights ---
+            history = _execute_read_tool_uncached(
+                "get_sales_history_for_prediction",
+                {"trailing_days": 90, "group_by": "weekday"},
+            )
+            weekday_data: Dict[str, Dict] = {}
+            for wd_row in history.get("weekday_averages", []):
+                weekday_data[wd_row["weekday"]] = wd_row
+
+            overall_avg = history.get("overall_avg_daily_sales", 0) or 1.0
+            data_points = history.get("data_points", 0)
+            confidence_note = history.get("confidence_note", "LOW")
+
+            if data_points < 7:
+                return {
+                    "error": (
+                        "Insufficient historical data for prediction. "
+                        f"Only {data_points} day(s) of sales data found. "
+                        "Please return after at least 7 days of operation."
+                    ),
+                    "data_points": data_points,
+                }
+
+            # --- STEP 5 (opt): Top products ---
+            top_products_raw = []
+            if include_product_forecast:
+                prod_result = _execute_read_tool_uncached(
+                    "get_top_products_for_prediction",
+                    {"top_n": 15, "trailing_days": 60},
+                )
+                top_products_raw = prod_result.get("products", [])
+
+            # --- STEP 3: Festivals & holidays ---
+            holidays_result = _execute_read_tool_uncached(
+                "get_regional_festivals_and_holidays",
+                {
+                    "from_date": predict_from_str,
+                    "to_date": predict_to_str,
+                    "include_regional": True,
+                    "include_national": True,
+                    "include_dry_days": True,
+                },
+            )
+            holiday_by_date: Dict[str, List] = {}
+            for ev in holidays_result.get("events", []):
+                holiday_by_date.setdefault(ev["date"], []).append(ev)
+
+            # --- STEP 4: Weather forecast ---
+            weather_result = _execute_read_tool_uncached(
+                "get_weather_forecast",
+                {"forecast_days": forecast_days},
+            )
+            weather_by_date: Dict[str, Dict] = {}
+            for fw in weather_result.get("forecast", []):
+                weather_by_date[fw["date"]] = fw
+
+            # --- Profile context ---
+            currency_symbol = "Rs."
+            seating_capacity = 50
+            business_type = "general"
+            shop_name = "Your Shop"
+            try:
+                from services.profile_service import ProfileService
+
+                profile = ProfileService.get_profile()
+                if profile:
+                    currency_symbol = profile.get("currency_symbol") or "Rs."
+                    seating_capacity = int(profile.get("seating_capacity") or 50)
+                    business_type = (profile.get("business_type") or "general").lower()
+                    shop_name = profile.get("shop_name") or "Your Shop"
+            except Exception:
+                pass
+
+            # Throughput multiplier by business type
+            capacity_multiplier = 3.5 if "qsr" in business_type or "fast" in business_type else 1.8
+
+            # --- STEP 6: WARMP assembly ---
+            daily_forecast = []
+            week_total_revenue = 0.0
+            week_total_orders = 0
+
+            cursor = pred_from
+            day_index = 0
+            while cursor <= pred_to:
+                date_str = str(cursor)
+                weekday_name = cursor.strftime("%A")
+
+                # Base demand signal
+                wd_info = weekday_data.get(weekday_name, {})
+                bds = wd_info.get("avg_daily_sales", overall_avg)
+                dow_weight = wd_info.get("dow_weight", 1.0)
+                avg_orders = wd_info.get("avg_daily_orders", 0)
+
+                # Holiday multiplier (highest H wins if multiple events)
+                day_events = holiday_by_date.get(date_str, [])
+                h_mult = max((ev["h_multiplier"] for ev in day_events), default=1.0)
+
+                # Weather multiplier
+                weather_info = weather_by_date.get(date_str, {})
+                w_mult = weather_info.get("weather_multiplier", 1.0)
+
+                # WARMP formula
+                predicted_revenue = bds * dow_weight * h_mult * w_mult
+
+                # Order count estimate (proportional to revenue change)
+                composite = dow_weight * h_mult * w_mult
+                predicted_orders = int(round(avg_orders * composite))
+
+                # Confidence interval (widens with horizon)
+                ci_pct = min(8 + day_index * 1.5, 28)
+                ci_low = round(predicted_revenue * (1 - ci_pct / 100), 2)
+                ci_high = round(predicted_revenue * (1 + ci_pct / 100), 2)
+
+                # Capacity saturation check
+                cap_alert = None
+                if seating_capacity > 0 and predicted_orders > seating_capacity * capacity_multiplier:
+                    cap_alert = (
+                        f"PEAK SATURATION RISK: Predicted {predicted_orders} orders may exceed "
+                        f"capacity ({seating_capacity} seats × {capacity_multiplier:.1f} throughput). "
+                        "Consider queue management or advance booking."
+                    )
+
+                # Weather risk alert
+                weather_alert = None
+                if w_mult < 0.75:
+                    weather_alert = (
+                        f"REVENUE DIP RISK: {weather_info.get('condition', 'Bad weather')} expected. "
+                        "Recommend activating delivery/takeaway promotions."
+                    )
+
+                # Festival opportunity flag
+                festival_alert = None
+                if h_mult > 1.4:
+                    event_names = ", ".join(ev["name"] for ev in day_events)
+                    festival_alert = (
+                        f"FESTIVE SURGE OPPORTUNITY ({event_names}): "
+                        "Schedule extra staff and pre-order inventory."
+                    )
+
+                signals = []
+                if day_events:
+                    signals.extend(ev["name"] for ev in day_events)
+                if weather_info.get("condition"):
+                    signals.append(f"{weather_info['condition']} {weather_info.get('max_temp_c', '')}°C")
+                if not signals:
+                    signals.append("Normal trading day")
+
+                day_entry = {
+                    "date": date_str,
+                    "day": weekday_name,
+                    "predicted_revenue": round(predicted_revenue, 2),
+                    "predicted_orders": predicted_orders,
+                    "key_signals": signals,
+                    "h_multiplier": h_mult,
+                    "weather_multiplier": w_mult,
+                    "composite_multiplier": round(dow_weight * h_mult * w_mult, 4),
+                }
+                if include_ci:
+                    day_entry["confidence_pct"] = round(ci_pct, 1)
+                    day_entry["revenue_range_low"] = ci_low
+                    day_entry["revenue_range_high"] = ci_high
+
+                alerts = [a for a in [cap_alert, weather_alert, festival_alert] if a]
+                if alerts:
+                    day_entry["alerts"] = alerts
+
+                # Product-level disaggregation
+                if include_product_forecast and top_products_raw:
+                    product_forecast = []
+                    for prod in top_products_raw[:10]:
+                        pred_qty = round(
+                            prod.get("avg_daily_qty", 0) * composite, 1
+                        )
+                        product_forecast.append(
+                            {
+                                "name": prod["name"],
+                                "predicted_qty": pred_qty,
+                                "predicted_revenue": round(
+                                    prod.get("total_revenue", 0)
+                                    / max(data_points, 1)
+                                    * composite,
+                                    2,
+                                ),
+                            }
+                        )
+                    day_entry["product_forecast"] = product_forecast
+
+                daily_forecast.append(day_entry)
+                week_total_revenue += predicted_revenue
+                week_total_orders += predicted_orders
+                cursor += timedelta(days=1)
+                day_index += 1
+
+            # Staffing recommendations
+            staffing = {}
+            if include_staffing:
+                for df in daily_forecast:
+                    orders = df["predicted_orders"]
+                    if orders > 150:
+                        staff = {"kitchen": 5, "floor": 4}
+                    elif orders > 100:
+                        staff = {"kitchen": 4, "floor": 3}
+                    elif orders > 60:
+                        staff = {"kitchen": 3, "floor": 2}
+                    else:
+                        staff = {"kitchen": 2, "floor": 2}
+                    staffing[df["date"]] = staff
+
+            # Aggregate inventory suggestions from product forecasts
+            inventory_suggestions = []
+            if include_product_forecast and top_products_raw:
+                for prod in top_products_raw[:5]:
+                    total_pred_qty = sum(
+                        next(
+                            (
+                                p["predicted_qty"]
+                                for p in df.get("product_forecast", [])
+                                if p["name"] == prod["name"]
+                            ),
+                            0,
+                        )
+                        for df in daily_forecast
+                    )
+                    if total_pred_qty > 0:
+                        inventory_suggestions.append(
+                            {
+                                "product": prod["name"],
+                                "predicted_total_qty_for_period": round(total_pred_qty, 1),
+                                "recommendation": f"Prepare {round(total_pred_qty * 1.1, 1)} units (+10% buffer)",
+                            }
+                        )
+
+            # Confidence summary
+            avg_ci = (
+                round(
+                    sum(df.get("confidence_pct", 15) for df in daily_forecast)
+                    / len(daily_forecast),
+                    1,
+                )
+                if daily_forecast
+                else 15.0
+            )
+
+            return {
+                "shop": shop_name,
+                "currency": currency_symbol,
+                "predict_from": predict_from_str,
+                "predict_to": predict_to_str,
+                "forecast_days": forecast_days,
+                "data_quality": confidence_note,
+                "historical_data_points": data_points,
+                "daily_forecast": daily_forecast,
+                "period_total_predicted_revenue": round(week_total_revenue, 2),
+                "period_total_predicted_orders": week_total_orders,
+                "average_confidence_interval_pct": avg_ci,
+                "staffing_by_date": staffing if include_staffing else {},
+                "inventory_suggestions": inventory_suggestions if include_product_forecast else [],
+                "location_context": {
+                    "shop_state": holidays_result.get("shop_state", ""),
+                    "shop_city": holidays_result.get("shop_city", ""),
+                    "weather_api": weather_result.get("weather_source", "Open-Meteo (primary) / wttr.in (fallback)"),
+                    "holiday_source": holidays_result.get("source", "Google Calendar feed (primary) / RandomAPI (fallback)"),
+                    "geocoding": weather_result.get("geocoding_source", "Open-Meteo (primary) / Nominatim OSM (fallback)"),
+                },
+                "algorithm": "WARMP v1.0 — Weighted Additive Regression with Multi-factor Priors",
+                "disclaimer": (
+                    "Predictions are estimates based on historical patterns, weather forecasts, "
+                    "and regional calendar data. Actual results may vary. Always apply operational judgment."
+                ),
+            }
+
+        elif tool_name == "get_prediction_accuracy_report":
+            # Placeholder: reads prediction_log if it exists, otherwise returns a guidance message
+            evaluation_period_days = min(int(args.get("evaluation_period_days", 30)), 90)
+            start_date = date.today() - timedelta(days=evaluation_period_days)
+
+            try:
+                from sqlalchemy import text
+
+                result_rows = db.session.execute(
+                    text(
+                        "SELECT date, predicted_revenue, actual_revenue "
+                        "FROM prediction_log WHERE date >= :start ORDER BY date ASC"
+                    ),
+                    {"start": str(start_date)},
+                ).fetchall()
+
+                if not result_rows:
+                    return {
+                        "status": "no_data",
+                        "message": (
+                            f"No prediction log entries found for the past {evaluation_period_days} days. "
+                            "Accuracy reporting becomes available after the prediction engine has been running "
+                            "and logging results. Run a prediction first to begin tracking accuracy."
+                        ),
+                        "evaluation_period_days": evaluation_period_days,
+                    }
+
+                errors = []
+                for row in result_rows:
+                    actual = float(row[2] or 0)
+                    predicted = float(row[1] or 0)
+                    if actual > 0:
+                        ape = abs(predicted - actual) / actual * 100
+                        errors.append(
+                            {
+                                "date": str(row[0]),
+                                "predicted": predicted,
+                                "actual": actual,
+                                "absolute_error": round(abs(predicted - actual), 2),
+                                "pct_error": round(ape, 2),
+                            }
+                        )
+
+                mape = round(sum(e["pct_error"] for e in errors) / len(errors), 2) if errors else 0
+                mae = round(sum(e["absolute_error"] for e in errors) / len(errors), 2) if errors else 0
+
+                return {
+                    "evaluation_period_days": evaluation_period_days,
+                    "records_evaluated": len(errors),
+                    "mape_pct": mape,
+                    "mae": mae,
+                    "accuracy_rating": (
+                        "EXCELLENT (MAPE < 10%)"
+                        if mape < 10
+                        else "GOOD (MAPE 10-20%)"
+                        if mape < 20
+                        else "ACCEPTABLE (MAPE 20-30%)"
+                        if mape < 30
+                        else "NEEDS CALIBRATION (MAPE > 30%)"
+                    ),
+                    "daily_errors": errors,
+                }
+            except Exception as _ace:
+                return {
+                    "status": "prediction_log_not_found",
+                    "message": (
+                        "The prediction_log table does not exist yet. "
+                        "It will be created automatically after the first run_sales_prediction call is logged. "
+                        f"(Detail: {_ace})"
+                    ),
+                    "evaluation_period_days": evaluation_period_days,
+                }
+
         return {"error": f"Unrecognized read tool {tool_name}"}
+
 
     except Exception as e:
         _log.error("Error executing read tool %s: %s", tool_name, e)

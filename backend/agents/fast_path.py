@@ -35,6 +35,10 @@ from agents.tools import execute_read_tool
 #    but describe third-party vendor expenses, not staff salary/advances.
 # =============================================================================
 DOMAIN_PATTERNS = {
+    "prediction": [
+        r"\b(predict(ions?|ed|ing)?|forecast(s|ing)?|future\s+sales|sales\s+outlook|sales\s+pridection|expected\s+sales)\b",
+        r"\b(weather\s+forecast|upcoming\s+festivals?|festival\s+sales?|holiday\s+sales?|how\s+will\s+sales\s+be)\b",
+    ],
     "analytics": [
         r"\b(sales?|revenue|profit|income|turnover|earnings?|orders?\s+count|summary\s+for|kpi|business\s+performance)\b",
         r"\b(how\s+much\s+(did\s+we\s+(make|sell|earn)|we\s+made|sold|earned)|sell\s+today|sold\s+today|top\s+selling|best\s+selling|most\s+selling|worst\s+selling|dead\s+stock)\b",
@@ -116,7 +120,7 @@ def _extract_prior_domain(history: List[Dict[str, Any]]) -> Optional[str]:
                     "expense": "expense",
                     "sales_comparison": "analytics",
                     "finance": "analytics",
-                    "prediction": "analytics",
+                    "prediction": "prediction",
                     "product": "product",
                     "inventory": "inventory",
                     "low_stock": "inventory",

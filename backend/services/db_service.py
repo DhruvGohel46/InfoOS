@@ -1234,12 +1234,36 @@ class DatabaseService:
     # ---------------------------------------------------------
 
     def get_all_settings(self) -> Dict[str, Any]:
-        """Get all settings"""
+        """Get all settings enriched with shop profile from profile.db"""
         settings = Settings.query.all()
-        # Return flat dict as per interface
-        # But SQLite service code snippet for get_all_settings was cut off.
-        # Assuming it returns a dict of {key: value}
-        return {s.key: s.value for s in settings}
+        res = {s.key: s.value for s in settings}
+        try:
+            from services.profile_service import ProfileService
+
+            profile = ProfileService.get_profile()
+            if profile:
+                if profile.get("shop_name"):
+                    res["shop_name"] = profile["shop_name"]
+                if profile.get("shop_address"):
+                    res["shop_address"] = profile["shop_address"]
+                if profile.get("shop_contact"):
+                    res["shop_contact"] = profile["shop_contact"]
+                if profile.get("gst_no"):
+                    res["gst_no"] = profile["gst_no"]
+                if profile.get("currency_symbol"):
+                    res["currency_symbol"] = profile["currency_symbol"]
+                if profile.get("logo_path"):
+                    res["logo_url"] = profile["logo_path"]
+                if profile.get("open_time"):
+                    res["shop_open_time"] = profile["open_time"]
+                if profile.get("close_time"):
+                    res["shop_close_time"] = profile["close_time"]
+                for k, v in profile.items():
+                    if k not in res:
+                        res[k] = v
+        except Exception as e:
+            print(f"Error enriching settings with profile: {e}")
+        return res
 
     def update_settings_bulk(self, settings_list: List[Dict[str, Any]]) -> bool:
         """Update multiple settings"""
@@ -1324,6 +1348,18 @@ class DatabaseService:
                         db.session.add(new_setting)
 
             db.session.commit()
+
+            # Sync shop profile fields into profile.db
+            try:
+                from services.profile_service import ProfileService
+
+                profile_updates = {
+                    item.get("key"): item.get("value") for item in settings_list if item.get("key")
+                }
+                ProfileService.update_profile(profile_updates)
+            except Exception as pe:
+                print(f"Error syncing profile.db in update_settings_bulk: {pe}")
+
             return True
         except Exception as e:
             print(f"Error updating settings: {e}")

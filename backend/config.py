@@ -26,6 +26,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(DATA_DIR, 'pos.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # Dedicated Profile Database file
+    PROFILE_DB_FILE = os.path.join(DATA_DIR, "profile.db")
+    SQLALCHEMY_BINDS = {"profile": f"sqlite:///{os.path.join(DATA_DIR, 'profile.db')}"}
+
     # XML file paths
     PRODUCTS_FILE = os.path.join(DATA_DIR, "products.xml")
     DB_FILE = os.path.join(DATA_DIR, "products.db")

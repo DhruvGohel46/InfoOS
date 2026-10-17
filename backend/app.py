@@ -170,6 +170,7 @@ def create_app(config_name="default"):
     from routes.import_menu import import_menu_bp
     from routes.agents import agents_bp
     from routes.business_day import business_day_bp
+    from routes.profile import profile_bp
     from limiter import limiter
 
     # Load configuration
@@ -235,6 +236,7 @@ def create_app(config_name="default"):
     app.register_blueprint(import_menu_bp)
     app.register_blueprint(agents_bp)
     app.register_blueprint(business_day_bp)
+    app.register_blueprint(profile_bp)
 
     # Serve product images
     @app.route("/api/images/<path:filename>")
@@ -337,6 +339,7 @@ def create_app(config_name="default"):
             db.create_all()
             run_programmatic_sqlite_migrations(app, db)
             run_programmatic_postgres_migrations(app, db)
+            sync_legacy_settings_to_profile(app, db)
         except Exception as e:
             _log.error("Automatic startup DB schema verification error: %s", e)
 
@@ -789,10 +792,99 @@ def run_programmatic_sqlite_migrations(app, db):
                         )
                     )
 
+            # Ensure latitude & longitude exist on shop_profile in profile.db
+            try:
+                from sqlalchemy import inspect
+                prof_engine = None
+                if hasattr(db, "engines") and "profile" in db.engines:
+                    prof_engine = db.engines["profile"]
+                elif hasattr(db, "get_engine"):
+                    try:
+                        prof_engine = db.get_engine(app, bind="profile")
+                    except Exception:
+                        pass
+                if prof_engine:
+                    insp_p = inspect(prof_engine)
+                    if insp_p.has_table("shop_profile"):
+                        cols_p = [c["name"] for c in insp_p.get_columns("shop_profile")]
+                        with prof_engine.connect() as conn:
+                            if "latitude" not in cols_p:
+                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN latitude FLOAT"))
+                            if "longitude" not in cols_p:
+                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN longitude FLOAT"))
+                            if "country" not in cols_p:
+                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN country VARCHAR(100) DEFAULT 'India'"))
+                            conn.commit()
+            except Exception as _p_mig_e:
+                _log.debug("ShopProfile lat/lon migration check: %s", _p_mig_e)
+
             _log.info("Programmatic SQLite migrations completed successfully")
 
     except Exception as e:
         _log.error("Error during programmatic SQLite migrations: %s", e)
+
+
+def sync_legacy_settings_to_profile(app, db):
+    """Seed or migrate existing shop settings into profile.db if empty."""
+    try:
+        from models import ShopProfile, Settings
+        from services.profile_service import ProfileService
+
+        with app.app_context():
+            profile = ShopProfile.query.first()
+            if not profile:
+                profile = ProfileService.get_profile_record()
+
+            # If shop_name is still default and pos.db has a shop_name, migrate
+            settings_rows = Settings.query.filter(
+                Settings.key.in_(
+                    [
+                        "shop_name",
+                        "shop_address",
+                        "shop_contact",
+                        "gst_no",
+                        "currency_symbol",
+                        "logo_url",
+                        "shop_open_time",
+                        "shop_close_time",
+                    ]
+                )
+            ).all()
+            settings_dict = {s.key: s.value for s in settings_rows if s.value}
+
+            if settings_dict:
+                changed = False
+                if settings_dict.get("shop_name") and (
+                    not profile.shop_name or profile.shop_name == "InfoOS Store"
+                ):
+                    profile.shop_name = settings_dict["shop_name"]
+                    changed = True
+                if settings_dict.get("shop_address") and not profile.shop_address:
+                    profile.shop_address = settings_dict["shop_address"]
+                    changed = True
+                if settings_dict.get("shop_contact") and not profile.shop_contact:
+                    profile.shop_contact = settings_dict["shop_contact"]
+                    changed = True
+                if settings_dict.get("gst_no") and not profile.gst_no:
+                    profile.gst_no = settings_dict["gst_no"]
+                    changed = True
+                if settings_dict.get("currency_symbol") and not profile.currency_symbol:
+                    profile.currency_symbol = settings_dict["currency_symbol"]
+                    changed = True
+                if settings_dict.get("logo_url") and not profile.logo_path:
+                    profile.logo_path = settings_dict["logo_url"]
+                    changed = True
+                if settings_dict.get("shop_open_time") and not profile.open_time:
+                    profile.open_time = settings_dict["shop_open_time"]
+                    changed = True
+                if settings_dict.get("shop_close_time") and not profile.close_time:
+                    profile.close_time = settings_dict["shop_close_time"]
+                    changed = True
+                if changed:
+                    db.session.commit()
+                    _log.info("Successfully migrated legacy shop settings into profile.db")
+    except Exception as e:
+        _log.warning("Notice: Profile migration skipped or errored: %s", e)
 
 
 def run_programmatic_postgres_migrations(app, db):

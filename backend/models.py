@@ -18,6 +18,89 @@ class Settings(db.Model):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
 
+class ShopProfile(db.Model):
+    __bind_key__ = "profile"
+    __tablename__ = "shop_profile"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Core Identity & Branding
+    shop_name = db.Column(db.String(255), default="InfoOS Store")
+    brand_tagline = db.Column(db.String(255), default="")
+    business_type = db.Column(db.String(100), default="Restaurant")
+    owner_name = db.Column(db.String(255), default="")
+    logo_path = db.Column(db.String(500), default="")
+
+    # Physical & Contact Details
+    shop_address = db.Column(db.Text, default="")
+    city = db.Column(db.String(100), default="")
+    state = db.Column(db.String(100), default="")
+    pincode = db.Column(db.String(20), default="")
+    country = db.Column(db.String(100), default="India")
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    shop_contact = db.Column(db.String(50), default="")
+    email = db.Column(db.String(100), default="")
+    website_url = db.Column(db.String(255), default="")
+
+    # Legal & Regulatory
+    gst_no = db.Column(db.String(50), default="")
+    fssai_lic_no = db.Column(db.String(50), default="")
+    pan_no = db.Column(db.String(50), default="")
+
+    # Operational Schedule & Capacity
+    open_time = db.Column(db.String(10), default="09:00")
+    close_time = db.Column(db.String(10), default="23:00")
+    business_day_cutoff = db.Column(db.String(10), default="02:00")
+    seating_capacity = db.Column(db.Integer, default=0)
+
+    # Financial & Regional Defaults
+    currency_symbol = db.Column(db.String(10), default="₹")
+    currency_code = db.Column(db.String(10), default="INR")
+    default_tax_rate = db.Column(db.Float, default=0.0)
+
+    # Dedicated AI Grounding & Prompt Context
+    store_description = db.Column(db.Text, default="")
+    ai_communication_tone = db.Column(db.String(100), default="Concise & Professional")
+
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "shop_name": self.shop_name or "",
+            "brand_tagline": self.brand_tagline or "",
+            "business_type": self.business_type or "",
+            "owner_name": self.owner_name or "",
+            "logo_path": self.logo_path or "",
+            "shop_address": self.shop_address or "",
+            "city": self.city or "",
+            "state": self.state or "",
+            "pincode": self.pincode or "",
+            "country": self.country or "India",
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "shop_contact": self.shop_contact or "",
+            "email": self.email or "",
+            "website_url": self.website_url or "",
+            "gst_no": self.gst_no or "",
+            "fssai_lic_no": self.fssai_lic_no or "",
+            "pan_no": self.pan_no or "",
+            "open_time": self.open_time or "09:00",
+            "close_time": self.close_time or "23:00",
+            "business_day_cutoff": self.business_day_cutoff or "02:00",
+            "seating_capacity": self.seating_capacity or 0,
+            "currency_symbol": self.currency_symbol or "₹",
+            "currency_code": self.currency_code or "INR",
+            "default_tax_rate": float(self.default_tax_rate or 0.0),
+            "store_description": self.store_description or "",
+            "ai_communication_tone": self.ai_communication_tone or "Concise & Professional",
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class ItemGroup(db.Model):
     __tablename__ = "item_groups"
     id = db.Column(db.Integer, primary_key=True)
