@@ -5,12 +5,12 @@
   "meta": {
     "source_databases": [
       "pos.db (DailySalesSummary, Bill, Product, Category, ItemGroup)",
-      "profile.db (ShopProfile: city, state, pincode, open_time, close_time, business_type, seating_capacity, currency_symbol, store_description)"
+      "profile.db (ShopProfile: country, city, state, pincode, latitude, longitude, open_time, close_time, business_type, seating_capacity, currency_symbol, store_description)"
     ],
     "external_apis": [
-      "Open-Meteo Weather API (primary, free, no key) + wttr.in (fallback): live multi-day weather forecast",
-      "Open-Meteo Geocoding API (primary, free) + Nominatim OpenStreetMap (fallback): live coordinate resolution from city/state/pincode",
-      "Google Calendar Indian Public Holidays Feed (primary live web request) + RandomAPI (fallback): regional and national festival calendar based on shop location"
+      "Open-Meteo Weather API (primary, free, no key) + wttr.in (fallback): worldwide live multi-day weather forecast",
+      "Open-Meteo Geocoding API (primary, free) + Nominatim OpenStreetMap (fallback) + Interactive Leaflet Map Picker: worldwide coordinate resolution from pin drop or address",
+      "Google Calendar Country Public Holidays Feeds (US, UK, CA, AU, SG, IN) + Nager.Date Global Public Holidays API (100+ countries) + RandomAPI (fallback): regional, national, and international festival calendars"
     ],
     "tool_chaining_strategy": "Prediction tools call lower-level data-fetching tools internally. The agent issues one high-level tool call; that tool fans out to sub-queries in a strict sequence.",
     "algorithm": "WARMP (Weighted Additive Regression with Multi-factor Priors)"
@@ -19,7 +19,7 @@
   "profile_db_use_cases_for_prediction": {
     "description": "profile.db is the PRIMARY configuration source that initialises the Sales Prediction agent at startup. It provides all geo-specific and business-specific parameters that drive forecast personalisation.",
     "field_applications": {
-      "city + state + pincode": "Used to determine the geographic region for (a) fetching the correct regional holiday calendar via direct web requests (e.g., Ganesh Chaturthi in Maharashtra vs Pongal in Tamil Nadu), (b) querying live weather data from geocoded coordinates, and (c) calibrating demand models for local cultural consumption patterns.",
+      "country + city + state + pincode + coordinates": "Used to determine the geographic region anywhere in the world for (a) fetching the correct regional/national holiday calendar via direct web requests (e.g. US Thanksgiving, UK Boxing Day, Singapore Chinese New Year, Maharashtra Ganesh Chaturthi), (b) querying live weather data from exact geocoded or map-pinned coordinates worldwide, and (c) calibrating demand models for local cultural consumption patterns.",
       "business_type": "Determines which category of demand model to apply. A 'Bakery' uses breakfast-peak demand curves; a 'Fine Dine' uses evening/weekend demand curves; a 'QSR/Fast Food' uses lunch-rush demand curves.",
       "open_time + close_time": "Constrains the prediction window — hourly sales distributions are normalised to the actual operating hours. Prevents erroneous 'flat' predictions for off-hours.",
       "seating_capacity": "Acts as a hard ceiling for order predictions. If predicted_orders exceeds seating_capacity x throughput_multiplier, the model caps and flags capacity saturation risk.",
