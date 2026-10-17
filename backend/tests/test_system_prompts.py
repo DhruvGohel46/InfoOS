@@ -101,7 +101,9 @@ class TestSystemPrompts(unittest.TestCase):
         ]
         for query, expected in queries:
             domain = classify_intent_deterministic(query)
-            self.assertEqual(domain, expected, f"Query '{query}' routed to {domain}, expected {expected}")
+            self.assertEqual(
+                domain, expected, f"Query '{query}' routed to {domain}, expected {expected}"
+            )
 
 
 if __name__ == "__main__":

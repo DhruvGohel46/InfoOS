@@ -107,6 +107,13 @@ TOOL_STATUS_LABELS: Dict[str, str] = {
     "propose_bulk_delete_reminders": "Preparing bulk reminder deletion…",
     "restore_deleted_item": "Restoring deleted record…",
     "restore_last_bulk_delete": "Restoring bulk deletion batch…",
+    # prediction
+    "get_sales_history_for_prediction": "Analyzing historical sales data…",
+    "get_top_products_for_prediction": "Identifying top-selling products for demand forecast…",
+    "get_regional_festivals_and_holidays": "Checking upcoming festivals and regional holidays…",
+    "get_weather_forecast": "Checking live weather forecasts and conditions…",
+    "run_sales_prediction": "Running WARMP sales and demand prediction engine…",
+    "get_prediction_accuracy_report": "Generating forecast accuracy and error evaluation report…",
 }
 
 
@@ -447,6 +454,31 @@ STEP_HUMAN_MAPPINGS: Dict[str, tuple] = {
     "restore_last_bulk_delete": (
         "Restored bulk deletion",
         "Recovered deleted batch from 48h safety window",
+    ),
+    # prediction
+    "get_sales_history_for_prediction": (
+        "Analyzed sales history",
+        "Retrieved historical baseline sales data from database",
+    ),
+    "get_top_products_for_prediction": (
+        "Checked top products",
+        "Identified highest volume products for itemized forecasting",
+    ),
+    "get_regional_festivals_and_holidays": (
+        "Checked holidays and festivals",
+        "Retrieved regional festive calendar and footfall multipliers",
+    ),
+    "get_weather_forecast": (
+        "Checked weather forecast",
+        "Fetched live weather forecast and footfall impact coefficients",
+    ),
+    "run_sales_prediction": (
+        "Generated sales prediction",
+        "Computed WARMP multi-factor forecast for upcoming days",
+    ),
+    "get_prediction_accuracy_report": (
+        "Evaluated prediction accuracy",
+        "Compared past predictions against actual sales records",
     ),
 }
 

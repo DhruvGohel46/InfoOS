@@ -795,6 +795,7 @@ def run_programmatic_sqlite_migrations(app, db):
             # Ensure latitude & longitude exist on shop_profile in profile.db
             try:
                 from sqlalchemy import inspect
+
                 prof_engine = None
                 if hasattr(db, "engines") and "profile" in db.engines:
                     prof_engine = db.engines["profile"]
@@ -809,11 +810,19 @@ def run_programmatic_sqlite_migrations(app, db):
                         cols_p = [c["name"] for c in insp_p.get_columns("shop_profile")]
                         with prof_engine.connect() as conn:
                             if "latitude" not in cols_p:
-                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN latitude FLOAT"))
+                                conn.execute(
+                                    text("ALTER TABLE shop_profile ADD COLUMN latitude FLOAT")
+                                )
                             if "longitude" not in cols_p:
-                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN longitude FLOAT"))
+                                conn.execute(
+                                    text("ALTER TABLE shop_profile ADD COLUMN longitude FLOAT")
+                                )
                             if "country" not in cols_p:
-                                conn.execute(text("ALTER TABLE shop_profile ADD COLUMN country VARCHAR(100) DEFAULT 'India'"))
+                                conn.execute(
+                                    text(
+                                        "ALTER TABLE shop_profile ADD COLUMN country VARCHAR(100) DEFAULT 'India'"
+                                    )
+                                )
                             conn.commit()
             except Exception as _p_mig_e:
                 _log.debug("ShopProfile lat/lon migration check: %s", _p_mig_e)

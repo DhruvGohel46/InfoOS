@@ -2976,7 +2976,6 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "notifications": [n.to_dict() for n in notifs],
             }
 
-
         # -------------------------------------------------------------------------
         # SALES PREDICTION TOOLS (WARMP pipeline)
         # -------------------------------------------------------------------------
@@ -3017,9 +3016,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             cursor = start_date
             while cursor <= date.today():
                 if cursor not in summary_dates:
-                    day_bills = Bill.query.filter(
-                        func.date(Bill.created_at) == cursor
-                    ).all()
+                    day_bills = Bill.query.filter(func.date(Bill.created_at) == cursor).all()
                     tot = sum(b.total_amount for b in day_bills)
                     cnt = len(day_bills)
                     daily_rows.append(
@@ -3126,9 +3123,11 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             result_data["confidence_note"] = (
                 "HIGH — 90+ days of data"
                 if len(daily_rows) >= 90
-                else "MEDIUM — 14-89 days of data"
-                if len(daily_rows) >= 14
-                else "LOW — less than 14 days of data. Predictions will have wide uncertainty."
+                else (
+                    "MEDIUM — 14-89 days of data"
+                    if len(daily_rows) >= 14
+                    else "LOW — less than 14 days of data. Predictions will have wide uncertainty."
+                )
             )
 
             if include_top_products:
@@ -3138,9 +3137,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 prod_totals: Dict[str, Dict] = defaultdict(
                     lambda: {"name": "", "qty": 0, "revenue": 0.0}
                 )
-                recent_bills = Bill.query.filter(
-                    func.date(Bill.created_at) >= start_date
-                ).all()
+                recent_bills = Bill.query.filter(func.date(Bill.created_at) >= start_date).all()
                 for b in recent_bills:
                     try:
                         items = json.loads(b.items) if b.items else []
@@ -3148,9 +3145,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                             pid = str(it.get("product_id", it.get("name", "?")))
                             prod_totals[pid]["name"] = it.get("name", pid)
                             prod_totals[pid]["qty"] += float(it.get("quantity", 1))
-                            prod_totals[pid]["revenue"] += float(
-                                it.get("price", 0)
-                            ) * float(it.get("quantity", 1))
+                            prod_totals[pid]["revenue"] += float(it.get("price", 0)) * float(
+                                it.get("quantity", 1)
+                            )
                     except Exception:
                         pass
                 total_rev = sum(v["revenue"] for v in prod_totals.values()) or 1.0
@@ -3179,9 +3176,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             group_by_time_slot = bool(args.get("group_by_time_slot", False))
 
             start_date = date.today() - timedelta(days=trailing_days - 1)
-            recent_bills = Bill.query.filter(
-                func.date(Bill.created_at) >= start_date
-            ).all()
+            recent_bills = Bill.query.filter(func.date(Bill.created_at) >= start_date).all()
 
             prod_data: Dict[str, Dict] = defaultdict(
                 lambda: {
@@ -3218,9 +3213,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                     pass
 
             total_rev = sum(v["revenue"] for v in prod_data.values()) or 1.0
-            sorted_prods = sorted(
-                prod_data.items(), key=lambda x: x[1]["revenue"], reverse=True
-            )[:top_n]
+            sorted_prods = sorted(prod_data.items(), key=lambda x: x[1]["revenue"], reverse=True)[
+                :top_n
+            ]
 
             products_out = []
             for pid, v in sorted_prods:
@@ -3233,9 +3228,7 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                     "avg_daily_qty": round(v["qty"] / trailing_days, 2),
                 }
                 if group_by_time_slot:
-                    slot_total = (
-                        v["morning"] + v["lunch"] + v["evening"] + v["night"]
-                    ) or 1.0
+                    slot_total = (v["morning"] + v["lunch"] + v["evening"] + v["night"]) or 1.0
                     entry["time_slot_split"] = {
                         "morning_pct": round(v["morning"] / slot_total * 100, 1),
                         "lunch_pct": round(v["lunch"] / slot_total * 100, 1),
@@ -3260,12 +3253,8 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             import urllib.parse
             from datetime import date as _date, timedelta as _td
 
-            from_date_str = args.get(
-                "from_date", str(date.today() + timedelta(days=1))
-            )
-            to_date_str = args.get(
-                "to_date", str(date.today() + timedelta(days=14))
-            )
+            from_date_str = args.get("from_date", str(date.today() + timedelta(days=1)))
+            to_date_str = args.get("to_date", str(date.today() + timedelta(days=14)))
             include_regional = bool(args.get("include_regional", True))
             include_national = bool(args.get("include_national", True))
             include_dry_days = bool(args.get("include_dry_days", True))
@@ -3302,41 +3291,118 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 _log.warning("Could not read profile for regional holidays: %s", _pe)
 
             # Global Country & ISO Deduction
-            def _resolve_country_and_iso(country_in: str, state_in: str, city_in: str, prof: dict = None) -> tuple:
+            def _resolve_country_and_iso(
+                country_in: str, state_in: str, city_in: str, prof: dict = None
+            ) -> tuple:
                 c = (country_in or "").strip().lower()
                 s = (state_in or "").strip().lower()
                 cty = (city_in or "").strip().lower()
 
                 COUNTRY_MAP = {
-                    "us": ("United States", "US"), "usa": ("United States", "US"), "united states": ("United States", "US"), "united states of america": ("United States", "US"), "america": ("United States", "US"),
-                    "uk": ("United Kingdom", "GB"), "gb": ("United Kingdom", "GB"), "united kingdom": ("United Kingdom", "GB"), "great britain": ("United Kingdom", "GB"), "england": ("United Kingdom", "GB"), "scotland": ("United Kingdom", "GB"), "wales": ("United Kingdom", "GB"),
-                    "ca": ("Canada", "CA"), "canada": ("Canada", "CA"),
-                    "au": ("Australia", "AU"), "australia": ("Australia", "AU"),
-                    "sg": ("Singapore", "SG"), "singapore": ("Singapore", "SG"),
-                    "ae": ("United Arab Emirates", "AE"), "uae": ("United Arab Emirates", "AE"), "united arab emirates": ("United Arab Emirates", "AE"), "dubai": ("United Arab Emirates", "AE"), "abu dhabi": ("United Arab Emirates", "AE"),
-                    "de": ("Germany", "DE"), "germany": ("Germany", "DE"), "deutschland": ("Germany", "DE"),
-                    "fr": ("France", "FR"), "france": ("France", "FR"),
-                    "jp": ("Japan", "JP"), "japan": ("Japan", "JP"),
-                    "nz": ("New Zealand", "NZ"), "new zealand": ("New Zealand", "NZ"),
-                    "in": ("India", "IN"), "india": ("India", "IN"), "bharat": ("India", "IN"),
+                    "us": ("United States", "US"),
+                    "usa": ("United States", "US"),
+                    "united states": ("United States", "US"),
+                    "united states of america": ("United States", "US"),
+                    "america": ("United States", "US"),
+                    "uk": ("United Kingdom", "GB"),
+                    "gb": ("United Kingdom", "GB"),
+                    "united kingdom": ("United Kingdom", "GB"),
+                    "great britain": ("United Kingdom", "GB"),
+                    "england": ("United Kingdom", "GB"),
+                    "scotland": ("United Kingdom", "GB"),
+                    "wales": ("United Kingdom", "GB"),
+                    "ca": ("Canada", "CA"),
+                    "canada": ("Canada", "CA"),
+                    "au": ("Australia", "AU"),
+                    "australia": ("Australia", "AU"),
+                    "sg": ("Singapore", "SG"),
+                    "singapore": ("Singapore", "SG"),
+                    "ae": ("United Arab Emirates", "AE"),
+                    "uae": ("United Arab Emirates", "AE"),
+                    "united arab emirates": ("United Arab Emirates", "AE"),
+                    "dubai": ("United Arab Emirates", "AE"),
+                    "abu dhabi": ("United Arab Emirates", "AE"),
+                    "de": ("Germany", "DE"),
+                    "germany": ("Germany", "DE"),
+                    "deutschland": ("Germany", "DE"),
+                    "fr": ("France", "FR"),
+                    "france": ("France", "FR"),
+                    "jp": ("Japan", "JP"),
+                    "japan": ("Japan", "JP"),
+                    "nz": ("New Zealand", "NZ"),
+                    "new zealand": ("New Zealand", "NZ"),
+                    "in": ("India", "IN"),
+                    "india": ("India", "IN"),
+                    "bharat": ("India", "IN"),
                 }
 
                 if c in COUNTRY_MAP:
                     return COUNTRY_MAP[c]
 
-                US_STATES = {"california", "texas", "florida", "new york", "illinois", "pennsylvania", "ohio", "georgia", "north carolina", "michigan", "washington", "massachusetts", "arizona", "colorado", "nevada"}
-                if s in US_STATES or cty in {"new york", "los angeles", "chicago", "houston", "miami", "san francisco", "seattle", "boston", "dallas"}:
+                US_STATES = {
+                    "california",
+                    "texas",
+                    "florida",
+                    "new york",
+                    "illinois",
+                    "pennsylvania",
+                    "ohio",
+                    "georgia",
+                    "north carolina",
+                    "michigan",
+                    "washington",
+                    "massachusetts",
+                    "arizona",
+                    "colorado",
+                    "nevada",
+                }
+                if s in US_STATES or cty in {
+                    "new york",
+                    "los angeles",
+                    "chicago",
+                    "houston",
+                    "miami",
+                    "san francisco",
+                    "seattle",
+                    "boston",
+                    "dallas",
+                }:
                     return ("United States", "US")
 
-                UK_CITIES = {"london", "manchester", "birmingham", "leeds", "glasgow", "edinburgh", "liverpool"}
+                UK_CITIES = {
+                    "london",
+                    "manchester",
+                    "birmingham",
+                    "leeds",
+                    "glasgow",
+                    "edinburgh",
+                    "liverpool",
+                }
                 if cty in UK_CITIES:
                     return ("United Kingdom", "GB")
 
-                CA_PROVINCES = {"ontario", "quebec", "british columbia", "alberta", "toronto", "montreal", "vancouver"}
+                CA_PROVINCES = {
+                    "ontario",
+                    "quebec",
+                    "british columbia",
+                    "alberta",
+                    "toronto",
+                    "montreal",
+                    "vancouver",
+                }
                 if s in CA_PROVINCES or cty in CA_PROVINCES:
                     return ("Canada", "CA")
 
-                AU_STATES = {"nsw", "new south wales", "victoria", "queensland", "sydney", "melbourne", "brisbane", "perth"}
+                AU_STATES = {
+                    "nsw",
+                    "new south wales",
+                    "victoria",
+                    "queensland",
+                    "sydney",
+                    "melbourne",
+                    "brisbane",
+                    "perth",
+                }
                 if s in AU_STATES or cty in AU_STATES:
                     return ("Australia", "AU")
 
@@ -3371,7 +3437,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
                 return ("India", "IN")
 
-            shop_country, shop_country_code = _resolve_country_and_iso(raw_country, raw_state, raw_city, profile)
+            shop_country, shop_country_code = _resolve_country_and_iso(
+                raw_country, raw_state, raw_city, profile
+            )
 
             # Indian State Normalization & Automatic Postal Deduction
             def _normalize_indian_state(s_in: str, c_in: str, p_in: str) -> str:
@@ -3380,38 +3448,162 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 p = str(p_in or "").strip()
 
                 state_aliases = {
-                    "mh": "Maharashtra", "maharashtra": "Maharashtra", "maharastra": "Maharashtra", "mumbai": "Maharashtra", "pune": "Maharashtra", "nagpur": "Maharashtra", "thane": "Maharashtra", "nashik": "Maharashtra",
-                    "gj": "Gujarat", "gujarat": "Gujarat", "gujrat": "Gujarat", "ahmedabad": "Gujarat", "surat": "Gujarat", "vadodara": "Gujarat", "rajkot": "Gujarat",
-                    "wb": "West Bengal", "west bengal": "West Bengal", "bengal": "West Bengal", "kolkata": "West Bengal", "howrah": "West Bengal", "siliguri": "West Bengal",
-                    "tn": "Tamil Nadu", "tamil nadu": "Tamil Nadu", "tamilnadu": "Tamil Nadu", "chennai": "Tamil Nadu", "coimbatore": "Tamil Nadu", "madurai": "Tamil Nadu",
-                    "ka": "Karnataka", "karnataka": "Karnataka", "bangalore": "Karnataka", "bengaluru": "Karnataka", "mysore": "Karnataka", "mysuru": "Karnataka", "hubli": "Karnataka",
-                    "kl": "Kerala", "kerala": "Kerala", "kochi": "Kerala", "cochin": "Kerala", "thiruvananthapuram": "Kerala", "trivandrum": "Kerala", "kozhikode": "Kerala",
-                    "dl": "Delhi", "delhi": "Delhi", "new delhi": "Delhi", "nct": "Delhi",
-                    "up": "Uttar Pradesh", "uttar pradesh": "Uttar Pradesh", "lucknow": "Uttar Pradesh", "kanpur": "Uttar Pradesh", "noida": "Uttar Pradesh", "varanasi": "Uttar Pradesh", "agra": "Uttar Pradesh",
-                    "br": "Bihar", "bihar": "Bihar", "patna": "Bihar", "gaya": "Bihar", "muzaffarpur": "Bihar",
-                    "jh": "Jharkhand", "jharkhand": "Jharkhand", "ranchi": "Jharkhand", "jamshedpur": "Jharkhand", "dhanbad": "Jharkhand",
-                    "pb": "Punjab", "punjab": "Punjab", "amritsar": "Punjab", "ludhiana": "Punjab", "jalandhar": "Punjab",
-                    "hr": "Haryana", "haryana": "Haryana", "gurgaon": "Haryana", "gurugram": "Haryana", "faridabad": "Haryana",
-                    "rj": "Rajasthan", "rajasthan": "Rajasthan", "jaipur": "Rajasthan", "jodhpur": "Rajasthan", "udaipur": "Rajasthan", "kota": "Rajasthan",
-                    "mp": "Madhya Pradesh", "madhya pradesh": "Madhya Pradesh", "indore": "Madhya Pradesh", "bhopal": "Madhya Pradesh", "gwalior": "Madhya Pradesh", "jabalpur": "Madhya Pradesh",
-                    "ap": "Andhra Pradesh", "andhra pradesh": "Andhra Pradesh", "andhra": "Andhra Pradesh", "visakhapatnam": "Andhra Pradesh", "vijayawada": "Andhra Pradesh", "guntur": "Andhra Pradesh",
-                    "ts": "Telangana", "tg": "Telangana", "telangana": "Telangana", "hyderabad": "Telangana", "warangal": "Telangana", "secunderabad": "Telangana",
-                    "od": "Odisha", "or": "Odisha", "odisha": "Odisha", "orissa": "Odisha", "bhubaneswar": "Odisha", "cuttack": "Odisha", "puri": "Odisha",
-                    "as": "Assam", "assam": "Assam", "guwahati": "Assam", "silchar": "Assam", "dibrugarh": "Assam",
-                    "ga": "Goa", "goa": "Goa", "panaji": "Goa", "margao": "Goa",
-                    "jk": "Jammu and Kashmir", "jammu": "Jammu and Kashmir", "kashmir": "Jammu and Kashmir", "srinagar": "Jammu and Kashmir",
-                    "uk": "Uttarakhand", "ua": "Uttarakhand", "uttarakhand": "Uttarakhand", "dehradun": "Uttarakhand", "haridwar": "Uttarakhand", "rishikesh": "Uttarakhand",
-                    "hp": "Himachal Pradesh", "himachal pradesh": "Himachal Pradesh", "shimla": "Himachal Pradesh", "manali": "Himachal Pradesh", "dharamshala": "Himachal Pradesh",
-                    "ch": "Chandigarh", "chandigarh": "Chandigarh",
-                    "ct": "Chhattisgarh", "cg": "Chhattisgarh", "chhattisgarh": "Chhattisgarh", "raipur": "Chhattisgarh",
-                    "py": "Puducherry", "pondicherry": "Puducherry",
-                    "tr": "Tripura", "tripura": "Tripura", "agartala": "Tripura",
-                    "ml": "Meghalaya", "meghalaya": "Meghalaya", "shillong": "Meghalaya",
-                    "mn": "Manipur", "manipur": "Manipur", "imphal": "Manipur",
-                    "mz": "Mizoram", "mizoram": "Mizoram", "aizawl": "Mizoram",
-                    "nl": "Nagaland", "nagaland": "Nagaland", "kohima": "Nagaland",
-                    "ar": "Arunachal Pradesh", "arunachal": "Arunachal Pradesh", "itanagar": "Arunachal Pradesh",
-                    "sk": "Sikkim", "sikkim": "Sikkim", "gangtok": "Sikkim",
+                    "mh": "Maharashtra",
+                    "maharashtra": "Maharashtra",
+                    "maharastra": "Maharashtra",
+                    "mumbai": "Maharashtra",
+                    "pune": "Maharashtra",
+                    "nagpur": "Maharashtra",
+                    "thane": "Maharashtra",
+                    "nashik": "Maharashtra",
+                    "gj": "Gujarat",
+                    "gujarat": "Gujarat",
+                    "gujrat": "Gujarat",
+                    "ahmedabad": "Gujarat",
+                    "surat": "Gujarat",
+                    "vadodara": "Gujarat",
+                    "rajkot": "Gujarat",
+                    "wb": "West Bengal",
+                    "west bengal": "West Bengal",
+                    "bengal": "West Bengal",
+                    "kolkata": "West Bengal",
+                    "howrah": "West Bengal",
+                    "siliguri": "West Bengal",
+                    "tn": "Tamil Nadu",
+                    "tamil nadu": "Tamil Nadu",
+                    "tamilnadu": "Tamil Nadu",
+                    "chennai": "Tamil Nadu",
+                    "coimbatore": "Tamil Nadu",
+                    "madurai": "Tamil Nadu",
+                    "ka": "Karnataka",
+                    "karnataka": "Karnataka",
+                    "bangalore": "Karnataka",
+                    "bengaluru": "Karnataka",
+                    "mysore": "Karnataka",
+                    "mysuru": "Karnataka",
+                    "hubli": "Karnataka",
+                    "kl": "Kerala",
+                    "kerala": "Kerala",
+                    "kochi": "Kerala",
+                    "cochin": "Kerala",
+                    "thiruvananthapuram": "Kerala",
+                    "trivandrum": "Kerala",
+                    "kozhikode": "Kerala",
+                    "dl": "Delhi",
+                    "delhi": "Delhi",
+                    "new delhi": "Delhi",
+                    "nct": "Delhi",
+                    "up": "Uttar Pradesh",
+                    "uttar pradesh": "Uttar Pradesh",
+                    "lucknow": "Uttar Pradesh",
+                    "kanpur": "Uttar Pradesh",
+                    "noida": "Uttar Pradesh",
+                    "varanasi": "Uttar Pradesh",
+                    "agra": "Uttar Pradesh",
+                    "br": "Bihar",
+                    "bihar": "Bihar",
+                    "patna": "Bihar",
+                    "gaya": "Bihar",
+                    "muzaffarpur": "Bihar",
+                    "jh": "Jharkhand",
+                    "jharkhand": "Jharkhand",
+                    "ranchi": "Jharkhand",
+                    "jamshedpur": "Jharkhand",
+                    "dhanbad": "Jharkhand",
+                    "pb": "Punjab",
+                    "punjab": "Punjab",
+                    "amritsar": "Punjab",
+                    "ludhiana": "Punjab",
+                    "jalandhar": "Punjab",
+                    "hr": "Haryana",
+                    "haryana": "Haryana",
+                    "gurgaon": "Haryana",
+                    "gurugram": "Haryana",
+                    "faridabad": "Haryana",
+                    "rj": "Rajasthan",
+                    "rajasthan": "Rajasthan",
+                    "jaipur": "Rajasthan",
+                    "jodhpur": "Rajasthan",
+                    "udaipur": "Rajasthan",
+                    "kota": "Rajasthan",
+                    "mp": "Madhya Pradesh",
+                    "madhya pradesh": "Madhya Pradesh",
+                    "indore": "Madhya Pradesh",
+                    "bhopal": "Madhya Pradesh",
+                    "gwalior": "Madhya Pradesh",
+                    "jabalpur": "Madhya Pradesh",
+                    "ap": "Andhra Pradesh",
+                    "andhra pradesh": "Andhra Pradesh",
+                    "andhra": "Andhra Pradesh",
+                    "visakhapatnam": "Andhra Pradesh",
+                    "vijayawada": "Andhra Pradesh",
+                    "guntur": "Andhra Pradesh",
+                    "ts": "Telangana",
+                    "tg": "Telangana",
+                    "telangana": "Telangana",
+                    "hyderabad": "Telangana",
+                    "warangal": "Telangana",
+                    "secunderabad": "Telangana",
+                    "od": "Odisha",
+                    "or": "Odisha",
+                    "odisha": "Odisha",
+                    "orissa": "Odisha",
+                    "bhubaneswar": "Odisha",
+                    "cuttack": "Odisha",
+                    "puri": "Odisha",
+                    "as": "Assam",
+                    "assam": "Assam",
+                    "guwahati": "Assam",
+                    "silchar": "Assam",
+                    "dibrugarh": "Assam",
+                    "ga": "Goa",
+                    "goa": "Goa",
+                    "panaji": "Goa",
+                    "margao": "Goa",
+                    "jk": "Jammu and Kashmir",
+                    "jammu": "Jammu and Kashmir",
+                    "kashmir": "Jammu and Kashmir",
+                    "srinagar": "Jammu and Kashmir",
+                    "uk": "Uttarakhand",
+                    "ua": "Uttarakhand",
+                    "uttarakhand": "Uttarakhand",
+                    "dehradun": "Uttarakhand",
+                    "haridwar": "Uttarakhand",
+                    "rishikesh": "Uttarakhand",
+                    "hp": "Himachal Pradesh",
+                    "himachal pradesh": "Himachal Pradesh",
+                    "shimla": "Himachal Pradesh",
+                    "manali": "Himachal Pradesh",
+                    "dharamshala": "Himachal Pradesh",
+                    "ch": "Chandigarh",
+                    "chandigarh": "Chandigarh",
+                    "ct": "Chhattisgarh",
+                    "cg": "Chhattisgarh",
+                    "chhattisgarh": "Chhattisgarh",
+                    "raipur": "Chhattisgarh",
+                    "py": "Puducherry",
+                    "pondicherry": "Puducherry",
+                    "tr": "Tripura",
+                    "tripura": "Tripura",
+                    "agartala": "Tripura",
+                    "ml": "Meghalaya",
+                    "meghalaya": "Meghalaya",
+                    "shillong": "Meghalaya",
+                    "mn": "Manipur",
+                    "manipur": "Manipur",
+                    "imphal": "Manipur",
+                    "mz": "Mizoram",
+                    "mizoram": "Mizoram",
+                    "aizawl": "Mizoram",
+                    "nl": "Nagaland",
+                    "nagaland": "Nagaland",
+                    "kohima": "Nagaland",
+                    "ar": "Arunachal Pradesh",
+                    "arunachal": "Arunachal Pradesh",
+                    "itanagar": "Arunachal Pradesh",
+                    "sk": "Sikkim",
+                    "sikkim": "Sikkim",
+                    "gangtok": "Sikkim",
                 }
 
                 if s in state_aliases:
@@ -3422,29 +3614,52 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 # Deduce state from Indian postal pincode prefix (first 2 digits)
                 if len(p) >= 2 and p[:2].isdigit():
                     pfx = int(p[:2])
-                    if pfx == 11: return "Delhi"
-                    elif 12 <= pfx <= 13: return "Haryana"
-                    elif 14 <= pfx <= 16: return "Punjab"
-                    elif pfx == 17: return "Himachal Pradesh"
-                    elif 18 <= pfx <= 19: return "Jammu and Kashmir"
-                    elif 20 <= pfx <= 28: return "Uttar Pradesh"
-                    elif 30 <= pfx <= 34: return "Rajasthan"
-                    elif 36 <= pfx <= 39: return "Gujarat"
-                    elif 40 <= pfx <= 44: return "Maharashtra"
-                    elif 45 <= pfx <= 48: return "Madhya Pradesh"
-                    elif pfx == 49: return "Chhattisgarh"
-                    elif 50 <= pfx <= 53: return "Telangana"
-                    elif 56 <= pfx <= 59: return "Karnataka"
-                    elif 60 <= pfx <= 64: return "Tamil Nadu"
-                    elif 67 <= pfx <= 69: return "Kerala"
-                    elif 70 <= pfx <= 74: return "West Bengal"
-                    elif 75 <= pfx <= 77: return "Odisha"
-                    elif pfx == 78: return "Assam"
-                    elif 80 <= pfx <= 85: return "Bihar"
+                    if pfx == 11:
+                        return "Delhi"
+                    elif 12 <= pfx <= 13:
+                        return "Haryana"
+                    elif 14 <= pfx <= 16:
+                        return "Punjab"
+                    elif pfx == 17:
+                        return "Himachal Pradesh"
+                    elif 18 <= pfx <= 19:
+                        return "Jammu and Kashmir"
+                    elif 20 <= pfx <= 28:
+                        return "Uttar Pradesh"
+                    elif 30 <= pfx <= 34:
+                        return "Rajasthan"
+                    elif 36 <= pfx <= 39:
+                        return "Gujarat"
+                    elif 40 <= pfx <= 44:
+                        return "Maharashtra"
+                    elif 45 <= pfx <= 48:
+                        return "Madhya Pradesh"
+                    elif pfx == 49:
+                        return "Chhattisgarh"
+                    elif 50 <= pfx <= 53:
+                        return "Telangana"
+                    elif 56 <= pfx <= 59:
+                        return "Karnataka"
+                    elif 60 <= pfx <= 64:
+                        return "Tamil Nadu"
+                    elif 67 <= pfx <= 69:
+                        return "Kerala"
+                    elif 70 <= pfx <= 74:
+                        return "West Bengal"
+                    elif 75 <= pfx <= 77:
+                        return "Odisha"
+                    elif pfx == 78:
+                        return "Assam"
+                    elif 80 <= pfx <= 85:
+                        return "Bihar"
 
                 return "Maharashtra"
 
-            shop_state = _normalize_indian_state(raw_state, raw_city, raw_pincode) if shop_country_code == "IN" else (raw_state.title() if raw_state else "")
+            shop_state = (
+                _normalize_indian_state(raw_state, raw_city, raw_pincode)
+                if shop_country_code == "IN"
+                else (raw_state.title() if raw_state else "")
+            )
             shop_city = raw_city.title() if raw_city else ""
 
             # Comprehensive Region-Wise Festival Multiplier and Insight Matrix (India)
@@ -3452,24 +3667,81 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Maharashtra": {
                     "zone": "Western India",
                     "primary_festivals": {
-                        "ganesh": {"mult": 2.2, "name": "Ganesh Chaturthi", "insight": "Maharashtra's supreme 10-day celebration. Peak demand for sweets, catering, modak, family dining, and late-night food stalls."},
-                        "gudi padwa": {"mult": 1.8, "name": "Gudi Padwa", "insight": "Maharashtrian New Year. Substantial daytime footfall surge and celebratory dining."},
-                        "shivaji": {"mult": 1.5, "name": "Chhatrapati Shivaji Maharaj Jayanti", "insight": "State public holiday with massive local processions and lunch/dinner rush."},
-                        "sharad navratri": {"mult": 1.8, "name": "Sharad Navratri", "insight": "Fasting menu demand during day; late-night post-dandiya dining surges."},
-                        "dussehra": {"mult": 1.9, "name": "Dussehra (Vijayadashami)", "insight": "Major festive dining out and gold/vehicle purchase celebrations."},
-                        "makar sankranti": {"mult": 1.4, "name": "Makar Sankranti", "insight": "Traditional sweet (Tilgul) distribution and family festive meals."},
+                        "ganesh": {
+                            "mult": 2.2,
+                            "name": "Ganesh Chaturthi",
+                            "insight": "Maharashtra's supreme 10-day celebration. Peak demand for sweets, catering, modak, family dining, and late-night food stalls.",
+                        },
+                        "gudi padwa": {
+                            "mult": 1.8,
+                            "name": "Gudi Padwa",
+                            "insight": "Maharashtrian New Year. Substantial daytime footfall surge and celebratory dining.",
+                        },
+                        "shivaji": {
+                            "mult": 1.5,
+                            "name": "Chhatrapati Shivaji Maharaj Jayanti",
+                            "insight": "State public holiday with massive local processions and lunch/dinner rush.",
+                        },
+                        "sharad navratri": {
+                            "mult": 1.8,
+                            "name": "Sharad Navratri",
+                            "insight": "Fasting menu demand during day; late-night post-dandiya dining surges.",
+                        },
+                        "dussehra": {
+                            "mult": 1.9,
+                            "name": "Dussehra (Vijayadashami)",
+                            "insight": "Major festive dining out and gold/vehicle purchase celebrations.",
+                        },
+                        "makar sankranti": {
+                            "mult": 1.4,
+                            "name": "Makar Sankranti",
+                            "insight": "Traditional sweet (Tilgul) distribution and family festive meals.",
+                        },
                     },
-                    "state_days": [("05-01", "Maharashtra Day", 1.4, "State foundation holiday; high holiday lunch and retail traffic.")],
-                    "dry_days": ["gandhi jayanti", "republic day", "independence day", "ashadi ekadashi", "kartiki ekadashi"],
+                    "state_days": [
+                        (
+                            "05-01",
+                            "Maharashtra Day",
+                            1.4,
+                            "State foundation holiday; high holiday lunch and retail traffic.",
+                        )
+                    ],
+                    "dry_days": [
+                        "gandhi jayanti",
+                        "republic day",
+                        "independence day",
+                        "ashadi ekadashi",
+                        "kartiki ekadashi",
+                    ],
                 },
                 "Gujarat": {
                     "zone": "Western India",
                     "primary_festivals": {
-                        "navratri": {"mult": 2.2, "name": "Navratri / Garba Nights", "insight": "Gujarat's #1 cultural festival (9 nights). Extraordinary surge in midnight food stalls, fast-food, desserts, and late-night dine-in."},
-                        "makar sankranti": {"mult": 2.0, "name": "Uttarayan / Kite Festival", "insight": "Rooftop gatherings, massive demand for Undhiyu, Jalebi, snacks, and catering."},
-                        "uttarayan": {"mult": 2.0, "name": "Uttarayan / Kite Festival", "insight": "Massive statewide kite flying festival with all-day festive dining."},
-                        "janmashtami": {"mult": 1.9, "name": "Janmashtami", "insight": "Major midnight celebration across Gujarat. Faraali/fasting special orders surge."},
-                        "cheti chand": {"mult": 1.5, "name": "Cheti Chand", "insight": "Sindhi New Year, observed widely in Gujarat business communities."},
+                        "navratri": {
+                            "mult": 2.2,
+                            "name": "Navratri / Garba Nights",
+                            "insight": "Gujarat's #1 cultural festival (9 nights). Extraordinary surge in midnight food stalls, fast-food, desserts, and late-night dine-in.",
+                        },
+                        "makar sankranti": {
+                            "mult": 2.0,
+                            "name": "Uttarayan / Kite Festival",
+                            "insight": "Rooftop gatherings, massive demand for Undhiyu, Jalebi, snacks, and catering.",
+                        },
+                        "uttarayan": {
+                            "mult": 2.0,
+                            "name": "Uttarayan / Kite Festival",
+                            "insight": "Massive statewide kite flying festival with all-day festive dining.",
+                        },
+                        "janmashtami": {
+                            "mult": 1.9,
+                            "name": "Janmashtami",
+                            "insight": "Major midnight celebration across Gujarat. Faraali/fasting special orders surge.",
+                        },
+                        "cheti chand": {
+                            "mult": 1.5,
+                            "name": "Cheti Chand",
+                            "insight": "Sindhi New Year, observed widely in Gujarat business communities.",
+                        },
                     },
                     "state_days": [("05-01", "Gujarat Day", 1.4, "State foundation holiday.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3477,16 +3749,56 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "West Bengal": {
                     "zone": "Eastern India",
                     "primary_festivals": {
-                        "durga puja": {"mult": 2.5, "name": "Durga Puja", "insight": "Bengal's biggest festival of the year! Pandal hopping creates 24-hour restaurant footfall, street food records, and festive menus."},
-                        "maha saptami": {"mult": 2.5, "name": "Durga Puja (Maha Saptami)", "insight": "Peak pandal hopping and dining out rush across Bengal."},
-                        "maha ashtami": {"mult": 2.5, "name": "Durga Puja (Maha Ashtami)", "insight": "Peak evening and midnight dining out; Bhog and restaurant dining surges."},
-                        "maha navami": {"mult": 2.5, "name": "Durga Puja (Maha Navami)", "insight": "Carnival atmosphere, massive dining and takeaway volumes."},
-                        "kali puja": {"mult": 2.0, "name": "Kali Puja & Diwali", "insight": "Statewide illumination and late-night festive dining."},
-                        "poila boishakh": {"mult": 1.9, "name": "Poila Boishakh (Bengali New Year)", "insight": "Traditional new clothes shopping, auspicious beginnings, and heavy restaurant dining."},
-                        "vaisakhadi": {"mult": 1.9, "name": "Poila Boishakh (Bengali New Year)", "insight": "Auspicious beginnings and heavy celebratory dining in Bengal."},
-                        "dolyatra": {"mult": 1.8, "name": "Dolyatra / Holi", "insight": "Spring color festival with high afternoon takeaway and celebration orders."},
-                        "rabindranath": {"mult": 1.5, "name": "Rabindra Jayanti", "insight": "State cultural holiday with community gatherings and sweet consumption."},
-                        "bhai duj": {"mult": 1.6, "name": "Bhai Phota (Bhai Duj)", "insight": "Family feasts and high gifting/sweet box sales."},
+                        "durga puja": {
+                            "mult": 2.5,
+                            "name": "Durga Puja",
+                            "insight": "Bengal's biggest festival of the year! Pandal hopping creates 24-hour restaurant footfall, street food records, and festive menus.",
+                        },
+                        "maha saptami": {
+                            "mult": 2.5,
+                            "name": "Durga Puja (Maha Saptami)",
+                            "insight": "Peak pandal hopping and dining out rush across Bengal.",
+                        },
+                        "maha ashtami": {
+                            "mult": 2.5,
+                            "name": "Durga Puja (Maha Ashtami)",
+                            "insight": "Peak evening and midnight dining out; Bhog and restaurant dining surges.",
+                        },
+                        "maha navami": {
+                            "mult": 2.5,
+                            "name": "Durga Puja (Maha Navami)",
+                            "insight": "Carnival atmosphere, massive dining and takeaway volumes.",
+                        },
+                        "kali puja": {
+                            "mult": 2.0,
+                            "name": "Kali Puja & Diwali",
+                            "insight": "Statewide illumination and late-night festive dining.",
+                        },
+                        "poila boishakh": {
+                            "mult": 1.9,
+                            "name": "Poila Boishakh (Bengali New Year)",
+                            "insight": "Traditional new clothes shopping, auspicious beginnings, and heavy restaurant dining.",
+                        },
+                        "vaisakhadi": {
+                            "mult": 1.9,
+                            "name": "Poila Boishakh (Bengali New Year)",
+                            "insight": "Auspicious beginnings and heavy celebratory dining in Bengal.",
+                        },
+                        "dolyatra": {
+                            "mult": 1.8,
+                            "name": "Dolyatra / Holi",
+                            "insight": "Spring color festival with high afternoon takeaway and celebration orders.",
+                        },
+                        "rabindranath": {
+                            "mult": 1.5,
+                            "name": "Rabindra Jayanti",
+                            "insight": "State cultural holiday with community gatherings and sweet consumption.",
+                        },
+                        "bhai duj": {
+                            "mult": 1.6,
+                            "name": "Bhai Phota (Bhai Duj)",
+                            "insight": "Family feasts and high gifting/sweet box sales.",
+                        },
                     },
                     "state_days": [("04-15", "Poila Boishakh", 1.9, "Bengali New Year holiday.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3494,23 +3806,75 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Tamil Nadu": {
                     "zone": "Southern India",
                     "primary_festivals": {
-                        "pongal": {"mult": 2.2, "name": "Pongal Harvest Festival", "insight": "Tamil Nadu's 4-day harvest celebration. Massive surge in groceries, family feasts, traditional sweets, and travel dining."},
-                        "mattu pongal": {"mult": 2.0, "name": "Mattu Pongal", "insight": "Jallikattu and cultural feasts in rural and semi-urban Tamil Nadu."},
-                        "puthandu": {"mult": 1.8, "name": "Puthandu (Tamil New Year)", "insight": "New Year feasts, temple visits, and family dining out."},
-                        "mesadi": {"mult": 1.8, "name": "Tamil New Year / Mesadi", "insight": "Auspicious holiday with traditional feasts."},
-                        "deepavali": {"mult": 2.0, "name": "Deepavali", "insight": "Major festival celebrated early morning in Tamil Nadu with sweets and family feasts."},
-                        "vinayaka": {"mult": 1.5, "name": "Vinayaka Chathurthi", "insight": "Public celebration with local festive demand."},
+                        "pongal": {
+                            "mult": 2.2,
+                            "name": "Pongal Harvest Festival",
+                            "insight": "Tamil Nadu's 4-day harvest celebration. Massive surge in groceries, family feasts, traditional sweets, and travel dining.",
+                        },
+                        "mattu pongal": {
+                            "mult": 2.0,
+                            "name": "Mattu Pongal",
+                            "insight": "Jallikattu and cultural feasts in rural and semi-urban Tamil Nadu.",
+                        },
+                        "puthandu": {
+                            "mult": 1.8,
+                            "name": "Puthandu (Tamil New Year)",
+                            "insight": "New Year feasts, temple visits, and family dining out.",
+                        },
+                        "mesadi": {
+                            "mult": 1.8,
+                            "name": "Tamil New Year / Mesadi",
+                            "insight": "Auspicious holiday with traditional feasts.",
+                        },
+                        "deepavali": {
+                            "mult": 2.0,
+                            "name": "Deepavali",
+                            "insight": "Major festival celebrated early morning in Tamil Nadu with sweets and family feasts.",
+                        },
+                        "vinayaka": {
+                            "mult": 1.5,
+                            "name": "Vinayaka Chathurthi",
+                            "insight": "Public celebration with local festive demand.",
+                        },
                     },
-                    "state_days": [("04-14", "Tamil New Year (Puthandu)", 1.8, "Tamil New Year public holiday.")],
-                    "dry_days": ["gandhi jayanti", "republic day", "independence day", "thiruvalluvar day"],
+                    "state_days": [
+                        (
+                            "04-14",
+                            "Tamil New Year (Puthandu)",
+                            1.8,
+                            "Tamil New Year public holiday.",
+                        )
+                    ],
+                    "dry_days": [
+                        "gandhi jayanti",
+                        "republic day",
+                        "independence day",
+                        "thiruvalluvar day",
+                    ],
                 },
                 "Kerala": {
                     "zone": "Southern India",
                     "primary_festivals": {
-                        "onam": {"mult": 2.4, "name": "Thiruvonam / Onam", "insight": "Kerala's harvest festival & grand celebration! Huge demand for Onasadya (traditional feast), catering, and family dining."},
-                        "thiruvonam": {"mult": 2.4, "name": "Thiruvonam (Peak Onam Day)", "insight": "Apex of festive dining in Kerala; record sales for restaurants and sweet vendors."},
-                        "vishu": {"mult": 2.0, "name": "Vishu (Malayalam New Year)", "insight": "Vishu Kani, fireworks, and lavish traditional feasts."},
-                        "attukal": {"mult": 1.6, "name": "Attukal Pongala", "insight": "Largest congregation of women devotees; huge food stall and beverage demand."},
+                        "onam": {
+                            "mult": 2.4,
+                            "name": "Thiruvonam / Onam",
+                            "insight": "Kerala's harvest festival & grand celebration! Huge demand for Onasadya (traditional feast), catering, and family dining.",
+                        },
+                        "thiruvonam": {
+                            "mult": 2.4,
+                            "name": "Thiruvonam (Peak Onam Day)",
+                            "insight": "Apex of festive dining in Kerala; record sales for restaurants and sweet vendors.",
+                        },
+                        "vishu": {
+                            "mult": 2.0,
+                            "name": "Vishu (Malayalam New Year)",
+                            "insight": "Vishu Kani, fireworks, and lavish traditional feasts.",
+                        },
+                        "attukal": {
+                            "mult": 1.6,
+                            "name": "Attukal Pongala",
+                            "insight": "Largest congregation of women devotees; huge food stall and beverage demand.",
+                        },
                     },
                     "state_days": [("11-01", "Kerala Piravi", 1.5, "Kerala state formation day.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3518,56 +3882,152 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Punjab": {
                     "zone": "Northern India",
                     "primary_festivals": {
-                        "vaisakhi": {"mult": 2.2, "name": "Vaisakhi / Baisakhi", "insight": "Harvest celebration & Khalsa formation day. Massive community dining (langar), sweet sales, and Punjabi cuisine surge."},
-                        "baisakhi": {"mult": 2.2, "name": "Baisakhi", "insight": "Peak harvest celebration across Punjab and Haryana."},
-                        "lohri": {"mult": 2.0, "name": "Lohri", "insight": "Winter bonfire festival with immense demand for sweets, snacks, groundnuts, and celebration dinners."},
-                        "guru nanak": {"mult": 1.9, "name": "Guru Nanak Jayanti (Gurpurab)", "insight": "Major holy day with massive footfall at gurdwaras, public feeding, and confectionery demand."},
-                        "guru gobind": {"mult": 1.8, "name": "Guru Gobind Singh Jayanti", "insight": "State holiday with high community participation and family meals."},
-                        "guru tegh": {"mult": 1.4, "name": "Guru Tegh Bahadur Martyrdom Day", "insight": "State public holiday in Punjab."},
+                        "vaisakhi": {
+                            "mult": 2.2,
+                            "name": "Vaisakhi / Baisakhi",
+                            "insight": "Harvest celebration & Khalsa formation day. Massive community dining (langar), sweet sales, and Punjabi cuisine surge.",
+                        },
+                        "baisakhi": {
+                            "mult": 2.2,
+                            "name": "Baisakhi",
+                            "insight": "Peak harvest celebration across Punjab and Haryana.",
+                        },
+                        "lohri": {
+                            "mult": 2.0,
+                            "name": "Lohri",
+                            "insight": "Winter bonfire festival with immense demand for sweets, snacks, groundnuts, and celebration dinners.",
+                        },
+                        "guru nanak": {
+                            "mult": 1.9,
+                            "name": "Guru Nanak Jayanti (Gurpurab)",
+                            "insight": "Major holy day with massive footfall at gurdwaras, public feeding, and confectionery demand.",
+                        },
+                        "guru gobind": {
+                            "mult": 1.8,
+                            "name": "Guru Gobind Singh Jayanti",
+                            "insight": "State holiday with high community participation and family meals.",
+                        },
+                        "guru tegh": {
+                            "mult": 1.4,
+                            "name": "Guru Tegh Bahadur Martyrdom Day",
+                            "insight": "State public holiday in Punjab.",
+                        },
                     },
-                    "state_days": [("04-14", "Vaisakhi Day", 2.2, "Harvest and religious holiday.")],
+                    "state_days": [
+                        ("04-14", "Vaisakhi Day", 2.2, "Harvest and religious holiday.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Karnataka": {
                     "zone": "Southern India",
                     "primary_festivals": {
-                        "ugadi": {"mult": 2.0, "name": "Ugadi (Kannada New Year)", "insight": "Kannada New Year festival with traditional Holige/Obbattu sweets and heavy family dining."},
-                        "dussehra": {"mult": 2.2, "name": "Mysuru Dasara / Vijayadashami", "insight": "State festival (Naada Habba). Mysuru and Bengaluru see unprecedented tourist influx and restaurant sales."},
-                        "gowri": {"mult": 1.8, "name": "Gowri Habba & Ganesha", "insight": "Household pujas and high sales of festive ingredients and snacks."},
-                        "kannada rajyotsava": {"mult": 1.6, "name": "Kannada Rajyotsava", "insight": "Karnataka Foundation Day. Widespread cultural parades and lunch/dinner rush."},
+                        "ugadi": {
+                            "mult": 2.0,
+                            "name": "Ugadi (Kannada New Year)",
+                            "insight": "Kannada New Year festival with traditional Holige/Obbattu sweets and heavy family dining.",
+                        },
+                        "dussehra": {
+                            "mult": 2.2,
+                            "name": "Mysuru Dasara / Vijayadashami",
+                            "insight": "State festival (Naada Habba). Mysuru and Bengaluru see unprecedented tourist influx and restaurant sales.",
+                        },
+                        "gowri": {
+                            "mult": 1.8,
+                            "name": "Gowri Habba & Ganesha",
+                            "insight": "Household pujas and high sales of festive ingredients and snacks.",
+                        },
+                        "kannada rajyotsava": {
+                            "mult": 1.6,
+                            "name": "Kannada Rajyotsava",
+                            "insight": "Karnataka Foundation Day. Widespread cultural parades and lunch/dinner rush.",
+                        },
                     },
-                    "state_days": [("11-01", "Kannada Rajyotsava", 1.6, "Karnataka state formation day.")],
+                    "state_days": [
+                        ("11-01", "Kannada Rajyotsava", 1.6, "Karnataka state formation day.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Andhra Pradesh": {
                     "zone": "Southern India",
                     "primary_festivals": {
-                        "ugadi": {"mult": 2.0, "name": "Ugadi (Telugu New Year)", "insight": "Telugu New Year celebration. High demand for festive pachadi, sweets, and celebration platters."},
-                        "sankranti": {"mult": 2.1, "name": "Makara Sankranti (3-day)", "insight": "Andhra's biggest festival (Bhogi, Sankranti, Kanuma). Massive rural homecoming and lavish feasts."},
+                        "ugadi": {
+                            "mult": 2.0,
+                            "name": "Ugadi (Telugu New Year)",
+                            "insight": "Telugu New Year celebration. High demand for festive pachadi, sweets, and celebration platters.",
+                        },
+                        "sankranti": {
+                            "mult": 2.1,
+                            "name": "Makara Sankranti (3-day)",
+                            "insight": "Andhra's biggest festival (Bhogi, Sankranti, Kanuma). Massive rural homecoming and lavish feasts.",
+                        },
                     },
-                    "state_days": [("11-01", "Andhra Pradesh Formation Day", 1.4, "State formation holiday.")],
+                    "state_days": [
+                        ("11-01", "Andhra Pradesh Formation Day", 1.4, "State formation holiday.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Telangana": {
                     "zone": "Southern India",
                     "primary_festivals": {
-                        "ugadi": {"mult": 2.0, "name": "Ugadi (Telugu New Year)", "insight": "Telugu New Year with high dining and celebration orders."},
-                        "bonalu": {"mult": 1.8, "name": "Bonalu Festival", "insight": "Hyderabad and Secunderabad temple celebrations with traditional food offerings."},
-                        "bathukamma": {"mult": 1.8, "name": "Bathukamma Floral Festival", "insight": "State festival during Navratri with large public gatherings and sweet orders."},
-                        "milad": {"mult": 1.9, "name": "Milad un-Nabi", "insight": "Major cultural festival in Hyderabad with late-night food street crowds."},
-                        "sankranti": {"mult": 2.0, "name": "Sankranti", "insight": "Homecoming festival with heavy travel and dine-out traffic."},
+                        "ugadi": {
+                            "mult": 2.0,
+                            "name": "Ugadi (Telugu New Year)",
+                            "insight": "Telugu New Year with high dining and celebration orders.",
+                        },
+                        "bonalu": {
+                            "mult": 1.8,
+                            "name": "Bonalu Festival",
+                            "insight": "Hyderabad and Secunderabad temple celebrations with traditional food offerings.",
+                        },
+                        "bathukamma": {
+                            "mult": 1.8,
+                            "name": "Bathukamma Floral Festival",
+                            "insight": "State festival during Navratri with large public gatherings and sweet orders.",
+                        },
+                        "milad": {
+                            "mult": 1.9,
+                            "name": "Milad un-Nabi",
+                            "insight": "Major cultural festival in Hyderabad with late-night food street crowds.",
+                        },
+                        "sankranti": {
+                            "mult": 2.0,
+                            "name": "Sankranti",
+                            "insight": "Homecoming festival with heavy travel and dine-out traffic.",
+                        },
                     },
-                    "state_days": [("06-02", "Telangana Formation Day", 1.5, "State formation holiday.")],
+                    "state_days": [
+                        ("06-02", "Telangana Formation Day", 1.5, "State formation holiday.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Bihar": {
                     "zone": "Eastern India",
                     "primary_festivals": {
-                        "chhat": {"mult": 2.4, "name": "Chhath Puja", "insight": "Bihar's most revered cultural festival (4 days). Immense shopping for Thekua ingredients, fruits, prasad, and family homecomings."},
-                        "chhat puja": {"mult": 2.4, "name": "Chhath Puja", "insight": "River ghat gatherings; wholesale and retail grocery volumes multiply."},
-                        "govardhan": {"mult": 1.6, "name": "Govardhan Puja & Godhan", "insight": "Post-Diwali festivities and festive home cooking."},
-                        "makar sankranti": {"mult": 1.6, "name": "Makar Sankranti (Dahi Chuda)", "insight": "Traditional Dahi-Chuda-Tilkut feast creates huge dairy and confectionery demand."},
-                        "bihar diwas": {"mult": 1.5, "name": "Bihar Diwas", "insight": "State formation holiday with public events."},
+                        "chhat": {
+                            "mult": 2.4,
+                            "name": "Chhath Puja",
+                            "insight": "Bihar's most revered cultural festival (4 days). Immense shopping for Thekua ingredients, fruits, prasad, and family homecomings.",
+                        },
+                        "chhat puja": {
+                            "mult": 2.4,
+                            "name": "Chhath Puja",
+                            "insight": "River ghat gatherings; wholesale and retail grocery volumes multiply.",
+                        },
+                        "govardhan": {
+                            "mult": 1.6,
+                            "name": "Govardhan Puja & Godhan",
+                            "insight": "Post-Diwali festivities and festive home cooking.",
+                        },
+                        "makar sankranti": {
+                            "mult": 1.6,
+                            "name": "Makar Sankranti (Dahi Chuda)",
+                            "insight": "Traditional Dahi-Chuda-Tilkut feast creates huge dairy and confectionery demand.",
+                        },
+                        "bihar diwas": {
+                            "mult": 1.5,
+                            "name": "Bihar Diwas",
+                            "insight": "State formation holiday with public events.",
+                        },
                     },
                     "state_days": [("03-22", "Bihar Diwas", 1.5, "Bihar state formation holiday.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3575,9 +4035,21 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Odisha": {
                     "zone": "Eastern India",
                     "primary_festivals": {
-                        "rath yatra": {"mult": 2.4, "name": "Rath Yatra (Puri Chariot Festival)", "insight": "Odisha's world-famous chariot festival. Millions gather in Puri and coastal Odisha; record food and beverage consumption."},
-                        "durga puja": {"mult": 2.0, "name": "Durga Puja", "insight": "Cuttack and Bhubaneswar pandals attract enormous evening dining crowds."},
-                        "raja": {"mult": 1.8, "name": "Raja Parba", "insight": "3-day agricultural celebration with Pitha sweets and street food delicacies."},
+                        "rath yatra": {
+                            "mult": 2.4,
+                            "name": "Rath Yatra (Puri Chariot Festival)",
+                            "insight": "Odisha's world-famous chariot festival. Millions gather in Puri and coastal Odisha; record food and beverage consumption.",
+                        },
+                        "durga puja": {
+                            "mult": 2.0,
+                            "name": "Durga Puja",
+                            "insight": "Cuttack and Bhubaneswar pandals attract enormous evening dining crowds.",
+                        },
+                        "raja": {
+                            "mult": 1.8,
+                            "name": "Raja Parba",
+                            "insight": "3-day agricultural celebration with Pitha sweets and street food delicacies.",
+                        },
                     },
                     "state_days": [("04-01", "Utkal Divas", 1.5, "Odisha state formation day.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3585,23 +4057,65 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Assam": {
                     "zone": "North-Eastern India",
                     "primary_festivals": {
-                        "bahag bihu": {"mult": 2.3, "name": "Bohag / Rongali Bihu", "insight": "Assam's prime harvest & New Year festival (7 days). Massive demand for Pitha, Laru, Jolpan, and community banquets."},
-                        "bihu": {"mult": 2.3, "name": "Bihu", "insight": "Peak cultural festival in Assam; heavy dining and celebration rush."},
-                        "magh bihu": {"mult": 1.9, "name": "Magh / Bhogali Bihu", "insight": "Harvest feast festival with bonfire dining and high poultry/fish/sweet sales."},
-                        "durga puja": {"mult": 2.0, "name": "Durga Puja in Assam", "insight": "Guwahati pandals create peak seasonal dining."},
+                        "bahag bihu": {
+                            "mult": 2.3,
+                            "name": "Bohag / Rongali Bihu",
+                            "insight": "Assam's prime harvest & New Year festival (7 days). Massive demand for Pitha, Laru, Jolpan, and community banquets.",
+                        },
+                        "bihu": {
+                            "mult": 2.3,
+                            "name": "Bihu",
+                            "insight": "Peak cultural festival in Assam; heavy dining and celebration rush.",
+                        },
+                        "magh bihu": {
+                            "mult": 1.9,
+                            "name": "Magh / Bhogali Bihu",
+                            "insight": "Harvest feast festival with bonfire dining and high poultry/fish/sweet sales.",
+                        },
+                        "durga puja": {
+                            "mult": 2.0,
+                            "name": "Durga Puja in Assam",
+                            "insight": "Guwahati pandals create peak seasonal dining.",
+                        },
                     },
-                    "state_days": [("04-14", "Bohag Bihu Day 1", 2.3, "Assamese New Year holiday.")],
+                    "state_days": [
+                        ("04-14", "Bohag Bihu Day 1", 2.3, "Assamese New Year holiday.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Delhi": {
                     "zone": "Northern India",
                     "primary_festivals": {
-                        "diwali": {"mult": 2.2, "name": "Diwali", "insight": "Peak gifting, shopping, and dining week in the capital region."},
-                        "dussehra": {"mult": 1.9, "name": "Dussehra", "insight": "Ramlila fairs across Delhi draw millions to street food and family restaurants."},
-                        "holi": {"mult": 2.0, "name": "Holi", "insight": "Snack, beverage, and celebration delivery orders skyrocket."},
-                        "janmashtami": {"mult": 1.8, "name": "Janmashtami", "insight": "Midnight temple crowds at ISKCON and Birla Mandir drive fast-food surges."},
-                        "eid": {"mult": 1.9, "name": "Eid ul-Fitr & Bakrid", "insight": "Old Delhi and major commercial districts see record dining and takeaway."},
-                        "chhat": {"mult": 1.8, "name": "Chhath Puja in NCR", "insight": "Observed with public holidays and massive ghat congregations across NCR."},
+                        "diwali": {
+                            "mult": 2.2,
+                            "name": "Diwali",
+                            "insight": "Peak gifting, shopping, and dining week in the capital region.",
+                        },
+                        "dussehra": {
+                            "mult": 1.9,
+                            "name": "Dussehra",
+                            "insight": "Ramlila fairs across Delhi draw millions to street food and family restaurants.",
+                        },
+                        "holi": {
+                            "mult": 2.0,
+                            "name": "Holi",
+                            "insight": "Snack, beverage, and celebration delivery orders skyrocket.",
+                        },
+                        "janmashtami": {
+                            "mult": 1.8,
+                            "name": "Janmashtami",
+                            "insight": "Midnight temple crowds at ISKCON and Birla Mandir drive fast-food surges.",
+                        },
+                        "eid": {
+                            "mult": 1.9,
+                            "name": "Eid ul-Fitr & Bakrid",
+                            "insight": "Old Delhi and major commercial districts see record dining and takeaway.",
+                        },
+                        "chhat": {
+                            "mult": 1.8,
+                            "name": "Chhath Puja in NCR",
+                            "insight": "Observed with public holidays and massive ghat congregations across NCR.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3609,10 +4123,26 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Uttar Pradesh": {
                     "zone": "Northern India",
                     "primary_festivals": {
-                        "diwali": {"mult": 2.2, "name": "Diwali (Deepotsav)", "insight": "Statewide grand illuminations; confectionery and dining sales hit annual highs."},
-                        "holi": {"mult": 2.1, "name": "Holi (Braj/Awadh)", "insight": "Famous multi-day festivities in Mathura, Varanasi, and Lucknow; huge festive demand."},
-                        "janmashtami": {"mult": 2.0, "name": "Janmashtami (Mathura/Vrindavan)", "insight": "Unmatched religious tourism and fasting/feasting food orders."},
-                        "chhat": {"mult": 1.8, "name": "Chhath Puja (Purvanchal)", "insight": "Purvanchal region experiences highest festive gathering of the year."},
+                        "diwali": {
+                            "mult": 2.2,
+                            "name": "Diwali (Deepotsav)",
+                            "insight": "Statewide grand illuminations; confectionery and dining sales hit annual highs.",
+                        },
+                        "holi": {
+                            "mult": 2.1,
+                            "name": "Holi (Braj/Awadh)",
+                            "insight": "Famous multi-day festivities in Mathura, Varanasi, and Lucknow; huge festive demand.",
+                        },
+                        "janmashtami": {
+                            "mult": 2.0,
+                            "name": "Janmashtami (Mathura/Vrindavan)",
+                            "insight": "Unmatched religious tourism and fasting/feasting food orders.",
+                        },
+                        "chhat": {
+                            "mult": 1.8,
+                            "name": "Chhath Puja (Purvanchal)",
+                            "insight": "Purvanchal region experiences highest festive gathering of the year.",
+                        },
                     },
                     "state_days": [("01-24", "UP Diwas", 1.3, "Statehood day.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3620,20 +4150,50 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "Rajasthan": {
                     "zone": "Northern India",
                     "primary_festivals": {
-                        "teej": {"mult": 1.8, "name": "Teej Festival", "insight": "Ghevar sweets and traditional Rajasthani dining surges."},
-                        "gangaur": {"mult": 1.8, "name": "Gangaur Festival", "insight": "Women's traditional festival with sweet gifting and festive dining."},
-                        "diwali": {"mult": 2.2, "name": "Diwali in Rajasthan", "insight": "Jaipur market illuminations draw massive tourist and local diners."},
+                        "teej": {
+                            "mult": 1.8,
+                            "name": "Teej Festival",
+                            "insight": "Ghevar sweets and traditional Rajasthani dining surges.",
+                        },
+                        "gangaur": {
+                            "mult": 1.8,
+                            "name": "Gangaur Festival",
+                            "insight": "Women's traditional festival with sweet gifting and festive dining.",
+                        },
+                        "diwali": {
+                            "mult": 2.2,
+                            "name": "Diwali in Rajasthan",
+                            "insight": "Jaipur market illuminations draw massive tourist and local diners.",
+                        },
                     },
-                    "state_days": [("03-30", "Rajasthan Day", 1.4, "State foundation celebration.")],
+                    "state_days": [
+                        ("03-30", "Rajasthan Day", 1.4, "State foundation celebration.")
+                    ],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
                 },
                 "Goa": {
                     "zone": "Western India",
                     "primary_festivals": {
-                        "carnival": {"mult": 2.2, "name": "Goa Carnival", "insight": "4-day carnival prior to Lent. Unprecedented tourism and nightlife/restaurant surge."},
-                        "xavier": {"mult": 1.8, "name": "Feast of St. Francis Xavier", "insight": "Old Goa pilgrimage draws huge coastal crowds and food stalls."},
-                        "sao joao": {"mult": 1.7, "name": "Sao Joao Feast", "insight": "Traditional monsoon feast with heavy festive dining and catering."},
-                        "shigmo": {"mult": 1.7, "name": "Shigmo Festival", "insight": "Goan spring festival with temple parades and local dining out."},
+                        "carnival": {
+                            "mult": 2.2,
+                            "name": "Goa Carnival",
+                            "insight": "4-day carnival prior to Lent. Unprecedented tourism and nightlife/restaurant surge.",
+                        },
+                        "xavier": {
+                            "mult": 1.8,
+                            "name": "Feast of St. Francis Xavier",
+                            "insight": "Old Goa pilgrimage draws huge coastal crowds and food stalls.",
+                        },
+                        "sao joao": {
+                            "mult": 1.7,
+                            "name": "Sao Joao Feast",
+                            "insight": "Traditional monsoon feast with heavy festive dining and catering.",
+                        },
+                        "shigmo": {
+                            "mult": 1.7,
+                            "name": "Shigmo Festival",
+                            "insight": "Goan spring festival with temple parades and local dining out.",
+                        },
                     },
                     "state_days": [("12-19", "Goa Liberation Day", 1.6, "State public holiday.")],
                     "dry_days": ["gandhi jayanti", "republic day", "independence day"],
@@ -3645,19 +4205,71 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "US": {
                     "zone": "North America",
                     "primary_festivals": {
-                        "thanksgiving": {"mult": 2.4, "name": "Thanksgiving Day", "insight": "Supreme family dining holiday in the US. Massive surge in turkey catering, grocery sales, and takeout."},
-                        "black friday": {"mult": 2.5, "name": "Black Friday", "insight": "Largest retail footfall and shopping day of the year; unprecedented commercial footfall."},
-                        "cyber monday": {"mult": 1.8, "name": "Cyber Monday", "insight": "Online retail peak with heavy delivery/takeout dining."},
-                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Peak nationwide winter festive holiday with family feasts and gift spending."},
-                        "christmas eve": {"mult": 2.0, "name": "Christmas Eve", "insight": "High last-minute shopping and celebration dining."},
-                        "new year": {"mult": 2.0, "name": "New Year's Eve / Day", "insight": "Late-night celebrations, parties, and breakfast/brunch rush."},
-                        "independence": {"mult": 2.0, "name": "4th of July (Independence Day)", "insight": "Summer outdoor BBQ celebrations, picnics, and high beverage/dining sales."},
-                        "memorial": {"mult": 1.7, "name": "Memorial Day Weekend", "insight": "3-day holiday weekend kicking off summer retail and dining travel."},
-                        "labor day": {"mult": 1.7, "name": "Labor Day Weekend", "insight": "End-of-summer 3-day holiday weekend with elevated leisure spend."},
-                        "halloween": {"mult": 1.8, "name": "Halloween", "insight": "Confectionery, candy, festive treats, and nightlife entertainment surge."},
-                        "super bowl": {"mult": 2.1, "name": "Super Bowl Sunday", "insight": "Record-setting pizza, chicken wings, beer, and snack food delivery demand."},
-                        "st. patrick": {"mult": 1.7, "name": "St. Patrick's Day", "insight": "High bar, pub, and casual dining footfall across the nation."},
-                        "mother's day": {"mult": 1.9, "name": "Mother's Day", "insight": "Highest restaurant brunch and fine dining reservation volume of the year."},
+                        "thanksgiving": {
+                            "mult": 2.4,
+                            "name": "Thanksgiving Day",
+                            "insight": "Supreme family dining holiday in the US. Massive surge in turkey catering, grocery sales, and takeout.",
+                        },
+                        "black friday": {
+                            "mult": 2.5,
+                            "name": "Black Friday",
+                            "insight": "Largest retail footfall and shopping day of the year; unprecedented commercial footfall.",
+                        },
+                        "cyber monday": {
+                            "mult": 1.8,
+                            "name": "Cyber Monday",
+                            "insight": "Online retail peak with heavy delivery/takeout dining.",
+                        },
+                        "christmas": {
+                            "mult": 2.2,
+                            "name": "Christmas Day",
+                            "insight": "Peak nationwide winter festive holiday with family feasts and gift spending.",
+                        },
+                        "christmas eve": {
+                            "mult": 2.0,
+                            "name": "Christmas Eve",
+                            "insight": "High last-minute shopping and celebration dining.",
+                        },
+                        "new year": {
+                            "mult": 2.0,
+                            "name": "New Year's Eve / Day",
+                            "insight": "Late-night celebrations, parties, and breakfast/brunch rush.",
+                        },
+                        "independence": {
+                            "mult": 2.0,
+                            "name": "4th of July (Independence Day)",
+                            "insight": "Summer outdoor BBQ celebrations, picnics, and high beverage/dining sales.",
+                        },
+                        "memorial": {
+                            "mult": 1.7,
+                            "name": "Memorial Day Weekend",
+                            "insight": "3-day holiday weekend kicking off summer retail and dining travel.",
+                        },
+                        "labor day": {
+                            "mult": 1.7,
+                            "name": "Labor Day Weekend",
+                            "insight": "End-of-summer 3-day holiday weekend with elevated leisure spend.",
+                        },
+                        "halloween": {
+                            "mult": 1.8,
+                            "name": "Halloween",
+                            "insight": "Confectionery, candy, festive treats, and nightlife entertainment surge.",
+                        },
+                        "super bowl": {
+                            "mult": 2.1,
+                            "name": "Super Bowl Sunday",
+                            "insight": "Record-setting pizza, chicken wings, beer, and snack food delivery demand.",
+                        },
+                        "st. patrick": {
+                            "mult": 1.7,
+                            "name": "St. Patrick's Day",
+                            "insight": "High bar, pub, and casual dining footfall across the nation.",
+                        },
+                        "mother's day": {
+                            "mult": 1.9,
+                            "name": "Mother's Day",
+                            "insight": "Highest restaurant brunch and fine dining reservation volume of the year.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3665,13 +4277,41 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "GB": {
                     "zone": "United Kingdom & Ireland",
                     "primary_festivals": {
-                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Apex of UK festive dining and family celebrations."},
-                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Massive post-Christmas shopping sales rush and football hospitality."},
-                        "new year": {"mult": 2.0, "name": "New Year's Eve / Day", "insight": "Hospitality and pub peak with celebratory dining."},
-                        "bank holiday": {"mult": 1.7, "name": "Bank Holiday Weekend", "insight": "3-day long weekend driving high pub visits, dining out, and domestic leisure."},
-                        "easter": {"mult": 1.8, "name": "Easter Weekend", "insight": "Spring family gatherings, confectionery sales, and restaurant dining."},
-                        "guy fawkes": {"mult": 1.5, "name": "Bonfire Night (Guy Fawkes)", "insight": "Outdoor public fireworks gatherings and hot food/beverage demand."},
-                        "st patrick": {"mult": 1.6, "name": "St Patrick's Day", "insight": "Heavy pub and restaurant footfall across the UK."},
+                        "christmas": {
+                            "mult": 2.3,
+                            "name": "Christmas Day",
+                            "insight": "Apex of UK festive dining and family celebrations.",
+                        },
+                        "boxing day": {
+                            "mult": 2.2,
+                            "name": "Boxing Day",
+                            "insight": "Massive post-Christmas shopping sales rush and football hospitality.",
+                        },
+                        "new year": {
+                            "mult": 2.0,
+                            "name": "New Year's Eve / Day",
+                            "insight": "Hospitality and pub peak with celebratory dining.",
+                        },
+                        "bank holiday": {
+                            "mult": 1.7,
+                            "name": "Bank Holiday Weekend",
+                            "insight": "3-day long weekend driving high pub visits, dining out, and domestic leisure.",
+                        },
+                        "easter": {
+                            "mult": 1.8,
+                            "name": "Easter Weekend",
+                            "insight": "Spring family gatherings, confectionery sales, and restaurant dining.",
+                        },
+                        "guy fawkes": {
+                            "mult": 1.5,
+                            "name": "Bonfire Night (Guy Fawkes)",
+                            "insight": "Outdoor public fireworks gatherings and hot food/beverage demand.",
+                        },
+                        "st patrick": {
+                            "mult": 1.6,
+                            "name": "St Patrick's Day",
+                            "insight": "Heavy pub and restaurant footfall across the UK.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3679,11 +4319,31 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "CA": {
                     "zone": "North America",
                     "primary_festivals": {
-                        "thanksgiving": {"mult": 2.2, "name": "Canadian Thanksgiving", "insight": "October harvest feast with high grocery and family dining volume."},
-                        "canada day": {"mult": 2.0, "name": "Canada Day", "insight": "July 1 nationwide celebrations, fireworks, and outdoor dining."},
-                        "victoria day": {"mult": 1.7, "name": "Victoria Day Weekend", "insight": "First major summer long weekend with strong travel and dining rush."},
-                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Peak winter festive dining and retail celebrations."},
-                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Annual shopping frenzy and high mall/restaurant footfall."},
+                        "thanksgiving": {
+                            "mult": 2.2,
+                            "name": "Canadian Thanksgiving",
+                            "insight": "October harvest feast with high grocery and family dining volume.",
+                        },
+                        "canada day": {
+                            "mult": 2.0,
+                            "name": "Canada Day",
+                            "insight": "July 1 nationwide celebrations, fireworks, and outdoor dining.",
+                        },
+                        "victoria day": {
+                            "mult": 1.7,
+                            "name": "Victoria Day Weekend",
+                            "insight": "First major summer long weekend with strong travel and dining rush.",
+                        },
+                        "christmas": {
+                            "mult": 2.3,
+                            "name": "Christmas Day",
+                            "insight": "Peak winter festive dining and retail celebrations.",
+                        },
+                        "boxing day": {
+                            "mult": 2.2,
+                            "name": "Boxing Day",
+                            "insight": "Annual shopping frenzy and high mall/restaurant footfall.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3691,11 +4351,31 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "AU": {
                     "zone": "Oceania / Australia",
                     "primary_festivals": {
-                        "australia day": {"mult": 2.0, "name": "Australia Day", "insight": "Summer holiday; massive demand for BBQs, beachside food, and outdoor hospitality."},
-                        "anzac": {"mult": 1.6, "name": "ANZAC Day", "insight": "Dawn services followed by busy cafes and traditional pub two-up gatherings."},
-                        "melbourne cup": {"mult": 1.8, "name": "Melbourne Cup Day", "insight": "The race that stops the nation; restaurant lunches and party catering peak."},
-                        "christmas": {"mult": 2.3, "name": "Christmas Day", "insight": "Summer festive dining, seafood feasts, and celebrations."},
-                        "boxing day": {"mult": 2.2, "name": "Boxing Day", "insight": "Huge retail sales rush and cricket/sports hospitality."},
+                        "australia day": {
+                            "mult": 2.0,
+                            "name": "Australia Day",
+                            "insight": "Summer holiday; massive demand for BBQs, beachside food, and outdoor hospitality.",
+                        },
+                        "anzac": {
+                            "mult": 1.6,
+                            "name": "ANZAC Day",
+                            "insight": "Dawn services followed by busy cafes and traditional pub two-up gatherings.",
+                        },
+                        "melbourne cup": {
+                            "mult": 1.8,
+                            "name": "Melbourne Cup Day",
+                            "insight": "The race that stops the nation; restaurant lunches and party catering peak.",
+                        },
+                        "christmas": {
+                            "mult": 2.3,
+                            "name": "Christmas Day",
+                            "insight": "Summer festive dining, seafood feasts, and celebrations.",
+                        },
+                        "boxing day": {
+                            "mult": 2.2,
+                            "name": "Boxing Day",
+                            "insight": "Huge retail sales rush and cricket/sports hospitality.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3703,12 +4383,36 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "SG": {
                     "zone": "Southeast Asia",
                     "primary_festivals": {
-                        "chinese new year": {"mult": 2.5, "name": "Chinese New Year / Lunar New Year", "insight": "Singapore's supreme festival; reunion dinners, bakery, mandarin gifting, and shopping."},
-                        "lunar new year": {"mult": 2.5, "name": "Lunar New Year", "insight": "Multi-day celebratory feasts and retail peak."},
-                        "hari raya": {"mult": 2.2, "name": "Hari Raya Puasa / Aidilfitri", "insight": "Geylang Serai bazaar, festive feasting, and community open houses."},
-                        "deepavali": {"mult": 2.0, "name": "Deepavali", "insight": "Little India festive bazaar and holiday celebratory dining."},
-                        "national day": {"mult": 2.0, "name": "National Day (Aug 9)", "insight": "Marina Bay parade crowds, fireworks dining, and patriotic gatherings."},
-                        "christmas": {"mult": 2.0, "name": "Christmas in Singapore", "insight": "Orchard Road light-up, shopping, and year-end restaurant dining."},
+                        "chinese new year": {
+                            "mult": 2.5,
+                            "name": "Chinese New Year / Lunar New Year",
+                            "insight": "Singapore's supreme festival; reunion dinners, bakery, mandarin gifting, and shopping.",
+                        },
+                        "lunar new year": {
+                            "mult": 2.5,
+                            "name": "Lunar New Year",
+                            "insight": "Multi-day celebratory feasts and retail peak.",
+                        },
+                        "hari raya": {
+                            "mult": 2.2,
+                            "name": "Hari Raya Puasa / Aidilfitri",
+                            "insight": "Geylang Serai bazaar, festive feasting, and community open houses.",
+                        },
+                        "deepavali": {
+                            "mult": 2.0,
+                            "name": "Deepavali",
+                            "insight": "Little India festive bazaar and holiday celebratory dining.",
+                        },
+                        "national day": {
+                            "mult": 2.0,
+                            "name": "National Day (Aug 9)",
+                            "insight": "Marina Bay parade crowds, fireworks dining, and patriotic gatherings.",
+                        },
+                        "christmas": {
+                            "mult": 2.0,
+                            "name": "Christmas in Singapore",
+                            "insight": "Orchard Road light-up, shopping, and year-end restaurant dining.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3716,11 +4420,31 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "AE": {
                     "zone": "Middle East / GCC",
                     "primary_festivals": {
-                        "eid al-fitr": {"mult": 2.4, "name": "Eid al-Fitr", "insight": "Grand festive dining, retail shopping festivals, and holiday travel surge."},
-                        "eid al-adha": {"mult": 2.3, "name": "Eid al-Adha", "insight": "Traditional family banquets, gifting, and hospitality rush."},
-                        "national day": {"mult": 2.2, "name": "UAE National Day (Dec 2)", "insight": "Long weekend holiday, fireworks dining, and commercial sales promotions."},
-                        "new year": {"mult": 2.2, "name": "New Year's Eve in UAE", "insight": "World-famous celebration dining and entertainment records."},
-                        "ramadan": {"mult": 1.9, "name": "Ramadan Evenings", "insight": "High night-time footfall for Iftar buffets and Suhoor gatherings."},
+                        "eid al-fitr": {
+                            "mult": 2.4,
+                            "name": "Eid al-Fitr",
+                            "insight": "Grand festive dining, retail shopping festivals, and holiday travel surge.",
+                        },
+                        "eid al-adha": {
+                            "mult": 2.3,
+                            "name": "Eid al-Adha",
+                            "insight": "Traditional family banquets, gifting, and hospitality rush.",
+                        },
+                        "national day": {
+                            "mult": 2.2,
+                            "name": "UAE National Day (Dec 2)",
+                            "insight": "Long weekend holiday, fireworks dining, and commercial sales promotions.",
+                        },
+                        "new year": {
+                            "mult": 2.2,
+                            "name": "New Year's Eve in UAE",
+                            "insight": "World-famous celebration dining and entertainment records.",
+                        },
+                        "ramadan": {
+                            "mult": 1.9,
+                            "name": "Ramadan Evenings",
+                            "insight": "High night-time footfall for Iftar buffets and Suhoor gatherings.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3728,11 +4452,31 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "DE": {
                     "zone": "Europe",
                     "primary_festivals": {
-                        "einheit": {"mult": 1.7, "name": "Tag der Deutschen Einheit", "insight": "German Unity Day national holiday and leisure spending."},
-                        "weihnachten": {"mult": 2.2, "name": "Weihnachten (Christmas)", "insight": "Christmas markets (Weihnachtsmarkt) and festive dining peaks."},
-                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Major winter celebration with high dining and confectionery."},
-                        "silvester": {"mult": 2.0, "name": "Silvester / New Year", "insight": "Celebratory gatherings, fireworks, and restaurant parties."},
-                        "ostern": {"mult": 1.8, "name": "Ostern (Easter)", "insight": "Spring long weekend, bakery treats, and family dining."},
+                        "einheit": {
+                            "mult": 1.7,
+                            "name": "Tag der Deutschen Einheit",
+                            "insight": "German Unity Day national holiday and leisure spending.",
+                        },
+                        "weihnachten": {
+                            "mult": 2.2,
+                            "name": "Weihnachten (Christmas)",
+                            "insight": "Christmas markets (Weihnachtsmarkt) and festive dining peaks.",
+                        },
+                        "christmas": {
+                            "mult": 2.2,
+                            "name": "Christmas Day",
+                            "insight": "Major winter celebration with high dining and confectionery.",
+                        },
+                        "silvester": {
+                            "mult": 2.0,
+                            "name": "Silvester / New Year",
+                            "insight": "Celebratory gatherings, fireworks, and restaurant parties.",
+                        },
+                        "ostern": {
+                            "mult": 1.8,
+                            "name": "Ostern (Easter)",
+                            "insight": "Spring long weekend, bakery treats, and family dining.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3740,11 +4484,31 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "FR": {
                     "zone": "Europe",
                     "primary_festivals": {
-                        "bastille": {"mult": 2.0, "name": "Bastille Day (14 Juillet)", "insight": "French National Day celebrations, fireworks, and cafe/bistro crowds."},
-                        "fête nationale": {"mult": 2.0, "name": "Fête nationale", "insight": "Grand public festivities and dining out."},
-                        "noël": {"mult": 2.2, "name": "Noël (Christmas)", "insight": "Lavish festive gastronomy, patisserie, and family feasts."},
-                        "christmas": {"mult": 2.2, "name": "Christmas Day", "insight": "Winter holiday dining peak."},
-                        "nouvel an": {"mult": 2.0, "name": "Jour de l'An (New Year)", "insight": "Gourmet dining and festive celebrations."},
+                        "bastille": {
+                            "mult": 2.0,
+                            "name": "Bastille Day (14 Juillet)",
+                            "insight": "French National Day celebrations, fireworks, and cafe/bistro crowds.",
+                        },
+                        "fête nationale": {
+                            "mult": 2.0,
+                            "name": "Fête nationale",
+                            "insight": "Grand public festivities and dining out.",
+                        },
+                        "noël": {
+                            "mult": 2.2,
+                            "name": "Noël (Christmas)",
+                            "insight": "Lavish festive gastronomy, patisserie, and family feasts.",
+                        },
+                        "christmas": {
+                            "mult": 2.2,
+                            "name": "Christmas Day",
+                            "insight": "Winter holiday dining peak.",
+                        },
+                        "nouvel an": {
+                            "mult": 2.0,
+                            "name": "Jour de l'An (New Year)",
+                            "insight": "Gourmet dining and festive celebrations.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3752,12 +4516,36 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "JP": {
                     "zone": "East Asia",
                     "primary_festivals": {
-                        "golden week": {"mult": 2.3, "name": "Golden Week", "insight": "Consecutive national holidays; nationwide domestic travel, shopping, and dining surge."},
-                        "showa": {"mult": 2.0, "name": "Showa Day (Golden Week)", "insight": "Holiday travel and restaurant dining rush."},
-                        "constitution": {"mult": 2.0, "name": "Constitution Memorial Day", "insight": "Peak holiday spending during Golden Week."},
-                        "children": {"mult": 2.0, "name": "Children's Day (Kodomo no Hi)", "insight": "Family dining, confectionery, and outing surges."},
-                        "new year": {"mult": 2.4, "name": "Shogatsu (New Year)", "insight": "Japan's prime holiday season; Osechi dining, shrine visits, and family homecomings."},
-                        "obon": {"mult": 2.0, "name": "Obon Festival", "insight": "Summer homecoming holiday with high regional dining and travel."},
+                        "golden week": {
+                            "mult": 2.3,
+                            "name": "Golden Week",
+                            "insight": "Consecutive national holidays; nationwide domestic travel, shopping, and dining surge.",
+                        },
+                        "showa": {
+                            "mult": 2.0,
+                            "name": "Showa Day (Golden Week)",
+                            "insight": "Holiday travel and restaurant dining rush.",
+                        },
+                        "constitution": {
+                            "mult": 2.0,
+                            "name": "Constitution Memorial Day",
+                            "insight": "Peak holiday spending during Golden Week.",
+                        },
+                        "children": {
+                            "mult": 2.0,
+                            "name": "Children's Day (Kodomo no Hi)",
+                            "insight": "Family dining, confectionery, and outing surges.",
+                        },
+                        "new year": {
+                            "mult": 2.4,
+                            "name": "Shogatsu (New Year)",
+                            "insight": "Japan's prime holiday season; Osechi dining, shrine visits, and family homecomings.",
+                        },
+                        "obon": {
+                            "mult": 2.0,
+                            "name": "Obon Festival",
+                            "insight": "Summer homecoming holiday with high regional dining and travel.",
+                        },
                     },
                     "state_days": [],
                     "dry_days": [],
@@ -3765,24 +4553,44 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             }
 
             if shop_country_code == "IN":
-                state_info = REGIONAL_PROFILE.get(shop_state, {
-                    "zone": "Pan-India",
-                    "primary_festivals": {},
-                    "state_days": [],
-                    "dry_days": ["gandhi jayanti", "republic day", "independence day"],
-                })
+                state_info = REGIONAL_PROFILE.get(
+                    shop_state,
+                    {
+                        "zone": "Pan-India",
+                        "primary_festivals": {},
+                        "state_days": [],
+                        "dry_days": ["gandhi jayanti", "republic day", "independence day"],
+                    },
+                )
             else:
-                state_info = GLOBAL_CULTURAL_PROFILES.get(shop_country_code, {
-                    "zone": f"International ({shop_country})",
-                    "primary_festivals": {},
-                    "state_days": [],
-                    "dry_days": [],
-                })
+                state_info = GLOBAL_CULTURAL_PROFILES.get(
+                    shop_country_code,
+                    {
+                        "zone": f"International ({shop_country})",
+                        "primary_festivals": {},
+                        "state_days": [],
+                        "dry_days": [],
+                    },
+                )
 
             major_festivals = [
-                "Diwali", "Deepavali", "Holi", "Eid", "Christmas", "New Year", "Independence Day",
-                "Republic Day", "Gandhi Jayanti", "Janmashtami", "Dussehra", "Maha Shivaratri",
-                "Thanksgiving", "Easter", "Boxing Day", "National Day", "Labor Day"
+                "Diwali",
+                "Deepavali",
+                "Holi",
+                "Eid",
+                "Christmas",
+                "New Year",
+                "Independence Day",
+                "Republic Day",
+                "Gandhi Jayanti",
+                "Janmashtami",
+                "Dussehra",
+                "Maha Shivaratri",
+                "Thanksgiving",
+                "Easter",
+                "Boxing Day",
+                "National Day",
+                "Labor Day",
             ]
 
             ssl_ctx = ssl._create_unverified_context()
@@ -3854,7 +4662,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                                         break
 
                             # 3. Check dry days
-                            is_dry_day = any(dd in ev_lower for dd in state_info.get("dry_days", []))
+                            is_dry_day = any(
+                                dd in ev_lower for dd in state_info.get("dry_days", [])
+                            )
                             is_major = any(mf.lower() in ev_lower for mf in major_festivals)
 
                             if is_dry_day:
@@ -3865,9 +4675,21 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                                 regional_insight = f"Government-mandated Dry Day in {shop_state or shop_country}. Alcohol sales prohibited; dining and beverage volumes restricted."
                             elif matched_state_fest:
                                 h_mult = matched_state_fest["mult"]
-                                ev_type = "regional_festival" if shop_country_code == "IN" else "national_festival"
-                                scope = f"regional:{shop_state}" if shop_country_code == "IN" else f"national:{shop_country_code}"
-                                relevance = "PRIMARY_STATE_FESTIVAL" if shop_country_code == "IN" else "NATIONAL_SIGNATURE_FESTIVAL"
+                                ev_type = (
+                                    "regional_festival"
+                                    if shop_country_code == "IN"
+                                    else "national_festival"
+                                )
+                                scope = (
+                                    f"regional:{shop_state}"
+                                    if shop_country_code == "IN"
+                                    else f"national:{shop_country_code}"
+                                )
+                                relevance = (
+                                    "PRIMARY_STATE_FESTIVAL"
+                                    if shop_country_code == "IN"
+                                    else "NATIONAL_SIGNATURE_FESTIVAL"
+                                )
                                 regional_insight = matched_state_fest["insight"]
                             elif is_major and "eve" in ev_lower:
                                 h_mult = 1.4
@@ -3876,7 +4698,14 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                                 relevance = "MAJOR_FESTIVAL_EVE"
                                 regional_insight = f"Festive eve preparations across {shop_state or shop_country}. High evening takeaway and grocery demand."
                             elif is_major:
-                                h_mult = 2.0 if any(k in ev_lower for k in ["thanksgiving", "diwali", "christmas", "new year"]) else 1.8
+                                h_mult = (
+                                    2.0
+                                    if any(
+                                        k in ev_lower
+                                        for k in ["thanksgiving", "diwali", "christmas", "new year"]
+                                    )
+                                    else 1.8
+                                )
                                 ev_type = "major_festival"
                                 scope = "national"
                                 relevance = "MAJOR_NATIONAL_FESTIVAL"
@@ -3899,19 +4728,28 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                                 ev_type = "public_holiday"
                                 scope = "national"
                                 relevance = "GAZETTED_HOLIDAY"
-                                regional_insight = f"General public holiday in {shop_state or shop_country}."
+                                regional_insight = (
+                                    f"General public holiday in {shop_state or shop_country}."
+                                )
 
-                            all_events.append({
-                                "name": ev_name,
-                                "date": str(ev_d),
-                                "type": ev_type,
-                                "scope": scope,
-                                "relevance": relevance,
-                                "h_multiplier": h_mult,
-                                "effect": "boost" if h_mult > 1.0 else "suppress" if h_mult < 1.0 else "neutral",
-                                "regional_insight": regional_insight,
-                                "description": ev_desc or f"{ev_name} celebration in {shop_state or shop_country}",
-                            })
+                            all_events.append(
+                                {
+                                    "name": ev_name,
+                                    "date": str(ev_d),
+                                    "type": ev_type,
+                                    "scope": scope,
+                                    "relevance": relevance,
+                                    "h_multiplier": h_mult,
+                                    "effect": (
+                                        "boost"
+                                        if h_mult > 1.0
+                                        else "suppress" if h_mult < 1.0 else "neutral"
+                                    ),
+                                    "regional_insight": regional_insight,
+                                    "description": ev_desc
+                                    or f"{ev_name} celebration in {shop_state or shop_country}",
+                                }
+                            )
 
                     # Check state days if configured
                     cur_year = from_dt.year
@@ -3919,22 +4757,28 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                         try:
                             s_date = _date(cur_year, int(mmdd[:2]), int(mmdd[3:]))
                             if from_dt <= s_date <= to_dt:
-                                all_events.append({
-                                    "name": s_day_name,
-                                    "date": str(s_date),
-                                    "type": "regional_holiday",
-                                    "scope": f"regional:{shop_state}",
-                                    "relevance": "STATE_FOUNDATION_HOLIDAY",
-                                    "h_multiplier": s_mult,
-                                    "effect": "boost",
-                                    "regional_insight": s_ins,
-                                    "description": f"Official state holiday for {shop_state}.",
-                                })
+                                all_events.append(
+                                    {
+                                        "name": s_day_name,
+                                        "date": str(s_date),
+                                        "type": "regional_holiday",
+                                        "scope": f"regional:{shop_state}",
+                                        "relevance": "STATE_FOUNDATION_HOLIDAY",
+                                        "h_multiplier": s_mult,
+                                        "effect": "boost",
+                                        "regional_insight": s_ins,
+                                        "description": f"Official state holiday for {shop_state}.",
+                                    }
+                                )
                         except Exception:
                             pass
 
                 except Exception as _gcal_err:
-                    _log.warning("Primary Google Calendar holidays request failed for %s: %s", shop_country_code, _gcal_err)
+                    _log.warning(
+                        "Primary Google Calendar holidays request failed for %s: %s",
+                        shop_country_code,
+                        _gcal_err,
+                    )
 
             # TIER 2: Nager.Date Global Public Holidays API (for all 100+ countries or when GCal returns empty)
             if not all_events:
@@ -3965,45 +4809,74 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                                     ev_type = "national_festival"
                                     relevance = "NATIONAL_SIGNATURE_FESTIVAL"
                                     insight = matched_fest["insight"]
-                                elif any(k in h_lower for k in ["christmas", "xmas", "noël", "weihnachten", "navidad"]):
+                                elif any(
+                                    k in h_lower
+                                    for k in ["christmas", "xmas", "noël", "weihnachten", "navidad"]
+                                ):
                                     h_mult = 2.2
                                     ev_type = "major_festival"
                                     relevance = "CHRISTMAS_FESTIVAL"
                                     insight = f"Peak festive season holiday in {shop_country}."
-                                elif any(k in h_lower for k in ["new year", "silvester", "nouvel an", "shogatsu"]):
+                                elif any(
+                                    k in h_lower
+                                    for k in ["new year", "silvester", "nouvel an", "shogatsu"]
+                                ):
                                     h_mult = 2.0
                                     ev_type = "major_festival"
                                     relevance = "NEW_YEAR_CELEBRATION"
                                     insight = f"Celebration holiday in {shop_country}."
-                                elif any(k in h_lower for k in ["thanksgiving", "golden week", "easter", "eid"]):
+                                elif any(
+                                    k in h_lower
+                                    for k in ["thanksgiving", "golden week", "easter", "eid"]
+                                ):
                                     h_mult = 1.9
                                     ev_type = "major_festival"
                                     relevance = "MAJOR_CULTURAL_FESTIVAL"
-                                    insight = f"Grand cultural holiday celebration in {shop_country}."
-                                elif any(k in h_lower for k in ["independence", "national day", "republic", "revolution", "constitution"]):
+                                    insight = (
+                                        f"Grand cultural holiday celebration in {shop_country}."
+                                    )
+                                elif any(
+                                    k in h_lower
+                                    for k in [
+                                        "independence",
+                                        "national day",
+                                        "republic",
+                                        "revolution",
+                                        "constitution",
+                                    ]
+                                ):
                                     h_mult = 1.8
                                     ev_type = "national_holiday"
                                     relevance = "NATIONAL_DAY"
-                                    insight = f"Official patriotic national holiday in {shop_country}."
+                                    insight = (
+                                        f"Official patriotic national holiday in {shop_country}."
+                                    )
                                 else:
                                     h_mult = 1.3
                                     ev_type = "public_holiday"
                                     relevance = "PUBLIC_HOLIDAY"
                                     insight = f"Public holiday in {shop_country}."
 
-                                all_events.append({
-                                    "name": h_name,
-                                    "date": str(h_date),
-                                    "type": ev_type,
-                                    "scope": f"national:{shop_country_code}",
-                                    "relevance": relevance,
-                                    "h_multiplier": h_mult,
-                                    "effect": "boost" if h_mult > 1.0 else "neutral",
-                                    "regional_insight": insight,
-                                    "description": f"{h_name} ({h.get('localName', '')}) in {shop_country}",
-                                })
+                                all_events.append(
+                                    {
+                                        "name": h_name,
+                                        "date": str(h_date),
+                                        "type": ev_type,
+                                        "scope": f"national:{shop_country_code}",
+                                        "relevance": relevance,
+                                        "h_multiplier": h_mult,
+                                        "effect": "boost" if h_mult > 1.0 else "neutral",
+                                        "regional_insight": insight,
+                                        "description": f"{h_name} ({h.get('localName', '')}) in {shop_country}",
+                                    }
+                                )
                     except Exception as _nager_err:
-                        _log.warning("Nager.Date holiday request failed for %s/%s: %s", q_year, shop_country_code, _nager_err)
+                        _log.warning(
+                            "Nager.Date holiday request failed for %s/%s: %s",
+                            q_year,
+                            shop_country_code,
+                            _nager_err,
+                        )
 
             # TIER 3: Fallback web request to randomapi.dev
             if not all_events:
@@ -4017,18 +4890,28 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                             h_date = _date.fromisoformat(h["date"])
                             if from_dt <= h_date <= to_dt:
                                 h_name = h.get("name")
-                                is_major_fb = any(mf.lower() in h_name.lower() for mf in major_festivals)
-                                all_events.append({
-                                    "name": h_name,
-                                    "date": str(h_date),
-                                    "type": "major_festival" if is_major_fb else "public_holiday",
-                                    "scope": "national",
-                                    "relevance": "MAJOR_NATIONAL_FESTIVAL" if is_major_fb else "NATIONAL_GAZETTED",
-                                    "h_multiplier": 1.8 if is_major_fb else 1.2,
-                                    "effect": "boost",
-                                    "regional_insight": f"Public holiday recognized in {shop_country}.",
-                                    "description": h.get("localName") or h_name,
-                                })
+                                is_major_fb = any(
+                                    mf.lower() in h_name.lower() for mf in major_festivals
+                                )
+                                all_events.append(
+                                    {
+                                        "name": h_name,
+                                        "date": str(h_date),
+                                        "type": (
+                                            "major_festival" if is_major_fb else "public_holiday"
+                                        ),
+                                        "scope": "national",
+                                        "relevance": (
+                                            "MAJOR_NATIONAL_FESTIVAL"
+                                            if is_major_fb
+                                            else "NATIONAL_GAZETTED"
+                                        ),
+                                        "h_multiplier": 1.8 if is_major_fb else 1.2,
+                                        "effect": "boost",
+                                        "regional_insight": f"Public holiday recognized in {shop_country}.",
+                                        "description": h.get("localName") or h_name,
+                                    }
+                                )
                 except Exception as _fb_err:
                     _log.error("Fallback holiday request failed: %s", _fb_err)
 
@@ -4054,7 +4937,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "event_count": len(unique_events),
                 "events": unique_events,
                 "source": api_source,
-                "note": f"Holidays & festivals fetched directly via web request ({api_source}) and dynamically calibrated for {shop_country}" + (f" ({shop_state})" if shop_state else "") + ".",
+                "note": f"Holidays & festivals fetched directly via web request ({api_source}) and dynamically calibrated for {shop_country}"
+                + (f" ({shop_state})" if shop_state else "")
+                + ".",
             }
 
         elif tool_name == "get_weather_forecast":
@@ -4144,10 +5029,14 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 geocoding_source = "nominatim-osm (fallback)"
                 osm_queries = []
                 if pincode and country:
-                    osm_queries.append(f"https://nominatim.openstreetmap.org/search?postalcode={urllib.parse.quote(pincode)}&country={urllib.parse.quote(country)}&format=json&limit=1")
+                    osm_queries.append(
+                        f"https://nominatim.openstreetmap.org/search?postalcode={urllib.parse.quote(pincode)}&country={urllib.parse.quote(country)}&format=json&limit=1"
+                    )
                 full_addr = " ".join(filter(None, [city, state, country])).strip()
                 if full_addr:
-                    osm_queries.append(f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(full_addr)}&format=json&limit=1")
+                    osm_queries.append(
+                        f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(full_addr)}&format=json&limit=1"
+                    )
 
                 for osm_url in osm_queries:
                     try:
@@ -4164,17 +5053,33 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
             # Safety fallback: Global Capital / Country Centroid Coordinates
             if lat is None or lon is None:
                 WORLD_CENTROIDS = {
-                    "us": (38.8951, -77.0364), "usa": (38.8951, -77.0364), "united states": (38.8951, -77.0364),
-                    "uk": (51.5074, -0.1278), "gb": (51.5074, -0.1278), "united kingdom": (51.5074, -0.1278), "great britain": (51.5074, -0.1278),
-                    "ca": (45.4215, -75.6972), "canada": (45.4215, -75.6972),
-                    "au": (-33.8688, 151.2093), "australia": (-33.8688, 151.2093),
-                    "sg": (1.3521, 103.8198), "singapore": (1.3521, 103.8198),
-                    "ae": (25.2048, 55.2708), "uae": (25.2048, 55.2708), "united arab emirates": (25.2048, 55.2708), "dubai": (25.2048, 55.2708),
-                    "de": (52.5200, 13.4050), "germany": (52.5200, 13.4050),
-                    "fr": (48.8566, 2.3522), "france": (48.8566, 2.3522),
-                    "jp": (35.6762, 139.6503), "japan": (35.6762, 139.6503),
-                    "nz": (-41.2865, 174.7762), "new zealand": (-41.2865, 174.7762),
-                    "in": (18.5204, 73.8567), "india": (18.5204, 73.8567),
+                    "us": (38.8951, -77.0364),
+                    "usa": (38.8951, -77.0364),
+                    "united states": (38.8951, -77.0364),
+                    "uk": (51.5074, -0.1278),
+                    "gb": (51.5074, -0.1278),
+                    "united kingdom": (51.5074, -0.1278),
+                    "great britain": (51.5074, -0.1278),
+                    "ca": (45.4215, -75.6972),
+                    "canada": (45.4215, -75.6972),
+                    "au": (-33.8688, 151.2093),
+                    "australia": (-33.8688, 151.2093),
+                    "sg": (1.3521, 103.8198),
+                    "singapore": (1.3521, 103.8198),
+                    "ae": (25.2048, 55.2708),
+                    "uae": (25.2048, 55.2708),
+                    "united arab emirates": (25.2048, 55.2708),
+                    "dubai": (25.2048, 55.2708),
+                    "de": (52.5200, 13.4050),
+                    "germany": (52.5200, 13.4050),
+                    "fr": (48.8566, 2.3522),
+                    "france": (48.8566, 2.3522),
+                    "jp": (35.6762, 139.6503),
+                    "japan": (35.6762, 139.6503),
+                    "nz": (-41.2865, 174.7762),
+                    "new zealand": (-41.2865, 174.7762),
+                    "in": (18.5204, 73.8567),
+                    "india": (18.5204, 73.8567),
                 }
                 c_key = country.strip().lower()
                 lat, lon = WORLD_CENTROIDS.get(c_key, (18.5204, 73.8567))
@@ -4247,23 +5152,30 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                         elif max_t is not None and 18 <= float(max_t) <= 26:
                             w_mult = min(w_mult * 1.1, 1.2)
 
-                        forecast_rows.append({
-                            "date": d_str,
-                            "condition": condition,
-                            "max_temp_c": max_t,
-                            "min_temp_c": min_t,
-                            "precipitation_pct": precip,
-                            "weather_multiplier": round(w_mult, 3),
-                            "weather_note": (
-                                "Revenue Dip Risk — activate delivery/takeaway promotions"
-                                if w_mult < 0.75
-                                else "Pleasant weather — full foot traffic expected"
-                                if w_mult >= 1.1
-                                else None
-                            ),
-                        })
+                        forecast_rows.append(
+                            {
+                                "date": d_str,
+                                "condition": condition,
+                                "max_temp_c": max_t,
+                                "min_temp_c": min_t,
+                                "precipitation_pct": precip,
+                                "weather_multiplier": round(w_mult, 3),
+                                "weather_note": (
+                                    "Revenue Dip Risk — activate delivery/takeaway promotions"
+                                    if w_mult < 0.75
+                                    else (
+                                        "Pleasant weather — full foot traffic expected"
+                                        if w_mult >= 1.1
+                                        else None
+                                    )
+                                ),
+                            }
+                        )
             except Exception as _primary_err:
-                _log.warning("Primary Open-Meteo weather request failed: %s; attempting wttr.in fallback", _primary_err)
+                _log.warning(
+                    "Primary Open-Meteo weather request failed: %s; attempting wttr.in fallback",
+                    _primary_err,
+                )
                 # FALLBACK: wttr.in JSON API
                 try:
                     weather_source = "wttr.in (fallback)"
@@ -4278,7 +5190,11 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                             min_t = float(d.get("mintempC", 20))
                             hourly = d.get("hourly", [])
                             mid_slot = hourly[len(hourly) // 2] if hourly else {}
-                            cond_text = mid_slot.get("weatherDesc", [{}])[0].get("value", "Partly Cloudy").strip()
+                            cond_text = (
+                                mid_slot.get("weatherDesc", [{}])[0]
+                                .get("value", "Partly Cloudy")
+                                .strip()
+                            )
                             precip = float(mid_slot.get("chanceofrain", "0"))
 
                             cond_lower = cond_text.lower()
@@ -4303,24 +5219,30 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                             elif 18 <= max_t <= 26:
                                 w_mult = min(w_mult * 1.1, 1.2)
 
-                            forecast_rows.append({
-                                "date": d_str,
-                                "condition": condition,
-                                "max_temp_c": max_t,
-                                "min_temp_c": min_t,
-                                "precipitation_pct": int(precip),
-                                "weather_multiplier": round(w_mult, 3),
-                                "weather_note": (
-                                    "Revenue Dip Risk — activate delivery/takeaway promotions"
-                                    if w_mult < 0.75
-                                    else "Pleasant weather — full foot traffic expected"
-                                    if w_mult >= 1.1
-                                    else None
-                                ),
-                            })
+                            forecast_rows.append(
+                                {
+                                    "date": d_str,
+                                    "condition": condition,
+                                    "max_temp_c": max_t,
+                                    "min_temp_c": min_t,
+                                    "precipitation_pct": int(precip),
+                                    "weather_multiplier": round(w_mult, 3),
+                                    "weather_note": (
+                                        "Revenue Dip Risk — activate delivery/takeaway promotions"
+                                        if w_mult < 0.75
+                                        else (
+                                            "Pleasant weather — full foot traffic expected"
+                                            if w_mult >= 1.1
+                                            else None
+                                        )
+                                    ),
+                                }
+                            )
                 except Exception as _fb_err:
                     _log.error("Both weather APIs failed: %s", _fb_err)
-                    return {"error": f"Weather web requests failed: Primary: {_primary_err}; Fallback: {_fb_err}"}
+                    return {
+                        "error": f"Weather web requests failed: Primary: {_primary_err}; Fallback: {_fb_err}"
+                    }
 
             return {
                 "city": city,
@@ -4338,12 +5260,8 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
         elif tool_name == "run_sales_prediction":
             from datetime import date as _date, timedelta as _td
 
-            predict_from_str = args.get(
-                "predict_from", str(date.today() + timedelta(days=1))
-            )
-            predict_to_str = args.get(
-                "predict_to", str(date.today() + timedelta(days=7))
-            )
+            predict_from_str = args.get("predict_from", str(date.today() + timedelta(days=1)))
+            predict_to_str = args.get("predict_to", str(date.today() + timedelta(days=7)))
             include_product_forecast = bool(args.get("include_product_forecast", True))
             include_staffing = bool(args.get("include_staffing_recommendation", True))
             include_ci = bool(args.get("include_confidence_intervals", True))
@@ -4476,7 +5394,10 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
                 # Capacity saturation check
                 cap_alert = None
-                if seating_capacity > 0 and predicted_orders > seating_capacity * capacity_multiplier:
+                if (
+                    seating_capacity > 0
+                    and predicted_orders > seating_capacity * capacity_multiplier
+                ):
                     cap_alert = (
                         f"PEAK SATURATION RISK: Predicted {predicted_orders} orders may exceed "
                         f"capacity ({seating_capacity} seats × {capacity_multiplier:.1f} throughput). "
@@ -4504,7 +5425,9 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 if day_events:
                     signals.extend(ev["name"] for ev in day_events)
                 if weather_info.get("condition"):
-                    signals.append(f"{weather_info['condition']} {weather_info.get('max_temp_c', '')}°C")
+                    signals.append(
+                        f"{weather_info['condition']} {weather_info.get('max_temp_c', '')}°C"
+                    )
                 if not signals:
                     signals.append("Normal trading day")
 
@@ -4531,17 +5454,13 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 if include_product_forecast and top_products_raw:
                     product_forecast = []
                     for prod in top_products_raw[:10]:
-                        pred_qty = round(
-                            prod.get("avg_daily_qty", 0) * composite, 1
-                        )
+                        pred_qty = round(prod.get("avg_daily_qty", 0) * composite, 1)
                         product_forecast.append(
                             {
                                 "name": prod["name"],
                                 "predicted_qty": pred_qty,
                                 "predicted_revenue": round(
-                                    prod.get("total_revenue", 0)
-                                    / max(data_points, 1)
-                                    * composite,
+                                    prod.get("total_revenue", 0) / max(data_points, 1) * composite,
                                     2,
                                 ),
                             }
@@ -4621,9 +5540,15 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "location_context": {
                     "shop_state": holidays_result.get("shop_state", ""),
                     "shop_city": holidays_result.get("shop_city", ""),
-                    "weather_api": weather_result.get("weather_source", "Open-Meteo (primary) / wttr.in (fallback)"),
-                    "holiday_source": holidays_result.get("source", "Google Calendar feed (primary) / RandomAPI (fallback)"),
-                    "geocoding": weather_result.get("geocoding_source", "Open-Meteo (primary) / Nominatim OSM (fallback)"),
+                    "weather_api": weather_result.get(
+                        "weather_source", "Open-Meteo (primary) / wttr.in (fallback)"
+                    ),
+                    "holiday_source": holidays_result.get(
+                        "source", "Google Calendar feed (primary) / RandomAPI (fallback)"
+                    ),
+                    "geocoding": weather_result.get(
+                        "geocoding_source", "Open-Meteo (primary) / Nominatim OSM (fallback)"
+                    ),
                 },
                 "algorithm": "WARMP v1.0 — Weighted Additive Regression with Multi-factor Priors",
                 "disclaimer": (
@@ -4676,7 +5601,11 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                         )
 
                 mape = round(sum(e["pct_error"] for e in errors) / len(errors), 2) if errors else 0
-                mae = round(sum(e["absolute_error"] for e in errors) / len(errors), 2) if errors else 0
+                mae = (
+                    round(sum(e["absolute_error"] for e in errors) / len(errors), 2)
+                    if errors
+                    else 0
+                )
 
                 return {
                     "evaluation_period_days": evaluation_period_days,
@@ -4686,11 +5615,15 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                     "accuracy_rating": (
                         "EXCELLENT (MAPE < 10%)"
                         if mape < 10
-                        else "GOOD (MAPE 10-20%)"
-                        if mape < 20
-                        else "ACCEPTABLE (MAPE 20-30%)"
-                        if mape < 30
-                        else "NEEDS CALIBRATION (MAPE > 30%)"
+                        else (
+                            "GOOD (MAPE 10-20%)"
+                            if mape < 20
+                            else (
+                                "ACCEPTABLE (MAPE 20-30%)"
+                                if mape < 30
+                                else "NEEDS CALIBRATION (MAPE > 30%)"
+                            )
+                        )
                     ),
                     "daily_errors": errors,
                 }
@@ -4706,7 +5639,6 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 }
 
         return {"error": f"Unrecognized read tool {tool_name}"}
-
 
     except Exception as e:
         _log.error("Error executing read tool %s: %s", tool_name, e)
