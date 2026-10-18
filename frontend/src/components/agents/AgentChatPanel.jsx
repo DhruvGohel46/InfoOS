@@ -458,32 +458,92 @@ export default function AgentChatPanel() {
       setActionStatuses((prev) => ({ ...prev, [actionId]: 'approved' }));
       showSuccess(res.message || 'Action executed and verified in database.');
 
-      const entityBadge = res.affected_entity_id ? ` (Record ID: #${res.affected_entity_id})` : '';
-      const execTime = res.execution_timestamp
-        ? new Date(res.execution_timestamp).toLocaleTimeString()
-        : new Date().toLocaleTimeString();
+      // If backend already generated the AI model summary (via graph resume or backend synthesis)
+      if (res.response && typeof res.response === 'string' && res.response.trim()) {
+        const agentName = res.agent || 'orchestrator';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `action_approved_summary_${actionId}_${Date.now()}`,
+            role: 'assistant',
+            agent: agentName,
+            text: res.response,
+            data: res.result || null,
+            timestamp: new Date().toISOString()
+          }
+        ]);
+      } else {
+        // Fallback to the AI model and tell it the user's approval decision so it generates the summary
+        setLoading(true);
+        setCurrentStatus('Synthesizing approval summary with AI model…');
+        const decisionText = `User decision: APPROVED action proposal #${actionId} (${res.diff_summary || 'Action'}). ` +
+          `Execution result: ${res.message || 'Executed successfully'}. ` +
+          (res.affected_entity_id ? `Affected record ID: #${res.affected_entity_id}. ` : '') +
+          `Please acknowledge this approval, summarize the verified changes made to the database, and provide any relevant business recommendations.`;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `action_approved_${actionId}`,
-          role: 'assistant',
-          agent: 'system',
-          text: JSON.stringify({
-            title: { icon: 'alert_success', text: `Action Confirmed & Executed${entityBadge}` },
-            sections: [
+        const history = messages
+          .filter((m) => m.id !== 'welcome')
+          .slice(-8)
+          .map((m) => ({
+            role: m.role,
+            content: typeof m.text === 'object' ? JSON.stringify(m.text) : m.text
+          }));
+
+        await agentsAPI.sendMessageStream(
+          decisionText,
+          history,
+          (statusLabel) => setCurrentStatus(statusLabel),
+          (finalPayload) => {
+            const rawResponse = finalPayload.response;
+            const agentName = finalPayload.agent || 'orchestrator';
+            setMessages((prev) => [
+              ...prev,
               {
-                type: 'insight_block',
-                icon: 'alert_success',
-                heading: 'Verified Database Commit',
-                body: `${res.message || 'Action executed successfully.'} Changes committed at ${execTime} with full immutable audit record.`
+                id: `asst_decision_${Date.now()}`,
+                role: 'assistant',
+                agent: agentName,
+                text: rawResponse,
+                data: finalPayload.data || null,
+                steps: finalPayload.steps || [],
+                pending_actions: [],
+                timestamp: new Date().toISOString()
               }
-            ],
-            meta: { status: 'normal', statusIcon: 'status_normal' }
-          }),
-          timestamp: new Date().toISOString()
-        }
-      ]);
+            ]);
+            setCurrentStatus(null);
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error generating AI approval summary:', err);
+            const entityBadge = res.affected_entity_id ? ` (Record ID: #${res.affected_entity_id})` : '';
+            const execTime = res.execution_timestamp
+              ? new Date(res.execution_timestamp).toLocaleTimeString()
+              : new Date().toLocaleTimeString();
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `action_approved_${actionId}`,
+                role: 'assistant',
+                agent: 'system',
+                text: JSON.stringify({
+                  title: { icon: 'alert_success', text: `Action Confirmed & Executed${entityBadge}` },
+                  sections: [
+                    {
+                      type: 'insight_block',
+                      icon: 'alert_success',
+                      heading: 'Verified Database Commit',
+                      body: `${res.message || 'Action executed successfully.'} Changes committed at ${execTime} with full immutable audit record.`
+                    }
+                  ],
+                  meta: { status: 'normal', statusIcon: 'status_normal' }
+                }),
+                timestamp: new Date().toISOString()
+              }
+            ]);
+            setCurrentStatus(null);
+            setLoading(false);
+          }
+        );
+      }
     } catch (err) {
       console.error('Action approval failed:', err);
       const errText = err.response?.data?.error || 'Failed to approve action.';
@@ -499,27 +559,87 @@ export default function AgentChatPanel() {
       const res = await agentsAPI.rejectAction(actionId);
       setActionStatuses((prev) => ({ ...prev, [actionId]: 'rejected' }));
       showSuccess('Action proposal rejected.');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `action_rejected_${actionId}`,
-          role: 'assistant',
-          agent: 'system',
-          text: JSON.stringify({
-            title: { icon: 'alert_warning', text: 'Action Discarded' },
-            sections: [
+
+      if (res.response && typeof res.response === 'string' && res.response.trim()) {
+        const agentName = res.agent || 'orchestrator';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `action_rejected_summary_${actionId}_${Date.now()}`,
+            role: 'assistant',
+            agent: agentName,
+            text: res.response,
+            data: null,
+            timestamp: new Date().toISOString()
+          }
+        ]);
+      } else {
+        // Fallback to the AI model and tell it the user's rejection decision so it generates the summary
+        setLoading(true);
+        setCurrentStatus('Synthesizing cancellation summary with AI model…');
+        const decisionText = `User decision: REJECTED action proposal #${actionId} (${res.diff_summary || 'Action'}). ` +
+          `The proposal was cancelled and discarded without any changes to the database. ` +
+          `Please acknowledge this cancellation and confirm that no data was modified.`;
+
+        const history = messages
+          .filter((m) => m.id !== 'welcome')
+          .slice(-8)
+          .map((m) => ({
+            role: m.role,
+            content: typeof m.text === 'object' ? JSON.stringify(m.text) : m.text
+          }));
+
+        await agentsAPI.sendMessageStream(
+          decisionText,
+          history,
+          (statusLabel) => setCurrentStatus(statusLabel),
+          (finalPayload) => {
+            const rawResponse = finalPayload.response;
+            const agentName = finalPayload.agent || 'orchestrator';
+            setMessages((prev) => [
+              ...prev,
               {
-                type: 'insight_block',
-                icon: 'alert_warning',
-                heading: 'Proposal Cancelled',
-                body: res.message || 'Action proposal was cancelled without database changes.'
+                id: `asst_decision_${Date.now()}`,
+                role: 'assistant',
+                agent: agentName,
+                text: rawResponse,
+                data: null,
+                steps: finalPayload.steps || [],
+                pending_actions: [],
+                timestamp: new Date().toISOString()
               }
-            ],
-            meta: { status: 'warning', statusIcon: 'status_warning' }
-          }),
-          timestamp: new Date().toISOString()
-        }
-      ]);
+            ]);
+            setCurrentStatus(null);
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error generating AI rejection summary:', err);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `action_rejected_${actionId}`,
+                role: 'assistant',
+                agent: 'system',
+                text: JSON.stringify({
+                  title: { icon: 'alert_warning', text: 'Action Discarded' },
+                  sections: [
+                    {
+                      type: 'insight_block',
+                      icon: 'alert_warning',
+                      heading: 'Proposal Cancelled',
+                      body: res.message || 'Action proposal was cancelled without database changes.'
+                    }
+                  ],
+                  meta: { status: 'warning', statusIcon: 'status_warning' }
+                }),
+                timestamp: new Date().toISOString()
+              }
+            ]);
+            setCurrentStatus(null);
+            setLoading(false);
+          }
+        );
+      }
     } catch (err) {
       console.error('Action rejection failed:', err);
       const errText = err.response?.data?.error || 'Failed to reject action.';
@@ -1631,6 +1751,39 @@ function formatRelativeTime(dateStr) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// ── Sentence-to-Points Formatter (Breaks after fullstops into clean points) ──
+export function formatTextToPoints(text) {
+  if (!text || typeof text !== 'string') return [];
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  // If text already has line breaks, split by line breaks
+  if (trimmed.includes('\n')) {
+    const rawLines = trimmed
+      .split(/\n+/)
+      .map((l) => l.replace(/^[•*-]\s*/, '').trim())
+      .filter(Boolean);
+    if (rawLines.length > 1) return rawLines;
+  }
+
+  // Protect common abbreviations (e.g., i.e., vs., dr., mr., etc.)
+  const protectedText = trimmed.replace(
+    /\b(e\.g\.|i\.e\.|vs\.|etc\.|mr\.|mrs\.|dr\.)\s+/gi,
+    (match) => match.replace(/\./g, '___DOT___')
+  );
+
+  // Split on sentence-ending fullstops, exclamations, or question marks followed by whitespace
+  const rawParts = protectedText
+    .split(/(?<=[.!?])\s+(?=[A-Za-z0-9"“'‘•-])/g)
+    .map((s) => s.replace(/___DOT___/g, '.').trim())
+    .filter(Boolean);
+
+  if (rawParts.length > 1) {
+    return rawParts;
+  }
+  return [trimmed];
+}
+
 
 // ── Themed SVG Icon Selector ───────────────────────────────────────────────
 export function getThemedIcon(iconName, size = 15) {
@@ -1772,7 +1925,14 @@ function formatAssistantTextForCopy(structuredData, rawText) {
       lines.push('');
     } else if (sec.type === 'insight_block') {
       if (sec.heading) lines.push(`[${sec.heading}]`);
-      if (sec.body) lines.push(sec.body);
+      if (sec.body) {
+        const pts = formatTextToPoints(sec.body);
+        if (pts.length > 1) {
+          pts.forEach((p) => lines.push(`• ${p}`));
+        } else {
+          lines.push(sec.body);
+        }
+      }
       lines.push('');
     } else if (sec.type === 'action_list' && sec.items) {
       if (sec.heading) lines.push(sec.heading);
@@ -2303,6 +2463,7 @@ function StructuredCard({ data, agentMeta, onCopy, copied, steps = [], showSteps
 
         if (sec.type === 'insight_block') {
           const isWarning = sec.icon === 'alert_warning' || sec.icon === 'alert_critical';
+          const points = formatTextToPoints(sec.body);
           return (
             <div
               key={sIdx}
@@ -2317,16 +2478,41 @@ function StructuredCard({ data, agentMeta, onCopy, copied, steps = [], showSteps
               }}
             >
               {sec.heading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: points.length > 1 ? 10 : 7 }}>
                   {getThemedIcon(sec.icon || 'ai_review', 16)}
                   <span style={{ fontSize: 14, fontWeight: 750, color: isWarning ? (isDark ? '#FBBF24' : '#D97706') : (isDark ? '#FFFFFF' : '#0F172A'), letterSpacing: '-0.01em' }}>
                     {sec.heading}
                   </span>
                 </div>
               )}
-              <div style={{ fontSize: 13.5, color: isDark ? '#E2E8F0' : '#334155', lineHeight: 1.6 }}>
-                {sec.body}
-              </div>
+              {points.length > 1 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {points.map((point, pIdx) => (
+                    <div key={pIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, lineHeight: 1.6 }}>
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          backgroundColor: isWarning ? (isDark ? '#FBBF24' : '#D97706') : '#FF6B1A',
+                          boxShadow: isWarning
+                            ? '0 0 6px rgba(245, 158, 11, 0.6)'
+                            : '0 0 6px rgba(255, 107, 26, 0.6)',
+                          flexShrink: 0,
+                          marginTop: 7,
+                        }}
+                      />
+                      <span style={{ fontSize: 13.5, color: isDark ? '#E2E8F0' : '#334155' }}>
+                        {point}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 13.5, color: isDark ? '#E2E8F0' : '#334155', lineHeight: 1.6 }}>
+                  {points[0] || sec.body}
+                </div>
+              )}
             </div>
           );
         }
@@ -3190,7 +3376,15 @@ function measureCardHeight(doc, card, contentWidth) {
     } else if (sec.type === 'insight_block') {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      const bodyLines = doc.splitTextToSize(cleanPdfText(sec.body || ''), innerWidth - 20);
+      const pts = formatTextToPoints(sec.body || '');
+      let bodyLines = [];
+      if (pts.length > 1) {
+        pts.forEach((pt) => {
+          bodyLines.push(...doc.splitTextToSize(`• ${cleanPdfText(pt)}`, innerWidth - 20));
+        });
+      } else {
+        bodyLines = doc.splitTextToSize(cleanPdfText(sec.body || ''), innerWidth - 20);
+      }
       const boxH = Math.max(25, 16 + bodyLines.length * 9.5);
       h += boxH + 7;
     } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {
@@ -3611,7 +3805,15 @@ function generateChatPdfDoc({ messages, dateStr, userRole }) {
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
-            const bodyLines = doc.splitTextToSize(cleanPdfText(sec.body || ''), innerWidth - 20);
+            const pts = formatTextToPoints(sec.body || '');
+            let bodyLines = [];
+            if (pts.length > 1) {
+              pts.forEach((pt) => {
+                bodyLines.push(...doc.splitTextToSize(`• ${cleanPdfText(pt)}`, innerWidth - 20));
+              });
+            } else {
+              bodyLines = doc.splitTextToSize(cleanPdfText(sec.body || ''), innerWidth - 20);
+            }
             const boxH = Math.max(25, 16 + bodyLines.length * 9.5);
 
             doc.setFillColor(...boxFill);
@@ -3797,10 +3999,17 @@ function generateChatPdfHtml({ messages, dateStr, userRole }) {
               </div>
             `;
           } else if (sec.type === 'insight_block') {
+            const insightPts = formatTextToPoints(sec.body || '');
+            let bodyHtml = '';
+            if (insightPts.length > 1) {
+              bodyHtml = `<ul style="margin: 4px 0 0 0; padding-left: 18px;">${insightPts.map(pt => `<li style="margin-bottom: 4px;">${sanitize(pt)}</li>`).join('')}</ul>`;
+            } else {
+              bodyHtml = sanitize(sec.body || '');
+            }
             cardSectionsHtml += `
               <div class="insight-box">
                 <div class="insight-title">${sanitize(sec.heading || 'Store Insight')}</div>
-                <div class="insight-body">${sanitize(sec.body || '')}</div>
+                <div class="insight-body">${bodyHtml}</div>
               </div>
             `;
           } else if (sec.type === 'action_list' && Array.isArray(sec.items)) {

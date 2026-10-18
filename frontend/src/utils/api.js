@@ -516,14 +516,32 @@ export const setCurrencySymbol = (symbol) => {
   if (symbol) currentCurrencySymbol = symbol;
 };
 
-export const formatCurrency = (amount) => {
-  // Use custom formatting to support arbitrary symbols
-  // Remove trailing zeros for cleaner display (e.g., 50.00 -> 50, 50.50 -> 50.50)
+export const formatIndianNumber = (amount) => {
+  if (amount === null || amount === undefined || isNaN(Number(amount))) {
+    return '0';
+  }
   const num = Number(amount);
-  const formatted = num.toFixed(2);
-  // Remove trailing zeros and decimal point if not needed
-  const cleaned = formatted.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-  return `${currentCurrencySymbol}${cleaned}`;
+  const isNegative = num < 0;
+  const absNum = Math.abs(num);
+  const formatted = absNum.toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+  return `${isNegative ? '-' : ''}${formatted}`;
+};
+
+export const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined || isNaN(Number(amount))) {
+    return `${currentCurrencySymbol}0`;
+  }
+  const num = Number(amount);
+  const isNegative = num < 0;
+  const absNum = Math.abs(num);
+  const formatted = absNum.toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+  return `${isNegative ? '-' : ''}${currentCurrencySymbol}${formatted}`;
 };
 
 /**
@@ -550,7 +568,8 @@ export const inventoryAPI = {
   updateInventoryItem: (id, data) => api.put(`/api/inventory/${id}`, data),
 
   // Adjust stock
-  adjustStock: (id, adjustment) => api.post('/api/inventory/adjust', { id, adjustment }),
+  adjustStock: (id, adjustment, expiry_date = null, batch_number = null) =>
+    api.post('/api/inventory/adjust', { id, adjustment, expiry_date, batch_number }),
 
   // Delete item
   deleteInventory: (id) => api.delete(`/api/inventory/${id}`),
@@ -558,6 +577,12 @@ export const inventoryAPI = {
 
   // Get Low Stock Items
   getLowStock: () => api.get('/api/inventory/low-stock'),
+
+  // Batches & Expiry
+  getBatches: (inventoryId) => api.get(`/api/inventory/batches/${inventoryId}`),
+  addBatch: (data) => api.post('/api/inventory/batches', data),
+  deleteBatch: (batchId) => api.delete(`/api/inventory/batches/${batchId}`),
+  getExpiring: (days = 7) => api.get(`/api/inventory/expiring?days=${days}`),
 };
 
 // Worker Management APIs (Refactored)

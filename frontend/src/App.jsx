@@ -850,10 +850,6 @@ function AppContent() {
           <h1
             style={{
               fontSize: 'calc(1.35rem * var(--display-zoom))',
-              fontWeight: 'var(--font-semibold)',
-              letterSpacing: '0.3px',
-              color: 'var(--primary-500)',
-              textShadow: '0 0 12px rgba(249,115,22,0.25)',
               margin: 0,
               cursor: 'default',
               transition: 'opacity var(--transition-normal) var(--ease-out)',
@@ -865,7 +861,7 @@ function AppContent() {
               textOverflow: 'ellipsis',
               pointerEvents: 'auto',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.88'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
           >
             <img
@@ -879,7 +875,42 @@ function AppContent() {
                 filter: 'drop-shadow(0 2px 6px rgba(249, 115, 22, 0.35))'
               }}
             />
-            <span className="header-brand-name">InfoOS</span>
+            <span
+              className="header-brand-name"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                letterSpacing: '-0.02em',
+                lineHeight: 1,
+                userSelect: 'none'
+              }}
+            >
+              <span
+                style={{
+                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  fontWeight: 800,
+                  letterSpacing: '-0.025em',
+                  textShadow: isDark ? '0 1px 2px rgba(0,0,0,0.4)' : 'none'
+                }}
+              >
+                Info
+              </span>
+              <span
+                style={{
+                  background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  color: '#FF6B1A',
+                  fontWeight: 900,
+                  letterSpacing: '-0.01em',
+                  filter: 'drop-shadow(0 2px 8px rgba(255, 107, 26, 0.28))',
+                  marginLeft: '0.5px'
+                }}
+              >
+                OS
+              </span>
+            </span>
             <span className="header-shop-subtitle" style={{
               fontSize: 'calc(0.85rem * var(--display-zoom))',
               fontWeight: 'var(--font-normal)',

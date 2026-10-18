@@ -118,6 +118,7 @@ def create_product():
         "category": category_name,
         "active": active,
         "variations": normalize_variations(validated.get("variations", [])),
+        "default_batch_size": float(validated.get("default_batch_size", 1.0) or 1.0),
     }
 
     success = db.create_product(product_data)

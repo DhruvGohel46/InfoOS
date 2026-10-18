@@ -157,6 +157,7 @@ const VariationPickerModal = ({ product, open, onClose, onSelect }) => {
                       onMouseEnter={() => setSelectedIndex(index)}
                       onClick={() => handleSelect(variation)}
                       style={{
+                        position: 'relative',
                         width: '100%',
                         display: 'flex',
                         alignItems: 'center',
@@ -165,19 +166,41 @@ const VariationPickerModal = ({ product, open, onClose, onSelect }) => {
                         padding: '12px 16px',
                         marginBottom: '8px',
                         borderRadius: '14px',
-                        border: active
-                          ? '2px solid var(--primary-500)'
-                          : isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1.5px solid #E2E8F0',
-                        background: active
-                          ? (isDark ? 'rgba(249, 115, 22, 0.14)' : '#FFF7ED')
-                          : (isDark ? '#1A1D23' : '#F8FAFC'),
+                        border: 'none',
+                        background: 'transparent',
                         color: isDark ? '#FFFFFF' : '#0F172A',
                         cursor: 'pointer',
                         textAlign: 'left',
-                        transition: 'all 0.15s ease'
+                        outline: 'none'
                       }}
                     >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, fontSize: '15px' }}>
+                      {active ? (
+                        <motion.div
+                          layoutId="variation-modal-selected-pill"
+                          transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '14px',
+                            border: '2px solid var(--primary-500)',
+                            background: isDark ? 'rgba(249, 115, 22, 0.14)' : '#FFF7ED',
+                            boxShadow: '0 2px 10px rgba(249, 115, 22, 0.15)',
+                            zIndex: 1
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '14px',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1.5px solid #E2E8F0',
+                            background: isDark ? '#1A1D23' : '#F8FAFC',
+                            zIndex: 0
+                          }}
+                        />
+                      )}
+                      <span style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, fontSize: '15px' }}>
                         <span
                           style={{
                             width: '16px',
@@ -190,7 +213,7 @@ const VariationPickerModal = ({ product, open, onClose, onSelect }) => {
                         />
                         {variation.name}
                       </span>
-                      <span style={{ fontWeight: 800, color: 'var(--primary-500)', fontSize: '15px' }}>
+                      <span style={{ position: 'relative', zIndex: 2, fontWeight: 800, color: 'var(--primary-500)', fontSize: '15px' }}>
                         {formatCurrency(variation.price)}
                       </span>
                     </button>

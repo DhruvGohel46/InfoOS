@@ -126,8 +126,8 @@
 
 .analytics-tab-btn--active {
   color: #FFFFFF !important;
-  background: linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%) !important;
-  box-shadow: 0 4px 14px rgba(255, 107, 26, 0.35) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* ─── Action Buttons ─── */
@@ -432,6 +432,25 @@
   font-size: 0.8rem;
   color: inherit;
   font-weight: 600;
+}
+
+/* ─── Modern Expense Area Tooltip ─── */
+.expense-area-tooltip {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transition: all 0.15s ease;
+}
+
+[data-theme="light"] .expense-area-tooltip {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1.5px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 16px 40px -8px rgba(15, 23, 42, 0.15), 0 0 1px 1px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="dark"] .expense-area-tooltip {
+  background: rgba(20, 23, 34, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.08) !important;
 }
 
 /* ─── Download Reports Section ─── */

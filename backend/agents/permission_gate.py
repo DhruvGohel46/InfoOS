@@ -125,6 +125,29 @@ def dry_run_tool(tool_name: str, args: Dict[str, Any]) -> Optional[str]:
                 except (ValueError, TypeError):
                     return "Invalid delta_quantity."
 
+    elif tool_name == "propose_add_inventory_batch":
+        inv_id = args.get("inventory_id")
+        prod_id = args.get("product_id")
+        if inv_id or prod_id:
+            item = None
+            if inv_id:
+                try:
+                    item = db.session.get(Inventory, int(inv_id))
+                except Exception:
+                    pass
+            elif prod_id:
+                item = Inventory.query.filter_by(product_id=prod_id).first()
+
+            if not item:
+                return "No matching inventory item found. Call lookup_product or get_inventory_status first."
+        qty = args.get("quantity")
+        if qty is not None:
+            try:
+                if float(qty) <= 0:
+                    return "Batch quantity must be greater than 0."
+            except (ValueError, TypeError):
+                return "Invalid batch quantity."
+
     elif tool_name in (
         "propose_record_advance",
         "propose_mark_attendance",
@@ -183,6 +206,15 @@ def generate_diff_summary(tool_name: str, args: Dict[str, Any]) -> str:
     elif tool_name == "propose_bulk_stock_adjustment":
         adjs = args.get("adjustments", [])
         return f"Apply batch stock adjustment across {len(adjs)} items (Note: {args.get('batch_note', 'Delivery/Restock')})"
+
+    elif tool_name == "propose_add_inventory_batch":
+        target = args.get("product_id") or f"Inventory #{args.get('inventory_id')}"
+        exp = f", Expiry: {args.get('expiry_date')}" if args.get("expiry_date") else ""
+        batch_no = f" (Batch: {args.get('batch_number')})" if args.get("batch_number") else ""
+        return f"Add batch of {args.get('quantity')} units to {target}{batch_no}{exp}"
+
+    elif tool_name == "propose_set_product_batch_preset":
+        return f"Set default batch size preset to {args.get('default_batch_size')} units for Product {args.get('product_id')}"
 
     elif tool_name == "propose_update_threshold":
         return f"Set low stock alert threshold for item #{args.get('inventory_id')} to {args.get('alert_threshold')} units"

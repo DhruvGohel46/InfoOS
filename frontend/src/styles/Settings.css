@@ -131,12 +131,11 @@
 }
 
 [data-theme="light"] .stTabButton.stTabActive {
-    background: linear-gradient(135deg, #FF8A00 0%, #FF6500 100%) !important;
-    border: 1px solid #FF8A00 !important;
+    background: transparent !important;
+    border-color: transparent !important;
     color: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(255, 122, 0, 0.35) !important;
+    box-shadow: none !important;
     font-weight: 700;
-    transform: translateY(-1px);
 }
 
 [data-theme="light"] .stTabButton.stTabActive .stTabIcon {
@@ -160,12 +159,11 @@
 }
 
 [data-theme="dark"] .stTabButton.stTabActive {
-    background: linear-gradient(135deg, #FF8A00 0%, #FF6500 100%) !important;
-    border: 1px solid #FF8A00 !important;
+    background: transparent !important;
+    border-color: transparent !important;
     color: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(255, 122, 0, 0.40) !important;
+    box-shadow: none !important;
     font-weight: 700;
-    transform: translateY(-1px);
 }
 
 [data-theme="dark"] .stTabButton.stTabActive .stTabIcon {

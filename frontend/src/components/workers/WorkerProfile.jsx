@@ -206,7 +206,7 @@ export default function WorkerProfile() {
         amount: parseFloat(advanceAmount),
         reason: advanceReason.trim()
       });
-      showSuccess(`Advance of ₹${advanceAmount} recorded`);
+      showSuccess(`Advance of ${formatCurrency(advanceAmount)} recorded`);
       setAdvanceAmount('');
       setAdvanceReason('');
       loadData();
@@ -1075,7 +1075,7 @@ export default function WorkerProfile() {
                             cursor: 'pointer'
                           }}
                         >
-                          +₹{amt}
+                          +{formatCurrency(amt)}
                         </button>
                       ))}
                     </div>

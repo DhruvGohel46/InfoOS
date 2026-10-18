@@ -1,8 +1,18 @@
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Any
 from sqlalchemy import func, or_
-from models import db, Product, Bill, Category, Settings, Inventory, AuditEvent, ItemGroup
+from models import (
+    db,
+    Product,
+    Bill,
+    Category,
+    Settings,
+    Inventory,
+    InventoryBatch,
+    AuditEvent,
+    ItemGroup,
+)
 from config import config
 from utils.product_variations import enrich_product_dict, normalize_variations, serialize_variations
 
@@ -65,6 +75,7 @@ class DatabaseService:
             "active": p.active,
             "favorite": p.favorite,
             "display_order": getattr(p, "display_order", 0),
+            "default_batch_size": getattr(p, "default_batch_size", 1.0) or 1.0,
             "variations": normalize_variations(getattr(p, "variations", None)),
             "created_at": str(p.created_at),
             "updated_at": str(p.updated_at),
@@ -168,6 +179,11 @@ class DatabaseService:
                 image_filename=product_data.get("image_filename"),
                 active=bool(product_data.get("active", True)),
                 variations=serialize_variations(product_data.get("variations", [])),
+                default_batch_size=(
+                    float(product_data["default_batch_size"])
+                    if product_data.get("default_batch_size") is not None
+                    else 1.0
+                ),
             )
             db.session.add(new_product)
             db.session.commit()
@@ -198,6 +214,12 @@ class DatabaseService:
                 p.category_id = product_data["category_id"]
             if "category" in product_data:
                 p.category = product_data["category"]
+            if "default_batch_size" in product_data:
+                p.default_batch_size = (
+                    float(product_data["default_batch_size"])
+                    if product_data["default_batch_size"] is not None
+                    else 1.0
+                )
             if "image_filename" in product_data:
                 p.image_filename = product_data["image_filename"]
             if "active" in product_data:
@@ -319,9 +341,8 @@ class DatabaseService:
                 # Find linked inventory item and deduct stock
                 inv_item = Inventory.query.filter_by(product_id=item["product_id"]).first()
                 if inv_item:
-                    # Deduct stock
-                    inv_item.stock -= item["quantity"]
-                    # inv_item.updated_at = func.now() # SqlAlchemy handles onupdate usually, but explicit is fine if func imported
+                    # Deduct stock and batches FIFO
+                    self._deduct_inventory_stock(inv_item, float(item["quantity"]))
 
             new_bill = Bill(
                 bill_no=next_bill_no,
@@ -1016,66 +1037,135 @@ class DatabaseService:
             return False
 
     # ---------------------------------------------------------
-    # INVENTORY MANAGEMENT
+    # INVENTORY MANAGEMENT WITH BATCHES & EXPIRY
     # ---------------------------------------------------------
 
-    def get_all_inventory(self) -> List[Dict[str, Any]]:
-        """Get all inventory items with status"""
-        items = Inventory.query.order_by(Inventory.name).all()
-        result = []
-        for i in items:
-            status = "In Stock"
-            if i.stock <= 0:
-                status = "Out of Stock"
-            elif i.stock <= i.alert_threshold:
-                status = "Low Stock"
+    def _recalculate_inventory_expiry(self, item: Inventory):
+        """Recalculate nearest active expiry date from remaining batches with positive quantity."""
+        active_batches = [b for b in (item.batches or []) if b.quantity > 0]
+        if active_batches:
+            active_batches.sort(key=lambda b: b.expiry_date)
+            item.expiry_date = active_batches[0].expiry_date
+        elif item.stock <= 0:
+            item.expiry_date = None
 
-            # Ensure max_stock_history is at least 10 or current stock
-            max_hist = i.max_stock_history if i.max_stock_history else 10.0
-            if i.stock > max_hist:
-                max_hist = i.stock
+    def _deduct_inventory_stock(self, item: Inventory, deduction: float):
+        """Deduct stock and consume batches in FIFO order (earliest expiry first)."""
+        item.stock -= deduction
+        remaining_to_deduct = deduction
+        active_batches = sorted(
+            [b for b in (item.batches or []) if b.quantity > 0], key=lambda b: b.expiry_date
+        )
+        for batch in active_batches:
+            if remaining_to_deduct <= 0:
+                break
+            if batch.quantity <= remaining_to_deduct:
+                remaining_to_deduct -= batch.quantity
+                batch.quantity = 0.0
+            else:
+                batch.quantity -= remaining_to_deduct
+                remaining_to_deduct = 0.0
+        self._recalculate_inventory_expiry(item)
+        item.updated_at = datetime.now()
 
-            product_active = True
-            if i.product:
-                product_active = bool(i.product.active)
+    def _item_to_dict(self, i: Inventory) -> Dict[str, Any]:
+        """Convert Inventory entity to rich dict with batch & expiry info."""
+        status = "In Stock"
+        if i.stock <= 0:
+            status = "Out of Stock"
+        elif i.stock <= i.alert_threshold:
+            status = "Low Stock"
 
-            is_locked = bool(i.type == "DIRECT_SALE" and i.product_id and not product_active)
+        max_hist = i.max_stock_history if i.max_stock_history else 10.0
+        if i.stock > max_hist:
+            max_hist = i.stock
 
-            result.append(
+        product_active = True
+        if i.product:
+            product_active = bool(i.product.active)
+
+        is_locked = bool(i.type == "DIRECT_SALE" and i.product_id and not product_active)
+
+        # Expiry calculation
+        exp_date_val = getattr(i, "expiry_date", None)
+        exp_str = str(exp_date_val) if exp_date_val else None
+        exp_status = "No Expiry"
+        days_to_expiry = None
+        if exp_date_val:
+            today_d = date.today()
+            diff = (exp_date_val - today_d).days
+            days_to_expiry = diff
+            if diff < 0:
+                exp_status = "Expired"
+            elif diff <= 7:
+                exp_status = "Expiring Soon"
+            else:
+                exp_status = "Good"
+
+        batches_list = []
+        for b in i.batches or []:
+            b_diff = (b.expiry_date - date.today()).days if b.expiry_date else None
+            b_status = (
+                "Expired"
+                if (b_diff is not None and b_diff < 0)
+                else ("Expiring Soon" if (b_diff is not None and b_diff <= 7) else "Good")
+            )
+            batches_list.append(
                 {
-                    "id": i.id,
-                    "name": i.name,
-                    "type": i.type,
-                    "unit": i.unit,
-                    "stock": i.stock,
-                    "unit_price": i.unit_price,
-                    "alert_threshold": i.alert_threshold,
-                    "max_stock_history": max_hist,
-                    "product_id": i.product_id,
-                    "product_name": i.product.name if i.product else None,
-                    "status": status,
-                    "product_status": "inactive" if not product_active else "active",
-                    "product_active": product_active,
-                    "is_locked": is_locked,
-                    "updated_at": str(i.updated_at),
+                    "id": b.id,
+                    "batch_number": b.batch_number or f"Batch #{b.id}",
+                    "quantity": b.quantity,
+                    "expiry_date": str(b.expiry_date),
+                    "days_to_expiry": b_diff,
+                    "status": b_status,
+                    "cost_per_unit": b.cost_per_unit,
+                    "created_at": str(b.created_at),
                 }
             )
-        return result
+
+        default_batch = getattr(i, "default_batch_size", 1.0)
+        if (default_batch is None or default_batch <= 0) and i.product:
+            default_batch = getattr(i.product, "default_batch_size", 1.0)
+
+        return {
+            "id": i.id,
+            "name": i.name,
+            "type": i.type,
+            "unit": i.unit,
+            "stock": i.stock,
+            "unit_price": i.unit_price,
+            "alert_threshold": i.alert_threshold,
+            "max_stock_history": max_hist,
+            "product_id": i.product_id,
+            "product_name": i.product.name if i.product else None,
+            "status": status,
+            "product_status": "inactive" if not product_active else "active",
+            "product_active": product_active,
+            "is_locked": is_locked,
+            "expiry_date": exp_str,
+            "expiry_status": exp_status,
+            "days_to_expiry": days_to_expiry,
+            "default_batch_size": default_batch or 1.0,
+            "batches": batches_list,
+            "batch_count": len(batches_list),
+            "updated_at": str(i.updated_at),
+        }
+
+    def get_all_inventory(self) -> List[Dict[str, Any]]:
+        """Get all inventory items with status, batches and expiry"""
+        items = Inventory.query.order_by(Inventory.name).all()
+        return [self._item_to_dict(i) for i in items]
 
     def get_low_stock_products(self) -> List[Dict[str, Any]]:
         """Get only low stock or out of stock items"""
-        # Filter where stock <= alert_threshold
         items = Inventory.query.filter(Inventory.stock <= Inventory.alert_threshold).all()
         result = []
         for i in items:
-            # Skip inactive products
             if i.type == "DIRECT_SALE" and i.product and not i.product.active:
                 continue
-
             status = "Low Stock"
             if i.stock <= 0:
                 status = "Out of Stock"
-
             result.append(
                 {
                     "id": i.id,
@@ -1093,50 +1183,35 @@ class DatabaseService:
     def get_inventory_item(self, item_id: int) -> Optional[Dict[str, Any]]:
         i = Inventory.query.get(item_id)
         if i:
-            max_hist = i.max_stock_history if i.max_stock_history else 10.0
-            if i.stock > max_hist:
-                max_hist = i.stock
-
-            product_active = True
-            if i.product:
-                product_active = bool(i.product.active)
-
-            is_locked = bool(i.type == "DIRECT_SALE" and i.product_id and not product_active)
-
-            return {
-                "id": i.id,
-                "name": i.name,
-                "type": i.type,
-                "unit": i.unit,
-                "stock": i.stock,
-                "unit_price": i.unit_price,
-                "alert_threshold": i.alert_threshold,
-                "max_stock_history": max_hist,
-                "product_id": i.product_id,
-                "product_status": "inactive" if not product_active else "active",
-                "product_active": product_active,
-                "is_locked": is_locked,
-                "updated_at": str(i.updated_at),
-            }
+            return self._item_to_dict(i)
         return None
 
     def create_inventory_item(self, data: Dict[str, Any]) -> Optional[int]:
         try:
-            # Check if product is already linked?
             if data.get("product_id"):
                 existing = Inventory.query.filter_by(product_id=data["product_id"]).first()
                 if existing:
-                    return None  # Product already linked
+                    return None
 
             item_name = data["name"]
+            default_batch = float(data.get("default_batch_size", 1.0) or 1.0)
             if data.get("product_id"):
                 product = Product.query.get(data["product_id"])
                 if product:
                     if not product.active:
                         return None
                     item_name = product.name
+                    if getattr(product, "default_batch_size", None):
+                        default_batch = float(product.default_batch_size)
 
             initial_stock = float(data.get("stock", 0))
+
+            parsed_expiry = None
+            if data.get("expiry_date"):
+                try:
+                    parsed_expiry = datetime.strptime(data["expiry_date"], "%Y-%m-%d").date()
+                except Exception:
+                    pass
 
             new_item = Inventory(
                 name=item_name,
@@ -1146,9 +1221,28 @@ class DatabaseService:
                 unit_price=float(data.get("unit_price", 0.0)),
                 alert_threshold=float(data.get("alert_threshold", 0)),
                 product_id=data.get("product_id"),
+                expiry_date=parsed_expiry,
+                default_batch_size=default_batch,
                 max_stock_history=max(initial_stock, 10.0),
             )
             db.session.add(new_item)
+            db.session.flush()
+
+            # Create initial batch if stock and expiry provided
+            if initial_stock > 0 and parsed_expiry:
+                batch_num = (
+                    data.get("batch_number")
+                    or f"B-{new_item.id}-{datetime.now().strftime('%Y%m%d')}"
+                )
+                first_batch = InventoryBatch(
+                    inventory_id=new_item.id,
+                    batch_number=batch_num,
+                    quantity=initial_stock,
+                    expiry_date=parsed_expiry,
+                    cost_per_unit=float(data.get("unit_price", 0.0)),
+                )
+                db.session.add(first_batch)
+
             db.session.commit()
             return new_item.id
         except Exception as e:
@@ -1174,17 +1268,26 @@ class DatabaseService:
             if "stock" in data:
                 new_stock = float(data["stock"])
                 i.stock = new_stock
-                # Update history
                 if new_stock > i.max_stock_history:
                     i.max_stock_history = new_stock
 
             if "unit_price" in data:
                 i.unit_price = float(data["unit_price"])
-
             if "alert_threshold" in data:
                 i.alert_threshold = float(data["alert_threshold"])
             if "product_id" in data:
                 i.product_id = data["product_id"]
+            if "default_batch_size" in data and data["default_batch_size"] is not None:
+                i.default_batch_size = float(data["default_batch_size"])
+
+            if "expiry_date" in data:
+                if data["expiry_date"]:
+                    try:
+                        i.expiry_date = datetime.strptime(data["expiry_date"], "%Y-%m-%d").date()
+                    except Exception:
+                        pass
+                else:
+                    i.expiry_date = None
 
             i.updated_at = datetime.now()
             db.session.commit()
@@ -1194,7 +1297,13 @@ class DatabaseService:
             db.session.rollback()
             return False
 
-    def adjust_inventory_stock(self, item_id: int, adjustment: float) -> bool:
+    def adjust_inventory_stock(
+        self,
+        item_id: int,
+        adjustment: float,
+        expiry_date: Optional[str] = None,
+        batch_number: Optional[str] = None,
+    ) -> bool:
         try:
             i = Inventory.query.get(item_id)
             if not i:
@@ -1202,12 +1311,37 @@ class DatabaseService:
             if i.type == "DIRECT_SALE" and i.product_id and i.product and not i.product.active:
                 return False
 
-            i.stock += adjustment
+            adjustment = float(adjustment)
+            if adjustment > 0:
+                i.stock += adjustment
+                cur_max = i.max_stock_history if i.max_stock_history else 10.0
+                if i.stock > cur_max:
+                    i.max_stock_history = i.stock
 
-            # Update history
-            cur_max = i.max_stock_history if i.max_stock_history else 10.0
-            if i.stock > cur_max:
-                i.max_stock_history = i.stock
+                # If adding stock and expiry provided, create a batch
+                if expiry_date:
+                    try:
+                        exp_d = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                        b_num = batch_number or f"B-{i.id}-{datetime.now().strftime('%Y%m%d%H%M')}"
+                        new_batch = InventoryBatch(
+                            inventory_id=i.id,
+                            batch_number=b_num,
+                            quantity=adjustment,
+                            expiry_date=exp_d,
+                            cost_per_unit=i.unit_price,
+                        )
+                        db.session.add(new_batch)
+                        self._recalculate_inventory_expiry(i)
+                    except Exception as b_err:
+                        print(f"Notice: Error creating batch during stock adjustment: {b_err}")
+                elif not i.expiry_date and expiry_date:
+                    try:
+                        i.expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                    except Exception:
+                        pass
+            else:
+                # Deduct stock and batches FIFO
+                self._deduct_inventory_stock(i, abs(adjustment))
 
             i.updated_at = datetime.now()
             db.session.commit()
@@ -1228,6 +1362,131 @@ class DatabaseService:
         except Exception:
             db.session.rollback()
             return False
+
+    # ---------------------------------------------------------
+    # INVENTORY BATCH METHODS
+    # ---------------------------------------------------------
+
+    def get_inventory_batches(self, inventory_id: int) -> List[Dict[str, Any]]:
+        """List all active batches for an inventory item sorted by nearest expiry."""
+        batches = (
+            InventoryBatch.query.filter_by(inventory_id=inventory_id)
+            .order_by(InventoryBatch.expiry_date.asc())
+            .all()
+        )
+        result = []
+        today_d = date.today()
+        for b in batches:
+            diff = (b.expiry_date - today_d).days if b.expiry_date else None
+            status = (
+                "Expired"
+                if (diff is not None and diff < 0)
+                else ("Expiring Soon" if (diff is not None and diff <= 7) else "Good")
+            )
+            result.append(
+                {
+                    "id": b.id,
+                    "inventory_id": b.inventory_id,
+                    "batch_number": b.batch_number or f"Batch #{b.id}",
+                    "quantity": b.quantity,
+                    "expiry_date": str(b.expiry_date),
+                    "days_to_expiry": diff,
+                    "status": status,
+                    "cost_per_unit": b.cost_per_unit,
+                    "created_at": str(b.created_at),
+                }
+            )
+        return result
+
+    def add_inventory_batch(
+        self,
+        inventory_id: int,
+        quantity: float,
+        expiry_date: str,
+        batch_number: Optional[str] = None,
+        cost_per_unit: Optional[float] = None,
+    ) -> Optional[int]:
+        """Add a new batch (single or multi-unit) and update inventory stock & nearest expiry."""
+        try:
+            item = Inventory.query.get(inventory_id)
+            if not item:
+                return None
+
+            try:
+                exp_d = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+            except Exception as e:
+                print(f"Invalid expiry date format: {e}")
+                return None
+
+            qty = float(quantity)
+            b_num = (
+                batch_number.strip()
+                if batch_number
+                else f"B-{item.id}-{datetime.now().strftime('%Y%m%d%H%M')}"
+            )
+
+            batch = InventoryBatch(
+                inventory_id=item.id,
+                batch_number=b_num,
+                quantity=qty,
+                expiry_date=exp_d,
+                cost_per_unit=(
+                    float(cost_per_unit) if cost_per_unit is not None else item.unit_price
+                ),
+            )
+            db.session.add(batch)
+
+            # Increase item stock
+            item.stock += qty
+            cur_max = item.max_stock_history if item.max_stock_history else 10.0
+            if item.stock > cur_max:
+                item.max_stock_history = item.stock
+
+            self._recalculate_inventory_expiry(item)
+            item.updated_at = datetime.now()
+
+            db.session.commit()
+            return batch.id
+        except Exception as e:
+            print(f"Error adding inventory batch: {e}")
+            db.session.rollback()
+            return None
+
+    def delete_inventory_batch(self, batch_id: int) -> bool:
+        """Delete an inventory batch and deduct its quantity from total stock."""
+        try:
+            batch = InventoryBatch.query.get(batch_id)
+            if not batch:
+                return False
+            item = batch.inventory
+            if item:
+                item.stock = max(0.0, item.stock - batch.quantity)
+                db.session.delete(batch)
+                self._recalculate_inventory_expiry(item)
+                item.updated_at = datetime.now()
+            else:
+                db.session.delete(batch)
+
+            db.session.commit()
+            return True
+        except Exception as e:
+            print(f"Error deleting batch: {e}")
+            db.session.rollback()
+            return False
+
+    def get_expiring_inventory(self, days_ahead: int = 7) -> List[Dict[str, Any]]:
+        """Get inventory items and batches that are expired or expiring within `days_ahead` days."""
+        target_date = date.today() + timedelta(days=days_ahead)
+        items = (
+            Inventory.query.filter(
+                Inventory.expiry_date != None,
+                Inventory.expiry_date <= target_date,
+                Inventory.stock > 0,
+            )
+            .order_by(Inventory.expiry_date.asc())
+            .all()
+        )
+        return [self._item_to_dict(i) for i in items]
 
     # ---------------------------------------------------------
     # SETTINGS MANAGEMENT

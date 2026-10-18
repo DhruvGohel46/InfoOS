@@ -1660,21 +1660,38 @@ const Settings = () => {
 
                     <div className="stTabs">
                         <div className="stTabList">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    className={`stTabButton ${activeTab === tab.id ? 'stTabActive' : ''}`}
-                                    onClick={() => {
-                                        if (activeTab === 'security' && formSettings.require_pin_login === 'true' && !pinStatus.is_setup) {
-                                            handleChange('require_pin_login', 'false');
-                                        }
-                                        setActiveTab(tab.id);
-                                    }}
-                                >
-                                    <tab.icon size={20} className="stTabIcon" />
-                                    <span className="stTabLabel">{tab.label}</span>
-                                </button>
-                            ))}
+                            {tabs.map(tab => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        className={`stTabButton ${isActive ? 'stTabActive' : ''}`}
+                                        onClick={() => {
+                                            if (activeTab === 'security' && formSettings.require_pin_login === 'true' && !pinStatus.is_setup) {
+                                                handleChange('require_pin_login', 'false');
+                                            }
+                                            setActiveTab(tab.id);
+                                        }}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="settings-active-tab-indicator"
+                                                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                                                style={{
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    borderRadius: '12px',
+                                                    background: 'linear-gradient(135deg, #FF8A00 0%, #FF6500 100%)',
+                                                    boxShadow: '0 4px 14px rgba(255, 122, 0, 0.38)',
+                                                    zIndex: 1
+                                                }}
+                                            />
+                                        )}
+                                        <tab.icon size={20} className="stTabIcon" style={{ position: 'relative', zIndex: 2 }} />
+                                        <span className="stTabLabel" style={{ position: 'relative', zIndex: 2 }}>{tab.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -1881,15 +1898,16 @@ const Settings = () => {
                                             state={formSettings.state}
                                             pincode={formSettings.pincode}
                                             country={formSettings.country}
-                                            onChange={({ latitude, longitude, city, state, pincode, country }) => {
+                                            onChange={({ latitude, longitude, address, formattedAddress, city, state, pincode, country }) => {
                                                 setFormSettings(prev => ({
                                                     ...prev,
-                                                    latitude,
-                                                    longitude,
-                                                    ...(city && !prev.city ? { city } : {}),
-                                                    ...(state && !prev.state ? { state } : {}),
-                                                    ...(pincode && !prev.pincode ? { pincode } : {}),
-                                                    ...(country && !prev.country ? { country } : {})
+                                                    ...(latitude !== undefined ? { latitude } : {}),
+                                                    ...(longitude !== undefined ? { longitude } : {}),
+                                                    ...((address || formattedAddress) ? { shop_address: address || formattedAddress } : {}),
+                                                    ...(city ? { city } : {}),
+                                                    ...(state ? { state } : {}),
+                                                    ...(pincode ? { pincode } : {}),
+                                                    ...(country ? { country } : {})
                                                 }));
                                             }}
                                         />

@@ -24,14 +24,13 @@ _update_schema = ExpenseUpdateSchema()
 @expenses_bp.route("", methods=["GET"])
 @safe_route
 def get_expenses():
-    """Get all expenses with optional filtering."""
-    limit = request.args.get("limit", 100, type=int)
+    range_type = request.args.get("range")
+    default_limit = 5000 if range_type else 100
+    limit = request.args.get("limit", default_limit, type=int)
     category = request.args.get("category")
     worker_id = request.args.get("worker_id")
 
     query = Expense.query
-
-    range_type = request.args.get("range")
     date_param = request.args.get("date")
 
     if range_type:

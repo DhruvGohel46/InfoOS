@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -26,9 +26,11 @@ import {
   IoCreateOutline,
   IoRestaurantOutline,
   IoCheckmarkCircle,
-  IoTimeOutline
+  IoTimeOutline,
+  IoRefreshOutline,
+  IoArrowForward
 } from 'react-icons/io5';
-import { motion, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   buildCartItem,
   formatProductPriceLabel,
@@ -147,7 +149,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const [customerMobile, setCustomerMobile] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('paid'); // 'paid' | 'pending'
-  const [activeField, setActiveField] = useState(null); // 'table' | 'kot' | 'customer' | 'mobile' | null
+  const [activeField, setActiveField] = useState('table'); // 'table' | 'kot' | 'customer' | 'mobile'
 
   const [selectedCategory, setSelectedCategory] = useState('favorites');
 
@@ -183,10 +185,73 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
   const [editingBill, setEditingBill] = useState(null);
 
+  // Recent 5 Bills Modal State & Logic
+  const [showRecentBills, setShowRecentBills] = useState(false);
+  const [recentBills, setRecentBills] = useState([]);
+  const [loadingRecentBills, setLoadingRecentBills] = useState(false);
 
+  const fetchRecentBills = async () => {
+    try {
+      setLoadingRecentBills(true);
+      const res = await billingAPI.getTodayBills();
+      const allBills = res.data?.bills || [];
+      const sorted = [...allBills].sort((a, b) => {
+        if (b.bill_no && a.bill_no) return b.bill_no - a.bill_no;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+      setRecentBills(sorted.slice(0, 5));
+    } catch (err) {
+      console.error('Failed to fetch recent bills:', err);
+      showWarning('Could not load recent bills');
+    } finally {
+      setLoadingRecentBills(false);
+    }
+  };
+
+  const handleOpenRecentBills = () => {
+    fetchRecentBills();
+    setShowRecentBills(true);
+  };
+
+  const handleSelectRecentBill = (bill) => {
+    let parsedItems = [];
+    try {
+      const rawItems = bill.items || bill.products || [];
+      parsedItems = typeof rawItems === 'string' ? JSON.parse(rawItems) : rawItems;
+    } catch (e) {
+      parsedItems = [];
+    }
+
+    setEditingBill(bill);
+    setOrderItems((parsedItems || []).map((item) => ({
+      ...item,
+      line_key: getCartLineKey(item.product_id, item.variation_id),
+    })));
+
+    setOrderType(bill.order_type || 'dine-in');
+    setTableNumber(bill.table_no || '');
+    setCustomerName(bill.customer_name || '');
+    setCustomerMobile(bill.customer_mobile || bill.customer_phone || '');
+    const loadedStatus = String(bill.payment_status || (bill.amount_pending > 0 ? 'pending' : 'paid')).toLowerCase();
+    setPaymentStatus(loadedStatus === 'pending' ? 'pending' : 'paid');
+    setKotNumber(bill.kot_no || bill.custom_kot_no || '');
+
+    setShowRecentBills(false);
+    showSuccess(`Loaded Bill ${bill.bill_no} for editing`);
+  };
+
+  const formatBillTime = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr.replace(' ', 'T'));
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return dateStr;
+    }
+  };
 
   // Ref to prevent multiple rapid clicks
-
   const lastClickTime = useRef(0);
 
 
@@ -972,10 +1037,14 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       if (editingBill) {
         await billingAPI.updateBill(editingBill.bill_no, billData);
-        showSuccess('Bill updated successfully');
+        showSuccess(`Bill #${editingBill.bill_no} updated successfully`);
         window.dispatchEvent(new CustomEvent('bill-updated', { detail: { bill_no: editingBill.bill_no, payment_status: paymentStatus } }));
         window.dispatchEvent(new CustomEvent('live-orders-refresh'));
-        navigate(location.state?.from || '/analytics');
+        if (location.state?.from) {
+          navigate(location.state.from);
+        } else {
+          resetBillState();
+        }
       } else {
         // Handle Offline State
         if (!isOnline) {
@@ -1225,8 +1294,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       if (onBillCreated && !editingBill) {
         onBillCreated({ bill_no: billNo, total: calculateTotal() });
       }
-      refreshProducts();
-      if (editingBill) navigate(location.state?.from || '/analytics');
+      if (editingBill) {
+        if (location.state?.from) {
+          navigate(location.state.from);
+        } else {
+          resetBillState();
+        }
+      }
 
 
 
@@ -1268,11 +1342,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     setCustomerName('');
     setCustomerMobile('');
     setPaymentStatus('paid');
-    setActiveField(null);
+    setActiveField('table');
+    setEditingBill(null);
   };
 
   const confirmClear = () => {
     resetBillState();
+    setEditingBill(null);
     setShowClearConfirm(false);
   };
 
@@ -1326,9 +1402,41 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
 
 
-  const leftSidebarStyle = {
+  // Calculate dynamic width based on the longest category name, clamped between a minimum and maximum width
+  const dynamicSidebarWidth = useMemo(() => {
+    try {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.font = '500 14px sans-serif';
+        let maxTextWidth = 0;
+        categories.forEach(cat => {
+          const text = cat.name || '';
+          const metrics = context.measureText(text);
+          if (metrics.width > maxTextWidth) {
+            maxTextWidth = metrics.width;
+          }
+        });
+        // 20px (sidebar padding: 10px each side) + 24px (button padding: 12px each side) + 16px (dot/gap) + 12px safety/scrollbar
+        const totalNeeded = Math.ceil(maxTextWidth + 72);
+        const clamped = Math.min(Math.max(totalNeeded, 136), 210);
+        return `calc(${clamped}px * var(--display-zoom))`;
+      }
+    } catch (e) {
+      // fallback
+    }
+    let maxLen = 10;
+    categories.forEach(cat => {
+      if (cat.name && cat.name.length > maxLen) maxLen = cat.name.length;
+    });
+    const clamped = Math.min(Math.max(Math.round(maxLen * 8 + 68), 136), 210);
+    return `calc(${clamped}px * var(--display-zoom))`;
+  }, [categories]);
 
-    width: 'calc(216px * var(--display-zoom))', // Decreased to 0.9x (from 240px) for better screen space balance
+  const leftSidebarStyle = {
+    width: dynamicSidebarWidth,
+    minWidth: 'calc(136px * var(--display-zoom))',
+    maxWidth: 'calc(210px * var(--display-zoom))',
     background: isDark ? 'linear-gradient(180deg, #1E1E22 0%, #17171A 100%)' : '#FFFFFF',
     borderRight: isDark ? '1px solid var(--glass-border)' : '1px solid #E2E8F0',
     boxShadow: isDark ? 'none' : '2px 0 10px rgba(15, 23, 42, 0.04)',
@@ -1336,6 +1444,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
     flexDirection: 'column',
     height: '100%',
     zIndex: 2,
+    flexShrink: 0,
+    boxSizing: 'border-box',
+    transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
   };
 
   const middleSectionStyle = {
@@ -1360,92 +1471,59 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
       <div className="glass-sidebar" style={leftSidebarStyle}>
 
         <div style={{
-
-          padding: '24px 20px',
-
+          padding: '16px 10px',
           borderBottom: '1px solid var(--glass-border)',
-
           display: 'flex',
-
           flexDirection: 'column',
-
-          gap: '16px'
-
+          gap: '10px',
+          minWidth: 0,
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
-
           <div style={{
-
             position: 'relative',
-
-            width: '100%'
-
+            width: '100%',
+            minWidth: 0
           }}>
-
             <SearchBar
               value={searchTerm}
               onChange={setSearchTerm}
-              placeholder="Search categories..."
+              placeholder="Search..."
               style={{
-                height: '48px',
-                borderRadius: '14px',
+                height: '42px',
+                borderRadius: '12px',
                 background: isDark ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
                 border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1',
                 boxShadow: isDark ? 'none' : 'inset 0 1px 2px rgba(15, 23, 42, 0.04)'
               }}
             />
-
-
           </div>
-
         </div>
 
-
-
         <div className="pos-sidebar-scroll" style={{
-
           flex: 1,
-
           overflowY: 'auto',
-
-          padding: '0 20px 16px 20px'
-
+          overflowX: 'hidden',
+          padding: '0 10px 16px 10px'
         }}>
-
           <div style={{
-
             display: 'flex',
-
             justifyContent: 'space-between',
-
             alignItems: 'center',
-
-            marginBottom: '16px',
-
-            marginTop: '24px',
-
+            marginBottom: '12px',
+            marginTop: '16px',
             paddingLeft: '4px'
-
           }}>
-
             <h4 style={{
-
-              fontSize: '14px',
-
+              fontSize: '13px',
               fontWeight: '600',
-
               letterSpacing: '0.5px',
-
               color: 'var(--text-secondary)',
-
               margin: 0
-
             }}>Categories</h4>
-
           </div>
 
-
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {isEditMode ? (
               <>
                 {/* Favorites is always static and not draggable */}
@@ -1454,24 +1532,25 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                   style={{
                     position: 'relative',
                     width: '100%',
-                    height: '40px',
+                    minHeight: '40px',
+                    height: 'auto',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '0 16px',
+                    gap: '8px',
+                    padding: '8px 12px',
                     backgroundColor: selectedCategory === 'favorites' ? (isDark ? '#2B2B2B' : '#E2E8F0') : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'),
                     border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #E2E8F0',
-                    borderRadius: '16px',
+                    borderRadius: '14px',
                     color: 'var(--text-muted)',
                     opacity: 0.5,
                     overflow: 'hidden'
                   }}
                 >
-                  <span style={{ fontSize: '16px', fontWeight: '500' }}>★ Favorites</span>
+                  <span style={{ fontSize: '14px', fontWeight: '500', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>★ Favorites</span>
                 </div>
 
                 {/* Draggable categories list */}
-                <Reorder.Group axis="y" values={editableCategories} onReorder={setEditableCategories} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: 0, margin: 0, listStyle: 'none' }}>
+                <Reorder.Group axis="y" values={editableCategories} onReorder={setEditableCategories} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: 0, margin: 0, listStyle: 'none' }}>
                   {editableCategories.map((category) => {
                     const catColor = getCategoryColor(category, bootstrapCategories);
                     return (
@@ -1481,20 +1560,21 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           style={{
                             position: 'relative',
                             width: '100%',
-                            height: '40px',
+                            minHeight: '40px',
+                            height: 'auto',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '12px',
-                            padding: '0 16px',
+                            gap: '8px',
+                            padding: '8px 12px',
                             backgroundColor: isDark ? '#2B2B2B' : '#F1F5F9',
                             border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed #CBD5E1',
-                            borderRadius: '16px',
+                            borderRadius: '14px',
                             cursor: 'grab',
                             color: 'var(--text-secondary)',
                             overflow: 'hidden'
                           }}
                         >
-                          <IoMoveOutline style={{ opacity: 0.6, fontSize: '18px', color: '#FF8A00' }} />
+                          <IoMoveOutline style={{ opacity: 0.6, fontSize: '16px', color: '#FF8A00', flexShrink: 0 }} />
                           <span
                             style={{
                               width: '8px',
@@ -1505,12 +1585,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                             }}
                           />
                           <span style={{
-                            fontSize: '16px',
+                            fontSize: '14px',
                             fontWeight: '500',
                             color: 'var(--text-secondary)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            lineHeight: '1.25'
                           }}>
                             {category.name}
                           </span>
@@ -1533,38 +1613,53 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                     style={{
                       position: 'relative',
                       width: '100%',
-                      height: '40px',
+                      minHeight: '40px',
+                      height: 'auto',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      padding: '0 16px',
-                      background: isActive ? 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)' : (isDark ? '#2B2B2B' : '#FFFFFF'),
-                      border: isActive ? '1px solid #FF8A00' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1'),
-                      borderRadius: '16px',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: 'transparent',
+                      border: isActive ? '1px solid transparent' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1'),
+                      borderRadius: '14px',
                       cursor: 'pointer',
                       color: isActive ? '#ffffff' : (isDark ? 'var(--text-secondary)' : '#334155'),
                       fontWeight: isActive ? 700 : 600,
-                      transition: 'all 180ms cubic-bezier(0.16, 1, 0.3, 1)',
-                      textAlign: 'left',
-                      boxShadow: isActive ? '0 6px 18px rgba(255,107,0,0.30)' : (isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)')
+                      transition: 'color 180ms ease',
+                      textAlign: 'left'
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.backgroundColor = isDark ? '#333333' : '#F8FAFC';
                         e.currentTarget.style.borderColor = isDark ? '#5a5a5a' : '#FF8A00';
                         e.currentTarget.style.boxShadow = isDark ? 'none' : '0 3px 8px rgba(15, 23, 42, 0.08)';
-                        e.currentTarget.style.transform = 'translateX(3px)';
+                        e.currentTarget.style.transform = 'translateX(2px)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isActive) {
-                        e.currentTarget.style.backgroundColor = isDark ? '#2B2B2B' : '#FFFFFF';
+                        e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#CBD5E1';
-                        e.currentTarget.style.boxShadow = isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)';
+                        e.currentTarget.style.boxShadow = 'none';
                         e.currentTarget.style.transform = 'translateX(0)';
                       }
                     }}
                   >
+                    {isActive && (
+                      <motion.div
+                        layoutId="pos-category-active-pill"
+                        transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: '14px',
+                          background: 'linear-gradient(180deg, #FF8A00 0%, #FF6500 100%)',
+                          border: '1px solid #FF8A00',
+                          boxShadow: '0 6px 18px rgba(255,107,0,0.30)',
+                          zIndex: 1
+                        }}
+                      />
+                    )}
 
                     {isActive && (
                       <div
@@ -1577,7 +1672,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                           height: '20px',
                           backgroundColor: '#ffffff',
                           borderRadius: '0 2px 2px 0',
-                          zIndex: 0,
+                          zIndex: 2,
                         }}
                       />
                     )}
@@ -1587,9 +1682,9 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                       alignItems: 'center',
                       gap: '8px',
                       flex: 1,
-                      overflow: 'hidden',
+                      minWidth: 0,
                       position: 'relative',
-                      zIndex: 1,
+                      zIndex: 2,
                     }}>
                       {!isFav && catColor && (
                         <span
@@ -1605,12 +1700,12 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
                         />
                       )}
                       <span style={{
-                        fontSize: '16px',
+                        fontSize: '14px',
                         fontWeight: '500',
                         color: isActive ? '#ffffff' : (isDark ? 'var(--text-secondary)' : '#334155'),
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.25'
                       }}>
                         {category.name}
                       </span>
@@ -1625,12 +1720,15 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
         {/* Item Groups Dropdown Selector - Relocated to Bottom of Sidebar */}
         <div style={{
-          padding: '16px 20px 20px 20px',
+          padding: '12px 10px 16px 10px',
           borderTop: isDark ? '1px solid var(--glass-border)' : '1px solid #E2E8F0',
           background: isDark ? 'rgba(0,0,0,0.15)' : '#F8FAFC',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
+          minWidth: 0,
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <GroupSelector
             groups={groups}
@@ -1691,6 +1789,48 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
               )}
             </h2>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {/* Recent 5 Bills Trigger Button */}
+              <button
+                type="button"
+                onClick={handleOpenRecentBills}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  background: isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : '#FFFFFF',
+                  border: isDark
+                    ? '1px solid rgba(255, 255, 255, 0.1)'
+                    : '1.5px solid #CBD5E1',
+                  borderRadius: '12px',
+                  color: isDark ? '#E2E8F0' : '#1E293B',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.borderColor = '#FF6B1A';
+                  e.currentTarget.style.color = '#FF6B1A';
+                  e.currentTarget.style.boxShadow = '0 3px 10px rgba(255, 107, 26, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : '#CBD5E1';
+                  e.currentTarget.style.color = isDark ? '#E2E8F0' : '#1E293B';
+                  e.currentTarget.style.boxShadow = isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)';
+                }}
+                title="View recent 5 bills and tap to load order"
+              >
+                <IoTimeOutline size={16} style={{ color: '#FF6B1A' }} />
+                <span>Recent Bills</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => navigate('/live')}
@@ -2340,203 +2480,208 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             </Button>
           </div>
 
+          {/* Active Editing Indicator Banner */}
+          {editingBill && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              marginBottom: '12px',
+              borderRadius: '10px',
+              background: isDark ? 'rgba(255, 107, 26, 0.15)' : '#FFF7ED',
+              border: '1.5px solid rgba(255, 107, 26, 0.35)',
+              boxShadow: '0 2px 8px rgba(255, 107, 26, 0.1)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#EA580C',
+                  boxShadow: '0 0 6px rgba(234, 88, 12, 0.8)'
+                }} />
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#EA580C' }}>
+                    Editing Bill {editingBill.bill_no}
+                  </div>
+                  <div style={{ fontSize: '11px', color: isDark ? '#94A3B8' : '#64748B' }}>
+                    Modify items, table or payment then update
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetBillState();
+                  setEditingBill(null);
+                }}
+                style={{
+                  background: isDark ? '#26272C' : '#FFFFFF',
+                  border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1.5px solid #CBD5E1',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  color: isDark ? '#F1F5F9' : '#334155',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Cancel edit mode and start a new blank bill"
+              >
+                Cancel Edit
+              </button>
+            </div>
+          )}
+
           {/* Order Type Toggle Selector */}
           <div style={{
+            position: 'relative',
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: 'calc(8px * var(--display-zoom, 1))',
+            gap: 'calc(6px * var(--display-zoom, 1))',
+            padding: 'calc(4px * var(--display-zoom, 1))',
+            borderRadius: '12px',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1F5F9',
+            border: isDark ? '1px solid var(--glass-border)' : '1px solid #CBD5E1',
             marginBottom: 'calc(12px * var(--display-zoom, 1))'
           }}>
-            <button
-              onClick={() => setOrderType('dine-in')}
-              style={{
-                padding: 'calc(7px * var(--display-zoom, 1))',
-                borderRadius: '10px',
-                border: orderType === 'dine-in' ? '2px solid #EA580C' : (isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1'),
-                backgroundColor: orderType === 'dine-in' ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED') : (isDark ? 'transparent' : '#FFFFFF'),
-                color: orderType === 'dine-in' ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#475569'),
-                fontWeight: 750,
-                fontSize: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                boxShadow: isDark ? 'none' : (orderType === 'dine-in' ? '0 2px 6px rgba(234, 88, 12, 0.15)' : '0 1px 2px rgba(15, 23, 42, 0.04)'),
-              }}
-            >
-              Dine In
-            </button>
-            <button
-              onClick={() => setOrderType('takeaway')}
-              style={{
-                padding: 'calc(7px * var(--display-zoom, 1))',
-                borderRadius: '10px',
-                border: orderType === 'takeaway' ? '2px solid #EA580C' : (isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1'),
-                backgroundColor: orderType === 'takeaway' ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED') : (isDark ? 'transparent' : '#FFFFFF'),
-                color: orderType === 'takeaway' ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#475569'),
-                fontWeight: 750,
-                fontSize: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                boxShadow: isDark ? 'none' : (orderType === 'takeaway' ? '0 2px 6px rgba(234, 88, 12, 0.15)' : '0 1px 2px rgba(15, 23, 42, 0.04)'),
-              }}
-            >
-              Takeaway
-            </button>
+            {[
+              { id: 'dine-in', label: 'Dine In' },
+              { id: 'takeaway', label: 'Takeaway' }
+            ].map(type => {
+              const isSelected = orderType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => setOrderType(type.id)}
+                  style={{
+                    position: 'relative',
+                    padding: 'calc(7px * var(--display-zoom, 1))',
+                    borderRadius: '9px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: isSelected ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#475569'),
+                    fontWeight: 750,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    outline: 'none',
+                    userSelect: 'none'
+                  }}
+                >
+                  {isSelected && (
+                    <motion.div
+                      layoutId="pos-order-type-indicator"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '9px',
+                        backgroundColor: isDark ? 'rgba(249, 115, 22, 0.18)' : '#FFFFFF',
+                        border: '2px solid #EA580C',
+                        boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 6px rgba(234, 88, 12, 0.15)',
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <span style={{ position: 'relative', zIndex: 2 }}>
+                    {type.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* 4 Option Buttons: Table Number | KOT Number | Customer Name | Mobile Number */}
           <div style={{
+            position: 'relative',
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: '5px',
+            padding: '3px',
+            borderRadius: '10px',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F1F5F9',
+            border: isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1',
             marginBottom: 'calc(8px * var(--display-zoom, 1))'
           }}>
-            {/* Table Number Button */}
-            <button
-              onClick={() => setActiveField(activeField === 'table' ? null : 'table')}
-              style={{
-                padding: 'calc(6px * var(--display-zoom, 1)) 2px',
-                borderRadius: '8px',
-                border: activeField === 'table'
-                  ? '2px solid #EA580C'
-                  : tableNumber
-                    ? '1.5px solid #EA580C'
-                    : isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1',
-                backgroundColor: activeField === 'table'
-                  ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED')
-                  : tableNumber
-                    ? (isDark ? 'rgba(249, 115, 22, 0.1)' : '#FFF7ED')
-                    : isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
-                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                color: (activeField === 'table' || tableNumber) ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#334155'),
-                fontWeight: 750,
-                fontSize: '11.5px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px'
-              }}
-              title={tableNumber ? `Table: ${tableNumber}` : 'Table Number'}
-            >
-              {tableNumber ? `T: ${tableNumber}` : 'Table No'}
-            </button>
-
-            {/* KOT Number Button */}
-            <button
-              onClick={() => setActiveField(activeField === 'kot' ? null : 'kot')}
-              style={{
-                padding: 'calc(6px * var(--display-zoom, 1)) 2px',
-                borderRadius: '8px',
-                border: activeField === 'kot'
-                  ? '2px solid #EA580C'
-                  : kotNumber
-                    ? '1.5px solid #EA580C'
-                    : isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1',
-                backgroundColor: activeField === 'kot'
-                  ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED')
-                  : kotNumber
-                    ? (isDark ? 'rgba(249, 115, 22, 0.1)' : '#FFF7ED')
-                    : isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
-                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                color: (activeField === 'kot' || kotNumber) ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#334155'),
-                fontWeight: 750,
-                fontSize: '11.5px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px'
-              }}
-              title={kotNumber ? `KOT: ${kotNumber}` : 'KOT Number'}
-            >
-              {kotNumber ? `KOT: ${kotNumber}` : 'KOT No'}
-            </button>
-
-            {/* Customer Name Button */}
-            <button
-              onClick={() => setActiveField(activeField === 'customer' ? null : 'customer')}
-              style={{
-                padding: 'calc(6px * var(--display-zoom, 1)) 2px',
-                borderRadius: '8px',
-                border: activeField === 'customer'
-                  ? '2px solid #EA580C'
-                  : customerName
-                    ? '1.5px solid #EA580C'
-                    : isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1',
-                backgroundColor: activeField === 'customer'
-                  ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED')
-                  : customerName
-                    ? (isDark ? 'rgba(249, 115, 22, 0.1)' : '#FFF7ED')
-                    : isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
-                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                color: (activeField === 'customer' || customerName) ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#334155'),
-                fontWeight: 750,
-                fontSize: '11.5px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px'
-              }}
-              title={customerName ? `Name: ${customerName}` : 'Customer Name'}
-            >
-              {customerName ? `Name: ${customerName}` : 'Cus.Name'}
-            </button>
-
-            {/* Mobile Number Button */}
-            <button
-              onClick={() => setActiveField(activeField === 'mobile' ? null : 'mobile')}
-              style={{
-                padding: 'calc(6px * var(--display-zoom, 1)) 2px',
-                borderRadius: '8px',
-                border: activeField === 'mobile'
-                  ? '2px solid #EA580C'
-                  : customerMobile
-                    ? '1.5px solid #EA580C'
-                    : isDark ? '1px solid var(--glass-border)' : '1.5px solid #CBD5E1',
-                backgroundColor: activeField === 'mobile'
-                  ? (isDark ? 'rgba(249, 115, 22, 0.16)' : '#FFF7ED')
-                  : customerMobile
-                    ? (isDark ? 'rgba(249, 115, 22, 0.1)' : '#FFF7ED')
-                    : isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
-                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-                color: (activeField === 'mobile' || customerMobile) ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#334155'),
-                fontWeight: 750,
-                fontSize: '11.5px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px'
-              }}
-              title={customerMobile ? `Mobile: ${customerMobile}` : 'Mobile Number'}
-            >
-              {customerMobile ? `Mob: ${customerMobile}` : 'Cus.Num'}
-            </button>
+            {[
+              { id: 'table', label: tableNumber ? `T: ${tableNumber}` : 'Table No', title: tableNumber ? `Table: ${tableNumber}` : 'Table Number', hasVal: !!tableNumber },
+              { id: 'kot', label: kotNumber ? `KOT: ${kotNumber}` : 'KOT No', title: kotNumber ? `KOT: ${kotNumber}` : 'KOT Number', hasVal: !!kotNumber },
+              { id: 'customer', label: customerName ? `Name: ${customerName}` : 'Cus.Name', title: customerName ? `Name: ${customerName}` : 'Customer Name', hasVal: !!customerName },
+              { id: 'mobile', label: customerMobile ? `Mob: ${customerMobile}` : 'Cus.Num', title: customerMobile ? `Mobile: ${customerMobile}` : 'Mobile Number', hasVal: !!customerMobile },
+            ].map(f => {
+              const isActive = activeField === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setActiveField(f.id)}
+                  style={{
+                    position: 'relative',
+                    padding: 'calc(6px * var(--display-zoom, 1)) 2px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: isActive ? '#EA580C' : (f.hasVal ? '#EA580C' : (isDark ? 'var(--text-secondary)' : '#475569')),
+                    fontWeight: 750,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '2px',
+                    userSelect: 'none'
+                  }}
+                  title={f.title}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="pos-active-field-indicator"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '8px',
+                        backgroundColor: isDark ? 'rgba(249, 115, 22, 0.18)' : '#FFFFFF',
+                        border: '2px solid #EA580C',
+                        boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 6px rgba(234, 88, 12, 0.15)',
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <span style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}>
+                    {!isActive && f.hasVal && (
+                      <span style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        backgroundColor: '#EA580C',
+                        flexShrink: 0
+                      }} />
+                    )}
+                    {f.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Value Entry Bar (Opens down when any of the 4 buttons is tapped) */}
@@ -2835,6 +2980,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
         }}>
           {/* Payment Status Selector (Paid / Pending) */}
           <div style={{
+            position: 'relative',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -2845,56 +2991,74 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
             background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#EDF2F7',
             border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #CBD5E1'
           }}>
-            <button
-              type="button"
-              onClick={() => setPaymentStatus('paid')}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                fontSize: '12px',
-                fontWeight: 750,
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                background: paymentStatus === 'paid'
-                  ? 'linear-gradient(135deg, #10B981, #059669)'
-                  : 'transparent',
-                color: paymentStatus === 'paid' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                boxShadow: paymentStatus === 'paid' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
-              }}
-            >
-              <IoCheckmarkCircle size={14} /> Paid
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentStatus('pending')}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                fontSize: '12px',
-                fontWeight: 750,
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                background: paymentStatus === 'pending'
-                  ? 'linear-gradient(135deg, #F59E0B, #D97706)'
-                  : 'transparent',
-                color: paymentStatus === 'pending' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                boxShadow: paymentStatus === 'pending' ? '0 2px 8px rgba(245, 158, 11, 0.3)' : 'none'
-              }}
-            >
-              <IoTimeOutline size={14} /> Mark Pending
-            </button>
+            {[
+              {
+                id: 'paid',
+                label: 'Paid',
+                icon: IoCheckmarkCircle,
+                gradient: 'linear-gradient(135deg, #10B981, #059669)',
+                shadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+              },
+              {
+                id: 'pending',
+                label: 'Mark Pending',
+                icon: IoTimeOutline,
+                gradient: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                shadow: '0 2px 8px rgba(245, 158, 11, 0.35)'
+              }
+            ].map(status => {
+              const isSelected = paymentStatus === status.id;
+              const StatusIcon = status.icon;
+              return (
+                <button
+                  key={status.id}
+                  type="button"
+                  onClick={() => setPaymentStatus(status.id)}
+                  style={{
+                    position: 'relative',
+                    flex: 1,
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: 750,
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    background: 'transparent',
+                    color: isSelected ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+                    outline: 'none',
+                    userSelect: 'none'
+                  }}
+                >
+                  {isSelected && (
+                    <motion.div
+                      layoutId="pos-payment-status-pill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '8px',
+                        background: status.gradient,
+                        boxShadow: status.shadow,
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <span style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <StatusIcon size={14} /> {status.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Total Amount Card */}
@@ -3081,7 +3245,7 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
                   <IoReceiptOutline size={16} />
 
-                  BILL & KOT
+                  {editingBill ? 'UPDATE & KOT' : 'BILL & KOT'}
 
                 </>
 
@@ -3201,7 +3365,296 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
 
       </>
 
+      {/* Recent 5 Bills Modal */}
+      <AnimatePresence>
+        {showRecentBills && (
+          <div
+            className="pmOverlay"
+            onClick={() => setShowRecentBills(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 1200,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 15 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '580px',
+                maxHeight: '85vh',
+                backgroundColor: isDark ? '#18191E' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #E2E8F0',
+                borderRadius: '20px',
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.4)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '18px 22px',
+                borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E2E8F0',
+                background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#F8FAFC'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 107, 26, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FF6B1A'
+                  }}>
+                    <IoReceiptOutline size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                      Recent 5 Bills (Today)
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '12px', color: isDark ? '#94A3B8' : '#64748B' }}>
+                      Tap any order to load it into POS for editing or updating
+                    </p>
+                  </div>
+                </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={fetchRecentBills}
+                    disabled={loadingRecentBills}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Refresh recent bills"
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#FF6B1A'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = isDark ? '#94A3B8' : '#64748B'}
+                  >
+                    <IoRefreshOutline size={20} className={loadingRecentBills ? 'animate-spin' : ''} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRecentBills(false)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      color: isDark ? '#94A3B8' : '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Close"
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#EF4444'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = isDark ? '#94A3B8' : '#64748B'}
+                  >
+                    <IoCloseOutline size={22} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{
+                padding: '16px 20px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                {loadingRecentBills ? (
+                  <div style={{
+                    padding: '40px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    color: isDark ? '#94A3B8' : '#64748B'
+                  }}>
+                    <div className="animate-spin" style={{ width: '28px', height: '28px', border: '3px solid rgba(255, 107, 26, 0.2)', borderTopColor: '#FF6B1A', borderRadius: '50%' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>Loading recent bills...</span>
+                  </div>
+                ) : recentBills.length === 0 ? (
+                  <div style={{
+                    padding: '40px 20px',
+                    textAlign: 'center',
+                    color: isDark ? '#94A3B8' : '#64748B',
+                    fontSize: '14px',
+                    fontWeight: 600
+                  }}>
+                    No bills recorded for today yet.
+                  </div>
+                ) : (
+                  recentBills.map((bill) => {
+                    let items = [];
+                    try {
+                      const raw = bill.items || bill.products || [];
+                      items = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    } catch (_) {
+                      items = [];
+                    }
+
+                    const isPaid = (bill.payment_status || '').toLowerCase() === 'paid' || bill.amount_pending === 0;
+                    const itemsSummary = items.slice(0, 4).map(i => `${i.product_name || i.name} ×${i.quantity || 1}`).join(', ') + (items.length > 4 ? ` +${items.length - 4} more` : '');
+
+                    return (
+                      <div
+                        key={bill.id || bill.bill_no}
+                        onClick={() => handleSelectRecentBill(bill)}
+                        style={{
+                          padding: '14px 16px',
+                          borderRadius: '14px',
+                          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1.5px solid #CBD5E1',
+                          background: isDark ? '#1F2026' : '#FFFFFF',
+                          boxShadow: isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.04)',
+                          cursor: 'pointer',
+                          transition: 'all 0.18s ease',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#FF6B1A';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 18px rgba(255, 107, 26, 0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#CBD5E1';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = isDark ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.04)';
+                        }}
+                      >
+                        {/* Top row: Bill No, Time, Badges */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                              Bill {bill.bill_no}
+                            </span>
+                            {(bill.kot_no || bill.custom_kot_no) && (
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                borderRadius: '6px',
+                                background: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+                                color: isDark ? '#94A3B8' : '#64748B'
+                              }}>
+                                KOT {bill.kot_no || bill.custom_kot_no}
+                              </span>
+                            )}
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '1px 6px',
+                              borderRadius: '6px',
+                              textTransform: 'capitalize',
+                              background: bill.order_type === 'takeaway' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(168, 85, 247, 0.12)',
+                              color: bill.order_type === 'takeaway' ? '#3B82F6' : '#A855F7'
+                            }}>
+                              {bill.order_type || 'dine-in'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px', color: isDark ? '#94A3B8' : '#64748B' }}>
+                              {formatBillTime(bill.created_at)}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              background: isPaid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                              color: isPaid ? '#10B981' : '#F59E0B'
+                            }}>
+                              {isPaid ? 'PAID' : 'PENDING'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Customer / Table info */}
+                        {(bill.customer_name || bill.table_no) && (
+                          <div style={{ fontSize: '12px', color: isDark ? '#CBD5E1' : '#475569', fontWeight: 600 }}>
+                            {bill.table_no ? `Table ${bill.table_no}` : ''}
+                            {bill.table_no && bill.customer_name ? ' • ' : ''}
+                            {bill.customer_name ? `${bill.customer_name}` : ''}
+                            {bill.customer_mobile ? ` (${bill.customer_mobile})` : ''}
+                          </div>
+                        )}
+
+                        {/* Items preview */}
+                        {itemsSummary && (
+                          <div style={{
+                            fontSize: '12px',
+                            color: isDark ? '#94A3B8' : '#64748B',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {itemsSummary}
+                          </div>
+                        )}
+
+                        {/* Bottom row: Total & Callout */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: '4px',
+                          paddingTop: '6px',
+                          borderTop: isDark ? '1px dashed rgba(255,255,255,0.06)' : '1px dashed #E2E8F0'
+                        }}>
+                          <div style={{ fontSize: '15px', fontWeight: 800, color: '#FF6B1A' }}>
+                            {formatCurrency(bill.total || bill.total_amount || 0)}
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#FF6B1A'
+                          }}>
+                            <span>Load Order</span>
+                            <IoArrowForward size={14} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <VariationPickerModal
 

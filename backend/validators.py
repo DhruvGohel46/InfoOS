@@ -156,6 +156,7 @@ class ProductCreateSchema(Schema):
     category_id = fields.Integer(load_default=None)
     active = fields.Boolean(load_default=True)
     variations = fields.List(fields.Nested(ProductVariationSchema), load_default=[])
+    default_batch_size = fields.Float(allow_none=True, load_default=1.0)
 
     class Meta:
         unknown = EXCLUDE
@@ -175,6 +176,7 @@ class ProductUpdateSchema(Schema):
     active = fields.Boolean()
     favorite = fields.Boolean()
     variations = fields.List(fields.Nested(ProductVariationSchema))
+    default_batch_size = fields.Float(allow_none=True)
 
     class Meta:
         unknown = EXCLUDE
@@ -277,6 +279,9 @@ class InventoryCreateSchema(Schema):
     unit_price = fields.Float(load_default=0.0)
     alert_threshold = fields.Float(load_default=0.0)
     product_id = fields.String(load_default=None)
+    expiry_date = fields.String(load_default=None, allow_none=True)
+    batch_number = fields.String(load_default=None, allow_none=True)
+    default_batch_size = fields.Float(load_default=1.0, allow_none=True)
 
     class Meta:
         unknown = EXCLUDE
@@ -292,6 +297,8 @@ class InventoryUpdateSchema(Schema):
     unit_price = fields.Float()
     alert_threshold = fields.Float()
     product_id = fields.String()
+    expiry_date = fields.String(load_default=None, allow_none=True)
+    default_batch_size = fields.Float(load_default=None, allow_none=True)
 
     class Meta:
         unknown = EXCLUDE
@@ -302,6 +309,21 @@ class StockAdjustSchema(Schema):
 
     id = fields.Integer(required=True)
     adjustment = fields.Float(required=True)
+    expiry_date = fields.String(load_default=None, allow_none=True)
+    batch_number = fields.String(load_default=None, allow_none=True)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class BatchCreateSchema(Schema):
+    """Schema for POST /api/inventory/batches."""
+
+    inventory_id = fields.Integer(required=True)
+    quantity = fields.Float(required=True, validate=validate.Range(min=0.01))
+    expiry_date = fields.String(required=True)
+    batch_number = fields.String(load_default=None, allow_none=True)
+    cost_per_unit = fields.Float(load_default=None, allow_none=True)
 
     class Meta:
         unknown = EXCLUDE

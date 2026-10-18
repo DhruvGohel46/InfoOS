@@ -99,7 +99,7 @@ export default function Expenses() {
       const res = await expensesAPI.createExpense(expenseData);
       if (res.success) {
         const title = expenseData.title || expenseData.category || 'General Expense';
-        const amount = expenseData.amount ? `₹${expenseData.amount}` : '';
+        const amount = expenseData.amount ? formatCurrency(expenseData.amount) : '';
         addToast({
           type: 'success',
           title: 'Expense Recorded',
@@ -122,7 +122,7 @@ export default function Expenses() {
       const res = await expensesAPI.updateExpense(editingExpense.id, expenseData);
       if (res.success) {
         const title = expenseData.title || editingExpense?.title || 'Expense';
-        const amount = expenseData.amount ? `₹${expenseData.amount}` : '';
+        const amount = expenseData.amount ? formatCurrency(expenseData.amount) : '';
         addToast({
           type: 'success',
           title: 'Expense Updated',
@@ -142,7 +142,7 @@ export default function Expenses() {
 
   const handleDeleteExpense = async (expenseId) => {
     const target = expenses.find(e => e.id === expenseId);
-    const expTitle = target ? `"${target.title || target.category || 'Expense'}" (₹${target.amount || 0})` : 'this expense record';
+    const expTitle = target ? `"${target.title || target.category || 'Expense'}" (${formatCurrency(target.amount || 0)})` : 'this expense record';
     if (!window.confirm(`Are you sure you want to delete ${expTitle}?`)) return;
     try {
       const res = await expensesAPI.deleteExpense(expenseId);
@@ -405,16 +405,9 @@ export default function Expenses() {
           </div>
         </div>
 
-        {/* ─── Metric Summary Cards (3-Column Modern Glass) ─── */}
+        {/* ─── Metric Summary Cards (2-Column Modern Glass) ─── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           {[
-            {
-              label: 'Total Expenses',
-              value: formatCurrency(metrics.totalAmount),
-              subtext: `${metrics.totalCount} records logged`,
-              color: '#FF6B1A',
-              icon: <FiDollarSign size={22} />
-            },
             {
               label: 'This Month Spending',
               value: formatCurrency(metrics.thisMonthAmount),
@@ -439,12 +432,12 @@ export default function Expenses() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '16px',
-                padding: '18px 22px',
+                padding: '14px 20px',
                 background: isDark
                   ? 'linear-gradient(165deg, #18191D 0%, #111215 100%)'
                   : '#FFFFFF',
                 border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-                borderRadius: '24px',
+                borderRadius: '20px',
                 boxShadow: isDark
                   ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
                   : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)'
@@ -466,24 +459,35 @@ export default function Expenses() {
               >
                 {card.icon}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
                 <span
                   style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.76rem',
                     fontWeight: '800',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: isDark ? '#94A3B8' : '#64748B'
+                    letterSpacing: '0.05em',
+                    color: isDark ? '#94A3B8' : '#64748B',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  {card.label}
+                  {card.label}:
                 </span>
                 <span
                   style={{
-                    fontSize: '1.45rem',
+                    fontSize: '1.40rem',
                     fontWeight: '850',
                     color: isDark ? '#FFFFFF' : '#0F172A',
-                    letterSpacing: '-0.02em'
+                    letterSpacing: '-0.02em',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {card.value}
@@ -492,7 +496,12 @@ export default function Expenses() {
                   style={{
                     fontSize: '0.78rem',
                     fontWeight: 600,
-                    color: isDark ? '#64748B' : '#94A3B8'
+                    color: isDark ? '#94A3B8' : '#64748B',
+                    background: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                    padding: '3px 10px',
+                    borderRadius: '8px',
+                    whiteSpace: 'nowrap',
+                    marginLeft: 'auto'
                   }}
                 >
                   {card.subtext}
@@ -554,20 +563,38 @@ export default function Expenses() {
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   style={{
+                    position: 'relative',
                     padding: '7px 16px',
                     border: 'none',
                     borderRadius: '10px',
                     fontSize: '0.84rem',
                     fontWeight: '700',
-                    background: isActive ? '#FF6B1A' : 'transparent',
+                    background: 'transparent',
                     color: isActive ? '#FFFFFF' : isDark ? '#94A3B8' : '#64748B',
                     cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                    boxShadow: isActive ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexShrink: 0
                   }}
                 >
-                  {cat} ({count})
+                  {isActive && (
+                    <motion.div
+                      layoutId="expenses-category-active-pill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                        borderRadius: '10px',
+                        boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <span style={{ position: 'relative', zIndex: 2 }}>
+                    {cat} ({count})
+                  </span>
                 </button>
               );
             })}

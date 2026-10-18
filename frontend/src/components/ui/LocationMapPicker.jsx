@@ -73,9 +73,18 @@ const LocationMapPicker = ({
         : 73.8567;
     const hasExistingCoords = (latitude !== undefined && latitude !== null && !isNaN(Number(latitude)));
 
-    // Reverse Geocode helper (Nominatim OSM - Global)
-    const fetchReverseAddress = useCallback(async (lat, lon) => {
+    // Reverse Geocode helper (Nominatim OSM - Global with BigDataCloud fallback)
+    const fetchReverseAddress = useCallback(async (lat, lon, notifyParent = true) => {
+        let detectedAddress = '';
+        let detectedCity = '';
+        let detectedState = '';
+        let detectedPincode = '';
+        let detectedCountry = '';
+        let detectedCountryCode = '';
+        let fullDisplayName = '';
+
         try {
+            // Primary: Nominatim OpenStreetMap
             const resp = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
                 { headers: { 'User-Agent': 'InfoOS-POS/1.0 (infoos@local.dev)' } }
@@ -83,30 +92,80 @@ const LocationMapPicker = ({
             if (resp.ok) {
                 const data = await resp.json();
                 if (data?.display_name) {
-                    setReverseAddress(data.display_name);
+                    fullDisplayName = data.display_name;
                 }
                 const addr = data?.address || {};
-                const detectedCountry = addr.country || '';
-                const detectedCountryCode = addr.country_code ? addr.country_code.toUpperCase() : '';
-                const detectedCity = addr.city || addr.town || addr.village || addr.county || '';
-                const detectedState = addr.state || '';
-                const detectedPincode = addr.postcode || '';
+                detectedCountry = addr.country || '';
+                detectedCountryCode = addr.country_code ? addr.country_code.toUpperCase() : '';
+                detectedCity = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || addr.county || '';
+                detectedState = addr.state || addr.state_district || addr.region || '';
+                detectedPincode = addr.postcode || '';
 
-                if (onChange) {
-                    onChange({
-                        latitude: lat,
-                        longitude: lon,
-                        country: detectedCountry,
-                        countryCode: detectedCountryCode,
-                        city: detectedCity,
-                        state: detectedState,
-                        pincode: detectedPincode,
-                        formattedAddress: data?.display_name || '',
-                    });
+                const streetParts = [
+                    addr.house_number || addr.house_name || addr.building || addr.amenity || addr.shop,
+                    addr.road || addr.street || addr.pedestrian || addr.footway,
+                    addr.suburb || addr.neighbourhood || addr.quarter || addr.residential
+                ].filter(Boolean);
+
+                if (streetParts.length > 0) {
+                    detectedAddress = streetParts.join(', ');
+                } else if (data?.display_name) {
+                    const parts = data.display_name.split(',').map(s => s.trim());
+                    detectedAddress = parts.slice(0, Math.min(3, Math.max(1, parts.length - 2))).join(', ');
                 }
             }
         } catch {
-            // Silently ignore reverse geocoding network errors
+            // Fallback will run below
+        }
+
+        // Fallback: BigDataCloud Reverse Geocoding
+        if (!detectedCity && !detectedCountry) {
+            try {
+                const bdcResp = await fetch(
+                    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+                );
+                if (bdcResp.ok) {
+                    const bdcData = await bdcResp.json();
+                    detectedCountry = bdcData.countryName || '';
+                    detectedCountryCode = bdcData.countryCode || '';
+                    detectedCity = bdcData.city || bdcData.locality || '';
+                    detectedState = bdcData.principalSubdivision || '';
+                    detectedPincode = bdcData.postcode || '';
+                    if (!detectedAddress && bdcData.localityInfo?.informative) {
+                        const infoParts = bdcData.localityInfo.informative
+                            .filter(i => i.order >= 4 && i.name)
+                            .map(i => i.name);
+                        if (infoParts.length > 0) {
+                            detectedAddress = infoParts.slice(0, 2).join(', ');
+                        }
+                    }
+                    if (!fullDisplayName) {
+                        fullDisplayName = [detectedAddress, detectedCity, detectedState, detectedPincode, detectedCountry].filter(Boolean).join(', ');
+                    }
+                }
+            } catch {
+                // Ignore fallback network error
+            }
+        }
+
+        if (fullDisplayName) {
+            setReverseAddress(fullDisplayName);
+        }
+
+        if (notifyParent && onChange) {
+            onChange({
+                latitude: lat,
+                longitude: lon,
+                address: detectedAddress || fullDisplayName,
+                formattedAddress: fullDisplayName,
+                country: detectedCountry,
+                countryCode: detectedCountryCode,
+                city: detectedCity,
+                state: detectedState,
+                pincode: detectedPincode,
+            });
+            setStatusMessage('Address & regional fields updated from pin location!');
+            setTimeout(() => setStatusMessage(''), 4000);
         }
     }, [onChange]);
 
@@ -128,7 +187,7 @@ const LocationMapPicker = ({
             onChange({ latitude: cleanLat, longitude: cleanLon });
         }
         if (updateReverse) {
-            fetchReverseAddress(cleanLat, cleanLon);
+            fetchReverseAddress(cleanLat, cleanLon, true);
         }
     }, [onChange, fetchReverseAddress]);
 
@@ -160,23 +219,21 @@ const LocationMapPicker = ({
 
         marker.on('dragend', () => {
             const pos = marker.getLatLng();
-            updatePinPosition(pos.lat, pos.lng);
-            setStatusMessage('Pin moved to new coordinates');
-            setTimeout(() => setStatusMessage(''), 3000);
+            setStatusMessage('Locating address from pin...');
+            updatePinPosition(pos.lat, pos.lng, null, true);
         });
 
         // Click anywhere on map to drop / move pin
         map.on('click', (e) => {
-            updatePinPosition(e.latlng.lat, e.latlng.lng);
-            setStatusMessage('Pin placed at clicked location');
-            setTimeout(() => setStatusMessage(''), 3000);
+            setStatusMessage('Locating address from pin...');
+            updatePinPosition(e.latlng.lat, e.latlng.lng, null, true);
         });
 
         mapInstanceRef.current = map;
         markerRef.current = marker;
 
         if (hasExistingCoords) {
-            fetchReverseAddress(initialLat, initialLon);
+            fetchReverseAddress(initialLat, initialLon, false);
         }
 
         // Clean up on unmount
@@ -288,7 +345,8 @@ const LocationMapPicker = ({
             }
 
             if (foundLat !== null && foundLon !== null) {
-                updatePinPosition(foundLat, foundLon, 16);
+                updatePinPosition(foundLat, foundLon, 16, false);
+                setReverseAddress(query);
                 setStatusMessage(`Pin located for "${query}". You can drag the pin to your exact door!`);
             } else {
                 setStatusMessage(`Could not resolve coordinates for "${query}". Please click the map manually.`);

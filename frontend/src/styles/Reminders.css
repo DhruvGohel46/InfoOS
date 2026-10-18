@@ -251,3 +251,27 @@
 .snooze-menu {
   animation: snoozeMenuEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ─── Schedule Form Responsive Grid (Text Left, 2x2 Right) ─── */
+.schedule-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.schedule-form-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+@media (max-width: 680px) {
+  .schedule-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .schedule-form-2x2 {
+    grid-template-columns: 1fr !important;
+  }
+}

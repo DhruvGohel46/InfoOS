@@ -19,6 +19,7 @@ import GlobalDatePicker from '../ui/GlobalDatePicker';
 import GlobalTimePicker from '../ui/GlobalTimePicker';
 import Dropdown from '../ui/Dropdown';
 import '../../styles/Reminder.css';
+import '../../styles/Reminders.css';
 
 const staggerContainer = {
   initial: {},
@@ -285,10 +286,18 @@ export default function Reminders() {
             </h3>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              {/* Task Title */}
-              <div style={{ gridColumn: 'span 2' }}>
+          <form onSubmit={handleSubmit}>
+            <div
+              className="schedule-form-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)',
+                gap: '14px',
+                alignItems: 'stretch'
+              }}
+            >
+              {/* Left Side: Text Fields */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'space-between' }}>
                 <input
                   placeholder="What's the reminder or task? (e.g. Check Inventory, Pay Supplier, Restock Buns)"
                   value={title}
@@ -308,10 +317,7 @@ export default function Reminders() {
                     transition: 'all 0.18s ease'
                   }}
                 />
-              </div>
 
-              {/* Optional Note */}
-              <div style={{ gridColumn: 'span 2' }}>
                 <input
                   placeholder="Optional details or note..."
                   value={description}
@@ -331,67 +337,79 @@ export default function Reminders() {
                 />
               </div>
 
-              {/* Execution Date */}
-              <div>
-                <GlobalDatePicker
-                  value={date}
-                  onChange={(val) => setDate(val)}
-                  placeholder="Select Date"
-                />
-              </div>
+              {/* Right Side: 2x2 Metrics Grid (Date, Time, Repeat, Submit) */}
+              <div
+                className="schedule-form-2x2"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  alignItems: 'center'
+                }}
+              >
+                {/* Row 1, Col 1: Date */}
+                <div>
+                  <GlobalDatePicker
+                    value={date}
+                    onChange={(val) => setDate(val)}
+                    placeholder="Select Date"
+                  />
+                </div>
 
-              {/* Execution Time */}
-              <div>
-                <GlobalTimePicker
-                  value={time}
-                  onChange={(val) => setTime(val)}
-                  placeholder="Select Time"
-                />
-              </div>
+                {/* Row 1, Col 2: Time */}
+                <div>
+                  <GlobalTimePicker
+                    value={time}
+                    onChange={(val) => setTime(val)}
+                    placeholder="Select Time"
+                  />
+                </div>
 
-              {/* Repeat Dropdown */}
-              <div>
-                <Dropdown
-                  options={[
-                    { label: 'Once (No repeat)', value: 'none' },
-                    { label: 'Daily', value: 'daily' },
-                    { label: 'Weekly', value: 'weekly' },
-                    { label: 'Monthly', value: 'monthly' }
-                  ]}
-                  value={repeat}
-                  onChange={(val) => setRepeat(val)}
-                  placeholder="Repeat"
-                  zIndex={100}
-                />
-              </div>
+                {/* Row 2, Col 1: Repeat Dropdown */}
+                <div>
+                  <Dropdown
+                    options={[
+                      { label: 'Once (No repeat)', value: 'none' },
+                      { label: 'Daily', value: 'daily' },
+                      { label: 'Weekly', value: 'weekly' },
+                      { label: 'Monthly', value: 'monthly' }
+                    ]}
+                    value={repeat}
+                    onChange={(val) => setRepeat(val)}
+                    placeholder="Repeat"
+                    zIndex={100}
+                  />
+                </div>
 
-              {/* Submit CTA */}
-              <div>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !title.trim()}
-                  style={{
-                    width: '100%',
-                    height: '44px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
-                    color: '#FFFFFF',
-                    fontWeight: 800,
-                    fontSize: '0.88rem',
-                    boxShadow: '0 4px 14px rgba(255, 107, 26, 0.3)',
-                    cursor: isSubmitting || !title.trim() ? 'not-allowed' : 'pointer',
-                    opacity: isSubmitting || !title.trim() ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <IoAddOutline size={18} />
-                  {isSubmitting ? 'Scheduling...' : 'Schedule Reminder'}
-                </button>
+                {/* Row 2, Col 2: Submit Button */}
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !title.trim()}
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                      color: '#FFFFFF',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      boxShadow: '0 4px 14px rgba(255, 107, 26, 0.3)',
+                      cursor: isSubmitting || !title.trim() ? 'not-allowed' : 'pointer',
+                      opacity: isSubmitting || !title.trim() ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.18s ease'
+                    }}
+                  >
+                    <IoAddOutline size={18} />
+                    {isSubmitting ? 'Scheduling...' : 'Schedule Reminder'}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
@@ -448,16 +466,16 @@ export default function Reminders() {
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
                   style={{
+                    position: 'relative',
                     padding: '7px 16px',
                     border: 'none',
                     borderRadius: '10px',
                     fontSize: '0.84rem',
                     fontWeight: '700',
-                    background: isActive ? '#FF6B1A' : 'transparent',
+                    background: 'transparent',
                     color: isActive ? '#FFFFFF' : isDark ? '#94A3B8' : '#64748B',
                     cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                    boxShadow: isActive ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none',
+                    transition: 'color 0.18s ease',
                     whiteSpace: 'nowrap',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -465,9 +483,25 @@ export default function Reminders() {
                     flexShrink: 0
                   }}
                 >
-                  <span>{tab.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="reminders-filter-active-pill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                        boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <span style={{ position: 'relative', zIndex: 2 }}>{tab.label}</span>
                   <span
                     style={{
+                      position: 'relative',
+                      zIndex: 2,
                       fontSize: '0.72rem',
                       padding: '1px 6px',
                       borderRadius: '999px',

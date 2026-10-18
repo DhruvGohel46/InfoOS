@@ -6,6 +6,7 @@ from validators import (
     InventoryCreateSchema,
     InventoryUpdateSchema,
     StockAdjustSchema,
+    BatchCreateSchema,
     MarshmallowValidationError,
 )
 import logging
@@ -23,6 +24,7 @@ db = DatabaseService()
 _create_schema = InventoryCreateSchema()
 _update_schema = InventoryUpdateSchema()
 _adjust_schema = StockAdjustSchema()
+_batch_schema = BatchCreateSchema()
 
 
 def _update_catalog_version():
@@ -142,6 +144,8 @@ def adjust_stock():
 
     item_id = validated["id"]
     adjustment = validated["adjustment"]
+    expiry_date = validated.get("expiry_date")
+    batch_number = validated.get("batch_number")
 
     item = db.get_inventory_item(item_id)
     if not item:
@@ -152,13 +156,85 @@ def adjust_stock():
             code="INVENTORY_LOCKED",
         )
 
-    success = db.adjust_inventory_stock(item_id, adjustment)
+    success = db.adjust_inventory_stock(
+        item_id,
+        adjustment,
+        expiry_date=expiry_date,
+        batch_number=batch_number,
+    )
 
     if not success:
         raise NotFoundError("Item not found", code="INVENTORY_NOT_FOUND")
 
     _update_catalog_version()
     return jsonify({"success": True, "message": "Stock adjusted successfully"})
+
+
+@inventory_bp.route("/batches/<int:inventory_id>", methods=["GET"])
+@safe_route
+def get_inventory_batches(inventory_id):
+    """Get all batches for a specific inventory item."""
+    batches = db.get_inventory_batches(inventory_id)
+    return jsonify({"success": True, "batches": batches})
+
+
+@inventory_bp.route("/batches", methods=["POST"])
+@require_admin
+@safe_route
+def add_inventory_batch():
+    """Add a new batch of stock with an expiry date."""
+    data = request.get_json()
+
+    try:
+        validated = _batch_schema.load(data or {})
+    except MarshmallowValidationError as e:
+        raise ValidationError(
+            f"Invalid batch data: {e.messages}",
+            code="BATCH_VALIDATION_FAILED",
+        )
+
+    batch_id = db.add_inventory_batch(
+        inventory_id=validated["inventory_id"],
+        quantity=validated["quantity"],
+        expiry_date=validated["expiry_date"],
+        batch_number=validated.get("batch_number"),
+        cost_per_unit=validated.get("cost_per_unit"),
+    )
+
+    if not batch_id:
+        raise ValidationError("Failed to add inventory batch", code="BATCH_CREATE_FAILED")
+
+    _update_catalog_version()
+    return (
+        jsonify({"success": True, "message": "Batch added successfully", "batch_id": batch_id}),
+        201,
+    )
+
+
+@inventory_bp.route("/batches/<int:batch_id>", methods=["DELETE"])
+@require_admin
+@safe_route
+def delete_inventory_batch(batch_id):
+    """Delete a specific batch and reduce total stock."""
+    success = db.delete_inventory_batch(batch_id)
+    if not success:
+        raise NotFoundError("Batch not found or failed to delete", code="BATCH_NOT_FOUND")
+
+    _update_catalog_version()
+    return jsonify({"success": True, "message": "Batch deleted successfully"})
+
+
+@inventory_bp.route("/expiring", methods=["GET"])
+@safe_route
+def get_expiring_inventory():
+    """Get inventory items and batches expiring soon or expired."""
+    try:
+        days = int(request.args.get("days", 7))
+    except (TypeError, ValueError):
+        days = 7
+
+    items = db.get_expiring_inventory(days_ahead=days)
+    return jsonify({"success": True, "items": items, "count": len(items)})
 
 
 @inventory_bp.route("/<int:item_id>", methods=["DELETE"])

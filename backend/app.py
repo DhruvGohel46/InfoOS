@@ -827,6 +827,57 @@ def run_programmatic_sqlite_migrations(app, db):
             except Exception as _p_mig_e:
                 _log.debug("ShopProfile lat/lon migration check: %s", _p_mig_e)
 
+            # Inventory batches & expiry migrations
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS inventory_batches (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            inventory_id INTEGER NOT NULL REFERENCES inventory(id) ON DELETE CASCADE,
+                            batch_number TEXT,
+                            quantity REAL NOT NULL DEFAULT 1.0,
+                            expiry_date DATE NOT NULL,
+                            cost_per_unit REAL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS idx_inventory_batches_inv_id ON inventory_batches(inventory_id)"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS idx_inventory_batches_expiry ON inventory_batches(expiry_date)"
+                        )
+                    )
+
+                    res = conn.execute(text("PRAGMA table_info(inventory)"))
+                    inv_cols = [row[1] for row in res.fetchall()]
+                    if "expiry_date" not in inv_cols:
+                        _log.info("Migrating SQLite: Adding expiry_date to inventory table")
+                        conn.execute(text("ALTER TABLE inventory ADD COLUMN expiry_date DATE"))
+                    if "default_batch_size" not in inv_cols:
+                        _log.info("Migrating SQLite: Adding default_batch_size to inventory table")
+                        conn.execute(
+                            text(
+                                "ALTER TABLE inventory ADD COLUMN default_batch_size REAL DEFAULT 1.0"
+                            )
+                        )
+
+                    res = conn.execute(text("PRAGMA table_info(products)"))
+                    prod_cols = [row[1] for row in res.fetchall()]
+                    if "default_batch_size" not in prod_cols:
+                        _log.info("Migrating SQLite: Adding default_batch_size to products table")
+                        conn.execute(
+                            text(
+                                "ALTER TABLE products ADD COLUMN default_batch_size REAL DEFAULT 1.0"
+                            )
+                        )
+            except Exception as _inv_mig_e:
+                _log.warning("Inventory batches migration notice: %s", _inv_mig_e)
+
             _log.info("Programmatic SQLite migrations completed successfully")
 
     except Exception as e:
@@ -1039,6 +1090,43 @@ def run_programmatic_postgres_migrations(app, db):
                 conn.execute(
                     text(
                         "ALTER TABLE agent_action_logs ADD COLUMN IF NOT EXISTS execution_timestamp TIMESTAMP"
+                    )
+                )
+
+                # 7. Inventory batches and default_batch_size in PostgreSQL
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS inventory_batches (
+                        id SERIAL PRIMARY KEY,
+                        inventory_id INTEGER NOT NULL REFERENCES inventory(id) ON DELETE CASCADE,
+                        batch_number VARCHAR(100),
+                        quantity DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+                        expiry_date DATE NOT NULL,
+                        cost_per_unit DOUBLE PRECISION,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_inventory_batches_inv_id ON inventory_batches(inventory_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_inventory_batches_expiry ON inventory_batches(expiry_date)"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE inventory ADD COLUMN IF NOT EXISTS expiry_date DATE")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE inventory ADD COLUMN IF NOT EXISTS default_batch_size DOUBLE PRECISION DEFAULT 1.0"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE products ADD COLUMN IF NOT EXISTS default_batch_size DOUBLE PRECISION DEFAULT 1.0"
                     )
                 )
 

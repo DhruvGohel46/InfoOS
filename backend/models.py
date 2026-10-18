@@ -154,6 +154,9 @@ class Product(db.Model):
     display_order = db.Column(db.Integer, default=0)
     variations = db.Column(db.Text, default="[]")  # JSON array of {id, name, price}
     description = db.Column(db.Text, nullable=True)  # Product culinary/item description
+    default_batch_size = db.Column(
+        db.Float, default=1.0, nullable=True
+    )  # Preset inventory batch size
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
@@ -176,9 +179,40 @@ class Inventory(db.Model):
     alert_threshold = db.Column(db.Float, default=0.0)
     max_stock_history = db.Column(db.Float, default=10.0)  # Track highest stock level
     product_id = db.Column(db.String(50), db.ForeignKey("products.product_id"), nullable=True)
+    expiry_date = db.Column(db.Date, nullable=True)  # Nearest active expiry date
+    default_batch_size = db.Column(db.Float, default=1.0, nullable=True)  # Preset batch size
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
 
     product = db.relationship("Product", backref=db.backref("inventory", uselist=False))
+
+
+class InventoryBatch(db.Model):
+    __tablename__ = "inventory_batches"
+    id = db.Column(db.Integer, primary_key=True)
+    inventory_id = db.Column(
+        db.Integer, db.ForeignKey("inventory.id", ondelete="CASCADE"), nullable=False
+    )
+    batch_number = db.Column(db.String(100), nullable=True)
+    quantity = db.Column(db.Float, nullable=False, default=1.0)
+    expiry_date = db.Column(db.Date, nullable=False)
+    cost_per_unit = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    inventory = db.relationship(
+        "Inventory",
+        backref=db.backref(
+            "batches",
+            cascade="all, delete-orphan",
+            lazy="select",
+            order_by="InventoryBatch.expiry_date.asc()",
+        ),
+    )
+
+    __table_args__ = (
+        db.Index("idx_inventory_batches_inv_id", "inventory_id"),
+        db.Index("idx_inventory_batches_expiry", "expiry_date"),
+    )
 
 
 class Bill(db.Model):

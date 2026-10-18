@@ -32,6 +32,10 @@ TOOL_STATUS_LABELS: Dict[str, str] = {
     "propose_create_raw_material": "Adding new raw material to inventory…",
     "propose_update_inventory_item": "Updating inventory item…",
     "propose_reset_stock_count": "Reconciling physical stock count…",
+    "get_expiring_inventory": "Scanning stock approaching expiry…",
+    "get_inventory_batches": "Checking item batches and expiry dates…",
+    "propose_add_inventory_batch": "Preparing to log inventory batch…",
+    "propose_set_product_batch_preset": "Configuring default batch preset…",
     # product
     "search_products": "Searching product catalog…",
     "get_categories_and_groups": "Loading categories and groups…",
@@ -196,6 +200,22 @@ STEP_HUMAN_MAPPINGS: Dict[str, tuple] = {
     "propose_reset_stock_count": (
         "Reconciled stock count",
         "Prepared physical stock count reconciliation",
+    ),
+    "get_expiring_inventory": (
+        "Checked expiring stock",
+        "Scanned inventory for items and batches near or past expiration",
+    ),
+    "get_inventory_batches": (
+        "Checked inventory batches",
+        "Retrieved batch breakdown and expiry dates for item",
+    ),
+    "propose_add_inventory_batch": (
+        "Prepared inventory batch",
+        "Drafted batch stock addition with expiry date for confirmation",
+    ),
+    "propose_set_product_batch_preset": (
+        "Prepared batch preset",
+        "Configured default preset batch size for product",
     ),
     # product
     "search_products": ("Checked product catalog", "Searched menu database for matching items"),

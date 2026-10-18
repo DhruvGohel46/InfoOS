@@ -60,7 +60,7 @@ const SearchBar = ({ value, onChange, placeholder = "Search items..." }) => {
             {/* Search Icon - Absolutely Positioned Left */}
             <div style={{
                 position: 'absolute',
-                left: 'calc(16px * var(--display-zoom))',
+                left: 'calc(12px * var(--display-zoom))',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
@@ -71,7 +71,7 @@ const SearchBar = ({ value, onChange, placeholder = "Search items..." }) => {
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <svg width="1.25em" height="1.25em" style={{ fontSize: 'calc(16px * var(--display-zoom))' }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg width="1.2em" height="1.2em" style={{ fontSize: 'calc(15px * var(--display-zoom))' }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
             </div>
@@ -80,6 +80,7 @@ const SearchBar = ({ value, onChange, placeholder = "Search items..." }) => {
             <input
                 ref={inputRef}
                 type="text"
+                size={1}
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
                 onFocus={() => setIsFocused(true)}
@@ -87,14 +88,15 @@ const SearchBar = ({ value, onChange, placeholder = "Search items..." }) => {
                 placeholder={placeholder}
                 style={{
                     width: '100%',
+                    minWidth: 0,
                     height: '100%',
-                    paddingLeft: 'calc(44px * var(--display-zoom))', // Space for icon
-                    paddingRight: 'calc(40px * var(--display-zoom))', // Space for clear button/badge
+                    paddingLeft: 'calc(36px * var(--display-zoom))', // Space for icon
+                    paddingRight: 'calc(34px * var(--display-zoom))', // Space for clear button/badge
                     borderRadius: 'calc(12px * var(--display-zoom))',
                     border: `1px solid ${isFocused ? currentTheme.colors.primary[500] : (isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)')}`,
                     backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
                     color: currentTheme.colors.text.primary,
-                    fontSize: 'calc(0.95rem * var(--text-scale))',
+                    fontSize: 'calc(0.9rem * var(--text-scale))',
                     fontWeight: 500,
                     outline: 'none',
                     backdropFilter: 'blur(12px)',

@@ -17,7 +17,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-    ResponsiveContainer, PieChart, Pie, Cell, Sector
+    ResponsiveContainer, PieChart, Pie, Cell, Sector,
+    AreaChart, Area
 } from 'recharts';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -75,6 +76,50 @@ const BarTooltip = ({ active, payload }) => {
             <div className="analytics-tooltip-value">
                 Qty: {d.quantity} units
             </div>
+        </div>
+    );
+};
+
+// ─── Custom Tooltip for Expense Time-Interval Area Chart ───
+const ExpenseAreaTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0].payload;
+    if (!d) return null;
+    return (
+        <div className="analytics-tooltip expense-area-tooltip" style={{ minWidth: '220px', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {d.fullLabel || d.label}
+                </span>
+                <span style={{ 
+                    fontSize: '0.72rem', 
+                    fontWeight: 700, 
+                    padding: '2px 8px', 
+                    borderRadius: '20px',
+                    background: d.count > 0 ? 'rgba(99, 102, 241, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                    color: d.count > 0 ? '#6366F1' : 'var(--text-secondary)'
+                }}>
+                    {d.count} {d.count === 1 ? 'entry' : 'entries'}
+                </span>
+            </div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: d.categories && Object.keys(d.categories).length > 0 ? '10px' : 0 }}>
+                {formatCurrency(d.amount || 0)}
+            </div>
+            {d.categories && Object.keys(d.categories).length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {Object.entries(d.categories).slice(0, 3).map(([cat, amt]) => (
+                        <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                            <span>{cat}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatCurrency(amt)}</span>
+                        </div>
+                    ))}
+                    {Object.keys(d.categories).length > 3 && (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                            +{Object.keys(d.categories).length - 3} more categories
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -527,13 +572,15 @@ const Analytics = () => {
         }
     }
 
-    async function loadRangeExpenses() {
+    async function loadRangeExpenses(rangeToUse) {
         try {
             setLoadingExpenses(true);
+            const r = rangeToUse || expenseRange;
             const response = await api.get('/api/expenses', {
                 params: {
-                    range: expenseRange,
-                    date: selectedDate
+                    range: r,
+                    date: selectedDate,
+                    limit: 5000
                 }
             });
             setRangeExpenses(response.data.expenses || []);
@@ -824,6 +871,203 @@ const Analytics = () => {
         );
     }, [rangeExpenses, expenseSearchQuery]);
 
+    // ─── Time-Interval Data Calculation for Expense Area Chart ───
+    const expenseIntervalData = useMemo(() => {
+        const expenses = filteredRangeExpenses || [];
+        const baseDateStr = selectedDate || getLocalDateString();
+        const parts = baseDateStr.split('-').map(Number);
+        const yearNum = parts[0] || new Date().getFullYear();
+        const monthNum = (parts[1] || 1) - 1;
+        const dayNum = parts[2] || 1;
+        const refDate = new Date(yearNum, monthNum, dayNum);
+
+        if (expenseRange === 'day') {
+            // 24 Hourly intervals (12 AM to 11 PM)
+            const hours = [];
+            for (let h = 0; h < 24; h++) {
+                const period = h < 12 ? 'AM' : 'PM';
+                const displayH = h % 12 === 0 ? 12 : h % 12;
+                const nextH = (h + 1) % 12 === 0 ? 12 : (h + 1) % 12;
+                const nextPeriod = (h + 1) < 12 || (h + 1) === 24 ? 'AM' : 'PM';
+                hours.push({
+                    key: h,
+                    label: `${displayH} ${period}`,
+                    fullLabel: `${displayH}:00 ${period} – ${nextH}:00 ${nextPeriod}`,
+                    amount: 0,
+                    count: 0,
+                    categories: {}
+                });
+            }
+
+            expenses.forEach((exp) => {
+                const rawDate = exp.created_at || exp.date;
+                if (!rawDate) return;
+                let d;
+                if (typeof rawDate === 'string' && rawDate.length === 10) {
+                    d = new Date(rawDate + 'T12:00:00');
+                } else if (typeof rawDate === 'string') {
+                    d = new Date(rawDate.replace(' ', 'T'));
+                } else {
+                    d = new Date(rawDate);
+                }
+                if (isNaN(d.getTime())) return;
+                const h = d.getHours();
+                if (h >= 0 && h < 24) {
+                    const amt = Number(exp.amount) || 0;
+                    hours[h].amount += amt;
+                    hours[h].count += 1;
+                    const cat = exp.category || 'Other';
+                    hours[h].categories[cat] = (hours[h].categories[cat] || 0) + amt;
+                }
+            });
+
+            return hours;
+        }
+
+        if (expenseRange === 'week') {
+            // 7 Days of the week (Monday through Sunday)
+            const dayOfWeek = refDate.getDay();
+            const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(refDate);
+            monday.setDate(refDate.getDate() + distanceToMonday);
+
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${day}`;
+                const dayShort = d.toLocaleDateString('en-US', { weekday: 'short' });
+                days.push({
+                    dateStr,
+                    label: `${dayShort} ${d.getDate()}`,
+                    fullLabel: d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }),
+                    amount: 0,
+                    count: 0,
+                    categories: {}
+                });
+            }
+
+            expenses.forEach((exp) => {
+                const rawDate = exp.date || exp.created_at;
+                if (!rawDate) return;
+                const expDateStr = String(rawDate).split('T')[0].split(' ')[0];
+                const target = days.find((d) => d.dateStr === expDateStr);
+                if (target) {
+                    const amt = Number(exp.amount) || 0;
+                    target.amount += amt;
+                    target.count += 1;
+                    const cat = exp.category || 'Other';
+                    target.categories[cat] = (target.categories[cat] || 0) + amt;
+                }
+            });
+
+            return days;
+        }
+
+        if (expenseRange === 'month') {
+            // Day-by-Day across the entire month (1 to 28/29/30/31)
+            const year = refDate.getFullYear();
+            const month = refDate.getMonth();
+            const totalDays = new Date(year, month + 1, 0).getDate();
+            const monthShort = refDate.toLocaleDateString('en-US', { month: 'short' });
+            const monthFull = refDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const days = [];
+            for (let day = 1; day <= totalDays; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                days.push({
+                    dateStr,
+                    day,
+                    label: `${day} ${monthShort}`,
+                    fullLabel: `${day} ${monthFull}`,
+                    amount: 0,
+                    count: 0,
+                    categories: {}
+                });
+            }
+
+            expenses.forEach((exp) => {
+                const rawDate = exp.date || exp.created_at;
+                if (!rawDate) return;
+                const expDateStr = String(rawDate).split('T')[0].split(' ')[0];
+                const target = days.find((d) => d.dateStr === expDateStr);
+                if (target) {
+                    const amt = Number(exp.amount) || 0;
+                    target.amount += amt;
+                    target.count += 1;
+                    const cat = exp.category || 'Other';
+                    target.categories[cat] = (target.categories[cat] || 0) + amt;
+                }
+            });
+
+            return days;
+        }
+
+        if (expenseRange === 'year') {
+            // 12 Months (Jan - Dec)
+            const year = refDate.getFullYear();
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const months = monthNames.map((name, idx) => ({
+                monthIndex: idx,
+                label: name,
+                fullLabel: `${new Date(year, idx, 1).toLocaleDateString('en-US', { month: 'long' })} ${year}`,
+                amount: 0,
+                count: 0,
+                categories: {}
+            }));
+
+            expenses.forEach((exp) => {
+                const rawDate = exp.date || exp.created_at;
+                if (!rawDate) return;
+                let d;
+                if (typeof rawDate === 'string' && rawDate.length === 10) {
+                    d = new Date(rawDate + 'T12:00:00');
+                } else if (typeof rawDate === 'string') {
+                    d = new Date(rawDate.replace(' ', 'T'));
+                } else {
+                    d = new Date(rawDate);
+                }
+                if (isNaN(d.getTime())) return;
+                if (d.getFullYear() === year) {
+                    const mIdx = d.getMonth();
+                    if (mIdx >= 0 && mIdx < 12) {
+                        const amt = Number(exp.amount) || 0;
+                        months[mIdx].amount += amt;
+                        months[mIdx].count += 1;
+                        const cat = exp.category || 'Other';
+                        months[mIdx].categories[cat] = (months[mIdx].categories[cat] || 0) + amt;
+                    }
+                }
+            });
+
+            return months;
+        }
+
+        return [];
+    }, [filteredRangeExpenses, expenseRange, selectedDate]);
+
+    // ─── Key Stats computed from Interval Data ───
+    const expenseStats = useMemo(() => {
+        const data = expenseIntervalData || [];
+        let total = 0;
+        let peak = { label: 'None', amount: 0, fullLabel: 'None' };
+        let activeIntervals = 0;
+
+        data.forEach((item) => {
+            total += item.amount;
+            if (item.amount > peak.amount) {
+                peak = { label: item.label, amount: item.amount, fullLabel: item.fullLabel };
+            }
+            if (item.amount > 0) activeIntervals++;
+        });
+
+        const average = data.length > 0 ? total / data.length : 0;
+        return { total, peak, average, activeIntervals };
+    }, [expenseIntervalData]);
+
     // Decide which data to render in charts
     const chartProductSales = viewRange === 'day' ? productSales : rangeProductSales;
     const chartSummary = viewRange === 'day' ? safeSummary : (rangeSummary || safeSummary);
@@ -892,17 +1136,37 @@ const Analytics = () => {
                     <div className="analytics-header-left">
                         <h1 className="analytics-title">Analytics</h1>
                         <div className="analytics-tab-bar">
-                            {visibleTabs.map((tab) => (
-                                <motion.button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`analytics-tab-btn ${activeTab === tab.id ? 'analytics-tab-btn--active' : ''}`}
-                                    whileTap={{ scale: 0.97 }}
-                                >
-                                    <tab.icon size={17} />
-                                    {tab.label}
-                                </motion.button>
-                            ))}
+                            {visibleTabs.map((tab) => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <motion.button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`analytics-tab-btn ${isActive ? 'analytics-tab-btn--active' : ''}`}
+                                        style={{ position: 'relative' }}
+                                        whileTap={{ scale: 0.97 }}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="analytics-active-tab-indicator"
+                                                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                                                style={{
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    borderRadius: '999px',
+                                                    background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                                                    boxShadow: '0 4px 14px rgba(255, 107, 26, 0.35)',
+                                                    zIndex: 1
+                                                }}
+                                            />
+                                        )}
+                                        <span style={{ position: 'relative', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                            <tab.icon size={17} />
+                                            {tab.label}
+                                        </span>
+                                    </motion.button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -1505,6 +1769,178 @@ const Analytics = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* ─── Hero Time Interval Line/Area Graph with Modern Shadow Area Design ─── */}
+                            <motion.div
+                                className="analytics-chart-card"
+                                initial={{ opacity: 0, y: 16 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4 }}
+                                style={{ padding: '28px 32px', marginBottom: '24px' }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '22px', flexWrap: 'wrap', gap: '16px' }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <h3 className="chart-card-title" style={{ margin: 0, fontSize: '1.25rem' }}>
+                                                Expense Outflow Timeline
+                                            </h3>
+                                            <span style={{
+                                                fontSize: '0.74rem',
+                                                fontWeight: 700,
+                                                padding: '3px 10px',
+                                                borderRadius: '20px',
+                                                background: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)',
+                                                color: isDark ? '#A5B4FC' : '#4F46E5',
+                                                border: isDark ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(99, 102, 241, 0.2)'
+                                            }}>
+                                                {expenseRange === 'day' && 'Hourly Interval'}
+                                                {expenseRange === 'week' && 'Day-by-Day (Week)'}
+                                                {expenseRange === 'month' && 'Day-by-Day (Month)'}
+                                                {expenseRange === 'year' && 'Month-by-Month'}
+                                            </span>
+                                        </div>
+                                        <p style={{ margin: '6px 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                                            {expenseRange === 'day' && `Hourly outflow breakdown for ${selectedDate || 'today'}`}
+                                            {expenseRange === 'week' && 'Daily outflow distribution across the 7 days of the week'}
+                                            {expenseRange === 'month' && 'Day-by-day outflow timeline across the full month'}
+                                            {expenseRange === 'year' && 'Monthly outflow trajectory across the year'}
+                                        </p>
+                                    </div>
+
+                                    {/* Highlights Strip */}
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div style={{
+                                            padding: '8px 14px',
+                                            borderRadius: '14px',
+                                            background: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                                            border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.05)',
+                                            textAlign: 'right'
+                                        }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Period Outflow</div>
+                                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                {formatCurrency(expenseStats.total)}
+                                            </div>
+                                        </div>
+
+                                        <div style={{
+                                            padding: '8px 14px',
+                                            borderRadius: '14px',
+                                            background: isDark ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)',
+                                            border: isDark ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(239, 68, 68, 0.15)',
+                                            textAlign: 'right'
+                                        }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#EF4444', fontWeight: 600 }}>Peak Outflow</div>
+                                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#EF4444' }}>
+                                                {formatCurrency(expenseStats.peak.amount)}
+                                                {expenseStats.peak.amount > 0 && (
+                                                    <span style={{ fontSize: '0.74rem', fontWeight: 600, marginLeft: '6px', opacity: 0.85 }}>
+                                                        ({expenseStats.peak.label})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div style={{
+                                            padding: '8px 14px',
+                                            borderRadius: '14px',
+                                            background: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.04)',
+                                            border: isDark ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid rgba(99, 102, 241, 0.15)',
+                                            textAlign: 'right'
+                                        }}>
+                                            <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 600 }}>
+                                                {expenseRange === 'day' ? 'Hourly Avg' : expenseRange === 'year' ? 'Monthly Avg' : 'Daily Avg'}
+                                            </div>
+                                            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#C7D2FE' : '#4338CA' }}>
+                                                {formatCurrency(Math.round(expenseStats.average))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ width: '100%', height: '320px', position: 'relative' }}>
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                        <AreaChart
+                                            data={expenseIntervalData}
+                                            margin={{ top: 16, right: 16, left: 4, bottom: 6 }}
+                                        >
+                                            <defs>
+                                                {/* Modern Gradient Shadow Area */}
+                                                <linearGradient id="expenseAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#6366F1" stopOpacity={isDark ? 0.45 : 0.3} />
+                                                    <stop offset="50%" stopColor="#818CF8" stopOpacity={isDark ? 0.18 : 0.1} />
+                                                    <stop offset="90%" stopColor="#6366F1" stopOpacity={0.02} />
+                                                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+                                                </linearGradient>
+
+                                                {/* Glowing Drop Shadow Filter for the Line */}
+                                                <filter id="expenseGlow" x="-20%" y="-20%" width="140%" height="150%">
+                                                    <feDropShadow dx="0" dy="7" stdDeviation="6" floodColor="#6366F1" floodOpacity={isDark ? 0.6 : 0.35} />
+                                                </filter>
+                                            </defs>
+
+                                            <CartesianGrid 
+                                                strokeDasharray="3 3" 
+                                                stroke={isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'} 
+                                                vertical={false} 
+                                            />
+
+                                            <XAxis
+                                                dataKey="label"
+                                                interval={
+                                                    expenseRange === 'day' ? 2 :
+                                                    expenseRange === 'month' ? 3 : 0
+                                                }
+                                                tick={{ fontSize: 11, fill: 'var(--text-secondary)' }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                            />
+
+                                            <YAxis
+                                                tick={{ fontSize: 11, fill: 'var(--text-secondary)' }}
+                                                tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                width={56}
+                                            />
+
+                                            <RechartsTooltip 
+                                                content={<ExpenseAreaTooltip />} 
+                                                cursor={{ 
+                                                    stroke: isDark ? 'rgba(99, 102, 241, 0.35)' : 'rgba(99, 102, 241, 0.25)', 
+                                                    strokeWidth: 1.5, 
+                                                    strokeDasharray: '4 4' 
+                                                }} 
+                                            />
+
+                                            <Area
+                                                type="monotone"
+                                                dataKey="amount"
+                                                stroke="#6366F1"
+                                                strokeWidth={3}
+                                                fill="url(#expenseAreaGrad)"
+                                                filter="url(#expenseGlow)"
+                                                activeDot={{
+                                                    r: 6,
+                                                    fill: '#6366F1',
+                                                    stroke: isDark ? '#141722' : '#FFFFFF',
+                                                    strokeWidth: 2.5,
+                                                    style: { filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.8))' }
+                                                }}
+                                                dot={
+                                                    (expenseRange === 'week' || expenseRange === 'year') ? {
+                                                        r: 3.5,
+                                                        fill: '#6366F1',
+                                                        stroke: isDark ? '#141722' : '#FFFFFF',
+                                                        strokeWidth: 1.5
+                                                    } : false
+                                                }
+                                                animationDuration={850}
+                                                animationEasing="ease-out"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </motion.div>
 
                             {/* Expense Chart View ONLY */}
                             <div className="analytics-charts-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) 300px' }}>

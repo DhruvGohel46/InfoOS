@@ -276,6 +276,56 @@ def approve_action(action_id):
             action_log.affected_entity_id = str(entity_id)
 
         db.session.commit()
+
+        # Fallback to AI model to synthesize structured summary of user's approval decision
+        summary_response = ""
+        try:
+            config = AgentConfig.query.first()
+            if config and config.encrypted_api_key and config.enabled:
+                raw_key = decrypt_api_key(config.encrypted_api_key)
+                if raw_key:
+                    adapter = get_adapter(
+                        provider=config.provider, api_key=raw_key, base_url=config.base_url
+                    )
+                    synth_messages = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are the InfoOS Business AI Assistant. The store owner has reviewed and APPROVED an action proposal. "
+                                "The action has been executed successfully and committed to the store database.\n"
+                                "Summarize the database changes clearly, confirm the affected records, and provide brief, intelligent store recommendations.\n"
+                                "Your response must be a clean, structured JSON object adhering strictly to the InfoOS UI schema:\n"
+                                "{\n"
+                                '  "title": {"icon": "alert_success", "text": "Action Confirmed & Executed"},\n'
+                                '  "sections": [\n'
+                                '    {"type": "insight_block", "icon": "alert_success", "heading": "Summary of Changes", "body": "..."}\n'
+                                "  ],\n"
+                                '  "meta": {"status": "normal", "statusIcon": "status_normal"}\n'
+                                "}"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"User Decision: APPROVED\n"
+                                f"Action Proposal: {action_log.diff_summary}\n"
+                                f"Tool Name: {action_log.tool_name}\n"
+                                f"Execution Result: {json.dumps(exec_res)}\n"
+                                f"Affected Entity ID: {action_log.affected_entity_id or 'N/A'}\n"
+                                "Please generate the summary now."
+                            ),
+                        },
+                    ]
+                    llm_res = adapter.chat(
+                        messages=synth_messages,
+                        model=config.model_name or "gpt-4o-mini",
+                        max_tokens=config.max_tokens_per_response or 600,
+                    )
+                    if llm_res and llm_res.content:
+                        summary_response = llm_res.content.strip()
+        except Exception as synth_err:
+            _log.warning("Could not generate LLM approval summary: %s", synth_err)
+
         return (
             jsonify(
                 {
@@ -287,6 +337,7 @@ def approve_action(action_id):
                     "execution_timestamp": action_log.execution_timestamp.isoformat(),
                     "message": f"Action approved and executed: {action_log.diff_summary}",
                     "result": exec_res,
+                    "response": summary_response,
                 }
             ),
             200,
@@ -379,6 +430,53 @@ def reject_action(action_id):
     action_log.updated_at = datetime.now()
     db.session.commit()
 
+    # Fallback to AI model to synthesize structured summary of user's rejection decision
+    summary_response = ""
+    try:
+        config = AgentConfig.query.first()
+        if config and config.encrypted_api_key and config.enabled:
+            raw_key = decrypt_api_key(config.encrypted_api_key)
+            if raw_key:
+                adapter = get_adapter(
+                    provider=config.provider, api_key=raw_key, base_url=config.base_url
+                )
+                synth_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are the InfoOS Business AI Assistant. The store owner has just REJECTED an action proposal. "
+                            "The action has been cancelled without making any changes to the database.\n"
+                            "Acknowledge the owner's decision respectfully, confirm that no data was modified, and offer alternative recommendations if appropriate.\n"
+                            "Your response must be a clean, structured JSON object adhering strictly to the InfoOS UI schema:\n"
+                            "{\n"
+                            '  "title": {"icon": "alert_warning", "text": "Action Discarded"},\n'
+                            '  "sections": [\n'
+                            '    {"type": "insight_block", "icon": "alert_warning", "heading": "Proposal Cancelled", "body": "..."}\n'
+                            "  ],\n"
+                            '  "meta": {"status": "warning", "statusIcon": "status_warning"}\n'
+                            "}"
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"User Decision: REJECTED\n"
+                            f"Action Proposal: {action_log.diff_summary}\n"
+                            f"Tool Name: {action_log.tool_name}\n"
+                            "Please generate the cancellation summary now."
+                        ),
+                    },
+                ]
+                llm_res = adapter.chat(
+                    messages=synth_messages,
+                    model=config.model_name or "gpt-4o-mini",
+                    max_tokens=config.max_tokens_per_response or 600,
+                )
+                if llm_res and llm_res.content:
+                    summary_response = llm_res.content.strip()
+    except Exception as synth_err:
+        _log.warning("Could not generate LLM rejection summary: %s", synth_err)
+
     return (
         jsonify(
             {
@@ -386,6 +484,7 @@ def reject_action(action_id):
                 "action_id": action_log.id,
                 "status": "rejected",
                 "message": f"Action proposal rejected: {action_log.diff_summary}",
+                "response": summary_response,
             }
         ),
         200,

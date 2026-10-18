@@ -9,6 +9,7 @@ from models import (
     Category,
     ItemGroup,
     Inventory,
+    InventoryBatch,
     Bill,
     Worker,
     WorkerType,
@@ -384,8 +385,93 @@ class AgentToolRegistry:
                             "type": "string",
                             "description": "Mandatory reason e.g. Delivery, Spoilage, Wastage",
                         },
+                        "expiry_date": {
+                            "type": "string",
+                            "description": "Optional expiry date in YYYY-MM-DD format (if restocked/received batch)",
+                        },
+                        "batch_number": {
+                            "type": "string",
+                            "description": "Optional batch number or invoice identifier",
+                        },
                     },
                     "required": ["delta_quantity", "reason"],
+                },
+            },
+            {
+                "name": "get_expiring_inventory",
+                "description": "Query all inventory items and batches that are expired or expiring within N days (default 7).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days_ahead": {
+                            "type": "integer",
+                            "default": 7,
+                            "description": "Lookahead horizon in days to detect expiring stock",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_inventory_batches",
+                "description": "View all active batches, quantities, and expiration dates for a product or raw material.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "inventory_id": {"type": "integer", "description": "Inventory item ID"},
+                        "product_id": {"type": "string", "description": "Product ID"},
+                    },
+                },
+            },
+            {
+                "name": "propose_add_inventory_batch",
+                "description": "Propose recording a new batch of stock with an expiry date and batch number (e.g. 5 or 10 units received).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "inventory_id": {"type": "integer", "description": "Inventory ID if known"},
+                        "product_id": {
+                            "type": "string",
+                            "description": "Product ID if direct sale item",
+                        },
+                        "quantity": {
+                            "type": "number",
+                            "description": "Quantity in batch (e.g. 5, 10, or single unit 1)",
+                        },
+                        "expiry_date": {
+                            "type": "string",
+                            "description": "Expiry date in YYYY-MM-DD format",
+                        },
+                        "batch_number": {
+                            "type": "string",
+                            "description": "Optional batch identifier or supplier lot code",
+                        },
+                        "cost_per_unit": {
+                            "type": "number",
+                            "description": "Optional cost per unit in ₹",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "default": "Batch Restock",
+                            "description": "Reason for batch entry",
+                        },
+                    },
+                    "required": ["quantity", "expiry_date"],
+                },
+            },
+            {
+                "name": "propose_set_product_batch_preset",
+                "description": "Propose configuring the default preset batch size for a product (e.g. 5, 10, or 12 units).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "string", "description": "Product ID"},
+                        "default_batch_size": {
+                            "type": "number",
+                            "description": "Default batch quantity preset (e.g. 5, 10)",
+                        },
+                        "reason": {"type": "string", "default": "Preset batch size configuration"},
+                    },
+                    "required": ["product_id", "default_batch_size"],
                 },
             },
             {
@@ -2031,6 +2117,78 @@ def _execute_read_tool_uncached(tool_name: str, args: Dict[str, Any]) -> Dict[st
                     }
                     for item in items
                 ],
+            }
+
+        elif tool_name == "get_expiring_inventory":
+            days = int(args.get("days_ahead", 7))
+            target_date = date.today() + timedelta(days=days)
+            items = (
+                Inventory.query.filter(
+                    Inventory.expiry_date != None,
+                    Inventory.expiry_date <= target_date,
+                    Inventory.stock > 0,
+                )
+                .order_by(Inventory.expiry_date.asc())
+                .all()
+            )
+            res = []
+            for item in items:
+                diff = (item.expiry_date - date.today()).days if item.expiry_date else None
+                batches_info = [
+                    {
+                        "batch_id": b.id,
+                        "batch_number": b.batch_number or f"Batch #{b.id}",
+                        "quantity": b.quantity,
+                        "expiry_date": str(b.expiry_date),
+                    }
+                    for b in (item.batches or [])
+                    if b.quantity > 0
+                ]
+                res.append(
+                    {
+                        "id": item.id,
+                        "name": item.name,
+                        "stock": item.stock,
+                        "unit": item.unit,
+                        "expiry_date": str(item.expiry_date),
+                        "days_to_expiry": diff,
+                        "status": "Expired" if (diff is not None and diff < 0) else "Expiring Soon",
+                        "batches": batches_info,
+                    }
+                )
+            return {"count": len(res), "days_ahead": days, "expiring_inventory": res}
+
+        elif tool_name == "get_inventory_batches":
+            inv_id = args.get("inventory_id")
+            prod_id = args.get("product_id")
+            item = None
+            if inv_id:
+                item = db.session.get(Inventory, int(inv_id))
+            elif prod_id:
+                item = Inventory.query.filter_by(product_id=prod_id).first()
+            if not item:
+                return {"success": False, "error": "Inventory item not found"}
+
+            batches = [
+                {
+                    "batch_id": b.id,
+                    "batch_number": b.batch_number or f"Batch #{b.id}",
+                    "quantity": b.quantity,
+                    "expiry_date": str(b.expiry_date),
+                    "cost_per_unit": b.cost_per_unit,
+                    "days_to_expiry": (
+                        (b.expiry_date - date.today()).days if b.expiry_date else None
+                    ),
+                }
+                for b in (item.batches or [])
+            ]
+            return {
+                "inventory_id": item.id,
+                "name": item.name,
+                "stock": item.stock,
+                "default_batch_size": getattr(item, "default_batch_size", 1.0) or 1.0,
+                "batch_count": len(batches),
+                "batches": batches,
             }
 
         elif tool_name == "get_stock_valuation":
@@ -5689,6 +5847,30 @@ def _execute_mutating_tool_impl(tool_name: str, args: Dict[str, Any]) -> Dict[st
 
             old_stock = item.stock
             item.stock = round(item.stock + delta, 2)
+            cur_max = item.max_stock_history if item.max_stock_history else 10.0
+            if item.stock > cur_max:
+                item.max_stock_history = item.stock
+
+            exp_str = args.get("expiry_date")
+            b_code = args.get("batch_number")
+            if delta > 0 and exp_str:
+                try:
+                    exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+                    new_b = InventoryBatch(
+                        inventory_id=item.id,
+                        batch_number=b_code
+                        or f"B-{item.id}-{datetime.now().strftime('%Y%m%d%H%M')}",
+                        quantity=delta,
+                        expiry_date=exp_date,
+                        cost_per_unit=item.unit_price,
+                    )
+                    db.session.add(new_b)
+                    if not item.expiry_date or exp_date < item.expiry_date:
+                        item.expiry_date = exp_date
+                except Exception as _b_err:
+                    _log.warning("Notice: Agent batch creation skipped: %s", _b_err)
+
+            item.updated_at = datetime.now()
             db.session.commit()
             return {
                 "success": True,
@@ -5696,6 +5878,85 @@ def _execute_mutating_tool_impl(tool_name: str, args: Dict[str, Any]) -> Dict[st
                 "old_stock": old_stock,
                 "new_stock": item.stock,
                 "delta": delta,
+                "reason": reason,
+                "expiry_date": exp_str,
+            }
+
+        elif tool_name == "propose_add_inventory_batch":
+            inv_id = args.get("inventory_id")
+            prod_id = args.get("product_id")
+            quantity = float(args.get("quantity", 1.0))
+            expiry_str = args.get("expiry_date")
+            b_num = args.get("batch_number")
+            reason = args.get("reason", "Batch Restock")
+            cost = args.get("cost_per_unit")
+
+            item = None
+            if inv_id:
+                item = db.session.get(Inventory, int(inv_id))
+            elif prod_id:
+                item = Inventory.query.filter_by(product_id=prod_id).first()
+
+            if not item:
+                return {"success": False, "error": "Inventory item not found"}
+
+            try:
+                exp_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+            except Exception:
+                return {"success": False, "error": "Invalid expiry_date format. Must be YYYY-MM-DD"}
+
+            old_stock = item.stock
+            b_code = b_num or f"B-{item.id}-{datetime.now().strftime('%Y%m%d%H%M')}"
+            new_batch = InventoryBatch(
+                inventory_id=item.id,
+                batch_number=b_code,
+                quantity=quantity,
+                expiry_date=exp_date,
+                cost_per_unit=float(cost) if cost is not None else item.unit_price,
+            )
+            db.session.add(new_batch)
+            item.stock = round(item.stock + quantity, 2)
+            cur_max = item.max_stock_history if item.max_stock_history else 10.0
+            if item.stock > cur_max:
+                item.max_stock_history = item.stock
+
+            if not item.expiry_date or exp_date < item.expiry_date:
+                item.expiry_date = exp_date
+
+            item.updated_at = datetime.now()
+            db.session.commit()
+
+            return {
+                "success": True,
+                "item_name": item.name,
+                "batch_number": b_code,
+                "batch_quantity": quantity,
+                "expiry_date": str(exp_date),
+                "old_stock": old_stock,
+                "new_stock": item.stock,
+                "reason": reason,
+            }
+
+        elif tool_name == "propose_set_product_batch_preset":
+            prod_id = args.get("product_id")
+            preset_size = float(args.get("default_batch_size", 1.0))
+            reason = args.get("reason", "Batch size preset update")
+            prod = db.session.get(Product, prod_id)
+            if not prod:
+                return {"success": False, "error": f"Product '{prod_id}' not found"}
+
+            old_preset = getattr(prod, "default_batch_size", 1.0)
+            prod.default_batch_size = preset_size
+            inv = Inventory.query.filter_by(product_id=prod_id).first()
+            if inv:
+                inv.default_batch_size = preset_size
+            db.session.commit()
+            return {
+                "success": True,
+                "product_id": prod.product_id,
+                "product_name": prod.name,
+                "old_batch_preset": old_preset,
+                "new_batch_preset": preset_size,
                 "reason": reason,
             }
 
@@ -6877,6 +7138,8 @@ _CATALOG_TOOLS = {
     "propose_group_reorder",
     "propose_delete_item_group",
     "propose_variation_update",
+    "propose_add_inventory_batch",
+    "propose_set_product_batch_preset",
     "restore_deleted_item",
     "restore_last_bulk_delete",
 }

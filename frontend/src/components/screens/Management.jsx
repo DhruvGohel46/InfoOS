@@ -27,6 +27,14 @@ const IconPlus = (props) => (
   </svg>
 );
 
+const IconUpload = (props) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
 const IconEdit = (props) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
     <path d="M12 20H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -95,6 +103,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
     name: '',
     price: '',
     takeaway_price: '',
+    default_batch_size: '',
     category_id: '',
     category: '', // Legacy support
     image_filename: null,
@@ -279,6 +288,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
       name: '',
       price: '',
       takeaway_price: '',
+      default_batch_size: '',
       category_id: categories.length > 0 ? categories[0].id : '',
       category: categories.length > 0 ? categories[0].name : '',
       active: true
@@ -322,6 +332,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
         ...formData,
         price: parseFloat(formData.price),
         takeaway_price: formData.takeaway_price ? parseFloat(formData.takeaway_price) : null,
+        default_batch_size: formData.default_batch_size ? parseFloat(formData.default_batch_size) : 1.0,
         category_id: parseInt(formData.category_id),
         variations: sanitizeVariationsForSave(variations),
       };
@@ -338,7 +349,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
           is_available: productData.active !== undefined ? !!productData.active : true
         };
 
-        const prodDesc = `"${formData.name}" (₹${formData.price}${formData.category ? `, ${formData.category}` : ''})`;
+        const prodDesc = `"${formData.name}" (${formatCurrency(formData.price)}${formData.category ? `, ${formData.category}` : ''})`;
 
         if (editingProduct) {
           await OnlineProductService.updateProduct(editingProduct.product_id, cloudProductData);
@@ -356,7 +367,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
           });
         }
       } else {
-        const prodDesc = `"${formData.name}" (₹${formData.price}${formData.category ? `, ${formData.category}` : ''})`;
+        const prodDesc = `"${formData.name}" (${formatCurrency(formData.price)}${formData.category ? `, ${formData.category}` : ''})`;
 
         if (editingProduct) {
           await LocalProductService.updateProduct(editingProduct.product_id, productData);
@@ -653,6 +664,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
       name: product.name,
       price: product.price,
       takeaway_price: product.takeaway_price || '',
+      default_batch_size: product.default_batch_size || '',
       category_id: product.category_id || '',
       category: product.category || '',
       image_filename: product.image_filename,
@@ -811,47 +823,75 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 type="button"
                 onClick={() => setActiveTab('products')}
                 style={{
+                  position: 'relative',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   padding: '7px 18px',
-                  background: activeTab === 'products'
-                    ? 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)'
-                    : 'transparent',
+                  background: 'transparent',
                   border: 'none',
                   borderRadius: '999px',
                   color: activeTab === 'products' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
                   fontWeight: activeTab === 'products' ? 750 : 600,
                   fontSize: '0.86rem',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  boxShadow: activeTab === 'products' ? '0 3px 10px rgba(255, 107, 26, 0.35)' : 'none'
+                  whiteSpace: 'nowrap'
                 }}
               >
-                <FiPackage size={16} /> Products Catalog
+                {activeTab === 'products' && (
+                  <motion.div
+                    layoutId="mgmt-view-tab-indicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                      boxShadow: '0 3px 10px rgba(255, 107, 26, 0.35)',
+                      zIndex: 1
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <FiPackage size={16} /> Products Catalog
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('groups')}
                 style={{
+                  position: 'relative',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
                   padding: '7px 18px',
-                  background: activeTab === 'groups'
-                    ? 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)'
-                    : 'transparent',
+                  background: 'transparent',
                   border: 'none',
                   borderRadius: '999px',
                   color: activeTab === 'groups' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
                   fontWeight: activeTab === 'groups' ? 750 : 600,
                   fontSize: '0.86rem',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  boxShadow: activeTab === 'groups' ? '0 3px 10px rgba(255, 107, 26, 0.35)' : 'none'
+                  whiteSpace: 'nowrap'
                 }}
               >
-                <FiGrid size={16} /> Category & Groups
+                {activeTab === 'groups' && (
+                  <motion.div
+                    layoutId="mgmt-view-tab-indicator"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                      boxShadow: '0 3px 10px rgba(255, 107, 26, 0.35)',
+                      zIndex: 1
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <FiGrid size={16} /> Category & Groups
+                </span>
               </button>
             </div>
           )}
@@ -871,19 +911,33 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               type="button"
               onClick={() => setIsOnlineMode(false)}
               style={{
+                position: 'relative',
                 padding: '6px 14px',
                 borderRadius: '9px',
                 fontSize: '12px',
                 fontWeight: '700',
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: !isOnlineMode ? '#FF6B1A' : 'transparent',
+                backgroundColor: 'transparent',
                 color: !isOnlineMode ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                boxShadow: !isOnlineMode ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none',
-                transition: 'all 0.18s ease'
+                whiteSpace: 'nowrap'
               }}
             >
-              Offline
+              {!isOnlineMode && (
+                <motion.div
+                  layoutId="mgmt-mode-tab-indicator"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '9px',
+                    backgroundColor: '#FF6B1A',
+                    boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                    zIndex: 1
+                  }}
+                />
+              )}
+              <span style={{ position: 'relative', zIndex: 2 }}>Offline</span>
             </button>
             <button
               type="button"
@@ -895,19 +949,33 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 setIsOnlineMode(true);
               }}
               style={{
+                position: 'relative',
                 padding: '6px 14px',
                 borderRadius: '9px',
                 fontSize: '12px',
                 fontWeight: '700',
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: isOnlineMode ? '#FF6B1A' : 'transparent',
+                backgroundColor: 'transparent',
                 color: isOnlineMode ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                boxShadow: isOnlineMode ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none',
-                transition: 'all 0.18s ease'
+                whiteSpace: 'nowrap'
               }}
             >
-              Online
+              {isOnlineMode && (
+                <motion.div
+                  layoutId="mgmt-mode-tab-indicator"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '9px',
+                    backgroundColor: '#FF6B1A',
+                    boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                    zIndex: 1
+                  }}
+                />
+              )}
+              <span style={{ position: 'relative', zIndex: 2 }}>Online</span>
             </button>
           </div>
 
@@ -1452,36 +1520,68 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
           <button
             onClick={() => setProductViewTab('active')}
             style={{
+              position: 'relative',
               padding: '7px 16px',
               border: 'none',
               borderRadius: '10px',
               fontSize: '0.84rem',
               fontWeight: '700',
-              background: productViewTab === 'active' ? '#FF6B1A' : 'transparent',
+              background: 'transparent',
               color: productViewTab === 'active' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
               cursor: 'pointer',
-              transition: 'all 0.18s ease',
-              boxShadow: productViewTab === 'active' ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none'
+              transition: 'color 0.18s ease'
             }}
           >
-            Active ({products.filter(p => p.active).length})
+            {productViewTab === 'active' && (
+              <motion.div
+                layoutId="mgmt-product-view-tab-indicator"
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                  boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                  zIndex: 1
+                }}
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>
+              Active ({products.filter(p => p.active).length})
+            </span>
           </button>
           <button
             onClick={() => setProductViewTab('inactive')}
             style={{
+              position: 'relative',
               padding: '7px 16px',
               border: 'none',
               borderRadius: '10px',
               fontSize: '0.84rem',
               fontWeight: '700',
-              background: productViewTab === 'inactive' ? '#FF6B1A' : 'transparent',
+              background: 'transparent',
               color: productViewTab === 'inactive' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
               cursor: 'pointer',
-              transition: 'all 0.18s ease',
-              boxShadow: productViewTab === 'inactive' ? '0 2px 8px rgba(255, 107, 26, 0.3)' : 'none'
+              transition: 'color 0.18s ease'
             }}
           >
-            Inactive ({products.filter(p => !p.active).length})
+            {productViewTab === 'inactive' && (
+              <motion.div
+                layoutId="mgmt-product-view-tab-indicator"
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                  boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                  zIndex: 1
+                }}
+              />
+            )}
+            <span style={{ position: 'relative', zIndex: 2 }}>
+              Inactive ({products.filter(p => !p.active).length})
+            </span>
           </button>
         </div>
 
@@ -1576,17 +1676,9 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="pmFormGrid">
-                  <div className="pmField">
+                  <div className="pmField pmFieldSpan2">
                     <div className="pmLabel">Product Name</div>
-                    <input className="pmInput" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required />
-                  </div>
-                  <div className="pmField">
-                    <div className="pmLabel">Price (Dine-in)</div>
-                    <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required />
-                  </div>
-                  <div className="pmField">
-                    <div className="pmLabel">Takeaway Add-on Charges (Optional)</div>
-                    <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="0.00 if empty" />
+                    <input className="pmInput" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} required placeholder="Product name" />
                   </div>
                   <div className="pmField" style={{ position: 'relative', zIndex: 10 }}>
                     <div className="pmLabel">Category</div>
@@ -1599,148 +1691,171 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                       direction="bottom"
                     />
                   </div>
-                </div>
-
-                <div className="pmVariationsCard">
-                  <div className="pmVariationsHeader">
-                    <div>
-                      <div className="pmLabel" style={{ marginBottom: '4px' }}>Variations</div>
-                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)' }}>
-                        Optional sizes or pack options with their own selling price.
-                      </div>
-                    </div>
-                    <button type="button" className="pmSecondaryBtn" onClick={handleAddVariation}>
-                      <IconPlus aria-hidden="true" /> Add Variation
-                    </button>
+                  <div className="pmField">
+                    <div className="pmLabel">Preset Batch Size (Optional)</div>
+                    <input
+                      className="pmInput"
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={formData.default_batch_size}
+                      onChange={(e) => handleInputChange('default_batch_size', e.target.value)}
+                      placeholder="Units/batch (e.g. 5, 10)"
+                    />
                   </div>
 
-                  {variations.length > 0 ? (
-                    <div className="pmVariationsList">
-                      {variations.map((variation, index) => (
-                        <div key={variation.id || index} className="pmVariationRow">
-                          <input
-                            className="pmInput"
-                            value={variation.name}
-                            onChange={(e) => handleVariationChange(index, 'name', e.target.value)}
-                            placeholder="Variation name (e.g. 250 ml)"
-                          />
-                          <input
-                            className="pmInput"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={variation.price}
-                            onChange={(e) => handleVariationChange(index, 'price', e.target.value)}
-                            placeholder="Price"
-                          />
-                          <div className="pmVariationActions">
-                            <button
-                              type="button"
-                              className="pmActionBtn"
-                              onClick={() => handleMoveVariation(index, -1)}
-                              disabled={index === 0}
-                              title="Move up"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="pmActionBtn"
-                              onClick={() => handleMoveVariation(index, 1)}
-                              disabled={index === variations.length - 1}
-                              title="Move down"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              className="pmActionBtn pmActionDanger"
-                              onClick={() => handleRemoveVariation(index)}
-                              title="Delete variation"
-                            >
-                              <IconTrash />
-                            </button>
+                  <div className="pmField pmFieldSpan2">
+                    <div className="pmLabel">Price (Dine-in)</div>
+                    <input className="pmInput" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} required placeholder="0.00" />
+                  </div>
+                  <div className="pmField pmFieldSpan2">
+                    <div className="pmLabel">Takeaway Charges (Optional)</div>
+                    <input className="pmInput" type="number" step="0.01" value={formData.takeaway_price} onChange={(e) => handleInputChange('takeaway_price', e.target.value)} placeholder="0.00 if empty" />
+                  </div>
+                </div>
+
+                {/* Side-by-Side: Product Image (Left) & Variations (Right) */}
+                <div className="pmSideBySideGrid">
+                  {/* Left Section: Product Image */}
+                  <div className="pmImageSectionCard pmImageCardHorizontal">
+                    {/* Big Preview Box on Left */}
+                    <div className="pmImageBigPreviewCol">
+                      <label
+                        htmlFor="pm-product-image-file"
+                        className="pmImageBigThumbBox"
+                        title={previewImage ? "Click to change image" : "Click to choose image"}
+                      >
+                        {(imageUploading || imageProcessing) && (
+                          <div className="pmImageLoadingOverlay">
+                            <div className="pmImageSpinner" />
+                            {imageProcessing && (
+                              <span className="pmImageLoadingText">Removing BG...</span>
+                            )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="pmVariationsEmpty">
-                      No variations added. Product will use the base price above.
-                    </div>
-                  )}
-                </div>
-
-                <div className="pmField" style={{ gridColumn: '1 / -1' }}>
-                  <div className="pmLabel">Product Image (Optional)</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'calc(20px * var(--display-zoom))' }}>
-                    <div style={{
-                      width: 'calc(80px * var(--display-zoom))',
-                      height: 'calc(80px * var(--display-zoom))',
-                      borderRadius: 'calc(8px * var(--display-zoom))',
-                      border: '1px dashed var(--border-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      backgroundColor: 'var(--bg-secondary)',
-                      position: 'relative'
-                    }}>
-                      {(imageUploading || imageProcessing) && (
-                        <div style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                          zIndex: 10
-                        }}>
-                          <div style={{
-                            width: 'calc(24px * var(--display-zoom))',
-                            height: 'calc(24px * var(--display-zoom))',
-                            border: '3px solid rgba(255, 255, 255, 0.3)',
-                            borderTop: '3px solid white',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                          }} />
-                          {imageProcessing && (
-                            <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>Removing BG...</span>
-                          )}
-                        </div>
-                      )}
-                      {previewImage ? (
-                        <img src={previewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <IconImage style={{ color: 'var(--text-tertiary)' }} />
-                      )}
+                        )}
+                        {previewImage ? (
+                          <img src={previewImage} alt="Preview" className="pmImageThumbImg" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <div className="pmImagePlaceholderContent">
+                            <IconImage width="32" height="32" style={{ color: 'var(--text-tertiary)', opacity: 0.7 }} />
+                            <span className="pmImagePlaceholderLabel">Preview</span>
+                          </div>
+                        )}
+                      </label>
                     </div>
 
-                    <div style={{ flex: 1 }}>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        style={{ marginBottom: 'calc(10px * var(--display-zoom))', display: 'block', width: '100%' }}
-                      />
-                      {(previewImage && (selectedImage || formData.image_filename)) && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveImage}
-                          className="pmActionBtn pmActionDanger"
-                          style={{ padding: 'calc(4px * var(--display-zoom)) calc(8px * var(--display-zoom))', fontSize: 'calc(12px * var(--text-scale))' }}
-                        >
-                          Remove Image
-                        </button>
-                      )}
+                    {/* All Text & Controls on Right */}
+                    <div className="pmImageContentCol">
+                      <div>
+                        <div className="pmLabel" style={{ marginBottom: '4px' }}>Product Image (Optional)</div>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
+                          Display photo for billing and digital menu.
+                        </div>
+                      </div>
+
+                      <div className="pmImageUploadControls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <label className="pmImageChooseBtn" htmlFor="pm-product-image-file">
+                          <IconUpload /> {previewImage ? 'Change Image' : 'Choose Image'}
+                        </label>
+                        <input
+                          id="pm-product-image-file"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          style={{ display: 'none' }}
+                        />
+                        {previewImage && (selectedImage || formData.image_filename) && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveImage}
+                            className="pmActionBtn pmActionDanger"
+                            title="Remove image"
+                            style={{ height: '30px', padding: '0 8px', fontSize: '0.78rem' }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <span className="pmImageStatusText" title={selectedImage ? selectedImage.name : formData.image_filename || ''}>
+                        {selectedImage ? selectedImage.name : formData.image_filename ? (formData.image_filename.length > 22 ? formData.image_filename.substring(0, 20) + '...' : formData.image_filename) : 'No image (PNG/JPG)'}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Right Section: Variations */}
+                  <div className="pmVariationsCard">
+                    <div className="pmVariationsHeader">
+                      <div>
+                        <div className="pmLabel" style={{ marginBottom: '4px' }}>Variations</div>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)' }}>
+                          Optional sizes or pack options with their own selling price.
+                        </div>
+                      </div>
+                      <button type="button" className="pmSecondaryBtn" onClick={handleAddVariation}>
+                        <IconPlus aria-hidden="true" /> Add Variation
+                      </button>
+                    </div>
+
+                    {variations.length > 0 ? (
+                      <div className="pmVariationsList">
+                        {variations.map((variation, index) => (
+                          <div key={variation.id || index} className="pmVariationRow">
+                            <input
+                              className="pmInput"
+                              value={variation.name}
+                              onChange={(e) => handleVariationChange(index, 'name', e.target.value)}
+                              placeholder="Variation name (e.g. 250 ml)"
+                            />
+                            <input
+                              className="pmInput"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={variation.price}
+                              onChange={(e) => handleVariationChange(index, 'price', e.target.value)}
+                              placeholder="Price"
+                            />
+                            <div className="pmVariationActions">
+                              <button
+                                type="button"
+                                className="pmActionBtn"
+                                onClick={() => handleMoveVariation(index, -1)}
+                                disabled={index === 0}
+                                title="Move up"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="pmActionBtn"
+                                onClick={() => handleMoveVariation(index, 1)}
+                                disabled={index === variations.length - 1}
+                                title="Move down"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                className="pmActionBtn pmActionDanger"
+                                onClick={() => handleRemoveVariation(index)}
+                                title="Delete variation"
+                              >
+                                <IconTrash />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pmVariationsEmpty" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        No variations added. Product will use the base price above.
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+
 
                 <div className="pmFormActions">
                   <button type="button" className="pmSecondaryBtn" onClick={resetForm}>Cancel</button>
@@ -1937,6 +2052,13 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                               {Array.isArray(product.variations) && product.variations.length > 0 && (
                                 <div style={{ fontSize: '0.74rem', color: isDark ? '#94A3B8' : '#64748B', fontWeight: 650, marginTop: '4px' }}>
                                   {product.variations.length} variation{product.variations.length === 1 ? '' : 's'} available
+                                </div>
+                              )}
+
+                              {product.default_batch_size && Number(product.default_batch_size) > 1 && (
+                                <div style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span>📦 Batch Preset:</span>
+                                  <span>{product.default_batch_size} units</span>
                                 </div>
                               )}
                             </div>
