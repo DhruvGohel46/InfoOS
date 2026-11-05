@@ -11,6 +11,24 @@ const { test, expect } = require("@playwright/test");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+test.beforeEach(async ({ page }) => {
+  // Prevent attendance & salary check modal popups from obstructing UI interactions in tests
+  await page.route("**/api/workers/attendance/status**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ is_marked: true }),
+    });
+  });
+  await page.route("**/api/workers/salary/status**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: { all_paid: true } }),
+    });
+  });
+});
+
 /**
  * Navigate to the POS billing screen and wait for it to load.
  * @param {import('@playwright/test').Page} page
@@ -19,6 +37,12 @@ async function goToBillingScreen(page) {
   await page.goto("/");
   // Wait for the app shell to render
   await page.waitForSelector("body", { timeout: 10_000 });
+
+  // Dismiss attendance prompt if it ever appears
+  const laterBtn = page.locator('button:has-text("Later")');
+  if (await laterBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await laterBtn.click();
+  }
 
   // Click on the "Bill" or "POS" nav item — adjust selector to match your sidebar
   const billingLink = page.locator('[data-testid="nav-bill"], a[href*="bill"], button:has-text("Bill")').first();
@@ -303,11 +327,23 @@ test.describe("POS Layout Reordering", () => {
     // 5. Enter Edit Mode again and click Done to verify reordering persistence
     await editLayoutBtn.click();
     await expect(doneBtn).toBeVisible();
+
+    // Set up request waiters before clicking Done to prevent race conditions
+    const categoriesReqPromise = page.waitForRequest((req) => req.url().includes("/api/categories/reorder"));
+    const productsReqPromise = page.waitForRequest((req) => req.url().includes("/api/products/reorder"));
+
     await doneBtn.click();
 
+    // Wait for both reorder API requests to be dispatched
+    await Promise.all([categoriesReqPromise, productsReqPromise]);
+
+    // Verify Edit Mode exited cleanly once layout saving finished
+    await expect(editLayoutBtn).toBeVisible();
+    await expect(doneBtn).not.toBeVisible();
+
     // Verify the APIs were triggered on Done click
-    expect(categoriesReordered).toBe(true);
-    expect(productsReordered).toBe(true);
+    await expect.poll(() => categoriesReordered).toBe(true);
+    await expect.poll(() => productsReordered).toBe(true);
 
     // Assert that no uncaught runtime exceptions occurred during test execution
     expect(pageErrors).toHaveLength(0);

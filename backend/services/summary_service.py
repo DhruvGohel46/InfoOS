@@ -578,6 +578,7 @@ class SummaryService:
                 )
                 for item in items:
                     pid = item["product_id"]
+                    item_price = float(item.get("price") or 0.0)
                     if pid not in product_sales:
                         pinfo = product_map.get(pid)
                         product_sales[pid] = {
@@ -585,11 +586,14 @@ class SummaryService:
                             "name": item["name"],
                             "category": self._normalize_category(pinfo),
                             "category_id": pinfo.get("category_id") if pinfo else None,
+                            "price": item_price or float(pinfo.get("price", 0.0) if pinfo else 0.0),
                             "quantity": 0,
                             "total_amount": 0.0,
                         }
                     product_sales[pid]["quantity"] += item["quantity"]
-                    product_sales[pid]["total_amount"] += item["price"] * item["quantity"]
+                    product_sales[pid]["total_amount"] += (
+                        item_price if item_price > 0 else float(item.get("price", 0.0))
+                    ) * item["quantity"]
 
             sorted_products = sorted(
                 product_sales.values(), key=lambda x: x["total_amount"], reverse=True

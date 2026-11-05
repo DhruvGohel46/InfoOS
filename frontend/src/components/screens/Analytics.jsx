@@ -51,7 +51,8 @@ import {
     IoFlashOutline,
     IoHomeOutline,
     IoBusOutline,
-    IoStatsChartOutline
+    IoStatsChartOutline,
+    IoSearchOutline
 } from 'react-icons/io5';
 import { FiDollarSign } from 'react-icons/fi';
 import '../../styles/Analytics.css';
@@ -397,9 +398,22 @@ const Analytics = () => {
     // ─── Reactive Filtered Product Sales ───
     const productSales = useMemo(() => {
         if (!rawProductSales || rawProductSales.length === 0) return [];
-        if (!selectedGroupId || selectedGroupId === 'all') return rawProductSales;
-        return rawProductSales.filter(item => isProductInGroup(item));
-    }, [rawProductSales, selectedGroupId, isProductInGroup]);
+        let prods = rawProductSales;
+        if (selectedGroupId && selectedGroupId !== 'all') {
+            prods = prods.filter(item => isProductInGroup(item));
+        }
+        return prods.map(p => {
+            const pinfo = productsList.find(pr => pr.product_id === p.product_id || pr.name === p.name);
+            const categoryObj = categories.find(c => c.id === p.category_id || (pinfo && c.id === pinfo.category_id));
+            const categoryName = p.category || (categoryObj ? categoryObj.name : (pinfo ? pinfo.category : 'General'));
+            const unitPrice = p.price || (pinfo ? pinfo.price : (p.quantity > 0 ? (p.total_amount / p.quantity) : 0));
+            return {
+                ...p,
+                category: categoryName,
+                price: Number(unitPrice) || 0
+            };
+        });
+    }, [rawProductSales, selectedGroupId, isProductInGroup, productsList, categories]);
 
     // ─── Reactive Filtered Range Products ───
     const viewRangeProductSales = useMemo(() => {
@@ -408,12 +422,21 @@ const Analytics = () => {
         if (selectedGroupId && selectedGroupId !== 'all') {
             prods = prods.filter(item => isProductInGroup(item));
         }
-        return prods.map(p => ({
-            name: p.name,
-            quantity: p.quantity,
-            total_amount: p.total_amount
-        }));
-    }, [rawRangeProducts, selectedGroupId, isProductInGroup]);
+        return prods.map(p => {
+            const pinfo = productsList.find(pr => pr.product_id === p.product_id || pr.name === p.name);
+            const categoryObj = categories.find(c => c.id === p.category_id || (pinfo && c.id === pinfo.category_id));
+            const categoryName = p.category || (categoryObj ? categoryObj.name : (pinfo ? pinfo.category : 'General'));
+            const unitPrice = p.price || (pinfo ? pinfo.price : (p.quantity > 0 ? (p.total_amount / p.quantity) : 0));
+            return {
+                ...p,
+                name: p.name,
+                category: categoryName,
+                price: Number(unitPrice) || 0,
+                quantity: p.quantity,
+                total_amount: p.total_amount
+            };
+        });
+    }, [rawRangeProducts, selectedGroupId, isProductInGroup, productsList, categories]);
 
     // ─── Dynamic group-wise total sales KPI ───
     const displayTotalSales = useMemo(() => {
@@ -489,6 +512,85 @@ const Analytics = () => {
         }
         return null;
     }, [activeCategoryPieIndex, categoryShareData]);
+
+    // ─── Product Sales Table State ───
+    const [productTableSearch, setProductTableSearch] = useState('');
+    const [productTableSortBy, setProductTableSortBy] = useState('total_amount'); // 'total_amount' | 'quantity' | 'price' | 'name'
+    const [productTableSortOrder, setProductTableSortOrder] = useState('desc'); // 'asc' | 'desc'
+    const [productTablePage, setProductTablePage] = useState(1);
+    const [productTablePageSize, setProductTablePageSize] = useState(15);
+
+    const activeSoldProducts = useMemo(() => {
+        const source = viewRange === 'day' ? productSales : viewRangeProductSales;
+        return source || [];
+    }, [viewRange, productSales, viewRangeProductSales]);
+
+    const totalSoldUnits = useMemo(() => {
+        return activeSoldProducts.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    }, [activeSoldProducts]);
+
+    const totalSoldRevenue = useMemo(() => {
+        return activeSoldProducts.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0);
+    }, [activeSoldProducts]);
+
+    const filteredAndSortedSoldProducts = useMemo(() => {
+        let list = [...activeSoldProducts];
+        
+        if (productTableSearch.trim()) {
+            const q = productTableSearch.toLowerCase().trim();
+            list = list.filter(item => 
+                (item.name && item.name.toLowerCase().includes(q)) ||
+                (item.category && item.category.toLowerCase().includes(q))
+            );
+        }
+
+        list.sort((a, b) => {
+            let valA, valB;
+            if (productTableSortBy === 'name') {
+                valA = (a.name || '').toLowerCase();
+                valB = (b.name || '').toLowerCase();
+                if (valA < valB) return productTableSortOrder === 'asc' ? -1 : 1;
+                if (valA > valB) return productTableSortOrder === 'asc' ? 1 : -1;
+                return 0;
+            } else if (productTableSortBy === 'quantity') {
+                valA = Number(a.quantity) || 0;
+                valB = Number(b.quantity) || 0;
+            } else if (productTableSortBy === 'price') {
+                valA = Number(a.price) || 0;
+                valB = Number(b.price) || 0;
+            } else { // 'total_amount'
+                valA = Number(a.total_amount) || 0;
+                valB = Number(b.total_amount) || 0;
+            }
+            return productTableSortOrder === 'asc' ? valA - valB : valB - valA;
+        });
+
+        return list;
+    }, [activeSoldProducts, productTableSearch, productTableSortBy, productTableSortOrder]);
+
+    const paginatedSoldProducts = useMemo(() => {
+        if (productTablePageSize === -1) return filteredAndSortedSoldProducts;
+        const startIndex = (productTablePage - 1) * productTablePageSize;
+        return filteredAndSortedSoldProducts.slice(startIndex, startIndex + productTablePageSize);
+    }, [filteredAndSortedSoldProducts, productTablePage, productTablePageSize]);
+
+    const totalSoldPages = useMemo(() => {
+        if (productTablePageSize === -1) return 1;
+        return Math.max(1, Math.ceil(filteredAndSortedSoldProducts.length / productTablePageSize));
+    }, [filteredAndSortedSoldProducts.length, productTablePageSize]);
+
+    useEffect(() => {
+        setProductTablePage(1);
+    }, [viewRange, selectedDate, productTableSearch, selectedGroupId]);
+
+    const handleSortProductTable = (columnKey) => {
+        if (productTableSortBy === columnKey) {
+            setProductTableSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setProductTableSortBy(columnKey);
+            setProductTableSortOrder('desc');
+        }
+    };
 
     // ═══════════════ DATA LOADING ═══════════════
 
@@ -1773,7 +1875,7 @@ const Analytics = () => {
                                         </motion.div>
                                     </div>
 
-                                    {/* Top Selling Products List Section */}
+                                    {/* Product Sales Breakdown Table Section */}
                                     <motion.div 
                                         className="analytics-chart-card"
                                         style={{ width: '100%', overflow: 'hidden' }}
@@ -1781,34 +1883,341 @@ const Analytics = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.5, delay: 0.3 }}
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        {/* Card Header & Controls */}
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: '16px',
+                                            marginBottom: '20px'
+                                        }}>
                                             <div>
-                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Top Selling Products</h3>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Performance leaderboard for selected duration</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <h3 className="chart-card-title" style={{ margin: 0 }}>Sales by Product</h3>
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 700,
+                                                        padding: '3px 10px',
+                                                        borderRadius: '20px',
+                                                        backgroundColor: isDark ? 'rgba(255, 122, 0, 0.15)' : 'rgba(255, 122, 0, 0.1)',
+                                                        color: '#FF7A00',
+                                                        border: '1px solid rgba(255, 122, 0, 0.25)'
+                                                    }}>
+                                                        {activeSoldProducts.length} {activeSoldProducts.length === 1 ? 'Product Sold' : 'Products Sold'}
+                                                    </span>
+                                                </div>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                    {viewRange === 'day' ? 'Complete list of all products sold today' : `Complete list of all products sold this ${viewRange}`}
+                                                </span>
+                                            </div>
+
+                                            {/* Toolbar: Search & Summary Chips */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                {/* Search Input */}
+                                                <div style={{
+                                                    position: 'relative',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    minWidth: '220px'
+                                                }}>
+                                                    <IoSearchOutline style={{
+                                                        position: 'absolute',
+                                                        left: '12px',
+                                                        color: 'var(--text-secondary)',
+                                                        fontSize: '1rem',
+                                                        pointerEvents: 'none'
+                                                    }} />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search product or category..."
+                                                        value={productTableSearch}
+                                                        onChange={(e) => setProductTableSearch(e.target.value)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '8px 12px 8px 36px',
+                                                            borderRadius: '12px',
+                                                            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #E2E8F0',
+                                                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F8FAFC',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '0.85rem',
+                                                            outline: 'none',
+                                                            transition: 'border-color 0.2s'
+                                                        }}
+                                                    />
+                                                    {productTableSearch && (
+                                                        <button
+                                                            onClick={() => setProductTableSearch('')}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                right: '10px',
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: 'var(--text-secondary)',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.8rem',
+                                                                padding: '2px'
+                                                            }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {/* Quick Summary Pill */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '14px',
+                                                    padding: '6px 14px',
+                                                    borderRadius: '12px',
+                                                    background: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                                                    border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.05)',
+                                                    fontSize: '0.8rem'
+                                                }}>
+                                                    <div>
+                                                        <span style={{ color: 'var(--text-secondary)', marginRight: '5px' }}>Total Units:</span>
+                                                        <strong style={{ color: 'var(--text-primary)' }}>{totalSoldUnits}</strong>
+                                                    </div>
+                                                    <div style={{ width: 1, height: 14, background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+                                                    <div>
+                                                        <span style={{ color: 'var(--text-secondary)', marginRight: '5px' }}>Total Revenue:</span>
+                                                        <strong style={{ color: '#FF7A00' }}>{formatCurrency(totalSoldRevenue)}</strong>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div style={{ overflowX: 'auto' }}>
-                                            <table className="transactions-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                <thead>
-                                                    <tr>
-                                                        <th style={{ background: 'transparent', padding: '12px 16px' }}>Rank</th>
-                                                        <th style={{ background: 'transparent', padding: '12px 16px' }}>Product Name</th>
-                                                        <th style={{ background: 'transparent', padding: '12px 16px', textAlign: 'center' }}>Qty Sold</th>
-                                                        <th style={{ background: 'transparent', padding: '12px 16px', textAlign: 'right' }}>Total Revenue</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {(viewRange === 'day' ? productSales : viewRangeProductSales).slice(0, 5).map((item, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                                            <td style={{ padding: '12px 16px', fontWeight: 700, color: idx === 0 ? '#FF7A00' : 'var(--text-secondary)' }}>{idx + 1}</td>
-                                                            <td style={{ padding: '12px 16px', fontWeight: 600 }}>{item.name}</td>
-                                                            <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
-                                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary-500)' }}>{formatCurrency(item.total_amount)}</td>
+
+                                        {/* Table */}
+                                        {filteredAndSortedSoldProducts.length > 0 ? (
+                                            <div style={{ overflowX: 'auto' }}>
+                                                <table className="transactions-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                                                            <th onClick={() => handleSortProductTable('name')} style={{ cursor: 'pointer' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    Product Name
+                                                                    {productTableSortBy === 'name' && (
+                                                                        <span style={{ color: '#FF7A00' }}>{productTableSortOrder === 'asc' ? '▲' : '▼'}</span>
+                                                                    )}
+                                                                </div>
+                                                            </th>
+                                                            <th>Category</th>
+                                                            <th onClick={() => handleSortProductTable('price')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                                    Unit Price
+                                                                    {productTableSortBy === 'price' && (
+                                                                        <span style={{ color: '#FF7A00' }}>{productTableSortOrder === 'asc' ? '▲' : '▼'}</span>
+                                                                    )}
+                                                                </div>
+                                                            </th>
+                                                            <th onClick={() => handleSortProductTable('quantity')} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                                    Sale Count (Qty)
+                                                                    {productTableSortBy === 'quantity' && (
+                                                                        <span style={{ color: '#FF7A00' }}>{productTableSortOrder === 'asc' ? '▲' : '▼'}</span>
+                                                                    )}
+                                                                </div>
+                                                            </th>
+                                                            <th onClick={() => handleSortProductTable('total_amount')} style={{ textAlign: 'right', cursor: 'pointer' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                                                    Total Revenue
+                                                                    {productTableSortBy === 'total_amount' && (
+                                                                        <span style={{ color: '#FF7A00' }}>{productTableSortOrder === 'asc' ? '▲' : '▼'}</span>
+                                                                    )}
+                                                                </div>
+                                                            </th>
+                                                            <th style={{ textAlign: 'right', minWidth: '130px' }}>Revenue Share</th>
                                                         </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {paginatedSoldProducts.map((item, idx) => {
+                                                            const rank = (productTablePage - 1) * (productTablePageSize === -1 ? 0 : productTablePageSize) + idx + 1;
+                                                            const revenueShare = totalSoldRevenue > 0 ? ((item.total_amount / totalSoldRevenue) * 100) : 0;
+                                                            return (
+                                                                <tr key={item.product_id || item.name || idx} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #F1F5F9' }}>
+                                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: rank <= 3 ? '#FF7A00' : 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                                                                        {rank}
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                                                                            {item.name}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span style={{
+                                                                            display: 'inline-block',
+                                                                            fontSize: '0.75rem',
+                                                                            fontWeight: 600,
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: '6px',
+                                                                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
+                                                                            color: 'var(--text-secondary)'
+                                                                        }}>
+                                                                            {item.category || 'General'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                                        {item.price ? formatCurrency(item.price) : (item.quantity > 0 ? formatCurrency(item.total_amount / item.quantity) : '—')}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'center' }}>
+                                                                        <span style={{
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            minWidth: '32px',
+                                                                            padding: '3px 8px',
+                                                                            borderRadius: '8px',
+                                                                            fontWeight: 700,
+                                                                            fontSize: '0.88rem',
+                                                                            backgroundColor: isDark ? 'rgba(255, 122, 0, 0.1)' : 'rgba(255, 122, 0, 0.08)',
+                                                                            color: '#FF7A00'
+                                                                        }}>
+                                                                            {item.quantity}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                                                                        {formatCurrency(item.total_amount)}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                                                            <div style={{
+                                                                                width: '60px',
+                                                                                height: '6px',
+                                                                                borderRadius: '3px',
+                                                                                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                                                                                overflow: 'hidden'
+                                                                            }}>
+                                                                                <div style={{
+                                                                                    width: `${Math.min(100, Math.max(2, revenueShare))}%`,
+                                                                                    height: '100%',
+                                                                                    backgroundColor: '#FF7A00',
+                                                                                    borderRadius: '3px'
+                                                                                }} />
+                                                                            </div>
+                                                                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', minWidth: '40px' }}>
+                                                                                {revenueShare.toFixed(1)}%
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                    {/* Table Footer Summary */}
+                                                    <tfoot>
+                                                        <tr style={{
+                                                            borderTop: isDark ? '2px solid rgba(255,255,255,0.1)' : '2px solid #E2E8F0',
+                                                            backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)'
+                                                        }}>
+                                                            <td colSpan={4} style={{ padding: '14px 20px', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                                TOTAL ({filteredAndSortedSoldProducts.length} items)
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', padding: '14px 20px', fontWeight: 800, fontSize: '1rem', color: '#FF7A00' }}>
+                                                                {filteredAndSortedSoldProducts.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 800, fontSize: '1.05rem', color: '#FF7A00' }}>
+                                                                {formatCurrency(filteredAndSortedSoldProducts.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0))}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                                100%
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                padding: '40px 20px',
+                                                textAlign: 'center',
+                                                color: 'var(--text-secondary)',
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                {productTableSearch ? `No products matching "${productTableSearch}"` : 'No product sales recorded in this period.'}
+                                            </div>
+                                        )}
+
+                                        {/* Pagination Bar */}
+                                        {filteredAndSortedSoldProducts.length > 10 && (
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginTop: '16px',
+                                                paddingTop: '16px',
+                                                borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E2E8F0',
+                                                flexWrap: 'wrap',
+                                                gap: '12px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                                    <span>Show:</span>
+                                                    {[10, 25, 50, -1].map((size) => (
+                                                        <button
+                                                            key={size}
+                                                            onClick={() => { setProductTablePageSize(size); setProductTablePage(1); }}
+                                                            style={{
+                                                                padding: '3px 8px',
+                                                                borderRadius: '6px',
+                                                                border: productTablePageSize === size
+                                                                    ? '1px solid #FF7A00'
+                                                                    : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1'),
+                                                                backgroundColor: productTablePageSize === size
+                                                                    ? (isDark ? 'rgba(255, 122, 0, 0.2)' : 'rgba(255, 122, 0, 0.1)')
+                                                                    : 'transparent',
+                                                                color: productTablePageSize === size ? '#FF7A00' : 'var(--text-secondary)',
+                                                                fontWeight: productTablePageSize === size ? 700 : 500,
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.78rem'
+                                                            }}
+                                                        >
+                                                            {size === -1 ? 'All' : size}
+                                                        </button>
                                                     ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                    <span>of {filteredAndSortedSoldProducts.length} items</span>
+                                                </div>
+
+                                                {productTablePageSize !== -1 && totalSoldPages > 1 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <button
+                                                            onClick={() => setProductTablePage(prev => Math.max(1, prev - 1))}
+                                                            disabled={productTablePage <= 1}
+                                                            style={{
+                                                                padding: '4px 10px',
+                                                                borderRadius: '6px',
+                                                                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1',
+                                                                backgroundColor: 'transparent',
+                                                                color: productTablePage <= 1 ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                                opacity: productTablePage <= 1 ? 0.4 : 1,
+                                                                cursor: productTablePage <= 1 ? 'default' : 'pointer',
+                                                                fontSize: '0.8rem'
+                                                            }}
+                                                        >
+                                                            Previous
+                                                        </button>
+                                                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '0 6px' }}>
+                                                            Page {productTablePage} of {totalSoldPages}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setProductTablePage(prev => Math.min(totalSoldPages, prev + 1))}
+                                                            disabled={productTablePage >= totalSoldPages}
+                                                            style={{
+                                                                padding: '4px 10px',
+                                                                borderRadius: '6px',
+                                                                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #CBD5E1',
+                                                                backgroundColor: 'transparent',
+                                                                color: productTablePage >= totalSoldPages ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                                opacity: productTablePage >= totalSoldPages ? 0.4 : 1,
+                                                                cursor: productTablePage >= totalSoldPages ? 'default' : 'pointer',
+                                                                fontSize: '0.8rem'
+                                                            }}
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </motion.div>
                                 </div>
                             ) : (
