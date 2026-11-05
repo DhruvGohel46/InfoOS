@@ -539,6 +539,22 @@ app.on('web-contents-created', (event, contents) => {
     shell.openExternal(navigationUrl);
   });
   
+  // Explicitly grant Geolocation and Notification permissions for desktop POS
+  if (contents.session) {
+    contents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      const allowed = ['geolocation', 'notifications'];
+      if (allowed.includes(permission)) {
+        return callback(true);
+      }
+      callback(false);
+    });
+
+    contents.session.setPermissionCheckHandler((webContents, permission) => {
+      const allowed = ['geolocation', 'notifications'];
+      return allowed.includes(permission);
+    });
+  }
+
   // Set Content-Security-Policy
   contents.session.webRequest.onHeadersReceived((details, callback) => {
     // Get Supabase URL from environment variable for dynamic CSP
@@ -548,7 +564,7 @@ app.on('web-contents-created', (event, contents) => {
     // Get Cloud Backend URL from environment variable for dynamic CSP
     // Only include in CSP if it's configured (not using placeholder)
     const cloudApiUrl = process.env.REACT_APP_CLOUD_API_URL;
-    let connectSrc = `'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost} https://infoos-pos-backend.onrender.com https://*.onrender.com`;
+    let connectSrc = `'self' http://localhost:* http://127.0.0.1:* https://${supabaseHost} wss://${supabaseHost} https://infoos-pos-backend.onrender.com https://*.onrender.com https://*.open-meteo.com https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://ipapi.co https://ipwho.is https://api.bigdatacloud.net`;
     if (cloudApiUrl && !cloudApiUrl.includes('your-cloud-backend.onrender.com')) {
       const cloudApiHost = new URL(cloudApiUrl).hostname;
       connectSrc += ` https://${cloudApiHost}`;

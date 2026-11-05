@@ -3681,16 +3681,25 @@ const Settings = () => {
                                                     { value: 'openai', label: 'OpenAI' },
                                                     { value: 'anthropic', label: 'Claude (Anthropic)' },
                                                     { value: 'google', label: 'Gemini (Google)' },
-                                                    { value: 'custom_openai', label: 'Custom (Local or other)' }
+                                                    { value: 'groq', label: 'Groq' },
+                                                    { value: 'deepseek', label: 'DeepSeek' },
+                                                    { value: 'ollama', label: 'Ollama (Local)' },
+                                                    { value: 'custom_openai', label: 'Custom OpenAI-Compatible' }
                                                 ]}
                                                 value={agentConfig.provider}
                                                 onChange={(val) => {
                                                     const p = val;
-                                                    let defModel = 'gpt-4o-mini';
-                                                    if (p === 'anthropic') defModel = 'claude-3-5-sonnet-20241022';
-                                                    else if (p === 'google') defModel = 'gemini-1.5-flash';
-                                                    else if (p === 'custom_openai') defModel = 'llama3';
-                                                    setAgentConfig(prev => ({ ...prev, provider: p, model_name: defModel }));
+                                                    const providerDefaults = {
+                                                        openai:        { model: 'gpt-4o-mini',                url: '' },
+                                                        anthropic:     { model: 'claude-3-5-sonnet-20241022', url: '' },
+                                                        google:        { model: 'gemini-1.5-flash',           url: '' },
+                                                        groq:          { model: 'llama-3.3-70b-versatile',    url: 'https://api.groq.com/openai/v1' },
+                                                        deepseek:      { model: 'deepseek-chat',              url: 'https://api.deepseek.com/v1' },
+                                                        ollama:        { model: 'llama3',                     url: 'http://localhost:11434/v1' },
+                                                        custom_openai: { model: 'llama3',                     url: '' },
+                                                    };
+                                                    const def = providerDefaults[p] || { model: 'gpt-4o-mini', url: '' };
+                                                    setAgentConfig(prev => ({ ...prev, provider: p, model_name: def.model, base_url: def.url }));
                                                 }}
                                             />
                                         </div>
@@ -3709,20 +3718,30 @@ const Settings = () => {
                                         </div>
                                     </div>
 
-                                    {agentConfig.provider === 'custom_openai' && (
-                                        <div className="stFormGroup">
-                                            <div className="stLabel">
-                                                <span className="stLabelTitle">Base URL</span>
-                                                <span className="stLabelDesc">Local or custom endpoint URL</span>
-                                            </div>
-                                            <input
-                                                className="stInput"
-                                                value={agentConfig.base_url}
-                                                onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
-                                                placeholder="e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1"
-                                            />
+                                    <div className="stFormGroup">
+                                        <div className="stLabel">
+                                            <span className="stLabelTitle">Base URL</span>
+                                            <span className="stLabelDesc">
+                                                {['openai', 'anthropic', 'google'].includes(agentConfig.provider)
+                                                    ? 'Leave empty to use the default provider endpoint, or override with a custom URL'
+                                                    : 'API endpoint URL for your provider'}
+                                            </span>
                                         </div>
-                                    )}
+                                        <input
+                                            className="stInput"
+                                            value={agentConfig.base_url}
+                                            onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
+                                            placeholder={
+                                                agentConfig.provider === 'groq' ? 'https://api.groq.com/openai/v1' :
+                                                agentConfig.provider === 'deepseek' ? 'https://api.deepseek.com/v1' :
+                                                agentConfig.provider === 'ollama' ? 'http://localhost:11434/v1' :
+                                                agentConfig.provider === 'openai' ? 'https://api.openai.com/v1 (default)' :
+                                                agentConfig.provider === 'anthropic' ? 'https://api.anthropic.com/v1 (default)' :
+                                                agentConfig.provider === 'google' ? 'https://generativelanguage.googleapis.com/v1beta (default)' :
+                                                'e.g. http://localhost:11434/v1 or https://api.groq.com/openai/v1'
+                                            }
+                                        />
+                                    </div>
 
                                     <div className="stFormGroup">
                                         <div className="stLabel">

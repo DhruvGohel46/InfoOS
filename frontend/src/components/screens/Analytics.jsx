@@ -80,6 +80,37 @@ const BarTooltip = ({ active, payload }) => {
     );
 };
 
+// ─── Custom Tooltip for Sales Trend Area Chart (Week / Month / Year) ───
+const SalesAreaTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0].payload;
+    if (!d) return null;
+    return (
+        <div className="analytics-tooltip" style={{ minWidth: '180px', padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {d.date || d.name}
+                </span>
+                {d.quantity !== undefined && (
+                    <span style={{ 
+                        fontSize: '0.72rem', 
+                        fontWeight: 700, 
+                        padding: '2px 8px', 
+                        borderRadius: '20px',
+                        background: 'rgba(255, 122, 0, 0.15)',
+                        color: '#ff7a00'
+                    }}>
+                        {d.quantity} {d.quantity === 1 ? 'order' : 'orders'}
+                    </span>
+                )}
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {formatCurrency(d.total_amount || 0)}
+            </div>
+        </div>
+    );
+};
+
 // ─── Custom Tooltip for Expense Time-Interval Area Chart ───
 const ExpenseAreaTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) return null;
@@ -312,6 +343,7 @@ const Analytics = () => {
 
     // ─── Pie chart active sector ───
     const [activePieIndex, setActivePieIndex] = useState(-1);
+    const [activeCategoryPieIndex, setActiveCategoryPieIndex] = useState(-1);
 
     const safeSummary = useMemo(() => summary || {}, [summary]);
 
@@ -428,6 +460,35 @@ const Analytics = () => {
         });
         return filtered;
     }, [viewRange, safeSummary, rangeSummary, selectedGroupId, categories, groups]);
+
+    // ─── Formatted Category Share Data for Modern Interactive Donut ───
+    const categoryShareData = useMemo(() => {
+        const entries = Object.entries(displayCategoryTotals || {});
+        const total = entries.reduce((acc, [, val]) => acc + (Number(val) || 0), 0);
+        return entries
+            .map(([name, val], idx) => {
+                const amount = Number(val) || 0;
+                const percent = total > 0 ? (amount / total) * 100 : 0;
+                return {
+                    name,
+                    total_amount: amount,
+                    percent,
+                    color: CHART_COLORS[idx % CHART_COLORS.length]
+                };
+            })
+            .sort((a, b) => b.total_amount - a.total_amount);
+    }, [displayCategoryTotals]);
+
+    const totalCategoryAmount = useMemo(() => {
+        return categoryShareData.reduce((acc, c) => acc + c.total_amount, 0);
+    }, [categoryShareData]);
+
+    const activeCategory = useMemo(() => {
+        if (activeCategoryPieIndex >= 0 && activeCategoryPieIndex < categoryShareData.length) {
+            return categoryShareData[activeCategoryPieIndex];
+        }
+        return null;
+    }, [activeCategoryPieIndex, categoryShareData]);
 
     // ═══════════════ DATA LOADING ═══════════════
 
@@ -1321,89 +1382,394 @@ const Analytics = () => {
                                             transition={{ duration: 0.5, delay: 0.1 }}
                                         >
                                             <div style={{ marginBottom: 16 }}>
-                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Product Sales</h3>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Top selling products this {viewRange}</span>
+                                                <h3 className="chart-card-title" style={{ margin: 0 }}>
+                                                    {viewRange === 'day' ? 'Product Sales' : 'Sales Trend'}
+                                                </h3>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                    {viewRange === 'day' ? 'Top selling products today' : `Daily sales trend this ${viewRange}`}
+                                                </span>
                                             </div>
-                                            <ResponsiveContainer width="100%" height={290} minWidth={0} minHeight={0}>
-                                                <BarChart
-                                                    data={chartProductSales.slice(0, 10)}
-                                                    margin={{ top: 8, right: 16, left: 0, bottom: 20 }}
-                                                    barCategoryGap="25%"
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
-                                                    <XAxis
-                                                        dataKey="name"
-                                                        tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
-                                                        tickFormatter={(tick) => tick.length > 12 ? `${tick.substring(0, 10)}...` : tick}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                    />
-                                                    <YAxis
-                                                        tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
-                                                        tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                    />
-                                                    <RechartsTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 122, 0, 0.04)' }} />
-                                                    <Bar 
-                                                        dataKey="total_amount" 
-                                                        radius={[4, 4, 0, 0]} 
-                                                        animationDuration={800}
-                                                        fill="#ffa15b" 
+                                            {viewRange === 'day' ? (
+                                                <ResponsiveContainer width="100%" height={290} minWidth={0} minHeight={0}>
+                                                    <BarChart
+                                                        data={chartProductSales.slice(0, 10)}
+                                                        margin={{ top: 8, right: 16, left: 0, bottom: 20 }}
+                                                        barCategoryGap="25%"
                                                     >
-                                                        {chartProductSales.slice(0, 10).map((entry, index) => (
-                                                            <Cell 
-                                                                key={`cell-${index}`} 
-                                                                fill="#ffa15b"
-                                                                style={{ transition: 'fill 0.2s ease' }}
-                                                                onMouseEnter={(e) => { e.target.setAttribute('fill', '#eb942b'); }}
-                                                                onMouseLeave={(e) => { e.target.setAttribute('fill', '#ffa15b'); }}
-                                                            />
-                                                        ))}
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+                                                        <XAxis
+                                                            dataKey="name"
+                                                            tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                            tickFormatter={(tick) => tick && tick.length > 12 ? `${tick.substring(0, 10)}...` : tick}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <YAxis
+                                                            tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                            tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <RechartsTooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 122, 0, 0.04)' }} />
+                                                        <Bar 
+                                                            dataKey="total_amount" 
+                                                            radius={[4, 4, 0, 0]} 
+                                                            animationDuration={800}
+                                                            fill="#ffa15b" 
+                                                        >
+                                                            {chartProductSales.slice(0, 10).map((entry, index) => (
+                                                                <Cell 
+                                                                    key={`cell-${index}`} 
+                                                                    fill="#ffa15b"
+                                                                    style={{ transition: 'fill 0.2s ease' }}
+                                                                    onMouseEnter={(e) => { e.target.setAttribute('fill', '#eb942b'); }}
+                                                                    onMouseLeave={(e) => { e.target.setAttribute('fill', '#ffa15b'); }}
+                                                                />
+                                                            ))}
+                                                        </Bar>
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <ResponsiveContainer width="100%" height={290} minWidth={0} minHeight={0}>
+                                                    <AreaChart
+                                                        data={chartProductSales}
+                                                        margin={{ top: 12, right: 16, left: 0, bottom: 12 }}
+                                                    >
+                                                        <defs>
+                                                            <linearGradient id="salesAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor="#ff7a00" stopOpacity={isDark ? 0.45 : 0.3} />
+                                                                <stop offset="50%" stopColor="#ffa15b" stopOpacity={isDark ? 0.18 : 0.1} />
+                                                                <stop offset="90%" stopColor="#ff7a00" stopOpacity={0.02} />
+                                                                <stop offset="100%" stopColor="#ff7a00" stopOpacity={0} />
+                                                            </linearGradient>
+                                                            <filter id="salesGlow" x="-20%" y="-20%" width="140%" height="150%">
+                                                                <feDropShadow dx="0" dy="6" stdDeviation="5" floodColor="#ff7a00" floodOpacity={isDark ? 0.5 : 0.3} />
+                                                            </filter>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} vertical={false} />
+                                                        <XAxis
+                                                            dataKey="name"
+                                                            interval={viewRange === 'month' ? 3 : viewRange === 'year' ? 30 : 0}
+                                                            tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <YAxis
+                                                            tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                                                            tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <RechartsTooltip 
+                                                            content={<SalesAreaTooltip />} 
+                                                            cursor={{ 
+                                                                stroke: isDark ? 'rgba(255, 122, 0, 0.4)' : 'rgba(255, 122, 0, 0.25)', 
+                                                                strokeWidth: 1.5, 
+                                                                strokeDasharray: '4 4' 
+                                                            }} 
+                                                        />
+                                                        <Area
+                                                            type="monotone"
+                                                            dataKey="total_amount"
+                                                            stroke="#ff7a00"
+                                                            strokeWidth={3}
+                                                            fill="url(#salesAreaGrad)"
+                                                            filter="url(#salesGlow)"
+                                                            activeDot={{
+                                                                r: 6,
+                                                                fill: '#ff7a00',
+                                                                stroke: isDark ? '#141722' : '#FFFFFF',
+                                                                strokeWidth: 2.5,
+                                                                style: { filter: 'drop-shadow(0 0 8px rgba(255, 122, 0, 0.8))' }
+                                                            }}
+                                                            dot={{
+                                                                r: 3.5,
+                                                                fill: '#ff7a00',
+                                                                stroke: isDark ? '#141722' : '#FFFFFF',
+                                                                strokeWidth: 1.5
+                                                            }}
+                                                            animationDuration={850}
+                                                            animationEasing="ease-out"
+                                                        />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            )}
                                         </motion.div>
 
-                                        {/* Doughnut Chart */}
+                                        {/* Category Share Card */}
                                         <motion.div
                                             className="analytics-chart-card"
                                             initial={{ opacity: 0, y: 16 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ duration: 0.5, delay: 0.2 }}
+                                            style={{ display: 'flex', flexDirection: 'column' }}
                                         >
-                                            <div style={{ marginBottom: 16 }}>
-                                                <h3 className="chart-card-title" style={{ margin: 0 }}>Category Share</h3>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Revenue contribution by category</span>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                                                <div>
+                                                    <h3 className="chart-card-title" style={{ margin: 0 }}>Category Share</h3>
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Revenue contribution by category</span>
+                                                </div>
+                                                {categoryShareData.length > 0 && (
+                                                    <div style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        padding: '4px 10px',
+                                                        borderRadius: '20px',
+                                                        background: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                                                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                                        fontSize: '0.74rem',
+                                                        fontWeight: 700,
+                                                        color: 'var(--text-primary)'
+                                                    }}>
+                                                        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: categoryShareData[0].color }} />
+                                                        <span>Top: {categoryShareData[0].name} ({categoryShareData[0].percent.toFixed(0)}%)</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div style={{ width: '100%', height: '290px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {Object.keys(displayCategoryTotals).length > 0 ? (
-                                                    <div style={{ width: '100%', height: '290px', minWidth: 0, minHeight: 0, position: 'relative' }}>
+
+                                            {categoryShareData.length > 0 ? (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '16px',
+                                                    flex: 1,
+                                                    minHeight: '290px',
+                                                    flexWrap: 'wrap'
+                                                }}>
+                                                    {/* Donut with Center HUD */}
+                                                    <div style={{ width: '210px', height: '210px', minWidth: '190px', position: 'relative', flexShrink: 0 }}>
                                                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                                             <PieChart>
                                                                 <Pie
-                                                                    activeIndex={activePieIndex}
-                                                                    activeShape={renderActiveShape}
-                                                                    onMouseEnter={(_, index) => setActivePieIndex(index)}
-                                                                    onMouseLeave={() => setActivePieIndex(-1)}
-                                                                    data={Object.entries(displayCategoryTotals).map(([name, val]) => ({ name, total_amount: val }))}
+                                                                    activeIndex={activeCategoryPieIndex}
+                                                                    activeShape={(props) => {
+                                                                        const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+                                                                        return (
+                                                                            <Sector
+                                                                                cx={cx}
+                                                                                cy={cy}
+                                                                                innerRadius={innerRadius - 3}
+                                                                                outerRadius={outerRadius + 5}
+                                                                                startAngle={startAngle}
+                                                                                endAngle={endAngle}
+                                                                                fill={fill}
+                                                                                style={{ filter: `drop-shadow(0 0 8px ${fill}90)` }}
+                                                                            />
+                                                                        );
+                                                                    }}
+                                                                    onMouseEnter={(_, index) => setActiveCategoryPieIndex(index)}
+                                                                    onMouseLeave={() => setActiveCategoryPieIndex(-1)}
+                                                                    data={categoryShareData}
                                                                     dataKey="total_amount"
                                                                     nameKey="name"
-                                                                    cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4}
-                                                                    isAnimationActive={false}
+                                                                    cx="50%"
+                                                                    cy="50%"
+                                                                    innerRadius={65}
+                                                                    outerRadius={88}
+                                                                    paddingAngle={4}
+                                                                    cornerRadius={4}
+                                                                    stroke={isDark ? '#141722' : '#FFFFFF'}
+                                                                    strokeWidth={2}
+                                                                    isAnimationActive={true}
+                                                                    animationDuration={600}
                                                                 >
-                                                                    {Object.entries(displayCategoryTotals).map((_, i) => (
-                                                                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                                                    {categoryShareData.map((entry, i) => (
+                                                                        <Cell
+                                                                            key={`cell-${i}`}
+                                                                            fill={entry.color}
+                                                                            style={{
+                                                                                transition: 'opacity 0.2s ease, transform 0.2s ease',
+                                                                                opacity: activeCategoryPieIndex === -1 || activeCategoryPieIndex === i ? 1 : 0.45
+                                                                            }}
+                                                                        />
                                                                     ))}
                                                                 </Pie>
-                                                                <RechartsTooltip formatter={(v) => formatCurrency(v)} />
                                                             </PieChart>
                                                         </ResponsiveContainer>
+
+                                                        {/* Center Interactive Overlay */}
+                                                        <div style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            right: 0,
+                                                            bottom: 0,
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            pointerEvents: 'none',
+                                                            textAlign: 'center',
+                                                            padding: '10px'
+                                                        }}>
+                                                            {activeCategory ? (
+                                                                <>
+                                                                    <span style={{
+                                                                        fontSize: '0.7rem',
+                                                                        fontWeight: 700,
+                                                                        color: activeCategory.color,
+                                                                        textTransform: 'uppercase',
+                                                                        letterSpacing: '0.6px',
+                                                                        maxWidth: '105px',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }}>
+                                                                        {activeCategory.name}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '1.2rem',
+                                                                        fontWeight: 800,
+                                                                        color: 'var(--text-primary)',
+                                                                        lineHeight: 1.15,
+                                                                        marginTop: '2px'
+                                                                    }}>
+                                                                        {formatCurrency(activeCategory.total_amount)}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '0.72rem',
+                                                                        fontWeight: 700,
+                                                                        padding: '1px 8px',
+                                                                        borderRadius: '10px',
+                                                                        background: `${activeCategory.color}25`,
+                                                                        color: activeCategory.color,
+                                                                        marginTop: '4px'
+                                                                    }}>
+                                                                        {activeCategory.percent.toFixed(1)}%
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span style={{
+                                                                        fontSize: '0.66rem',
+                                                                        fontWeight: 700,
+                                                                        color: 'var(--text-secondary)',
+                                                                        letterSpacing: '0.8px',
+                                                                        textTransform: 'uppercase'
+                                                                    }}>
+                                                                        TOTAL
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '1.25rem',
+                                                                        fontWeight: 800,
+                                                                        color: 'var(--text-primary)',
+                                                                        lineHeight: 1.15,
+                                                                        marginTop: '2px'
+                                                                    }}>
+                                                                        {formatCurrency(totalCategoryAmount)}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '0.72rem',
+                                                                        fontWeight: 600,
+                                                                        color: 'var(--text-secondary)',
+                                                                        marginTop: '3px'
+                                                                    }}>
+                                                                        {categoryShareData.length} {categoryShareData.length === 1 ? 'Category' : 'Categories'}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                ) : (
-                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No Category details found</div>
-                                                )}
-                                            </div>
+
+                                                    {/* Category List Breakdown */}
+                                                    <div
+                                                        style={{
+                                                            flex: 1,
+                                                            minWidth: '170px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '6px',
+                                                            maxHeight: '260px',
+                                                            overflowY: 'auto',
+                                                            paddingRight: '4px'
+                                                        }}
+                                                        className="custom-scrollbar"
+                                                    >
+                                                        {categoryShareData.map((cat, idx) => {
+                                                            const isHovered = activeCategoryPieIndex === idx;
+                                                            return (
+                                                                <div
+                                                                    key={cat.name}
+                                                                    onMouseEnter={() => setActiveCategoryPieIndex(idx)}
+                                                                    onMouseLeave={() => setActiveCategoryPieIndex(-1)}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        padding: '7px 10px',
+                                                                        borderRadius: '10px',
+                                                                        background: isHovered
+                                                                            ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
+                                                                            : (isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)'),
+                                                                        border: isHovered
+                                                                            ? `1px solid ${cat.color}70`
+                                                                            : (isDark ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(0, 0, 0, 0.04)'),
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.18s ease',
+                                                                        transform: isHovered ? 'translateX(3px)' : 'none'
+                                                                    }}
+                                                                >
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                                        <div style={{
+                                                                            width: 8,
+                                                                            height: 8,
+                                                                            borderRadius: '50%',
+                                                                            backgroundColor: cat.color,
+                                                                            boxShadow: isHovered ? `0 0 8px ${cat.color}` : 'none',
+                                                                            flexShrink: 0
+                                                                        }} />
+                                                                        <span style={{
+                                                                            fontSize: '0.82rem',
+                                                                            fontWeight: isHovered ? 700 : 600,
+                                                                            color: 'var(--text-primary)',
+                                                                            whiteSpace: 'nowrap',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            maxWidth: '95px'
+                                                                        }}>
+                                                                            {cat.name}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                            {formatCurrency(cat.total_amount)}
+                                                                        </span>
+                                                                        <span style={{
+                                                                            fontSize: '0.7rem',
+                                                                            fontWeight: 700,
+                                                                            padding: '1px 5px',
+                                                                            borderRadius: '5px',
+                                                                            backgroundColor: isHovered ? cat.color : `${cat.color}15`,
+                                                                            color: isHovered ? '#FFFFFF' : cat.color,
+                                                                            minWidth: '38px',
+                                                                            textAlign: 'center',
+                                                                            transition: 'all 0.18s'
+                                                                        }}>
+                                                                            {cat.percent.toFixed(0)}%
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    minHeight: '290px',
+                                                    color: 'var(--text-secondary)',
+                                                    fontSize: '0.9rem',
+                                                    gap: '8px'
+                                                }}>
+                                                    <span>No Category sales in this period</span>
+                                                </div>
+                                            )}
                                         </motion.div>
                                     </div>
 

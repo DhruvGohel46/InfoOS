@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { profileAPI } from '../../api/profile';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -272,15 +273,35 @@ const LocationMapPicker = ({
         }
     }, [latitude, longitude]);
 
-    // Handle "Use My Current Location" (Browser Geolocation API)
+    // Handle "Use My Current Location" (Browser Geolocation API + Fallback)
     const handleUseCurrentLocation = () => {
+        setLocating(true);
+        setStatusMessage('Acquiring location...');
+
+        const fallbackToIPDetection = async (originalErr) => {
+            try {
+                setStatusMessage('Detecting location via network service...');
+                const res = await profileAPI.detectLocation();
+                if (res?.success && res.latitude && res.longitude) {
+                    updatePinPosition(res.latitude, res.longitude, 16);
+                    setLocating(false);
+                    const locLabel = res.city ? `${res.city}, ${res.region || res.country}` : 'your network';
+                    setStatusMessage(`Pin placed near ${locLabel}! You can drag it to your exact store door.`);
+                    setTimeout(() => setStatusMessage(''), 5000);
+                    return;
+                }
+            } catch (ipErr) {
+                console.warn('IP location detection fallback failed:', ipErr);
+            }
+            setLocating(false);
+            setStatusMessage(`Could not detect location: ${originalErr?.message || 'Permission denied or unavailable'}. Please use "Locate from Address / City" or click the map.`);
+            setTimeout(() => setStatusMessage(''), 6000);
+        };
+
         if (!navigator.geolocation) {
-            setStatusMessage('Geolocation is not supported by your browser.');
+            fallbackToIPDetection({ message: 'Geolocation not supported' });
             return;
         }
-
-        setLocating(true);
-        setStatusMessage('Acquiring high-accuracy GPS position...');
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -291,11 +312,11 @@ const LocationMapPicker = ({
                 setTimeout(() => setStatusMessage(''), 4000);
             },
             (error) => {
-                setLocating(false);
-                setStatusMessage(`Could not detect location: ${error.message}`);
-                setTimeout(() => setStatusMessage(''), 4000);
+                // If browser / OS network service fails or permission is denied, seamlessly fall back to IP geolocation
+                console.warn('navigator.geolocation failed, falling back to IP detection:', error.message);
+                fallbackToIPDetection(error);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
         );
     };
 
@@ -311,36 +332,57 @@ const LocationMapPicker = ({
         setStatusMessage(`Searching worldwide map for: "${query}"...`);
 
         try {
-            // Primary: Open-Meteo Geocoding (Global)
             let foundLat = null;
             let foundLon = null;
 
-            const qTerm = [city, state, country].filter(Boolean).join(' ') || pincode || address;
-            if (qTerm) {
-                const omResp = await fetch(
-                    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(qTerm)}&count=1&language=en&format=json`
-                );
-                if (omResp.ok) {
-                    const omData = await omResp.json();
-                    if (omData?.results && omData.results.length > 0) {
-                        foundLat = Number(omData.results[0].latitude);
-                        foundLon = Number(omData.results[0].longitude);
+            // 1. Try server-side geocode route first (immune to client-side CSP or CORS blocks)
+            try {
+                const srvRes = await profileAPI.geocodeAddress(query);
+                if (srvRes?.success && srvRes.latitude && srvRes.longitude) {
+                    foundLat = Number(srvRes.latitude);
+                    foundLon = Number(srvRes.longitude);
+                }
+            } catch (srvErr) {
+                console.warn('Server geocode fallback attempted:', srvErr?.message || srvErr);
+            }
+
+            // 2. Direct client fetch fallback: Open-Meteo
+            if (foundLat === null || foundLon === null) {
+                const qTerm = [city, state, country].filter(Boolean).join(' ') || pincode || address;
+                if (qTerm) {
+                    try {
+                        const omResp = await fetch(
+                            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(qTerm)}&count=1&language=en&format=json`
+                        );
+                        if (omResp.ok) {
+                            const omData = await omResp.json();
+                            if (omData?.results && omData.results.length > 0) {
+                                foundLat = Number(omData.results[0].latitude);
+                                foundLon = Number(omData.results[0].longitude);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Open-Meteo direct fetch failed:', e);
                     }
                 }
             }
 
-            // Fallback: Nominatim OSM
+            // 3. Fallback: Nominatim OSM
             if (foundLat === null || foundLon === null) {
-                const osmResp = await fetch(
-                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-                    { headers: { 'User-Agent': 'InfoOS-POS/1.0 (infoos@local.dev)' } }
-                );
-                if (osmResp.ok) {
-                    const osmData = await osmResp.json();
-                    if (osmData && osmData.length > 0) {
-                        foundLat = Number(osmData[0].lat);
-                        foundLon = Number(osmData[0].lon);
+                try {
+                    const osmResp = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+                        { headers: { 'User-Agent': 'InfoOS-POS/1.0 (infoos@local.dev)' } }
+                    );
+                    if (osmResp.ok) {
+                        const osmData = await osmResp.json();
+                        if (osmData && osmData.length > 0) {
+                            foundLat = Number(osmData[0].lat);
+                            foundLon = Number(osmData[0].lon);
+                        }
                     }
+                } catch (e) {
+                    console.warn('Nominatim direct fetch failed:', e);
                 }
             }
 
