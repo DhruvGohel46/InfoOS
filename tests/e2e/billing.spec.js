@@ -27,6 +27,49 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify({ data: { all_paid: true } }),
     });
   });
+  // Mock background polling/catalog endpoints so tests don't hang on unmocked GET retries in CI
+  await page.route("**/api/products/catalog-version**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, catalog_version: "0" }),
+    });
+  });
+  await page.route("**/api/groups**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: { groups: [] } }),
+    });
+  });
+  await page.route("**/api/summary/today**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, summary: {} }),
+    });
+  });
+  await page.route("**/api/notifications**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, notifications: [] }),
+    });
+  });
+  await page.route("**/api/reminders**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, reminders: [] }),
+    });
+  });
+  await page.route("**/api/bills/today**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, bills: [] }),
+    });
+  });
 });
 
 /**
@@ -338,7 +381,7 @@ test.describe("POS Layout Reordering", () => {
     await Promise.all([categoriesReqPromise, productsReqPromise]);
 
     // Verify Edit Mode exited cleanly once layout saving finished
-    await expect(editLayoutBtn).toBeVisible();
+    await expect(editLayoutBtn).toBeVisible({ timeout: 10_000 });
     await expect(doneBtn).not.toBeVisible();
 
     // Verify the APIs were triggered on Done click

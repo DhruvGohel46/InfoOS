@@ -376,9 +376,13 @@ const WorkingPOSInterface = ({ onBillCreated }) => {
         await Promise.all(promises);
       }
 
-      await refreshAll();
-      showSuccess('Layout reordered successfully');
       setIsEditMode(false);
+      showSuccess('Layout reordered successfully');
+      try {
+        await refreshAll();
+      } catch (refreshErr) {
+        console.warn('Failed to refresh POS data after layout change:', refreshErr);
+      }
     } catch (err) {
       console.error('Failed to save layout order:', err);
       showWarning(err.message || 'Failed to save layout reordering');
