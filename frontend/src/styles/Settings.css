@@ -19,8 +19,8 @@
     flex-direction: column;
     gap: 14px;
     width: 100%;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    /* blur removed */
+    /* blur removed */
 }
 
 [data-theme="light"] .stStickyHeader {

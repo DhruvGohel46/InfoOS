@@ -780,19 +780,15 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
     >
       {/* Header Card with Unified Navigation */}
       <div style={{
-        padding: '18px 24px',
+        padding: '16px 20px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: isDark
-          ? 'linear-gradient(165deg, #18191D 0%, #111215 100%)'
-          : '#FFFFFF',
-        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-        borderRadius: '24px',
+        background: isDark ? '#141415' : '#FFFFFF',
+        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+        borderRadius: '12px',
         margin: '0 0 8px 0',
-        boxShadow: isDark
-          ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-          : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
+        boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.4)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
         flexWrap: 'wrap',
         gap: '16px'
       }}>
@@ -800,11 +796,11 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <div>
             <h1 style={{
-              fontSize: '1.65rem',
-              fontWeight: '900',
+              fontSize: '1.45rem',
+              fontWeight: 600,
               margin: 0,
-              color: isDark ? '#FFFFFF' : '#0F172A',
-              letterSpacing: '-0.02em'
+              color: isDark ? '#EDEDED' : '#171717',
+              letterSpacing: '-0.01em'
             }}>
               Management
             </h1>
@@ -813,11 +809,11 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
           {setActiveTab && (
             <div style={{
               display: 'inline-flex',
-              background: isDark ? '#1C1D22' : '#F1F5F9',
-              borderRadius: '999px',
-              padding: '4px',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-              gap: '4px'
+              background: isDark ? '#232325' : '#F4F4F5',
+              borderRadius: '8px',
+              padding: '2px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              gap: '2px'
             }}>
               <button
                 type="button"
@@ -827,13 +823,13 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '7px 18px',
+                  padding: '6px 14px',
                   background: 'transparent',
                   border: 'none',
-                  borderRadius: '999px',
-                  color: activeTab === 'products' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                  fontWeight: activeTab === 'products' ? 750 : 600,
-                  fontSize: '0.86rem',
+                  borderRadius: '6px',
+                  color: activeTab === 'products' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
+                  fontWeight: activeTab === 'products' ? 500 : 400,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap'
                 }}
@@ -841,13 +837,12 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 {activeTab === 'products' && (
                   <motion.div
                     layoutId="mgmt-view-tab-indicator"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      borderRadius: '999px',
-                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
-                      boxShadow: '0 3px 10px rgba(255, 107, 26, 0.35)',
+                      borderRadius: '6px',
+                      background: '#EA580C',
                       zIndex: 1
                     }}
                   />
@@ -864,13 +859,13 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '7px 18px',
+                  padding: '6px 14px',
                   background: 'transparent',
                   border: 'none',
-                  borderRadius: '999px',
-                  color: activeTab === 'groups' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                  fontWeight: activeTab === 'groups' ? 750 : 600,
-                  fontSize: '0.86rem',
+                  borderRadius: '6px',
+                  color: activeTab === 'groups' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
+                  fontWeight: activeTab === 'groups' ? 500 : 400,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap'
                 }}
@@ -878,13 +873,12 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 {activeTab === 'groups' && (
                   <motion.div
                     layoutId="mgmt-view-tab-indicator"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      borderRadius: '999px',
-                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
-                      boxShadow: '0 3px 10px rgba(255, 107, 26, 0.35)',
+                      borderRadius: '6px',
+                      background: '#EA580C',
                       zIndex: 1
                     }}
                   />
@@ -901,10 +895,10 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
           {/* Mode Switcher */}
           <div style={{
             display: 'flex',
-            backgroundColor: isDark ? '#1C1D22' : '#F1F5F9',
-            padding: '3px',
-            borderRadius: '12px',
-            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
+            backgroundColor: isDark ? '#232325' : '#F4F4F5',
+            padding: '2px',
+            borderRadius: '8px',
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
             marginRight: '6px'
           }}>
             <button
@@ -912,27 +906,26 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               onClick={() => setIsOnlineMode(false)}
               style={{
                 position: 'relative',
-                padding: '6px 14px',
-                borderRadius: '9px',
+                padding: '6px 12px',
+                borderRadius: '6px',
                 fontSize: '12px',
-                fontWeight: '700',
+                fontWeight: 500,
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor: 'transparent',
-                color: !isOnlineMode ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+                color: !isOnlineMode ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
                 whiteSpace: 'nowrap'
               }}
             >
               {!isOnlineMode && (
                 <motion.div
                   layoutId="mgmt-mode-tab-indicator"
-                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    borderRadius: '9px',
-                    backgroundColor: '#FF6B1A',
-                    boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                    borderRadius: '6px',
+                    backgroundColor: '#EA580C',
                     zIndex: 1
                   }}
                 />
@@ -950,27 +943,26 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               }}
               style={{
                 position: 'relative',
-                padding: '6px 14px',
-                borderRadius: '9px',
+                padding: '6px 12px',
+                borderRadius: '6px',
                 fontSize: '12px',
-                fontWeight: '700',
+                fontWeight: 500,
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor: 'transparent',
-                color: isOnlineMode ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+                color: isOnlineMode ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
                 whiteSpace: 'nowrap'
               }}
             >
               {isOnlineMode && (
                 <motion.div
                   layoutId="mgmt-mode-tab-indicator"
-                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    borderRadius: '9px',
-                    backgroundColor: '#FF6B1A',
-                    boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                    borderRadius: '6px',
+                    backgroundColor: '#EA580C',
                     zIndex: 1
                   }}
                 />
@@ -989,17 +981,17 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '7px',
-                  padding: '0 16px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  fontSize: '0.84rem',
-                  fontWeight: '700',
-                  border: isDark ? '1px solid rgba(16, 185, 129, 0.35)' : '1.5px solid #86EFAC',
-                  background: isDark ? 'rgba(16, 185, 129, 0.1)' : '#F0FDF4',
-                  color: isDark ? '#34D399' : '#16A34A',
+                  gap: '6px',
+                  padding: '0 14px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                  background: isDark ? '#232325' : '#F4F4F5',
+                  color: isDark ? '#EDEDED' : '#171717',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease'
+                  transition: 'border-color 0.12s ease'
                 }}
               >
                 <FiDownload size={15} /> Export Menu
@@ -1011,20 +1003,20 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '7px',
-                  padding: '0 16px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  fontSize: '0.84rem',
-                  fontWeight: '700',
-                  border: isDark ? '1px solid rgba(59, 130, 246, 0.35)' : '1.5px solid #93C5FD',
-                  background: isDark ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF',
-                  color: isDark ? '#60A5FA' : '#2563EB',
+                  gap: '6px',
+                  padding: '0 14px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                  background: isDark ? '#232325' : '#F4F4F5',
+                  color: isDark ? '#EDEDED' : '#171717',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease'
+                  transition: 'border-color 0.12s ease'
                 }}
               >
-                <FiUpload size={15} /> Bulk Ingest
+                <FiUpload size={15} /> Import CSV
               </button>
             </>
           ) : (
@@ -1037,17 +1029,17 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '7px',
-                    padding: '0 16px',
-                    height: '40px',
-                    borderRadius: '12px',
-                    fontSize: '0.84rem',
-                    fontWeight: '700',
-                    border: '1px solid rgba(139, 92, 246, 0.35)',
-                    background: 'rgba(139, 92, 246, 0.1)',
-                    color: '#A78BFA',
+                    gap: '6px',
+                    padding: '0 14px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                    background: isDark ? '#232325' : '#F4F4F5',
+                    color: isDark ? '#EDEDED' : '#171717',
                     cursor: 'pointer',
-                    transition: 'all 0.18s ease'
+                    transition: 'border-color 0.12s ease'
                   }}
                 >
                   <FiDownload size={15} /> {importingFromFranchise ? "Importing..." : "Import Franchise Menu"}
@@ -1061,17 +1053,17 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '7px',
-                    padding: '0 16px',
-                    height: '40px',
-                    borderRadius: '12px',
-                    fontSize: '0.84rem',
-                    fontWeight: '700',
-                    border: '1px solid rgba(245, 158, 11, 0.35)',
-                    background: 'rgba(245, 158, 11, 0.1)',
-                    color: '#FBBF24',
+                    gap: '6px',
+                    padding: '0 14px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                    background: isDark ? '#232325' : '#F4F4F5',
+                    color: isDark ? '#EDEDED' : '#171717',
                     cursor: 'pointer',
-                    transition: 'all 0.18s ease'
+                    transition: 'border-color 0.12s ease'
                   }}
                 >
                   <FiUpload size={15} /> {publishingMenu ? "Publishing..." : "Publish Menu"}
@@ -1087,19 +1079,19 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '0 20px',
-              height: '40px',
-              borderRadius: '14px',
-              fontSize: '0.88rem',
-              fontWeight: '800',
+              gap: '6px',
+              padding: '0 16px',
+              height: '36px',
+              borderRadius: '8px',
+              fontSize: '0.84rem',
+              fontWeight: 500,
               border: 'none',
-              background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+              background: '#EA580C',
               color: '#FFFFFF',
-              boxShadow: '0 6px 20px rgba(255, 107, 26, 0.35)',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
               cursor: showAddForm ? 'not-allowed' : 'pointer',
-              opacity: showAddForm ? 0.6 : 1,
-              transition: 'all 0.18s ease'
+              opacity: showAddForm ? 0.5 : 1,
+              transition: 'background-color 0.12s ease'
             }}
           >
             <IconPlus aria-hidden="true" /> Add Product
@@ -1443,15 +1435,15 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                       onClick={handleImportSubmit}
                       disabled={!importFile || importLoading}
                       style={{
-                        background: importFile && !importLoading ? 'linear-gradient(135deg, #FFB869 0%, #FF9736 100%)' : 'rgba(255,255,255,0.05)',
+                        background: importFile && !importLoading ? '#EA580C' : (isDark ? '#232325' : '#E5E5E5'),
                         border: 'none',
-                        borderRadius: '8px', padding: '10px 24px',
-                        color: importFile && !importLoading ? '#ffffff' : 'rgba(255,255,255,0.3)',
+                        borderRadius: '8px', padding: '8px 20px',
+                        color: importFile && !importLoading ? '#ffffff' : 'rgba(255,255,255,0.4)',
                         cursor: importFile && !importLoading ? 'pointer' : 'not-allowed',
-                        fontSize: '13px', fontWeight: '700',
+                        fontSize: '13px', fontWeight: 500,
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        transition: 'all 0.2s',
-                        boxShadow: importFile && !importLoading ? '0 4px 12px rgba(255, 151, 54, 0.25)' : 'none'
+                        transition: 'background-color 0.12s ease',
+                        boxShadow: 'none'
                       }}
                     >
                       {importLoading ? (
@@ -1473,7 +1465,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
       <div style={{
         padding: '0 0 16px 0',
         display: 'flex',
-        gap: '14px',
+        gap: '12px',
         alignItems: 'center',
         flexWrap: 'wrap',
         position: 'relative',
@@ -1489,9 +1481,11 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{
-              background: isDark ? '#16171B' : '#FFFFFF',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-              color: isDark ? '#FFFFFF' : '#0F172A'
+              background: isDark ? '#232325' : '#FFFFFF',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              color: isDark ? '#EDEDED' : '#171717',
+              borderRadius: '8px',
+              height: '36px'
             }}
           />
         </div>
@@ -1511,37 +1505,36 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
         {/* Segmented Filter Pills */}
         <div style={{
           display: 'inline-flex',
-          background: isDark ? '#16171B' : '#F1F5F9',
-          border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-          borderRadius: '14px',
-          padding: '3px',
-          gap: '3px'
+          background: isDark ? '#232325' : '#F4F4F5',
+          border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+          borderRadius: '8px',
+          padding: '2px',
+          gap: '2px'
         }}>
           <button
             onClick={() => setProductViewTab('active')}
             style={{
               position: 'relative',
-              padding: '7px 16px',
+              padding: '6px 14px',
               border: 'none',
-              borderRadius: '10px',
-              fontSize: '0.84rem',
-              fontWeight: '700',
+              borderRadius: '6px',
+              fontSize: '0.82rem',
+              fontWeight: productViewTab === 'active' ? 500 : 400,
               background: 'transparent',
-              color: productViewTab === 'active' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+              color: productViewTab === 'active' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
               cursor: 'pointer',
-              transition: 'color 0.18s ease'
+              transition: 'color 0.12s ease'
             }}
           >
             {productViewTab === 'active' && (
               <motion.div
                 layoutId="mgmt-product-view-tab-indicator"
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
-                  boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                  borderRadius: '6px',
+                  background: '#EA580C',
                   zIndex: 1
                 }}
               />
@@ -1554,27 +1547,26 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
             onClick={() => setProductViewTab('inactive')}
             style={{
               position: 'relative',
-              padding: '7px 16px',
+              padding: '6px 14px',
               border: 'none',
-              borderRadius: '10px',
-              fontSize: '0.84rem',
-              fontWeight: '700',
+              borderRadius: '6px',
+              fontSize: '0.82rem',
+              fontWeight: productViewTab === 'inactive' ? 500 : 400,
               background: 'transparent',
-              color: productViewTab === 'inactive' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
+              color: productViewTab === 'inactive' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
               cursor: 'pointer',
-              transition: 'color 0.18s ease'
+              transition: 'color 0.12s ease'
             }}
           >
             {productViewTab === 'inactive' && (
               <motion.div
                 layoutId="mgmt-product-view-tab-indicator"
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
-                  boxShadow: '0 2px 8px rgba(255, 107, 26, 0.3)',
+                  borderRadius: '6px',
+                  background: '#EA580C',
                   zIndex: 1
                 }}
               />
@@ -1593,54 +1585,52 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            height: '42px',
-            padding: '0 16px',
-            borderRadius: '14px',
-            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-            background: isDark ? '#16171B' : '#FFFFFF',
-            color: isDark ? '#FFFFFF' : '#0F172A',
-            fontSize: '0.86rem',
-            fontWeight: '700',
+            height: '36px',
+            padding: '0 14px',
+            borderRadius: '8px',
+            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+            background: isDark ? '#232325' : '#FFFFFF',
+            color: isDark ? '#EDEDED' : '#171717',
+            fontSize: '0.82rem',
+            fontWeight: 500,
             cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.18s ease'
+            transition: 'border-color 0.12s ease'
           }}
         >
-          <FiRefreshCw className={loading ? 'spinner' : ''} size={15} />
+          <FiRefreshCw className={loading ? 'spinner' : ''} size={14} />
           Refresh
         </button>
       </div>
 
       {/* Stats Bar */}
-      <div style={{ padding: '0 0 18px 0' }}>
+      <div style={{ padding: '0 0 16px 0' }}>
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', width: '100%' }}
         >
           {[
-            { label: 'Total Catalog', value: filteredProducts.length, color: '#3B82F6', icon: <FiPackage size={20} /> },
-            { label: 'Active in Menu', value: products.filter(p => p.active).length, color: '#10B981', icon: <FiTrendingUp size={20} /> },
-            { label: 'Disabled / Hidden', value: products.filter(p => !p.active).length, color: '#F59E0B', icon: <FiAlertTriangle size={20} /> },
+            { label: 'Total Catalog', value: filteredProducts.length, color: '#2563EB', icon: <FiPackage size={18} /> },
+            { label: 'Active in Menu', value: products.filter(p => p.active).length, color: '#16A34A', icon: <FiTrendingUp size={18} /> },
+            { label: 'Disabled / Hidden', value: products.filter(p => !p.active).length, color: '#D97706', icon: <FiAlertTriangle size={18} /> },
           ].map((item) => (
             <div
               key={item.label}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
-                padding: '18px 22px',
-                background: isDark ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)' : '#FFFFFF',
-                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-                borderRadius: '24px',
-                boxShadow: isDark
-                  ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-                  : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
+                gap: '14px',
+                padding: '14px 18px',
+                background: isDark ? '#19191B' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                borderRadius: '12px',
+                boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.4)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
               }}
             >
               <div style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '15px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
                 background: `${item.color}15`,
                 border: `1px solid ${item.color}30`,
                 display: 'flex',
@@ -1652,10 +1642,10 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                 {item.icon}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', color: isDark ? '#94A3B8' : '#64748B' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 400, color: isDark ? '#A1A1A6' : '#737373' }}>
                   {item.label}
                 </span>
-                <span style={{ fontSize: '1.45rem', fontWeight: '850', color: isDark ? '#FFFFFF' : '#0F172A', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '1.3rem', fontWeight: 600, color: isDark ? '#EDEDED' : '#171717', fontVariantNumeric: 'tabular-nums' }}>
                   {item.value}
                 </span>
               </div>
@@ -1947,71 +1937,66 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                         <div
                           className={`pmCard ${!product.active ? 'pmCardInactive' : ''}`}
                           style={{
-                            background: isDark
-                              ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)'
-                              : '#FFFFFF',
-                            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-                            borderRadius: '24px',
-                            padding: '20px',
+                            background: isDark ? '#19191B' : '#FFFFFF',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                            borderRadius: '12px',
+                            padding: '16px',
                             display: 'flex',
                             flexDirection: 'column',
                             justifyContent: 'space-between',
-                            boxShadow: isDark
-                              ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-                              : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
-                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                            minHeight: showImages ? '220px' : 'auto',
+                            boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.4)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
+                            transition: 'border-color 0.12s ease',
+                            minHeight: showImages ? '200px' : 'auto',
                             position: 'relative'
                           }}
                         >
                           {showImages && (
                             <div style={{
                               width: '100%',
-                              height: '140px',
-                              borderRadius: '18px',
-                              background: isDark ? '#141518' : '#F8FAFC',
-                              border: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #E2E8F0',
+                              height: '130px',
+                              borderRadius: '8px',
+                              background: isDark ? '#232325' : '#F4F4F5',
+                              border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               overflow: 'hidden',
-                              marginBottom: '14px',
+                              marginBottom: '12px',
                               position: 'relative'
                             }}>
                               {product.image_filename ? (
                                 <img
                                   src={productsAPI.getImageUrl(product.image_filename, product.updated_at)}
                                   alt={product.name}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease' }}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                   onError={(e) => {
                                     e.target.style.display = 'none';
                                     e.target.nextSibling.style.display = 'flex';
                                   }}
                                 />
                               ) : null}
-                              <div style={{ display: product.image_filename ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: isDark ? '#64748B' : '#94A3B8' }}>
-                                <FiPackage size={28} />
-                                <span style={{ fontSize: '11px', fontWeight: 600 }}>No Image</span>
+                              <div style={{ display: product.image_filename ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: isDark ? '#85858B' : '#85858B' }}>
+                                <FiPackage size={24} />
+                                <span style={{ fontSize: '11px', fontWeight: 400 }}>No Image</span>
                               </div>
                             </div>
                           )}
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'space-between' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
                                 <h4 style={{
-                                  fontSize: '1.02rem',
-                                  fontWeight: '800',
+                                  fontSize: '0.98rem',
+                                  fontWeight: 600,
                                   margin: 0,
-                                  color: isDark ? '#FFFFFF' : '#0F172A',
+                                  color: isDark ? '#EDEDED' : '#171717',
                                   letterSpacing: '-0.01em',
                                   lineHeight: 1.3
                                 }}>
                                   {product.name}
                                 </h4>
                                 <motion.button
-                                  whileHover={{ scale: 1.2 }}
-                                  whileTap={{ scale: 0.85 }}
+                                  whileTap={{ scale: 0.95 }}
                                   onClick={(e) => { e.stopPropagation(); handleToggleFavorite(product); }}
                                   title={product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
                                   style={{
@@ -2019,7 +2004,7 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                                     border: 'none',
                                     cursor: 'pointer',
                                     padding: '2px',
-                                    color: product.favorite ? '#EF4444' : (isDark ? '#64748B' : '#94A3B8'),
+                                    color: product.favorite ? '#DC2626' : (isDark ? '#85858B' : '#A1A1A6'),
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -2031,47 +2016,46 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                <div style={{ fontSize: '1.18rem', fontWeight: '850', color: '#FF6B1A', letterSpacing: '-0.02em' }}>
+                                <div style={{ fontSize: '1.10rem', fontWeight: 600, color: '#EA580C', fontVariantNumeric: 'tabular-nums' }}>
                                   {formatCurrency(product.price)}
                                 </div>
                                 <div style={{
-                                  fontSize: '0.68rem',
-                                  fontWeight: '750',
-                                  padding: '3px 9px',
-                                  borderRadius: '999px',
-                                  background: isDark ? 'rgba(255, 107, 26, 0.12)' : '#FFF7ED',
-                                  border: isDark ? '1px solid rgba(255, 107, 26, 0.3)' : '1px solid #FDBA74',
-                                  color: isDark ? '#FF8C42' : '#EA580C',
-                                  letterSpacing: '0.04em',
-                                  textTransform: 'uppercase'
+                                  fontSize: '0.72rem',
+                                  fontWeight: 500,
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: isDark ? 'rgba(234, 88, 12, 0.12)' : '#FFF7ED',
+                                  border: isDark ? '1px solid rgba(234, 88, 12, 0.25)' : '1px solid #FDBA74',
+                                  color: isDark ? '#FB923C' : '#EA580C',
                                 }}>
                                   {product.category_name || product.category || 'Standard'}
                                 </div>
                               </div>
 
                               {Array.isArray(product.variations) && product.variations.length > 0 && (
-                                <div style={{ fontSize: '0.74rem', color: isDark ? '#94A3B8' : '#64748B', fontWeight: 650, marginTop: '4px' }}>
+                                <div style={{ fontSize: '0.74rem', color: isDark ? '#A1A1A6' : '#525252', fontWeight: 400, marginTop: '4px' }}>
                                   {product.variations.length} variation{product.variations.length === 1 ? '' : 's'} available
                                 </div>
                               )}
 
                               {product.default_batch_size && Number(product.default_batch_size) > 1 && (
-                                <div style={{ fontSize: '0.72rem', color: '#10B981', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <span>📦 Batch Preset:</span>
+                                <div style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 500, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <FiPackage size={12} />
+                                  <span>Batch preset:</span>
                                   <span>{product.default_batch_size} units</span>
                                 </div>
                               )}
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid #F1F5F9' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: isDark ? '1px dashed rgba(255, 255, 255, 0.08)' : '1px dashed rgba(0, 0, 0, 0.08)' }}>
                               <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 fontSize: '0.78rem',
-                                padding: '6px 12px',
-                                borderRadius: '10px',
-                                background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC'
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                background: isDark ? '#232325' : '#F4F4F5'
                               }}>
                                 <span style={{ color: isDark ? '#94A3B8' : '#64748B', fontWeight: 600 }}>Stock</span>
                                 <span style={{
@@ -2178,31 +2162,27 @@ const ProductManagement = ({ activeTab, setActiveTab }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.65)' : 'rgba(15, 23, 42, 0.45)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)'
+              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(15, 23, 42, 0.5)'
             }}
           >
             <motion.div
               className="liquid-glass-card"
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: 'relative',
                 width: '90%',
                 maxWidth: '460px',
-                padding: 'var(--spacing-8)',
-                borderRadius: '24px',
-                backgroundColor: isDark ? 'rgba(22, 26, 32, 0.95)' : '#FFFFFF',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                border: isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1.5px solid #FECACA',
+                padding: 'var(--spacing-6)',
+                borderRadius: '16px',
+                backgroundColor: isDark ? '#19191B' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #FECACA',
                 boxShadow: isDark
-                  ? '0 25px 60px -10px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.08)'
-                  : '0 20px 50px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(226, 232, 240, 0.8)'
+                  ? '0 12px 28px rgba(0, 0, 0, 0.6)'
+                  : '0 12px 28px rgba(15, 23, 42, 0.12)'
               }}
             >
               <div style={{

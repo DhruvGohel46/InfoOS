@@ -435,28 +435,24 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        gap: '20px',
-        padding: '18px 24px',
-        background: isDark
-          ? 'linear-gradient(165deg, #18191D 0%, #111215 100%)'
-          : '#FFFFFF',
-        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-        borderRadius: '24px',
+        gap: '16px',
+        padding: '16px 20px',
+        background: isDark ? '#141415' : '#FFFFFF',
+        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+        borderRadius: '12px',
         marginBottom: '8px',
-        boxShadow: isDark
-          ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-          : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
+        boxShadow: isDark ? '0 1px 2px rgba(0, 0, 0, 0.4)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
         flexWrap: 'wrap'
       }}>
         {/* Left: Title + Segmented Navigation Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <div>
             <h1 style={{
-              fontSize: '1.65rem',
-              fontWeight: 900,
-              color: isDark ? '#FFFFFF' : '#0F172A',
+              fontSize: '1.45rem',
+              fontWeight: 600,
+              color: isDark ? '#EDEDED' : '#171717',
               margin: 0,
-              letterSpacing: '-0.02em'
+              letterSpacing: '-0.01em'
             }}>
               Management
             </h1>
@@ -465,11 +461,11 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
           {setActiveTab && (
             <div style={{
               display: 'inline-flex',
-              background: isDark ? '#1C1D22' : '#F1F5F9',
-              borderRadius: '999px',
-              padding: '4px',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-              gap: '4px'
+              background: isDark ? '#232325' : '#F4F4F5',
+              borderRadius: '8px',
+              padding: '2px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              gap: '2px'
             }}>
               <button
                 type="button"
@@ -478,18 +474,15 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '7px 18px',
-                  background: activeTab === 'products'
-                    ? 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)'
-                    : 'transparent',
+                  padding: '6px 14px',
+                  background: activeTab === 'products' ? '#EA580C' : 'transparent',
                   border: 'none',
-                  borderRadius: '999px',
-                  color: activeTab === 'products' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                  fontWeight: activeTab === 'products' ? 750 : 600,
-                  fontSize: '0.86rem',
+                  borderRadius: '6px',
+                  color: activeTab === 'products' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
+                  fontWeight: activeTab === 'products' ? 500 : 400,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  boxShadow: activeTab === 'products' ? '0 3px 10px rgba(255, 107, 26, 0.35)' : 'none'
+                  transition: 'background-color 0.12s ease'
                 }}
               >
                 <FiPackage size={16} /> Products Catalog
@@ -501,18 +494,15 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '7px 18px',
-                  background: activeTab === 'groups'
-                    ? 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)'
-                    : 'transparent',
+                  padding: '6px 14px',
+                  background: activeTab === 'groups' ? '#EA580C' : 'transparent',
                   border: 'none',
-                  borderRadius: '999px',
-                  color: activeTab === 'groups' ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B'),
-                  fontWeight: activeTab === 'groups' ? 750 : 600,
-                  fontSize: '0.86rem',
+                  borderRadius: '6px',
+                  color: activeTab === 'groups' ? '#FFFFFF' : (isDark ? '#A1A1A6' : '#525252'),
+                  fontWeight: activeTab === 'groups' ? 500 : 400,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
-                  transition: 'all 0.18s ease',
-                  boxShadow: activeTab === 'groups' ? '0 3px 10px rgba(255, 107, 26, 0.35)' : 'none'
+                  transition: 'background-color 0.12s ease'
                 }}
               >
                 <FiGrid size={16} /> Category & Groups
@@ -522,19 +512,19 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
         </div>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="gm-search-container" style={{ minWidth: '240px' }}>
-            <IoSearchOutline className="gm-search-icon" size={17} />
+          <div className="gm-search-container" style={{ minWidth: '220px' }}>
+            <IoSearchOutline className="gm-search-icon" size={16} />
             <input
               className="gm-search-input"
               placeholder="Search groups..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               style={{
-                height: '40px',
-                borderRadius: '12px',
-                background: isDark ? '#16171B' : '#F8FAFC',
-                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-                color: isDark ? '#FFFFFF' : '#0F172A'
+                height: '36px',
+                borderRadius: '8px',
+                background: isDark ? '#232325' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                color: isDark ? '#EDEDED' : '#171717'
               }}
             />
           </div>
@@ -543,17 +533,17 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              height: '40px',
-              padding: '0 16px',
-              borderRadius: '12px',
-              fontSize: '0.84rem',
-              fontWeight: '700',
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.35)' : '1.5px solid #93C5FD',
-              background: isDark ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF',
-              color: isDark ? '#60A5FA' : '#2563EB',
+              gap: '6px',
+              height: '36px',
+              padding: '0 14px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 500,
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              background: isDark ? '#232325' : '#F4F4F5',
+              color: isDark ? '#EDEDED' : '#171717',
               cursor: 'pointer',
-              transition: 'all 0.18s ease'
+              transition: 'border-color 0.12s ease'
             }}
           >
             Show All Categories
@@ -564,22 +554,22 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
             style={{ 
               display: 'inline-flex', 
               alignItems: 'center', 
-              gap: '8px',
-              height: '40px',
-              padding: '0 20px',
-              borderRadius: '14px',
-              fontSize: '0.88rem',
-              fontWeight: 800,
+              gap: '6px',
+              height: '36px',
+              padding: '0 16px',
+              borderRadius: '8px',
+              fontSize: '0.84rem',
+              fontWeight: 500,
               border: 'none',
-              background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+              background: '#EA580C',
               color: '#FFFFFF',
-              boxShadow: '0 6px 20px rgba(255, 107, 26, 0.35)',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
               cursor: showAddForm ? 'not-allowed' : 'pointer',
-              opacity: showAddForm ? 0.6 : 1,
-              transition: 'all 0.18s ease'
+              opacity: showAddForm ? 0.5 : 1,
+              transition: 'background-color 0.12s ease'
             }}
           >
-            <IoAddOutline size={18} /> Add Group
+            <IoAddOutline size={17} /> Add Group
           </button>
         </div>
       </div>
@@ -666,43 +656,43 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             style={{ 
-              marginBottom: '20px',
-              padding: '24px 28px',
-              borderRadius: '24px',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-              background: isDark ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)' : '#FFFFFF',
-              boxShadow: isDark ? '0 12px 36px -8px rgba(0, 0, 0, 0.5)' : '0 6px 24px -4px rgba(15, 23, 42, 0.08)'
+              marginBottom: '16px',
+              padding: '20px',
+              borderRadius: '16px',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              background: isDark ? '#19191B' : '#FFFFFF',
+              boxShadow: isDark ? '0 12px 28px rgba(0, 0, 0, 0.6)' : '0 12px 28px rgba(15, 23, 42, 0.12)'
             }}
           >
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center',
-              marginBottom: '20px',
-              paddingBottom: '16px',
-              borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #F1F5F9'
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)'
             }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A', letterSpacing: '-0.01em' }}>
+              <div style={{ fontSize: '1.15rem', fontWeight: 600, color: isDark ? '#EDEDED' : '#171717', letterSpacing: '-0.01em' }}>
                 {editingGroup ? 'Edit Group' : 'Add New Group'}
               </div>
               <button 
                 onClick={resetForm}
                 style={{
-                  padding: '6px',
-                  borderRadius: '10px',
+                  padding: '4px',
+                  borderRadius: '6px',
                   background: 'transparent',
                   border: 'none',
-                  color: isDark ? '#94A3B8' : '#64748B',
+                  color: isDark ? '#85858B' : '#737373',
                   cursor: 'pointer'
                 }}
               >
-                <IoCloseOutline size={22} />
+                <IoCloseOutline size={20} />
               </button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
                 <div>
-                  <div style={{ fontSize: '0.80rem', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.04em', color: isDark ? '#94A3B8' : '#64748B', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '0.80rem', fontWeight: 500, color: isDark ? '#A1A1A6' : '#525252', marginBottom: '6px' }}>
                     Group Name *
                   </div>
                   <input 
@@ -713,19 +703,19 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                     required 
                     placeholder="e.g. Beverages, Main Course"
                     style={{
-                      padding: '10px 16px',
-                      borderRadius: '12px',
-                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-                      background: isDark ? '#16171B' : '#F8FAFC',
-                      color: isDark ? '#FFFFFF' : '#0F172A',
-                      fontSize: '0.92rem',
-                      fontWeight: 600,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                      background: isDark ? '#232325' : '#FFFFFF',
+                      color: isDark ? '#EDEDED' : '#171717',
+                      fontSize: '0.88rem',
+                      fontWeight: 400,
                       width: '100%'
                     }}
                   />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.80rem', fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.04em', color: isDark ? '#94A3B8' : '#64748B', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '0.80rem', fontWeight: 500, color: isDark ? '#A1A1A6' : '#525252', marginBottom: '6px' }}>
                     Description
                   </div>
                   <input 
@@ -734,13 +724,13 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     placeholder="Brief description of this group..."
                     style={{
-                      padding: '10px 16px',
-                      borderRadius: '12px',
-                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-                      background: isDark ? '#16171B' : '#F8FAFC',
-                      color: isDark ? '#FFFFFF' : '#0F172A',
-                      fontSize: '0.92rem',
-                      fontWeight: 600,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                      background: isDark ? '#232325' : '#FFFFFF',
+                      color: isDark ? '#EDEDED' : '#171717',
+                      fontSize: '0.88rem',
+                      fontWeight: 400,
                       width: '100%'
                     }}
                   />
@@ -748,36 +738,36 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px 16px',
-                  borderRadius: '14px',
-                  background: isDark ? '#16171B' : '#F8FAFC',
-                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #E2E8F0'
+                  gap: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: isDark ? '#232325' : '#F4F4F5',
+                  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)'
                 }}>
                   <input 
                     type="checkbox" 
                     id="is_active_toggle" 
                     checked={formData.is_active} 
                     onChange={(e) => handleInputChange('is_active', e.target.checked)} 
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#FF6B1A' }} 
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#EA580C' }} 
                   />
-                  <label htmlFor="is_active_toggle" style={{ fontWeight: 700, fontSize: '0.90rem', cursor: 'pointer', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                  <label htmlFor="is_active_toggle" style={{ fontWeight: 500, fontSize: '0.86rem', cursor: 'pointer', color: isDark ? '#EDEDED' : '#171717' }}>
                     Active Group (Visible in POS & Menus)
                   </label>
                 </div>
               </div>
-              <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button 
                   type="button" 
                   onClick={resetForm}
                   style={{
-                    padding: '9px 22px',
-                    borderRadius: '12px',
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1.5px solid #CBD5E1',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                     background: 'transparent',
-                    color: isDark ? '#94A3B8' : '#64748B',
-                    fontWeight: 700,
-                    fontSize: '0.86rem',
+                    color: isDark ? '#EDEDED' : '#171717',
+                    fontWeight: 500,
+                    fontSize: '0.84rem',
                     cursor: 'pointer'
                   }}
                 >
@@ -786,14 +776,14 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                 <button 
                   type="submit" 
                   style={{
-                    padding: '9px 24px',
-                    borderRadius: '12px',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
                     border: 'none',
-                    background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                    background: '#EA580C',
                     color: '#FFFFFF',
-                    fontWeight: 750,
-                    fontSize: '0.86rem',
-                    boxShadow: '0 4px 14px rgba(255, 107, 26, 0.3)',
+                    fontWeight: 500,
+                    fontSize: '0.84rem',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                     cursor: 'pointer'
                   }}
                 >
@@ -888,36 +878,34 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                       border: !group.is_active
                         ? '1px dashed rgba(239, 68, 68, 0.35)'
                         : (isSelected
-                            ? '1.5px solid #FF6B1A'
-                            : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0')),
+                            ? '1px solid #EA580C'
+                            : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)')),
                       background: isDark
-                        ? (isSelected ? 'rgba(255, 107, 26, 0.08)' : 'linear-gradient(165deg, #18191E 0%, #121316 100%)')
+                        ? (isSelected ? 'rgba(234, 88, 12, 0.08)' : '#19191B')
                         : (isSelected ? '#FFF7ED' : '#FFFFFF'),
                       boxShadow: isDark
-                        ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-                        : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
+                        ? '0 1px 2px rgba(0, 0, 0, 0.4)'
+                        : '0 1px 3px rgba(0, 0, 0, 0.04)',
                       cursor: 'pointer',
-                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                      borderRadius: '24px'
+                      transition: 'border-color 0.12s ease',
+                      borderRadius: '12px'
                     }}
                     onClick={() => selectGroup(group)}
                     onMouseEnter={(e) => {
                       if (!isSelected) {
-                        e.currentTarget.style.transform = 'translateY(-3px)';
-                        e.currentTarget.style.borderColor = '#FF6B1A';
+                        e.currentTarget.style.borderColor = '#EA580C';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isSelected) {
-                        e.currentTarget.style.transform = 'translateY(0)';
                         e.currentTarget.style.borderColor = group.is_active
-                          ? (isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0')
-                          : 'rgba(239, 68, 68, 0.35)';
+                          ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)')
+                          : 'rgba(220, 38, 38, 0.35)';
                       }
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '1.10rem', fontWeight: 600, color: isDark ? '#EDEDED' : '#171717', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
                         {group.name}
                       </div>
                       <div onClick={(e) => e.stopPropagation()}>
@@ -925,51 +913,51 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                           type="checkbox"
                           checked={selectedGroupIds.includes(group.id)}
                           onChange={() => handleToggleSelectGroup(group.id)}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#FF6B1A' }}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#EA580C' }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); toggleGroupActive(group); }}
                         title={group.is_active ? 'Click to disable group' : 'Click to enable group'}
                         style={{
-                          padding: '3px 10px',
+                          padding: '2px 8px',
                           fontSize: '0.72rem',
-                          fontWeight: 750,
-                          borderRadius: '999px',
-                          border: group.is_active ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
-                          background: group.is_active ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4') : (isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2'),
-                          color: group.is_active ? '#10B981' : '#EF4444',
+                          fontWeight: 500,
+                          borderRadius: '4px',
+                          border: group.is_active ? '1px solid rgba(22, 163, 74, 0.25)' : '1px solid rgba(220, 38, 38, 0.25)',
+                          background: group.is_active ? (isDark ? 'rgba(22, 163, 74, 0.12)' : '#F0FDF4') : (isDark ? 'rgba(220, 38, 38, 0.12)' : '#FEF2F2'),
+                          color: group.is_active ? '#16A34A' : '#DC2626',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '5px',
-                          transition: 'all 0.15s ease'
+                          transition: 'background-color 0.12s ease'
                         }}
                       >
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: group.is_active ? '#10B981' : '#EF4444' }} />
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: group.is_active ? '#16A34A' : '#DC2626' }} />
                         {group.is_active ? 'Active' : 'Disabled'}
                       </button>
                     </div>
 
-                    <div style={{ fontSize: '0.86rem', color: isDark ? '#94A3B8' : '#64748B', lineHeight: 1.5, marginBottom: '16px', flex: 1 }}>
+                    <div style={{ fontSize: '0.84rem', color: isDark ? '#A1A1A6' : '#525252', lineHeight: 1.45, marginBottom: '14px', flex: 1 }}>
                       {group.description || 'No description available.'}
                     </div>
 
-                    <div style={{ height: '1px', background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9', width: '100%', marginBottom: '14px' }} />
+                    <div style={{ height: '1px', borderBottom: isDark ? '1px dashed rgba(255, 255, 255, 0.08)' : '1px dashed rgba(0, 0, 0, 0.08)', width: '100%', marginBottom: '12px' }} />
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                       <div style={{
-                        fontSize: '0.74rem',
-                        color: '#FF6B1A',
-                        fontWeight: 800,
-                        padding: '4px 10px',
-                        borderRadius: '999px',
-                        background: isDark ? 'rgba(255, 107, 26, 0.1)' : '#FFF7ED',
-                        border: '1px solid rgba(255, 107, 26, 0.25)',
+                        fontSize: '0.72rem',
+                        color: '#EA580C',
+                        fontWeight: 500,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: isDark ? 'rgba(234, 88, 12, 0.12)' : '#FFF7ED',
+                        border: '1px solid rgba(234, 88, 12, 0.25)',
                         whiteSpace: 'nowrap',
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -979,15 +967,15 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                         {group.categories_count || 0} Categories
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={() => handleEdit(group)} 
                           style={{ 
-                            padding: '6px 12px',
-                            borderRadius: '10px',
-                            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1.5px solid #CBD5E1',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                             background: 'transparent',
-                            color: isDark ? '#94A3B8' : '#64748B',
+                            color: isDark ? '#A1A1A6' : '#525252',
                             cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -1067,45 +1055,43 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '20px',
-              padding: '22px 28px',
-              background: isDark
-                ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)'
-                : '#FFFFFF',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-              borderRadius: '24px',
+              marginBottom: '16px',
+              padding: '16px 20px',
+              background: isDark ? '#141415' : '#FFFFFF',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+              borderRadius: '12px',
               boxShadow: isDark
-                ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-                : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
+                ? '0 1px 2px rgba(0, 0, 0, 0.4)'
+                : '0 1px 3px rgba(0, 0, 0, 0.04)',
               flexWrap: 'wrap',
               gap: '16px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <button
                   onClick={deselectGroup}
                   style={{
-                    padding: '8px 16px',
-                    borderRadius: '12px',
-                    background: isDark ? '#16171B' : '#F1F5F9',
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-                    color: isDark ? '#FFFFFF' : '#0F172A',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    background: isDark ? '#232325' : '#F4F4F5',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                    color: isDark ? '#EDEDED' : '#171717',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    fontSize: '0.86rem',
-                    fontWeight: 750,
-                    transition: 'all 0.18s ease'
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    transition: 'border-color 0.12s ease'
                   }}
                 >
-                  <IoChevronBackOutline size={16} /> Back to Groups
+                  <IoChevronBackOutline size={15} /> Back to Groups
                 </button>
                 <div>
                   <h2 style={{
-                    fontSize: '1.45rem',
-                    fontWeight: 850,
+                    fontSize: '1.25rem',
+                    fontWeight: 600,
                     margin: 0,
-                    color: isDark ? '#FFFFFF' : '#0F172A',
+                    color: isDark ? '#EDEDED' : '#171717',
                     letterSpacing: '-0.01em'
                   }}>
                     {isShowingAllCategories ? 'All Categories' : `Categories in ${selectedGroup?.name}`}
@@ -1113,19 +1099,19 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div className="gm-search-container" style={{ minWidth: '240px' }}>
-                  <IoSearchOutline className="gm-search-icon" size={17} />
+                <div className="gm-search-container" style={{ minWidth: '220px' }}>
+                  <IoSearchOutline className="gm-search-icon" size={16} />
                   <input
                     className="gm-search-input"
                     placeholder="Search categories..."
                     value={categorySearchTerm}
                     onChange={(e) => setCategorySearchTerm(e.target.value)}
                     style={{
-                      height: '40px',
-                      borderRadius: '12px',
-                      background: isDark ? '#16171B' : '#F8FAFC',
-                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #CBD5E1',
-                      color: isDark ? '#FFFFFF' : '#0F172A'
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: isDark ? '#232325' : '#FFFFFF',
+                      border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                      color: isDark ? '#EDEDED' : '#171717'
                     }}
                   />
                 </div>
@@ -1135,22 +1121,22 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                   style={{ 
                     display: 'inline-flex', 
                     alignItems: 'center', 
-                    gap: '8px',
-                    height: '40px',
-                    padding: '0 20px',
-                    borderRadius: '14px',
-                    fontSize: '0.88rem',
-                    fontWeight: 800,
+                    gap: '6px',
+                    height: '36px',
+                    padding: '0 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
                     border: 'none',
-                    background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                    background: '#EA580C',
                     color: '#FFFFFF',
-                    boxShadow: '0 6px 20px rgba(255, 107, 26, 0.35)',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                     cursor: showAddCategoryForm ? 'not-allowed' : 'pointer',
-                    opacity: showAddCategoryForm ? 0.6 : 1,
-                    transition: 'all 0.18s ease'
+                    opacity: showAddCategoryForm ? 0.5 : 1,
+                    transition: 'background-color 0.12s ease'
                   }}
                 >
-                  <IoAddOutline size={18} /> Add Category
+                  <IoAddOutline size={17} /> Add Category
                 </button>
               </div>
             </div>
@@ -1163,23 +1149,23 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   style={{
-                    marginBottom: '28px',
-                    padding: '24px 28px',
-                    borderRadius: '24px',
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
-                    background: isDark ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)' : '#FFFFFF',
-                    boxShadow: isDark ? '0 12px 36px -8px rgba(0, 0, 0, 0.5)' : '0 6px 24px -4px rgba(15, 23, 42, 0.08)'
+                    marginBottom: '20px',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                    background: isDark ? '#19191B' : '#FFFFFF',
+                    boxShadow: isDark ? '0 12px 28px rgba(0, 0, 0, 0.6)' : '0 12px 28px rgba(15, 23, 42, 0.12)'
                   }}
                 >
                   <div style={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center',
-                    marginBottom: '20px',
-                    paddingBottom: '16px',
-                    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #F1F5F9'
+                    marginBottom: '16px',
+                    paddingBottom: '12px',
+                    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)'
                   }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 600, color: isDark ? '#EDEDED' : '#171717' }}>
                       {editingCategory ? 'Edit Category' : 'Add New Category'}
                     </div>
                     <button 
@@ -1297,14 +1283,14 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                       <button 
                         type="submit" 
                         style={{
-                          padding: '9px 24px',
-                          borderRadius: '12px',
+                          padding: '8px 18px',
+                          borderRadius: '8px',
                           border: 'none',
-                          background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                          background: '#EA580C',
                           color: '#FFFFFF',
-                          fontWeight: 750,
-                          fontSize: '0.86rem',
-                          boxShadow: '0 4px 14px rgba(255, 107, 26, 0.3)',
+                          fontWeight: 500,
+                          fontSize: '0.84rem',
+                          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                           cursor: 'pointer'
                         }}
                       >
@@ -1318,31 +1304,31 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
 
             {/* Category List */}
             {loadingCategories ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: isDark ? '#94A3B8' : '#64748B' }}>Loading categories...</div>
+              <div style={{ padding: '32px', textAlign: 'center', color: isDark ? '#A1A1A6' : '#525252' }}>Loading categories...</div>
             ) : filteredCategories.length === 0 ? (
               <div style={{
-                padding: '48px 32px',
+                padding: '36px 24px',
                 textAlign: 'center',
-                border: isDark ? '2px dashed rgba(255, 255, 255, 0.1)' : '2px dashed #CBD5E1',
-                background: isDark ? 'rgba(255, 255, 255, 0.01)' : '#F8FAFC',
-                borderRadius: '24px'
+                border: isDark ? '1px dashed rgba(255, 255, 255, 0.1)' : '1px dashed rgba(0, 0, 0, 0.1)',
+                background: isDark ? '#19191B' : '#FFFFFF',
+                borderRadius: '12px'
               }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A', marginBottom: '8px' }}>No Categories Yet</div>
-                <div style={{ fontSize: '0.88rem', color: isDark ? '#94A3B8' : '#64748B', marginBottom: '20px' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 600, color: isDark ? '#EDEDED' : '#171717', marginBottom: '6px' }}>No Categories Yet</div>
+                <div style={{ fontSize: '0.84rem', color: isDark ? '#A1A1A6' : '#525252', marginBottom: '16px' }}>
                   {categorySearchTerm ? 'No categories match your search.' : 'Create your first category inside this group.'}
                 </div>
                 {!categorySearchTerm && (
                   <button
                     onClick={() => setShowAddCategoryForm(true)}
                     style={{
-                      padding: '10px 24px',
-                      borderRadius: '14px',
+                      padding: '8px 18px',
+                      borderRadius: '8px',
                       border: 'none',
-                      background: 'linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%)',
+                      background: '#EA580C',
                       color: '#FFFFFF',
-                      fontWeight: 750,
+                      fontWeight: 500,
                       cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(255, 107, 26, 0.3)'
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
                     }}
                   >
                     Create Category
@@ -1364,28 +1350,26 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                   <motion.div key={cat.id} variants={staggerItem}>
                     <div
                       style={{
-                        padding: '22px',
+                        padding: '16px',
                         position: 'relative',
                         overflow: 'hidden',
-                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1.5px solid #E2E8F0',
+                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                         opacity: cat.active ? 1 : 0.65,
-                        background: isDark ? 'linear-gradient(165deg, #18191E 0%, #121316 100%)' : '#FFFFFF',
+                        background: isDark ? '#19191B' : '#FFFFFF',
                         boxShadow: isDark
-                          ? '0 10px 30px -8px rgba(0, 0, 0, 0.5)'
-                          : '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(0, 0, 0, 0.02)',
-                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                        borderRadius: '24px',
-                        minHeight: '200px',
+                          ? '0 1px 2px rgba(0, 0, 0, 0.4)'
+                          : '0 1px 3px rgba(0, 0, 0, 0.04)',
+                        transition: 'border-color 0.12s ease',
+                        borderRadius: '12px',
+                        minHeight: '180px',
                         display: 'flex',
                         flexDirection: 'column'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-3px)';
-                        e.currentTarget.style.borderColor = '#FF6B1A';
+                        e.currentTarget.style.borderColor = '#EA580C';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0';
+                        e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
                       }}
                     >
                       <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1395,20 +1379,20 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                           </div>
                           <span
                             style={{
-                              padding: '3px 10px',
+                              padding: '2px 8px',
                               fontSize: '0.72rem',
-                              fontWeight: 750,
-                              background: cat.active ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4') : (isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9'),
-                              color: cat.active ? '#10B981' : '#64748B',
-                              border: cat.active ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #CBD5E1',
-                              borderRadius: '999px'
+                              fontWeight: 500,
+                              background: cat.active ? (isDark ? 'rgba(22, 163, 74, 0.12)' : '#F0FDF4') : (isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9'),
+                              color: cat.active ? '#16A34A' : '#525252',
+                              border: cat.active ? '1px solid rgba(22, 163, 74, 0.25)' : '1px solid rgba(0, 0, 0, 0.08)',
+                              borderRadius: '4px'
                             }}
                           >
                             {cat.active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
                         {isShowingAllCategories && (
-                          <div style={{ fontSize: '0.74rem', fontWeight: 750, color: '#FF6B1A', marginBottom: '10px', background: isDark ? 'rgba(255, 107, 26, 0.1)' : '#FFF7ED', padding: '3px 10px', borderRadius: '999px', alignSelf: 'flex-start', border: '1px solid rgba(255, 107, 26, 0.25)' }}>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#EA580C', marginBottom: '8px', background: isDark ? 'rgba(234, 88, 12, 0.1)' : '#FFF7ED', padding: '2px 8px', borderRadius: '4px', alignSelf: 'flex-start', border: '1px solid rgba(234, 88, 12, 0.25)' }}>
                             Group: {cat.group_name || 'Unassigned'}
                           </div>
                         )}
@@ -1416,14 +1400,15 @@ const GroupManagement = ({ activeTab, setActiveTab }) => {
                           {cat.description || 'No description available.'}
                         </div>
 
-                        <div style={{ height: '1px', background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9', width: '100%', marginBottom: '14px' }} />                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ height: '1px', borderBottom: isDark ? '1px dashed rgba(255, 255, 255, 0.08)' : '1px dashed rgba(0, 0, 0, 0.08)', width: '100%', marginBottom: '10px' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                           <div style={{
                             fontSize: '0.76rem',
                             color: '#10B981',
                             fontWeight: 800,
                             padding: '4px 10px',
-                            borderRadius: '999px',
-                            background: isDark ? 'rgba(16, 185, 129, 0.1)' : '#F0FDF4',
+                            borderRadius: '4px',
+                            background: isDark ? 'rgba(22, 163, 74, 0.1)' : '#F0FDF4',
                             border: '1px solid rgba(16, 185, 129, 0.25)',
                             whiteSpace: 'nowrap',
                             display: 'inline-flex',

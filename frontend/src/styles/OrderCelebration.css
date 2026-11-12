@@ -14,8 +14,8 @@
     align-items: center;
     justify-content: center;
     background: rgba(15, 23, 42, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* blur removed */
+    /* blur removed */
     padding: 20px;
     animation: ocFadeIn 0.25s var(--ease-out);
 }
@@ -339,8 +339,8 @@
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* blur removed */
+    /* blur removed */
 }
 
 .oc-badge-standard {

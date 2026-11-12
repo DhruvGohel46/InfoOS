@@ -35,13 +35,13 @@
   position: absolute;
   top: 12px;
   right: 38px;
-  background: linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%);
+  background: #EA580C;
   color: #FFFFFF;
   font-size: 10px;
   font-weight: 800;
   padding: 1px 7px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(255, 107, 26, 0.35);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   letter-spacing: 0.3px;
   pointer-events: none;
 }
@@ -60,8 +60,8 @@
   align-items: flex-start;
   gap: 12px;
   font-family: var(--font-primary), inherit;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* blur removed */
+  /* blur removed */
   border-left: 3px solid transparent;
 }
 
@@ -267,8 +267,8 @@
   align-items: center;
   justify-content: center;
   background: rgba(8, 10, 14, 0.65);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  /* blur removed */
+  /* blur removed */
 }
 
 [data-theme="light"] .rb-confirm-overlay {

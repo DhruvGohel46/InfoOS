@@ -197,9 +197,9 @@
 }
 
 .range-btn--active {
-  background: linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%) !important;
+  background: #EA580C !important;
   color: #FFFFFF !important;
-  box-shadow: 0 4px 12px rgba(255, 107, 26, 0.3) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .analytics-range-date {
@@ -248,7 +248,7 @@
 
 [data-theme="light"] .kpi-card:hover {
   border-color: #FF6B1A;
-  box-shadow: 0 10px 30px rgba(255, 107, 26, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-3px);
 }
 
@@ -260,7 +260,7 @@
 
 [data-theme="dark"] .kpi-card:hover {
   border-color: rgba(255, 107, 26, 0.5);
-  box-shadow: 0 10px 30px rgba(255, 107, 26, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-3px);
 }
 
@@ -357,7 +357,7 @@
 
 [data-theme="light"] .analytics-chart-card:hover {
   border-color: #FF6B1A;
-  box-shadow: 0 12px 36px rgba(255, 107, 26, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
@@ -369,7 +369,7 @@
 
 [data-theme="dark"] .analytics-chart-card:hover {
   border-color: rgba(255, 107, 26, 0.4);
-  box-shadow: 0 12px 36px rgba(255, 107, 26, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
@@ -397,7 +397,7 @@
   display: block;
   width: 4px;
   height: 18px;
-  background: linear-gradient(to bottom, #FF6B1A, #EA580C);
+  background: #EA580C;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -436,8 +436,8 @@
 
 /* ─── Modern Expense Area Tooltip ─── */
 .expense-area-tooltip {
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+  /* blur removed */
+  /* blur removed */
   transition: all 0.15s ease;
 }
 
@@ -481,7 +481,7 @@
   display: block;
   width: 4px;
   height: 18px;
-  background: linear-gradient(to bottom, #FF6B1A, #EA580C);
+  background: #EA580C;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -515,7 +515,7 @@
 
 [data-theme="light"] .download-card:hover {
   border-color: #FF6B1A;
-  box-shadow: 0 10px 30px rgba(255, 107, 26, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
@@ -527,7 +527,7 @@
 
 [data-theme="dark"] .download-card:hover {
   border-color: rgba(255, 107, 26, 0.4);
-  box-shadow: 0 10px 30px rgba(255, 107, 26, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
@@ -609,19 +609,19 @@
   padding: 11px 18px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #FF6B1A 0%, #EA580C 100%);
+  background: #EA580C;
   color: #ffffff;
   font-size: 0.88rem;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 100%;
-  box-shadow: 0 4px 14px rgba(255, 107, 26, 0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .download-card-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(255, 107, 26, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .download-card-btn:disabled {
@@ -649,7 +649,7 @@
 .transactions-accent {
   width: 4px;
   height: 22px;
-  background: linear-gradient(to bottom, #FF6B1A, #EA580C);
+  background: #EA580C;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -1095,8 +1095,8 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* blur removed */
+  /* blur removed */
   display: flex;
   align-items: center;
   justify-content: center;

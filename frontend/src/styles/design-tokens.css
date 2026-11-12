@@ -1,59 +1,43 @@
 /**
  * =============================================================================
- * LIQUID GLASS DESIGN SYSTEM - DESIGN-TOKENS.CSS
+ * INFOOS DESIGN SYSTEM - TOKENS
  * =============================================================================
- * 
- * ROLE: Complete design system for Liquid Glass + Soft Rounded Design Language
- * 
- * RESPONSIBILITIES:
- * - Define consistent border radius scale for soft rounded shapes
- * - Implement liquid glass background system with gradient overlays
- * - Create premium color palette for calm, professional UI
- * - Define spacing scale for breathable layouts
- * - Implement glass morphism effects with proper blur and transparency
- * 
- * DESIGN PHILOSOPHY:
- * - Soft rounded shapes (no sharp edges anywhere)
- * - Subtle glass layers with depth
- * - Gentle shadows and soft contrast
- * - Breathable spacing and calm motion
- * - Premium, human-crafted appearance
- * 
- * USAGE:
- * - All components should use these tokens for consistency
- * - Apply --radius-* tokens to all UI elements
- * - Use --glass-* classes for liquid glass effects
- * - Implement --spacing-* scale for consistent layouts
+ * Unslopped Craft Architecture:
+ * - 4px strict rhythmic grid
+ * - Graphite neutral ramp with warm commercial ember accent
+ * - Deliberate nested radius hierarchy (4px, 6px, 8px, 12px, 16px)
+ * - Quiet chrome, high-contrast legibility, zero decorative blur or glows
+ * - Tabular numerals and quiet hairline borders
  * =============================================================================
  */
 
 :root {
   /* ==============================================
-   * LIQUID GLASS BORDER RADIUS SYSTEM
+   * BORDER RADIUS HIERARCHY
    * ==============================================
-   * Consistent soft rounded shapes - no sharp edges
+   * Strict nested radius scale: inner = outer - padding
    */
-  --radius-sm: 10px;    /* Small elements: badges, pills */
-  --radius-md: 16px;    /* Buttons, inputs */
-  --radius-lg: 22px;    /* Cards, containers */
-  --radius-xl: 28px;    /* Large cards, modals */
-  --radius-pill: 999px; /* Fully rounded elements */
+  --radius-xs: 4px;     /* Micro badges, keycaps */
+  --radius-sm: 6px;     /* Tags, small controls */
+  --radius-md: 8px;     /* Buttons, inputs, tab items */
+  --radius-lg: 12px;    /* Cards, containers, inner panels */
+  --radius-xl: 16px;    /* Dialogs, sheets, modals */
+  --radius-pill: 999px; /* Status dots and true pills only */
 
-  /* Component-specific radius mapping */
+  /* Component radius mappings */
   --radius-button: var(--radius-md);
   --radius-card: var(--radius-lg);
-  --radius-input: 14px;
+  --radius-input: var(--radius-md);
   --radius-table: var(--radius-md);
-  --radius-dropdown: 18px;
+  --radius-dropdown: var(--radius-md);
   --radius-navbar: var(--radius-lg);
-  --radius-sidebar: 24px;
-  --radius-modal: 26px;
-  --radius-alert: 18px;
+  --radius-sidebar: var(--radius-lg);
+  --radius-modal: var(--radius-xl);
+  --radius-alert: var(--radius-md);
 
   /* ==============================================
-   * LIQUID GLASS SPACING SYSTEM
+   * SPACING SCALE (4px grid)
    * ==============================================
-   * Consistent breathable spacing scale
    */
   --spacing-1: 4px;
   --spacing-2: 8px;
@@ -63,88 +47,87 @@
   --spacing-6: 24px;
   --spacing-8: 32px;
   --spacing-10: 40px;
+  --spacing-12: 48px;
   
-  /* Global Page Layout Tokens */
+  /* Layout Spacing */
   --page-padding-x: var(--spacing-6);
   --page-padding-top: var(--spacing-6);
   --page-padding-bottom: var(--spacing-8);
   --page-section-gap: var(--spacing-6);
 
-  /* Component-specific spacing */
+  /* Component Spacing */
   --spacing-card-padding: var(--spacing-5);
-  --spacing-card-gap: 14px;
-  --spacing-button-padding: var(--spacing-3) var(--spacing-4);
-  --spacing-input-padding: var(--spacing-3) var(--spacing-4);
+  --spacing-card-gap: var(--spacing-4);
+  --spacing-button-padding: 8px 16px;
+  --spacing-input-padding: 8px 12px;
 
   /* ==============================================
-   * LIQUID GLASS BACKGROUND SYSTEM
+   * BACKGROUND SURFACES (Graphite / Quiet Neutral)
    * ==============================================
-   * Layered gradient backgrounds for depth and life
    */
   
-  /* Dark Theme Base */
-  --bg-dark-primary: #0f1115;
-  --bg-dark-gradient-1: radial-gradient(circle at 20% 20%, rgba(255,150,40,0.08), transparent 40%);
-  --bg-dark-gradient-2: radial-gradient(circle at 80% 80%, rgba(255,120,0,0.06), transparent 50%);
+  /* Dark Theme Surfaces */
+  --bg-dark-primary: #141415;
+  --bg-dark-deep: #0f0f10;
+  --bg-dark-card: #19191b;
+  --bg-dark-raised: #232325;
+  --bg-dark-border: rgba(255, 255, 255, 0.08);
+  --bg-dark-dashed: rgba(255, 255, 255, 0.12);
   
-  /* Light Theme Base */
-  --bg-light-primary: #f6f7f9;
-  --bg-light-gradient-1: radial-gradient(circle at 10% 10%, rgba(255,140,0,0.06), transparent 45%);
-  --bg-light-gradient-2: radial-gradient(circle at 90% 80%, rgba(255,160,50,0.05), transparent 50%);
+  /* Empty overlays (eliminating glowing washes) */
+  --bg-dark-gradient-1: none;
+  --bg-dark-gradient-2: none;
+  
+  /* Light Theme Surfaces */
+  --bg-light-primary: #fafafa;
+  --bg-light-deep: #f4f4f5;
+  --bg-light-card: #ffffff;
+  --bg-light-raised: #f4f4f5;
+  --bg-light-border: rgba(0, 0, 0, 0.08);
+  --bg-light-dashed: rgba(0, 0, 0, 0.14);
 
-  /* ==============================================
-   * LIQUID GLASS MORPHISM SYSTEM
-   * ==============================================
-   * Premium glass effects with proper transparency
-   */
+  --bg-light-gradient-1: none;
+  --bg-light-gradient-2: none;
+
+  /* Quiet surfaces (eliminating expensive blurs) */
+  --glass-dark-card: #19191b;
+  --glass-dark-header: #141415;
+  --glass-dark-sidebar: #0f0f10;
+  --glass-dark-modal: #19191b;
+  --glass-dark-border: rgba(255, 255, 255, 0.08);
+  --glass-dark-input: #232325;
   
-  /* Dark Theme Glass */
-  --glass-dark-card: rgba(22,26,32,0.75);
-  --glass-dark-header: rgba(15, 17, 21, 0.75);
-  --glass-dark-sidebar: rgba(15, 17, 21, 0.75);
-  --glass-dark-modal: rgba(20,24,30,0.85);
-  --glass-dark-border: rgba(255,255,255,0.06);
-  
-  /* Light Theme Glass */
   --glass-light-card: #ffffff;
-  --glass-light-header: rgba(255, 255, 255, 0.80);
-  --glass-light-sidebar: #ffffff;
+  --glass-light-header: #ffffff;
+  --glass-light-sidebar: #f4f4f5;
   --glass-light-modal: #ffffff;
-  --glass-light-border: #e2e8f0;
+  --glass-light-border: rgba(0, 0, 0, 0.08);
+  --glass-light-input: #f4f4f5;
 
-  /* Glass Effects */
-  --glass-blur: blur(2px);
-  --glass-blur-strong: blur(4px);
-  --glass-blur-light: blur(1px);
-
-  /* ==============================================
-   * LIQUID GLASS SHADOW SYSTEM
-   * ==============================================
-   * Soft, gentle shadows for depth and floating effect
-   */
-  
-  /* Dark Theme Shadows */
-  --shadow-dark-card: 0 2px 4px rgba(0,0,0,0.20);
-  --shadow-dark-hover: 0 4px 8px rgba(0,0,0,0.25);
-  --shadow-dark-modal: 0 6px 12px rgba(0,0,0,0.35);
-  --shadow-dark-button: 0 1px 3px rgba(0,0,0,0.15);
-  --shadow-dark-button-hover: 0 2px 5px rgba(0,0,0,0.20);
-  
-  /* Light Theme Shadows (High-contrast, crisp definition for rapid operation) */
-  --shadow-light-card: 0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05);
-  --shadow-light-hover: 0 8px 20px -4px rgba(15, 23, 42, 0.12), 0 3px 6px -2px rgba(15, 23, 42, 0.08);
-  --shadow-light-modal: 0 20px 40px -8px rgba(15, 23, 42, 0.16), 0 8px 16px -4px rgba(15, 23, 42, 0.10);
-  --shadow-light-button: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
-  --shadow-light-button-hover: 0 4px 10px -2px rgba(15, 23, 42, 0.12);
-
+  --glass-blur: none;
+  --glass-blur-strong: none;
+  --glass-blur-light: none;
 
   /* ==============================================
-   * LIQUID GLASS COLOR PALETTE
+   * DEPTH & SHADOWS (Hairlines + Discrete Steps)
    * ==============================================
-   * Premium, calm colors with orange accent
    */
+  --shadow-dark-card: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-dark-hover: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-dark-modal: 0 12px 28px rgba(0, 0, 0, 0.6);
+  --shadow-dark-button: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-dark-button-hover: 0 1px 2px rgba(0, 0, 0, 0.4);
   
-  /* Primary Orange Brand */
+  --shadow-light-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-light-hover: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-light-modal: 0 12px 28px rgba(0, 0, 0, 0.12);
+  --shadow-light-button: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-light-button-hover: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* ==============================================
+   * ACCENT COLOR (Warm Commercial Ember)
+   * ==============================================
+   */
   --primary-50: #fff7ed;
   --primary-100: #ffedd5;
   --primary-200: #fed7aa;
@@ -155,246 +138,206 @@
   --primary-700: #c2410c;
   --primary-800: #9a3412;
   --primary-900: #7c2d12;
-
-  /* Neutral Colors */
-  --neutral-50: #fafafa;
-  --neutral-100: #f5f5f5;
-  --neutral-200: #e5e5e5;
-  --neutral-300: #d4d4d4;
-  --neutral-400: #a3a3a3;
-  --neutral-500: #737373;
-  --neutral-600: #525252;
-  --neutral-700: #404040;
-  --neutral-800: #262626;
-  --neutral-900: #171717;
+  --accent-ember: #ea580c;
 
   /* Semantic Colors */
   --success-50: #f0fdf4;
-  --success-500: #22c55e;
-  --success-600: #16a34a;
+  --success-500: #16a34a;
+  --success-600: #15803d;
   
   --warning-50: #fffbeb;
-  --warning-500: #f59e0b;
-  --warning-600: #d97706;
+  --warning-500: #d97706;
+  --warning-600: #b45309;
   
   --error-50: #fef2f2;
-  --error-500: #ef4444;
-  --error-600: #dc2626;
+  --error-500: #dc2626;
+  --error-600: #b91c1c;
   
   --info-50: #eff6ff;
-  --info-500: #3b82f6;
-  --info-600: #2563eb;
+  --info-500: #2563eb;
+  --info-600: #1d4ed8;
 
   /* ==============================================
-   * LIQUID GLASS TYPOGRAPHY
+   * TYPOGRAPHY
    * ==============================================
-   * Premium typography with proper hierarchy
    */
-  
-  /* Font Families */
-  --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
   /* Font Sizes */
   --text-xs: 12px;
-  --text-sm: 14px;
-  --text-base: 16px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
   --text-lg: 18px;
   --text-xl: 20px;
   --text-2xl: 24px;
-  --text-3xl: 30px;
-  --text-4xl: 36px;
+  --text-3xl: 28px;
 
-  /* Font Weights */
-  --font-light: 300;
+  /* Font Weights (strict 400/500/600 discipline) */
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
-  --font-bold: 700;
 
   /* Line Heights */
   --line-tight: 1.25;
-  --line-normal: 1.5;
-  --line-relaxed: 1.75;
+  --line-normal: 1.45;
+  --line-relaxed: 1.6;
 
   /* ==============================================
-   * LIQUID GLASS ANIMATION SYSTEM
+   * MOTION (Crisp, Purposeful, Non-Bouncy)
    * ==============================================
-   * Smooth, subtle animations for premium feel
    */
-  
-  /* Transition Durations */
-  --transition-fast: 150ms;
-  --transition-normal: 250ms;
-  --transition-slow: 350ms;
+  --transition-fast: 120ms;
+  --transition-normal: 160ms;
+  --transition-slow: 240ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Transition Easing */
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-  /* Hover Transformations */
-  --hover-lift: translateY(-1px);
-  --hover-scale: scale(1.01);
+  --hover-lift: none;
+  --hover-scale: none;
   --active-scale: scale(0.99);
 
-  /* ==============================================
-   * THEME CONTEXT VARIABLES
-   * ==============================================
-   * These will be overridden by theme context
-   */
-  
-  /* Current Theme (will be set dynamically) */
+  /* Default Active Context */
   --bg-primary: var(--bg-light-primary);
-  --bg-gradient-overlay-1: var(--bg-light-gradient-1);
-  --bg-gradient-overlay-2: var(--bg-light-gradient-2);
+  --bg-gradient-overlay-1: none;
+  --bg-gradient-overlay-2: none;
   
   --glass-card: var(--glass-light-card);
   --glass-header: var(--glass-light-header);
   --glass-sidebar: var(--glass-light-sidebar);
   --glass-modal: var(--glass-light-modal);
   --glass-border: var(--glass-light-border);
+  --glass-input: var(--glass-light-input);
   
-  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-sm: var(--shadow-light-card);
   --shadow-card: var(--shadow-light-card);
   --shadow-hover: var(--shadow-light-hover);
   --shadow-modal: var(--shadow-light-modal);
   --shadow-button: var(--shadow-light-button);
   --shadow-button-hover: var(--shadow-light-button-hover);
 
-  /* Text Colors (will be set by theme) */
+  /* Three disciplined text roles */
   --text-primary: #171717;
   --text-secondary: #525252;
-  --text-tertiary: #64748b;
-  --text-muted: #737373;
+  --text-tertiary: #737373;
+  --text-muted: #85858b;
   --text-inverse: #ffffff;
 
-  /* Surfaces & Panels */
   --surface-primary: #ffffff;
   --glass-panel: #ffffff;
 
-  /* Border Colors */
   --border-primary: var(--glass-border);
-  --border-subtle: rgba(0,0,0,0.06);
-  --border-strong: rgba(0,0,0,0.10);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
 
-  /* Focus Ring */
-  --focus-color: var(--primary-500);
-  --focus-ring: 0 0 0 2px rgba(249, 115, 22, 0.15);
+  --focus-color: var(--primary-600);
+  --focus-ring: 0 0 0 2px rgba(234, 88, 12, 0.25);
 }
 
 /* ==============================================
- * DARK THEME OVERRIDES
+ * DARK THEME CONTEXT
  * ==============================================
  */
 [data-theme="dark"] {
   --bg-primary: var(--bg-dark-primary);
-  --bg-gradient-overlay-1: var(--bg-dark-gradient-1);
-  --bg-gradient-overlay-2: var(--bg-dark-gradient-2);
+  --bg-gradient-overlay-1: none;
+  --bg-gradient-overlay-2: none;
   
   --glass-card: var(--glass-dark-card);
   --glass-header: var(--glass-dark-header);
   --glass-sidebar: var(--glass-dark-sidebar);
   --glass-modal: var(--glass-dark-modal);
   --glass-border: var(--glass-dark-border);
-  --glass-panel: rgba(22, 26, 32, 0.85);
+  --glass-input: var(--glass-dark-input);
+  --glass-panel: var(--glass-dark-card);
   
-  --shadow-sm: 0 2px 6px -1px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-sm: var(--shadow-dark-card);
   --shadow-card: var(--shadow-dark-card);
   --shadow-hover: var(--shadow-dark-hover);
   --shadow-modal: var(--shadow-dark-modal);
   --shadow-button: var(--shadow-dark-button);
   --shadow-button-hover: var(--shadow-dark-button-hover);
 
-  --text-primary: #fafafa;
-  --text-secondary: #d4d4d4;
-  --text-tertiary: #94a3b8;
-  --text-muted: #a3a3a3;
-  --text-inverse: #171717;
+  --text-primary: #ededed;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #85858b;
+  --text-muted: #6b6b72;
+  --text-inverse: #141415;
 
-  --surface-primary: #16181d;
+  --surface-primary: #19191b;
 
-  --border-primary: var(--glass-border);
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.10);
+  --border-primary: var(--glass-dark-border);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
-  --focus-ring: 0 0 0 2px rgba(249, 115, 22, 0.25);
+  --focus-ring: 0 0 0 2px rgba(249, 115, 22, 0.35);
 }
 
 /* ==============================================
- * LIQUID GLASS UTILITY CLASSES
+ * CLEAN UTILITY CLASSES
  * ==============================================
  */
 
-/* Glass Morphism Components */
 .glass-card {
   background: var(--glass-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-card);
 }
 
 .glass-header {
   background: var(--glass-header);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--border-subtle);
   border-radius: var(--radius-navbar);
 }
 
 .glass-sidebar {
   background: var(--glass-sidebar);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-right: 1px solid var(--glass-border);
+  border-right: 1px solid var(--border-subtle);
   border-radius: var(--radius-sidebar);
 }
 
 .glass-modal {
   background: var(--glass-modal);
-  backdrop-filter: var(--glass-blur-strong);
-  -webkit-backdrop-filter: var(--glass-blur-strong);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border-primary);
   box-shadow: var(--shadow-modal);
   border-radius: var(--radius-modal);
 }
 
-/* Liquid Glass Button */
+/* Clean Action Button */
 .liquid-glass-button {
-  background: var(--primary-500);
-  border: none;
+  background: var(--primary-600);
+  border: 1px solid transparent;
   border-radius: var(--radius-button);
   padding: var(--spacing-button-padding);
-  color: var(--text-inverse);
+  color: #ffffff;
   font-weight: var(--font-medium);
   font-size: var(--text-base);
   cursor: pointer;
-  transition: all var(--transition-normal) var(--ease-out);
+  transition: background-color var(--transition-normal) var(--ease-out),
+              border-color var(--transition-normal) var(--ease-out);
   box-shadow: var(--shadow-button);
-  transform: translateY(0);
 }
 
 .liquid-glass-button:hover {
-  background: var(--primary-600);
-  transform: var(--hover-lift);
-  box-shadow: var(--shadow-button-hover);
+  background: var(--primary-700);
 }
 
 .liquid-glass-button:active {
   transform: var(--active-scale);
 }
 
-/* Liquid Glass Input */
+/* Clean Input */
 .liquid-glass-input {
-  background: transparent;
-  border: 1px solid var(--glass-border);
+  background: var(--glass-input);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-input);
   padding: var(--spacing-input-padding);
   color: var(--text-primary);
   font-size: var(--text-base);
-  transition: all var(--transition-normal) var(--ease-out);
+  transition: border-color var(--transition-normal) var(--ease-out),
+              box-shadow var(--transition-normal) var(--ease-out);
 }
 
 .liquid-glass-input:focus {
@@ -403,63 +346,19 @@
   outline: none;
 }
 
-/* Liquid Glass Card Hover */
-.liquid-glass-card {
-  transition: all var(--transition-normal) var(--ease-out);
+/* Tabular figures for operational speed */
+.tabular-numbers,
+.price-display,
+.stock-value,
+.pmPrice,
+.pmStockValue {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
-.liquid-glass-card:hover {
-  transform: var(--hover-lift);
-  box-shadow: var(--shadow-hover);
-}
-
-/* Spacing Utilities */
-.space-1 { margin: var(--spacing-1); }
-.space-2 { margin: var(--spacing-2); }
-.space-3 { margin: var(--spacing-3); }
-.space-4 { margin: var(--spacing-4); }
-.space-5 { margin: var(--spacing-5); }
-.space-6 { margin: var(--spacing-6); }
-.space-8 { margin: var(--spacing-8); }
-.space-10 { margin: var(--spacing-10); }
-
-.pad-1 { padding: var(--spacing-1); }
-.pad-2 { padding: var(--spacing-2); }
-.pad-3 { padding: var(--spacing-3); }
-.pad-4 { padding: var(--spacing-4); }
-.pad-5 { padding: var(--spacing-5); }
-.pad-6 { padding: var(--spacing-6); }
-.pad-8 { padding: var(--spacing-8); }
-.pad-10 { padding: var(--spacing-10); }
-
-/* Border Radius Utilities */
-.rounded-sm { border-radius: var(--radius-sm); }
-.rounded-md { border-radius: var(--radius-md); }
-.rounded-lg { border-radius: var(--radius-lg); }
-.rounded-xl { border-radius: var(--radius-xl); }
-.rounded-pill { border-radius: var(--radius-pill); }
-.rounded-button { border-radius: var(--radius-button); }
-.rounded-card { border-radius: var(--radius-card); }
-.rounded-input { border-radius: var(--radius-input); }
-.rounded-dropdown { border-radius: var(--radius-dropdown); }
-
-/* Animation Utilities */
-.hover-lift:hover {
-  transform: var(--hover-lift);
-  transition: transform var(--transition-normal) var(--ease-out);
-}
-
-.hover-scale:hover {
-  transform: var(--hover-scale);
-  transition: transform var(--transition-normal) var(--ease-out);
-}
-
-.active-scale:active {
-  transform: var(--active-scale);
-  transition: transform var(--transition-fast) var(--ease-out);
-}
-
-/* Smooth transitions for all interactive elements */
-button, a, input, textarea, select {
-  transition: all var(--transition-normal) var(--ease-out);
+/* Perforated receipt signature divider */
+.receipt-divider {
+  border: none;
+  border-bottom: 1px dashed var(--border-subtle);
+  margin: var(--spacing-3) 0;
 }

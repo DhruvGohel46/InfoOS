@@ -39,8 +39,8 @@
   border-radius: 20px; /* 20px corner radius */
   padding: 40px; /* Generous internal padding (~40px) */
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05); /* Soft drop shadow + inner highlight */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* blur removed */
+  /* blur removed */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -298,7 +298,7 @@
   align-items: flex-start;
   gap: 10px;
   margin-bottom: 20px;
-  backdrop-filter: blur(10px);
+  /* blur removed */
 }
 
 /* Primary CTA Button: fully rounded pill, orange gradient, shadow glow */
