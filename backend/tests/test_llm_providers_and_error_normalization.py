@@ -47,7 +47,9 @@ def test_get_adapter_xai_and_grok():
     assert adapter_grok.provider == "xai"
 
     # Custom base_url override still respected
-    adapter_custom = get_adapter(provider="xai", api_key="xai-key", base_url="https://custom.xai.endpoint/v1")
+    adapter_custom = get_adapter(
+        provider="xai", api_key="xai-key", base_url="https://custom.xai.endpoint/v1"
+    )
     assert adapter_custom.base_url == "https://custom.xai.endpoint/v1"
 
 
@@ -112,7 +114,9 @@ def test_all_adapters_include_desktop_user_agent():
         assert req_ant.get_header("User-agent") == DEFAULT_USER_AGENT
 
         # Test Google Gemini
-        mock_resp.read.return_value = b'{"candidates": [{"content": {"parts": [{"text": "OK"}]}}], "usageMetadata": {}}'
+        mock_resp.read.return_value = (
+            b'{"candidates": [{"content": {"parts": [{"text": "OK"}]}}], "usageMetadata": {}}'
+        )
         adapter_goog = get_adapter(provider="google", api_key="goog-test-key")
         adapter_goog.chat(messages=[{"role": "user", "content": "hi"}], model="gemini-2.0-flash")
         req_goog = mock_urlopen.call_args[0][0]
@@ -129,7 +133,9 @@ def test_google_adapter_preserves_selected_model():
     """GoogleAdapter must NOT coerce models to gemini-3.8-flash."""
     with patch("urllib.request.urlopen") as mock_urlopen:
         mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"candidates": [{"content": {"parts": [{"text": "Hello"}]}}], "usageMetadata": {}}'
+        mock_resp.read.return_value = (
+            b'{"candidates": [{"content": {"parts": [{"text": "Hello"}]}}], "usageMetadata": {}}'
+        )
         mock_resp.__enter__.return_value = mock_resp
         mock_urlopen.return_value = mock_resp
 
@@ -213,9 +219,9 @@ def test_update_config_provider_switch_clears_stale_key(app_client):
 def test_classify_quota_exhausted_gemini():
     """Google 429 RESOURCE_EXHAUSTED must classify as quota_exhausted."""
     raw_err = (
-        "Google Gemini API Error (429): {\"error\": {\"code\": 429, "
+        'Google Gemini API Error (429): {"error": {"code": 429, '
         "\"message\": \"RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'Queries' and limit 'Queries per day'\", "
-        "\"status\": \"RESOURCE_EXHAUSTED\"}}"
+        '"status": "RESOURCE_EXHAUSTED"}}'
     )
     norm = classify_llm_error(raw_err, provider="google", model_name="gemini-1.5-flash")
     assert norm.category == "quota_exhausted"
@@ -228,8 +234,8 @@ def test_classify_quota_exhausted_gemini():
 def test_classify_quota_exhausted_openai_and_grok():
     """OpenAI / Grok 429 or 403 insufficient_quota must classify as quota_exhausted."""
     raw_err = (
-        "OpenAI API Error (429): {\"error\": {\"message\": \"You exceeded your current quota, please check your plan and billing details.\", "
-        "\"type\": \"insufficient_quota\", \"code\": \"insufficient_quota\"}}"
+        'OpenAI API Error (429): {"error": {"message": "You exceeded your current quota, please check your plan and billing details.", '
+        '"type": "insufficient_quota", "code": "insufficient_quota"}}'
     )
     norm = classify_llm_error(raw_err, provider="xai", model_name="grok-2-latest")
     assert norm.category == "quota_exhausted"
@@ -250,7 +256,7 @@ def test_classify_rate_limit_temporary():
 
 def test_classify_invalid_api_key():
     """HTTP 401 or invalid API key message must classify as invalid_key."""
-    raw_err = "Anthropic API Error (401): {\"type\": \"error\", \"error\": {\"type\": \"authentication_error\", \"message\": \"invalid x-api-key\"}}"
+    raw_err = 'Anthropic API Error (401): {"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key"}}'
     norm = classify_llm_error(raw_err, provider="anthropic", model_name="claude-3-5-sonnet")
     assert norm.category == "invalid_key"
     assert "Invalid Claude (Anthropic) API Key" in norm.title
@@ -277,9 +283,9 @@ def test_classify_google_limit_reached_and_edge_cases():
     """Verify classifications for 'google api limit reached', typos, and daily vs RPM limits."""
     # Google daily quota reached
     err_daily = (
-        "Google Gemini API Error (429): {\"error\": {\"code\": 429, "
-        "\"message\": \"Quota exceeded for quota metric 'GenerateContent requests per day'\", "
-        "\"status\": \"RESOURCE_EXHAUSTED\"}}"
+        'Google Gemini API Error (429): {"error": {"code": 429, '
+        '"message": "Quota exceeded for quota metric \'GenerateContent requests per day\'", '
+        '"status": "RESOURCE_EXHAUSTED"}}'
     )
     norm1 = classify_llm_error(err_daily, provider="google")
     assert norm1.category == "quota_exhausted"
@@ -288,9 +294,9 @@ def test_classify_google_limit_reached_and_edge_cases():
 
     # Google per-minute RPM rate limit
     err_rpm = (
-        "Google Gemini API Error (429): {\"error\": {\"code\": 429, "
-        "\"message\": \"Quota exceeded for quota metric 'GenerateContent requests per minute'\", "
-        "\"status\": \"RESOURCE_EXHAUSTED\"}}"
+        'Google Gemini API Error (429): {"error": {"code": 429, '
+        '"message": "Quota exceeded for quota metric \'GenerateContent requests per minute\'", '
+        '"status": "RESOURCE_EXHAUSTED"}}'
     )
     norm2 = classify_llm_error(err_rpm, provider="google")
     assert norm2.category == "rate_limit"
@@ -318,7 +324,9 @@ def test_ollama_local_testing_without_api_key(app_client):
     # Test connection with ollama and empty key
     with patch("urllib.request.urlopen") as mock_urlopen:
         mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"choices": [{"message": {"content": "Connection OK"}}], "usage": {}}'
+        mock_resp.read.return_value = (
+            b'{"choices": [{"message": {"content": "Connection OK"}}], "usage": {}}'
+        )
         mock_resp.__enter__.return_value = mock_resp
         mock_urlopen.return_value = mock_resp
 
@@ -349,6 +357,7 @@ def test_default_model_resolution_for_xai_and_providers():
         adapter.chat(messages=[{"role": "user", "content": "hello"}], model=None)
         req = mock_urlopen.call_args[0][0]
         import json
+
         payload = json.loads(req.data.decode("utf-8"))
         assert payload["model"] == "grok-2-latest"
         assert payload["model"] != "gpt-4o-mini"

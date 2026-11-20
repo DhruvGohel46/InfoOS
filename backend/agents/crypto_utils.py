@@ -6,14 +6,17 @@ import logging
 
 _log = logging.getLogger(__name__)
 
+
 # Secret key file location in data directory
 def _get_key_file_path() -> str:
     try:
         from config import Config
+
         data_dir = Config.DATA_DIR
     except Exception:
         try:
             from backend.config import Config
+
             data_dir = Config.DATA_DIR
         except Exception:
             data_dir = os.environ.get("POS_DATA_DIR")
@@ -23,6 +26,7 @@ def _get_key_file_path() -> str:
                 candidate = os.path.abspath(os.path.join(cur_dir, "..", "data"))
                 data_dir = candidate if os.path.exists(candidate) else "data"
     return os.path.join(data_dir, ".agent_secret_key")
+
 
 _KEY_FILE = _get_key_file_path()
 

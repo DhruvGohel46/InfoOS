@@ -158,8 +158,16 @@ def classify_llm_error(
         )
 
     # 2. Cloudflare Bot Protection Block (HTTP 403 with Cloudflare signatures)
-    cloudflare_keywords = ["cloudflare", "just a moment...", "cf-ray", "attention required", "challenge-platform"]
-    if any(kw in err_lower for kw in cloudflare_keywords) or (status_code == 403 and "cloudflare" in err_lower):
+    cloudflare_keywords = [
+        "cloudflare",
+        "just a moment...",
+        "cf-ray",
+        "attention required",
+        "challenge-platform",
+    ]
+    if any(kw in err_lower for kw in cloudflare_keywords) or (
+        status_code == 403 and "cloudflare" in err_lower
+    ):
         return NormalizedLLMError(
             category="cloudflare_block",
             title="Request Blocked by Cloudflare Bot Protection",
@@ -191,8 +199,18 @@ def classify_llm_error(
         "concurrent requests",
     ]
     is_rate_limit = (
-        (status_code == 429 and any(kw in err_lower for kw in rate_limit_keywords))
-        or any(kw in err_lower for kw in ["requests per minute", "tokens per minute", "queries per minute", "rpm", "tpm", "qpm", "slow down"])
+        status_code == 429 and any(kw in err_lower for kw in rate_limit_keywords)
+    ) or any(
+        kw in err_lower
+        for kw in [
+            "requests per minute",
+            "tokens per minute",
+            "queries per minute",
+            "rpm",
+            "tpm",
+            "qpm",
+            "slow down",
+        ]
     )
 
     if is_rate_limit:
@@ -252,7 +270,10 @@ def classify_llm_error(
     is_quota = (
         status_code == 402
         or any(kw in err_lower for kw in quota_keywords)
-        or (status_code in [403, 429] and any(kw in err_lower for kw in ["quota", "credit", "balance", "billing", "limit"]))
+        or (
+            status_code in [403, 429]
+            and any(kw in err_lower for kw in ["quota", "credit", "balance", "billing", "limit"])
+        )
     )
 
     if is_quota:
@@ -338,7 +359,9 @@ def classify_llm_error(
         "temporarily unavailable",
         "internal server error",
     ]
-    if status_code in [500, 502, 503, 504, 529] or any(kw in err_lower for kw in server_busy_keywords):
+    if status_code in [500, 502, 503, 504, 529] or any(
+        kw in err_lower for kw in server_busy_keywords
+    ):
         return NormalizedLLMError(
             category="server_busy",
             title=f"{provider_title} Server Currently Busy",
@@ -350,7 +373,13 @@ def classify_llm_error(
         )
 
     # 7. Model Not Found / Deprecated (HTTP 404)
-    model_not_found_keywords = ["model_not_found", "model not found", "does not exist", "not supported for this endpoint", "unknown model"]
+    model_not_found_keywords = [
+        "model_not_found",
+        "model not found",
+        "does not exist",
+        "not supported for this endpoint",
+        "unknown model",
+    ]
     if status_code == 404 or any(kw in err_lower for kw in model_not_found_keywords):
         return NormalizedLLMError(
             category="model_not_found",
@@ -376,13 +405,19 @@ def classify_llm_error(
         "timed out",
     ]
     if any(kw in err_lower for kw in connection_keywords):
-        target = base_url or ("http://localhost:11434" if p_norm in ["ollama", "local"] else provider_title)
+        target = base_url or (
+            "http://localhost:11434" if p_norm in ["ollama", "local"] else provider_title
+        )
         if p_norm in ["ollama", "local"]:
             action = "Make sure Ollama is running on your machine (open a terminal and run 'ollama serve'), and that port 11434 is accessible."
         elif p_norm in ["custom_openai", "custom"]:
-            action = f"Verify that your local or remote server at {target} is running and accessible."
+            action = (
+                f"Verify that your local or remote server at {target} is running and accessible."
+            )
         else:
-            action = "Please verify your computer's internet connection and proxy/VPN configuration."
+            action = (
+                "Please verify your computer's internet connection and proxy/VPN configuration."
+            )
 
         return NormalizedLLMError(
             category="connection_refused",
@@ -395,7 +430,11 @@ def classify_llm_error(
         )
 
     # 9. Generic / Unknown Fallback
-    fallback_msg = cleaned_msg if cleaned_msg and len(cleaned_msg) < 200 else "The AI provider returned an unexpected error."
+    fallback_msg = (
+        cleaned_msg
+        if cleaned_msg and len(cleaned_msg) < 200
+        else "The AI provider returned an unexpected error."
+    )
     return NormalizedLLMError(
         category="unknown",
         title=f"{provider_title} Request Failed",

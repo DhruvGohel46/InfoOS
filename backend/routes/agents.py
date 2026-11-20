@@ -698,7 +698,9 @@ def test_llm_connection():
     data = request.json or {}
     config = AgentConfig.query.first()
 
-    provider = (data.get("provider") or (config.provider if config else "") or "openai").strip().lower()
+    provider = (
+        (data.get("provider") or (config.provider if config else "") or "openai").strip().lower()
+    )
     model_name = (data.get("model_name") or "").strip()
     base_url = (data.get("base_url") or "").strip()
     plain_key = (data.get("api_key") or "").strip()
@@ -708,7 +710,11 @@ def test_llm_connection():
     if not plain_key or plain_key == "••••••••••••••••":
         if config and config.encrypted_api_key:
             # If provider was changed in the UI, do not cross-contaminate keys from a different provider!
-            if provider and config.provider and provider.strip().lower() != config.provider.strip().lower():
+            if (
+                provider
+                and config.provider
+                and provider.strip().lower() != config.provider.strip().lower()
+            ):
                 return (
                     jsonify(
                         {
@@ -743,7 +749,12 @@ def test_llm_connection():
 
     # Resolve default model if not provided
     if not model_name:
-        if config and config.provider and config.provider.strip().lower() == provider and config.model_name:
+        if (
+            config
+            and config.provider
+            and config.provider.strip().lower() == provider
+            and config.model_name
+        ):
             model_name = config.model_name.strip()
         else:
             model_name = DEFAULT_PROVIDER_MODELS.get(provider, "gpt-4o-mini")
@@ -788,7 +799,11 @@ def test_llm_connection():
                     "action_hint": norm.action_hint,
                 }
             ),
-            norm.status_code if norm.status_code in [400, 401, 402, 403, 404, 429, 502, 503] else 400,
+            (
+                norm.status_code
+                if norm.status_code in [400, 401, 402, 403, 404, 429, 502, 503]
+                else 400
+            ),
         )
 
 

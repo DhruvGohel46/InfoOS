@@ -3,7 +3,13 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from agents.tools import AgentToolRegistry
 from agents.permission_gate import PermissionGate
-from agents.llm_adapter import LLMAdapter, AgentResponse, get_adapter, ToolCall, DEFAULT_PROVIDER_MODELS
+from agents.llm_adapter import (
+    LLMAdapter,
+    AgentResponse,
+    get_adapter,
+    ToolCall,
+    DEFAULT_PROVIDER_MODELS,
+)
 from agents.error_normalizer import classify_llm_error, NormalizedLLMError
 from agents.crypto_utils import decrypt_api_key
 from agents.fast_path import classify_intent_deterministic, try_zero_cost_fast_path
@@ -1563,7 +1569,9 @@ class OrchestratorAgent:
             raw_key = "ollama"
 
         adapter = get_adapter(provider=config.provider, api_key=raw_key, base_url=config.base_url)
-        default_model = (config.model_name or "").strip() or DEFAULT_PROVIDER_MODELS.get(p_norm, "gpt-4o-mini")
+        default_model = (config.model_name or "").strip() or DEFAULT_PROVIDER_MODELS.get(
+            p_norm, "gpt-4o-mini"
+        )
         max_tokens = config.max_tokens_per_response or 800
         max_tool_rounds = config.max_tool_rounds or 3
 

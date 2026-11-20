@@ -601,7 +601,9 @@ def get_adapter(provider: str, api_key: str, base_url: Optional[str] = None) -> 
             raise LLMAdapterError(
                 "Base URL is required for Custom OpenAI-Compatible provider. Please enter your provider endpoint URL."
             )
-        return OpenAICompatibleAdapter(api_key=api_key, base_url=base_url.strip(), provider="custom_openai")
+        return OpenAICompatibleAdapter(
+            api_key=api_key, base_url=base_url.strip(), provider="custom_openai"
+        )
     else:
         # Fallback for unrecognized provider
         if not base_url:
