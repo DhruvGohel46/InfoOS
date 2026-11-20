@@ -7,14 +7,32 @@ import logging
 _log = logging.getLogger(__name__)
 
 # Secret key file location in data directory
-_KEY_FILE = os.path.join(os.environ.get("POS_DATA_DIR", "data"), ".agent_secret_key")
+def _get_key_file_path() -> str:
+    try:
+        from config import Config
+        data_dir = Config.DATA_DIR
+    except Exception:
+        try:
+            from backend.config import Config
+            data_dir = Config.DATA_DIR
+        except Exception:
+            data_dir = os.environ.get("POS_DATA_DIR")
+            if not data_dir:
+                # Resolve relative to backend/data if running from anywhere in project
+                cur_dir = os.path.dirname(os.path.abspath(__file__))
+                candidate = os.path.abspath(os.path.join(cur_dir, "..", "data"))
+                data_dir = candidate if os.path.exists(candidate) else "data"
+    return os.path.join(data_dir, ".agent_secret_key")
+
+_KEY_FILE = _get_key_file_path()
 
 
 def _get_or_create_secret_key() -> bytes:
     """Retrieve or generate the local hardware/instance machine key."""
+    key_file = _get_key_file_path()
     try:
-        if os.path.exists(_KEY_FILE):
-            with open(_KEY_FILE, "rb") as f:
+        if os.path.exists(key_file):
+            with open(key_file, "rb") as f:
                 key = f.read().strip()
                 if key:
                     return key
@@ -32,8 +50,8 @@ def _get_or_create_secret_key() -> bytes:
         key = base64.urlsafe_b64encode(random_bytes)
 
     try:
-        os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
-        with open(_KEY_FILE, "wb") as f:
+        os.makedirs(os.path.dirname(key_file), exist_ok=True)
+        with open(key_file, "wb") as f:
             f.write(key)
     except Exception as e:
         _log.warning("Could not persist agent secret key file: %s", e)
@@ -46,18 +64,22 @@ def encrypt_api_key(plain_text: str) -> str:
     if not plain_text:
         return ""
 
+    plain_clean = plain_text.strip()
+    if not plain_clean:
+        return ""
+
     key = _get_or_create_secret_key()
     try:
         from cryptography.fernet import Fernet
 
         f = Fernet(key)
-        encrypted = f.encrypt(plain_text.encode("utf-8"))
+        encrypted = f.encrypt(plain_clean.encode("utf-8"))
         return encrypted.decode("utf-8")
     except Exception as e:
         # Simple XOR/AES-like fallback with sha256 keystream if fernet is not installed
         _log.debug("Using fallback cipher for API key encryption: %s", e)
         key_hash = hashlib.sha256(key).digest()
-        plain_bytes = plain_text.encode("utf-8")
+        plain_bytes = plain_clean.encode("utf-8")
         out = bytearray()
         for i, b in enumerate(plain_bytes):
             out.append(b ^ key_hash[i % len(key_hash)])
@@ -66,6 +88,10 @@ def encrypt_api_key(plain_text: str) -> str:
 
 def decrypt_api_key(cipher_text: str) -> str:
     """Decrypt an API key in-process for an outbound LLM request."""
+    if not cipher_text:
+        return ""
+
+    cipher_text = cipher_text.strip()
     if not cipher_text:
         return ""
 
@@ -78,14 +104,14 @@ def decrypt_api_key(cipher_text: str) -> str:
         out = bytearray()
         for i, b in enumerate(cipher_bytes):
             out.append(b ^ key_hash[i % len(key_hash)])
-        return out.decode("utf-8", errors="replace")
+        return out.decode("utf-8", errors="replace").strip()
 
     try:
         from cryptography.fernet import Fernet
 
         f = Fernet(key)
         decrypted = f.decrypt(cipher_text.encode("utf-8"))
-        return decrypted.decode("utf-8")
+        return decrypted.decode("utf-8").strip()
     except Exception as e:
         _log.error("Failed to decrypt API key: %s", e)
         return ""

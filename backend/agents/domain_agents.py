@@ -3,7 +3,8 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from agents.tools import AgentToolRegistry
 from agents.permission_gate import PermissionGate
-from agents.llm_adapter import LLMAdapter, AgentResponse, get_adapter, ToolCall
+from agents.llm_adapter import LLMAdapter, AgentResponse, get_adapter, ToolCall, DEFAULT_PROVIDER_MODELS
+from agents.error_normalizer import classify_llm_error, NormalizedLLMError
 from agents.crypto_utils import decrypt_api_key
 from agents.fast_path import classify_intent_deterministic, try_zero_cost_fast_path
 from agents.pricing import calculate_cost
@@ -457,17 +458,24 @@ class DomainAgent:
             total_estimated_cost += res.estimated_cost
         except Exception as e:
             _log.error("LLM call failed for %s agent: %s", self.name, e)
+            norm = classify_llm_error(
+                e,
+                provider=getattr(adapter, "provider", None),
+                model_name=model_name,
+                base_url=getattr(adapter, "base_url", None),
+            )
             yield (
                 "final",
                 {
                     "agent": self.name,
-                    "response": f"I encountered an error connecting to your AI provider: {str(e)}. Please check your API key and network connection in Settings > AI Agents.",
+                    "response": norm.format_user_message(),
                     "pending_actions": [],
                     "executed_actions": [],
                     "input_tokens": 0,
                     "output_tokens": 0,
                     "estimated_cost": 0.0,
-                    "error": str(e),
+                    "error": norm.message,
+                    "error_category": norm.category,
                 },
             )
             return
@@ -1495,7 +1503,10 @@ class OrchestratorAgent:
 
         # 2. Fetch LLM configuration
         config = AgentConfig.query.first()
-        if not config or not config.encrypted_api_key:
+        p_norm = (config.provider or "openai").lower().strip() if config else "openai"
+        requires_key = p_norm not in ["ollama", "local"]
+
+        if not config or (requires_key and not config.encrypted_api_key):
             yield (
                 "final",
                 {
@@ -1503,7 +1514,7 @@ class OrchestratorAgent:
                     "response": (
                         "**InfoOS Agentic AI is not configured yet.**\n\n"
                         "Please navigate to **Settings > AI Agents** to connect your LLM provider "
-                        "(OpenAI, Anthropic, Google Gemini, Groq, or Custom Local endpoint) and enter your API key.\n\n"
+                        "(OpenAI, Claude, Google Gemini, Grok, Groq, DeepSeek, or Ollama) and enter your API key.\n\n"
                         "*Note: Basic sales and attendance queries work automatically via Fast-Path without an API key!*"
                     ),
                     "pending_actions": [],
@@ -1532,8 +1543,8 @@ class OrchestratorAgent:
             )
             return
 
-        raw_key = decrypt_api_key(config.encrypted_api_key)
-        if not raw_key:
+        raw_key = decrypt_api_key(config.encrypted_api_key) if config.encrypted_api_key else ""
+        if requires_key and not raw_key:
             yield (
                 "final",
                 {
@@ -1548,9 +1559,11 @@ class OrchestratorAgent:
                 },
             )
             return
+        elif not requires_key and not raw_key:
+            raw_key = "ollama"
 
         adapter = get_adapter(provider=config.provider, api_key=raw_key, base_url=config.base_url)
-        default_model = config.model_name or "gpt-4o-mini"
+        default_model = (config.model_name or "").strip() or DEFAULT_PROVIDER_MODELS.get(p_norm, "gpt-4o-mini")
         max_tokens = config.max_tokens_per_response or 800
         max_tool_rounds = config.max_tool_rounds or 3
 

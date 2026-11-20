@@ -97,13 +97,13 @@ api.interceptors.response.use(
     } else if (status === 404) {
       message = serverMessage || 'The requested item was not found.';
     } else if (status === 408) {
-      message = 'The request timed out. Please try again.';
+      message = serverMessage || 'The request timed out. Please try again.';
     } else if (status === 409) {
       message = serverMessage || 'A conflict occurred. The item may have been modified by someone else.';
     } else if (status === 422) {
       message = serverMessage || 'The provided data is invalid. Please check your input.';
     } else if (status === 429) {
-      message = 'Too many requests. Please wait a moment and try again.';
+      message = serverMessage || 'Too many requests. Please wait a moment and try again.';
     } else if (status >= 500) {
       message = serverMessage || 'Something went wrong on the server. Please try again later.';
     } else {

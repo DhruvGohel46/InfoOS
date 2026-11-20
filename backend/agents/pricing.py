@@ -32,6 +32,12 @@ MODEL_PRICING = {
     "llama-3.3-70b-versatile": (0.59, 0.79),
     "llama-3.1-8b-instant": (0.05, 0.08),
     "mixtral-8x7b-32768": (0.24, 0.24),
+    # xAI (Grok)
+    "grok-2-latest": (2.00, 10.00),
+    "grok-2": (2.00, 10.00),
+    "grok-beta": (5.00, 15.00),
+    "grok-2-vision-latest": (2.00, 10.00),
+    "grok-vision-beta": (5.00, 15.00),
 }
 
 DEFAULT_FALLBACK_PRICING = (0.50, 1.50)  # Moderate baseline

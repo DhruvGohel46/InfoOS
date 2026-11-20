@@ -337,6 +337,8 @@ const Settings = () => {
     }, [devModeEnabled, activeTab]);
 
     // ── Agentic AI System State ───────────────────────────────────────────
+    const [savedProvider, setSavedProvider] = useState('openai');
+    const [savedHasKey, setSavedHasKey] = useState(false);
     const [agentConfig, setAgentConfig] = useState({
         provider: 'openai',
         model_name: 'gpt-4o-mini',
@@ -359,17 +361,21 @@ const Settings = () => {
                 agentsAPI.getPermissions()
             ]);
             if (configRes.success && configRes.config) {
+                const sProvider = configRes.config.provider || 'openai';
+                const sHasKey = Boolean(configRes.config.has_api_key);
+                setSavedProvider(sProvider);
+                setSavedHasKey(sHasKey);
                 setAgentConfig(prev => ({
                     ...prev,
-                    provider: configRes.config.provider || 'openai',
+                    provider: sProvider,
                     model_name: configRes.config.model_name || 'gpt-4o-mini',
                     base_url: configRes.config.base_url || '',
                     enabled: configRes.config.enabled !== false,
                     max_tokens_per_response: configRes.config.max_tokens_per_response || 800,
                     max_tool_rounds: configRes.config.max_tool_rounds || 3,
                     daily_request_limit: configRes.config.daily_request_limit || 100,
-                    has_api_key: configRes.config.has_api_key,
-                    api_key: configRes.config.has_api_key ? '••••••••••••••••' : ''
+                    has_api_key: sHasKey,
+                    api_key: sHasKey ? '••••••••••••••••' : ''
                 }));
             }
             if (permRes.success && permRes.permissions) {
@@ -387,6 +393,11 @@ const Settings = () => {
     }, [activeTab, loadAgentData]);
 
     const handleSaveAgentConfig = async () => {
+        const requiresKey = !['ollama', 'local'].includes(agentConfig.provider);
+        if (requiresKey && agentConfig.provider !== savedProvider && (!agentConfig.api_key || agentConfig.api_key === '••••••••••••••••')) {
+            showError(`Please enter a valid API key for ${agentConfig.provider === 'xai' ? 'Grok (xAI)' : agentConfig.provider} before saving.`);
+            return;
+        }
         setAgentSaving(true);
         try {
             const payload = {
@@ -410,6 +421,11 @@ const Settings = () => {
     };
 
     const handleTestLlmConnection = async () => {
+        const requiresKey = !['ollama', 'local'].includes(agentConfig.provider);
+        if (requiresKey && agentConfig.provider !== savedProvider && (!agentConfig.api_key || agentConfig.api_key === '••••••••••••••••')) {
+            showError(`Please enter an API key for ${agentConfig.provider === 'xai' ? 'Grok (xAI)' : agentConfig.provider} before testing the connection.`);
+            return;
+        }
         setTestingConnection(true);
         try {
             const payload = {
@@ -421,7 +437,9 @@ const Settings = () => {
             const res = await agentsAPI.testConnection(payload);
             showSuccess(res.message || 'LLM Connection successful!');
         } catch (err) {
-            showError(err.response?.data?.error || 'Connection to LLM provider failed.');
+            const errData = err.response?.data;
+            const fullMsg = errData?.error || (errData?.title ? `[${errData.title}] ${errData.message || ''} ${errData.action_hint || ''}` : null) || 'Connection to LLM provider failed.';
+            showError(fullMsg);
         } finally {
             setTestingConnection(false);
         }
@@ -3658,7 +3676,7 @@ const Settings = () => {
                                                 Configure your Bring-Your-Own-Key (BYO-Key) LLM provider for all agent operations
                                             </p>
                                         </div>
-                                        {agentConfig.has_api_key && (
+                                        {agentConfig.provider === savedProvider && agentConfig.has_api_key && (
                                             <span style={{
                                                 fontSize: '11.5px',
                                                 fontWeight: 600,
@@ -3684,6 +3702,7 @@ const Settings = () => {
                                                     { value: 'openai', label: 'OpenAI' },
                                                     { value: 'anthropic', label: 'Claude (Anthropic)' },
                                                     { value: 'google', label: 'Gemini (Google)' },
+                                                    { value: 'xai', label: 'Grok (xAI)' },
                                                     { value: 'groq', label: 'Groq' },
                                                     { value: 'deepseek', label: 'DeepSeek' },
                                                     { value: 'ollama', label: 'Ollama (Local)' },
@@ -3696,13 +3715,22 @@ const Settings = () => {
                                                         openai:        { model: 'gpt-4o-mini',                url: '' },
                                                         anthropic:     { model: 'claude-3-5-sonnet-20241022', url: '' },
                                                         google:        { model: 'gemini-1.5-flash',           url: '' },
+                                                        xai:           { model: 'grok-2-latest',              url: 'https://api.x.ai/v1' },
                                                         groq:          { model: 'llama-3.3-70b-versatile',    url: 'https://api.groq.com/openai/v1' },
                                                         deepseek:      { model: 'deepseek-chat',              url: 'https://api.deepseek.com/v1' },
                                                         ollama:        { model: 'llama3',                     url: 'http://localhost:11434/v1' },
                                                         custom_openai: { model: 'llama3',                     url: '' },
                                                     };
                                                     const def = providerDefaults[p] || { model: 'gpt-4o-mini', url: '' };
-                                                    setAgentConfig(prev => ({ ...prev, provider: p, model_name: def.model, base_url: def.url }));
+                                                    const isSavedProvider = p === savedProvider;
+                                                    setAgentConfig(prev => ({
+                                                        ...prev,
+                                                        provider: p,
+                                                        model_name: def.model,
+                                                        base_url: def.url,
+                                                        has_api_key: isSavedProvider ? savedHasKey : false,
+                                                        api_key: isSavedProvider && savedHasKey ? '••••••••••••••••' : ''
+                                                    }));
                                                 }}
                                             />
                                         </div>
@@ -3716,7 +3744,12 @@ const Settings = () => {
                                                 className="stInput"
                                                 value={agentConfig.model_name}
                                                 onChange={(e) => setAgentConfig(prev => ({ ...prev, model_name: e.target.value }))}
-                                                placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet, gemini-1.5-flash"
+                                                placeholder={
+                                                    agentConfig.provider === 'xai' ? 'e.g. grok-2-latest, grok-beta' :
+                                                    agentConfig.provider === 'google' ? 'e.g. gemini-1.5-flash, gemini-2.0-flash' :
+                                                    agentConfig.provider === 'anthropic' ? 'e.g. claude-3-5-sonnet-20241022' :
+                                                    'e.g. gpt-4o-mini, llama-3.3-70b-versatile'
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -3725,7 +3758,7 @@ const Settings = () => {
                                         <div className="stLabel">
                                             <span className="stLabelTitle">Base URL</span>
                                             <span className="stLabelDesc">
-                                                {['openai', 'anthropic', 'google'].includes(agentConfig.provider)
+                                                {['openai', 'anthropic', 'google', 'xai'].includes(agentConfig.provider)
                                                     ? 'Leave empty to use the default provider endpoint, or override with a custom URL'
                                                     : 'API endpoint URL for your provider'}
                                             </span>
@@ -3735,6 +3768,7 @@ const Settings = () => {
                                             value={agentConfig.base_url}
                                             onChange={(e) => setAgentConfig(prev => ({ ...prev, base_url: e.target.value }))}
                                             placeholder={
+                                                agentConfig.provider === 'xai' ? 'https://api.x.ai/v1 (default)' :
                                                 agentConfig.provider === 'groq' ? 'https://api.groq.com/openai/v1' :
                                                 agentConfig.provider === 'deepseek' ? 'https://api.deepseek.com/v1' :
                                                 agentConfig.provider === 'ollama' ? 'http://localhost:11434/v1' :
@@ -3750,7 +3784,11 @@ const Settings = () => {
                                         <div className="stLabel">
                                             <span className="stLabelTitle">API Key</span>
                                             <span className="stLabelDesc">
-                                                {agentConfig.has_api_key ? 'Encrypted key stored securely at rest' : 'Enter your provider API key'}
+                                                {agentConfig.provider === savedProvider && agentConfig.has_api_key
+                                                    ? 'Encrypted key stored securely at rest'
+                                                    : ['ollama', 'local'].includes(agentConfig.provider)
+                                                    ? 'Optional for local Ollama'
+                                                    : `Enter your API key for ${agentConfig.provider === 'xai' ? 'Grok (xAI)' : agentConfig.provider}`}
                                             </span>
                                         </div>
                                         <input
@@ -3758,7 +3796,19 @@ const Settings = () => {
                                             className="stInput"
                                             value={agentConfig.api_key}
                                             onChange={(e) => setAgentConfig(prev => ({ ...prev, api_key: e.target.value }))}
-                                            placeholder={agentConfig.has_api_key ? '••••••••••••••••••••••••' : 'sk-...'}
+                                            placeholder={
+                                                agentConfig.provider === savedProvider && agentConfig.has_api_key
+                                                    ? '••••••••••••••••••••••••'
+                                                    : agentConfig.provider === 'xai'
+                                                    ? 'xai-...'
+                                                    : agentConfig.provider === 'anthropic'
+                                                    ? 'sk-ant-...'
+                                                    : agentConfig.provider === 'google'
+                                                    ? 'AIzaSy...'
+                                                    : ['ollama', 'local'].includes(agentConfig.provider)
+                                                    ? 'Optional (default: none)'
+                                                    : 'sk-...'
+                                            }
                                         />
                                     </div>
 

@@ -6,8 +6,28 @@ import ssl
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from agents.pricing import calculate_cost
+from agents.error_normalizer import classify_llm_error, NormalizedLLMError
 
 _log = logging.getLogger(__name__)
+
+DEFAULT_USER_AGENT = "InfoOS-Desktop/1.0 (Windows NT 10.0; Win64; x64)"
+
+DEFAULT_PROVIDER_MODELS: Dict[str, str] = {
+    "openai": "gpt-4o-mini",
+    "gpt": "gpt-4o-mini",
+    "anthropic": "claude-3-5-sonnet-20241022",
+    "claude": "claude-3-5-sonnet-20241022",
+    "google": "gemini-1.5-flash",
+    "gemini": "gemini-1.5-flash",
+    "xai": "grok-2-latest",
+    "grok": "grok-2-latest",
+    "groq": "llama-3.3-70b-versatile",
+    "deepseek": "deepseek-chat",
+    "ollama": "llama3",
+    "local": "llama3",
+    "custom_openai": "gpt-4o-mini",
+    "custom": "gpt-4o-mini",
+}
 
 
 @dataclass
@@ -73,10 +93,18 @@ def _clean_llm_content(content: Optional[str]) -> Optional[str]:
 class LLMAdapter:
     """Base abstract adapter for BYO-Key LLM providers."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, timeout: int = 35):
-        self.api_key = api_key
-        self.base_url = base_url
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        timeout: int = 35,
+        provider: str = "openai",
+    ):
+        self.api_key = (api_key or "").strip()
+        clean_url = (base_url or "").strip()
+        self.base_url = clean_url if clean_url else None
         self.timeout = timeout
+        self.provider = (provider or "openai").lower().strip()
 
     def chat(
         self,
@@ -92,8 +120,15 @@ class LLMAdapter:
 class OpenAIAdapter(LLMAdapter):
     """Adapter for OpenAI (and OpenAI-compatible) endpoints with function calling."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, timeout: int = 35):
-        super().__init__(api_key, base_url or "https://api.openai.com/v1", timeout)
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        timeout: int = 35,
+        provider: str = "openai",
+    ):
+        clean_url = (base_url or "").strip() or "https://api.openai.com/v1"
+        super().__init__(api_key, clean_url, timeout, provider=provider)
 
     def _normalize_tools(
         self, tools: Optional[List[Dict[str, Any]]]
@@ -126,7 +161,8 @@ class OpenAIAdapter(LLMAdapter):
         max_tokens: Optional[int] = None,
     ) -> AgentResponse:
         endpoint = f"{self.base_url.rstrip('/')}/chat/completions"
-        use_model = model or "gpt-4o-mini"
+        default_model = DEFAULT_PROVIDER_MODELS.get(self.provider, "gpt-4o-mini")
+        use_model = (model or "").strip() or default_model
 
         payload = {
             "model": use_model,
@@ -144,17 +180,18 @@ class OpenAIAdapter(LLMAdapter):
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": DEFAULT_USER_AGENT,
         }
 
         try:
-            _log_raw_llm_request("openai", use_model, payload)
+            _log_raw_llm_request(self.provider, use_model, payload)
             req = urllib.request.Request(
                 endpoint, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
             )
             ctx = ssl.create_default_context()
             with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as response:
                 res_data = json.loads(response.read().decode("utf-8"))
-            _log_raw_llm_response("openai", use_model, res_data)
+            _log_raw_llm_response(self.provider, use_model, res_data)
 
             choice = res_data.get("choices", [{}])[0]
             msg = choice.get("message", {})
@@ -165,7 +202,7 @@ class OpenAIAdapter(LLMAdapter):
             usage = res_data.get("usage", {})
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
-            cost = calculate_cost("openai", use_model, input_tokens, output_tokens)
+            cost = calculate_cost(self.provider, use_model, input_tokens, output_tokens)
 
             tool_calls = []
             for tc in raw_tool_calls:
@@ -189,26 +226,39 @@ class OpenAIAdapter(LLMAdapter):
             )
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
-            _log.error("OpenAI API HTTPError %s: %s", e.code, err_body)
-            raise LLMAdapterError(f"OpenAI API Error ({e.code}): {err_body}")
+            _log.error("%s API HTTPError %s: %s", self.provider.upper(), e.code, err_body)
+            raise LLMAdapterError(f"{self.provider.upper()} API Error ({e.code}): {err_body}")
         except Exception as e:
-            _log.error("OpenAI request failed: %s", e)
-            raise LLMAdapterError(f"OpenAI request failed: {str(e)}")
+            _log.error("%s request failed: %s", self.provider.upper(), e)
+            raise LLMAdapterError(f"{self.provider.upper()} request failed: {str(e)}")
 
 
 class OpenAICompatibleAdapter(OpenAIAdapter):
     """Adapter for self-hosted / local or 3rd party OpenAI-compatible endpoints."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, timeout: int = 35):
-        clean_url = (base_url or "http://localhost:11434/v1").rstrip("/")
-        super().__init__(api_key or "sk-local", clean_url, timeout)
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        timeout: int = 35,
+        provider: str = "custom_openai",
+    ):
+        clean_url = (base_url or "http://localhost:11434/v1").strip().rstrip("/")
+        super().__init__(api_key or "sk-local", clean_url, timeout, provider=provider)
 
 
 class AnthropicAdapter(LLMAdapter):
     """Adapter for Anthropic Claude messages API with native tool_use."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, timeout: int = 35):
-        super().__init__(api_key, base_url or "https://api.anthropic.com/v1", timeout)
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        timeout: int = 35,
+        provider: str = "anthropic",
+    ):
+        clean_url = (base_url or "").strip() or "https://api.anthropic.com/v1"
+        super().__init__(api_key, clean_url, timeout, provider=provider)
 
     def chat(
         self,
@@ -219,7 +269,8 @@ class AnthropicAdapter(LLMAdapter):
         max_tokens: Optional[int] = None,
     ) -> AgentResponse:
         endpoint = f"{self.base_url.rstrip('/')}/messages"
-        use_model = model or "claude-3-5-sonnet-20241022"
+        default_model = DEFAULT_PROVIDER_MODELS.get(self.provider, "claude-3-5-sonnet-20241022")
+        use_model = (model or "").strip() or default_model
 
         # Separate system message if present
         system_prompt = None
@@ -272,6 +323,7 @@ class AnthropicAdapter(LLMAdapter):
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
+            "User-Agent": DEFAULT_USER_AGENT,
         }
 
         try:
@@ -328,9 +380,18 @@ class AnthropicAdapter(LLMAdapter):
 class GoogleAdapter(LLMAdapter):
     """Adapter for Google Gemini API."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, timeout: int = 35):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        timeout: int = 35,
+        provider: str = "google",
+    ):
         super().__init__(
-            api_key, base_url or "https://generativelanguage.googleapis.com/v1beta", timeout
+            api_key,
+            base_url or "https://generativelanguage.googleapis.com/v1beta",
+            timeout,
+            provider=provider,
         )
 
     def chat(
@@ -344,15 +405,8 @@ class GoogleAdapter(LLMAdapter):
         import time
         import re
 
-        use_model = model or "gemini-3.8-flash"
-        # Auto-migrate deprecated models to supported production model
-        if use_model in [
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
-            "gemini-2.0-pro",
-        ]:
-            use_model = "gemini-3.8-flash"
+        default_model = DEFAULT_PROVIDER_MODELS.get(self.provider, "gemini-1.5-flash")
+        use_model = (model or "").strip() or default_model
 
         endpoint = (
             f"{self.base_url.rstrip('/')}/models/{use_model}:generateContent?key={self.api_key}"
@@ -402,7 +456,10 @@ class GoogleAdapter(LLMAdapter):
                 )
             payload["tools"] = [{"functionDeclarations": declarations}]
 
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": DEFAULT_USER_AGENT,
+        }
         ctx = ssl.create_default_context()
 
         last_err = None
@@ -510,13 +567,45 @@ def get_adapter(provider: str, api_key: str, base_url: Optional[str] = None) -> 
     """Factory to obtain the configured provider adapter."""
     p = (provider or "openai").lower().strip()
     if p in ["openai", "gpt"]:
-        return OpenAIAdapter(api_key=api_key, base_url=base_url)
+        return OpenAIAdapter(api_key=api_key, base_url=base_url, provider="openai")
     elif p in ["anthropic", "claude"]:
-        return AnthropicAdapter(api_key=api_key, base_url=base_url)
+        return AnthropicAdapter(api_key=api_key, base_url=base_url, provider="anthropic")
     elif p in ["google", "gemini"]:
-        return GoogleAdapter(api_key=api_key, base_url=base_url)
-    elif p in ["custom", "custom_openai", "local", "ollama", "groq", "deepseek"]:
-        return OpenAICompatibleAdapter(api_key=api_key, base_url=base_url)
+        return GoogleAdapter(api_key=api_key, base_url=base_url, provider="google")
+    elif p in ["xai", "grok"]:
+        return OpenAICompatibleAdapter(
+            api_key=api_key,
+            base_url=base_url or "https://api.x.ai/v1",
+            provider="xai",
+        )
+    elif p in ["groq"]:
+        return OpenAICompatibleAdapter(
+            api_key=api_key,
+            base_url=base_url or "https://api.groq.com/openai/v1",
+            provider="groq",
+        )
+    elif p in ["deepseek"]:
+        return OpenAICompatibleAdapter(
+            api_key=api_key,
+            base_url=base_url or "https://api.deepseek.com/v1",
+            provider="deepseek",
+        )
+    elif p in ["ollama", "local"]:
+        return OpenAICompatibleAdapter(
+            api_key=api_key or "ollama",
+            base_url=base_url or "http://localhost:11434/v1",
+            provider="ollama",
+        )
+    elif p in ["custom", "custom_openai"]:
+        if not base_url or not base_url.strip():
+            raise LLMAdapterError(
+                "Base URL is required for Custom OpenAI-Compatible provider. Please enter your provider endpoint URL."
+            )
+        return OpenAICompatibleAdapter(api_key=api_key, base_url=base_url.strip(), provider="custom_openai")
     else:
-        # Default fallback to OpenAICompatibleAdapter
-        return OpenAICompatibleAdapter(api_key=api_key, base_url=base_url)
+        # Fallback for unrecognized provider
+        if not base_url:
+            raise LLMAdapterError(
+                f"Unsupported AI provider '{provider}'. Please select a supported provider or specify a Base URL in Settings > AI Agents."
+            )
+        return OpenAICompatibleAdapter(api_key=api_key, base_url=base_url.strip(), provider=p)

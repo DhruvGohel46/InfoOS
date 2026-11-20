@@ -24,6 +24,7 @@ from typing import Optional, Tuple, List, Dict, Any
 
 from agents.graph_state import AgentState
 from agents.llm_adapter import LLMAdapter
+from agents.error_normalizer import classify_llm_error, NormalizedLLMError
 from agents.permission_gate import PermissionGate
 from agents.status_labels import (
     get_status_label,
@@ -83,11 +84,15 @@ def node_call_llm(
         )
     except Exception as e:
         _log.error("LLM call failed for %s agent (graph): %s", state.get("agent_name"), e)
-        state["status"] = "error"
-        state["error"] = (
-            f"I encountered an error connecting to your AI provider: {str(e)}. "
-            "Please check your API key and network connection in Settings > AI Agents."
+        norm = classify_llm_error(
+            e,
+            provider=getattr(adapter, "provider", None),
+            model_name=state.get("model_name"),
+            base_url=getattr(adapter, "base_url", None),
         )
+        state["status"] = "error"
+        state["error"] = norm.format_user_message()
+        state["error_category"] = norm.category
         return (None, state)
 
     # Accumulate tokens (parity requirement: same arithmetic as run_stream)

@@ -12,7 +12,8 @@ from models import (
     AgentInteractionAudit,
 )
 from agents.crypto_utils import encrypt_api_key, decrypt_api_key
-from agents.llm_adapter import get_adapter
+from agents.llm_adapter import get_adapter, DEFAULT_PROVIDER_MODELS
+from agents.error_normalizer import classify_llm_error, NormalizedLLMError
 from agents.domain_agents import OrchestratorAgent
 from agents.tools import execute_mutating_tool
 from agents.permission_gate import HARDCODED_CONFIRMATION_AGENTS
@@ -611,12 +612,25 @@ def update_agent_config():
         config = AgentConfig()
         db.session.add(config)
 
+    old_provider = (config.provider or "").strip().lower()
+    provider_changed = False
     if "provider" in data:
-        config.provider = data["provider"]
+        new_provider = (data["provider"] or "").strip().lower()
+        if old_provider and new_provider and new_provider != old_provider:
+            provider_changed = True
+        config.provider = new_provider
+
     if "model_name" in data:
-        config.model_name = data["model_name"]
+        m = (data["model_name"] or "").strip()
+        if not m and provider_changed:
+            config.model_name = DEFAULT_PROVIDER_MODELS.get(config.provider, "gpt-4o-mini")
+        else:
+            config.model_name = m
+    elif provider_changed:
+        config.model_name = DEFAULT_PROVIDER_MODELS.get(config.provider, "gpt-4o-mini")
+
     if "base_url" in data:
-        config.base_url = data["base_url"]
+        config.base_url = (data["base_url"] or "").strip()
     if "enabled" in data:
         config.enabled = bool(data["enabled"])
     if "max_tokens_per_response" in data:
@@ -626,10 +640,14 @@ def update_agent_config():
     if "daily_request_limit" in data:
         config.daily_request_limit = int(data["daily_request_limit"])
 
-    # If new API key is provided, encrypt it
+    # If new API key is provided, encrypt it. If provider changed and no new key was provided, clear stale key.
     new_key = data.get("api_key")
     if new_key and new_key != "••••••••••••••••":
         config.encrypted_api_key = encrypt_api_key(new_key.strip())
+    elif new_key == "":
+        config.encrypted_api_key = ""
+    elif provider_changed and (not new_key or new_key == "••••••••••••••••"):
+        config.encrypted_api_key = ""
 
     config.updated_at = datetime.now()
     db.session.commit()
@@ -678,27 +696,60 @@ def get_usage_summary():
 def test_llm_connection():
     """Test connectivity and authentication with the configured LLM provider."""
     data = request.json or {}
-    provider = data.get("provider")
-    model_name = data.get("model_name")
-    base_url = data.get("base_url")
-    plain_key = data.get("api_key")
+    config = AgentConfig.query.first()
+
+    provider = (data.get("provider") or (config.provider if config else "") or "openai").strip().lower()
+    model_name = (data.get("model_name") or "").strip()
+    base_url = (data.get("base_url") or "").strip()
+    plain_key = (data.get("api_key") or "").strip()
+
+    requires_key = provider not in ["ollama", "local"]
 
     if not plain_key or plain_key == "••••••••••••••••":
-        config = AgentConfig.query.first()
         if config and config.encrypted_api_key:
-            plain_key = decrypt_api_key(config.encrypted_api_key)
-            if not provider:
-                provider = config.provider
-            if not model_name:
-                model_name = config.model_name
-            if not base_url:
-                base_url = config.base_url
+            # If provider was changed in the UI, do not cross-contaminate keys from a different provider!
+            if provider and config.provider and provider.strip().lower() != config.provider.strip().lower():
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": f"You switched the provider to '{provider}', but the stored API key belongs to '{config.provider}'. Please enter an API key for {provider}.",
+                            "category": "invalid_key",
+                            "title": "API Key Required",
+                            "action_hint": f"Enter your API key for {provider} in Settings > AI Agents before testing.",
+                        }
+                    ),
+                    400,
+                )
+            plain_key = decrypt_api_key(config.encrypted_api_key).strip()
+            if not base_url and config.base_url:
+                base_url = config.base_url.strip()
 
-    if not plain_key:
-        return jsonify({"success": False, "error": "API Key is required to test connection."}), 400
+    if requires_key and (not plain_key or plain_key == "••••••••••••••••"):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"API Key is required to test connection with {provider or 'the provider'}.",
+                    "category": "invalid_key",
+                    "title": "API Key Missing",
+                    "action_hint": "Please enter a valid API key in the API Key field before testing.",
+                }
+            ),
+            400,
+        )
+    elif not requires_key and (not plain_key or plain_key == "••••••••••••••••"):
+        plain_key = "ollama"
+
+    # Resolve default model if not provided
+    if not model_name:
+        if config and config.provider and config.provider.strip().lower() == provider and config.model_name:
+            model_name = config.model_name.strip()
+        else:
+            model_name = DEFAULT_PROVIDER_MODELS.get(provider, "gpt-4o-mini")
 
     try:
-        adapter = get_adapter(provider=provider, api_key=plain_key, base_url=base_url)
+        adapter = get_adapter(provider=provider, api_key=plain_key, base_url=base_url or None)
         res = adapter.chat(
             messages=[
                 {"role": "system", "content": "You are a test helper."},
@@ -725,15 +776,19 @@ def test_llm_connection():
         )
     except Exception as e:
         _log.error("LLM connection test failed: %s", e)
-        err_str = str(e)
+        norm = classify_llm_error(e, provider=provider, model_name=model_name, base_url=base_url)
         return (
             jsonify(
                 {
                     "success": False,
-                    "error": f"Model '{model_name}' is not responding — check the name with your provider. ({err_str})",
+                    "error": f"[{norm.title}] {norm.message} {norm.action_hint}",
+                    "category": norm.category,
+                    "title": norm.title,
+                    "message": norm.message,
+                    "action_hint": norm.action_hint,
                 }
             ),
-            400,
+            norm.status_code if norm.status_code in [400, 401, 402, 403, 404, 429, 502, 503] else 400,
         )
 
 
