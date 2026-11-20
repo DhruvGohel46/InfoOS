@@ -93,6 +93,7 @@ import { IoNotifications, IoNotificationsOutline, IoShieldCheckmarkOutline, IoPe
 import { NetworkProvider, useNetwork } from './context/NetworkContext';
 import OfflineBadge from './components/ui/OfflineBadge';
 import { syncService } from './api/sync';
+import { mobileSyncAPI } from './api/mobileSync';
 
 // POS Data Bootstrap (load-once pattern)
 import { POSDataProvider, usePOSData } from './context/POSDataContext';
@@ -365,6 +366,8 @@ function AppContent() {
       });
       // Automatically sync weekly/monthly reports
       syncService.syncWeeklyAndMonthlyReports();
+      // Retry any queued mobile worker sync items
+      mobileSyncAPI.flushQueue().catch(() => {});
     }
   }, [isOnline, alertSuccess]);
 

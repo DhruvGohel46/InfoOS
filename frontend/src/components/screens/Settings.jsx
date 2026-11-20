@@ -36,8 +36,10 @@ import {
     IoTrashOutline,
     IoAlertCircleOutline,
     IoSunnyOutline,
-    IoMoonOutline
+    IoMoonOutline,
+    IoPhonePortraitOutline,
 } from 'react-icons/io5';
+import MobileSyncSettings from '../settings/MobileSyncSettings';
 import { settingsAPI } from '../../api/settings';
 import { businessDayAPI } from '../../api/businessDay';
 import { getLocalDateString } from '../../utils/api';
@@ -1611,6 +1613,7 @@ const Settings = () => {
         { id: 'expenses', label: 'Expense Configuration', icon: IoReceiptOutline },
         { id: 'security', label: 'Security & Access', icon: IoShieldCheckmarkOutline },
         { id: 'agents', label: 'AI Agents', icon: IoSparklesOutline },
+        { id: 'mobile_sync', label: 'Mobile Sync', icon: IoPhonePortraitOutline },
         { id: 'cloud', label: 'Cloud Sync & About', icon: IoCloudUploadOutline },
         { id: 'advanced', label: 'Advanced', icon: IoConstructOutline }
     ];
@@ -4490,6 +4493,10 @@ const Settings = () => {
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {activeTab === 'mobile_sync' && (
+                            <MobileSyncSettings />
                         )}
 
                         {activeTab === 'advanced' && (

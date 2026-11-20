@@ -93,7 +93,10 @@ def create_worker():
 
     worker = WorkerService.create_worker(validated)
     cache.invalidate("workers")
-    return jsonify({"success": True, "worker_id": worker.worker_id}), 201
+    resp_data = {"success": True, "worker_id": worker.worker_id}
+    if getattr(worker, "_signup_pin", None):
+        resp_data["signup_pin"] = worker._signup_pin
+    return jsonify(resp_data), 201
 
 
 @workers_bp.route("/api/workers/<worker_id>", methods=["GET"])

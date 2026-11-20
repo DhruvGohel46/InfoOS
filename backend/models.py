@@ -891,3 +891,49 @@ class AgentCheckpoint(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+# ==========================================
+# MOBILE SYNC MODELS
+# Added for future mobile app integration.
+# Both tables are additive — no existing schema changed.
+# ==========================================
+
+
+class MobileSyncQueue(db.Model):
+    """
+    Offline queue for worker sync operations that could not be pushed to
+    Supabase immediately (network down, misconfigured key, etc.).
+    Items are retried by flush_queue() on startup and when internet returns.
+    After MAX_ATTEMPTS (10) the row stays but stops being auto-retried.
+    """
+
+    __tablename__ = "mobile_sync_queue"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    worker_id = db.Column(db.String(36), nullable=False, index=True)
+    operation = db.Column(db.String(20), nullable=False)   # 'upsert' | 'deactivate'
+    payload_json = db.Column(db.Text, nullable=False)       # JSON snapshot of worker data
+    attempts = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=func.now(), index=True)
+    last_attempt = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (db.Index("idx_mobile_queue_attempts", "attempts"),)
+
+
+class MobileSyncLog(db.Model):
+    """
+    Audit trail of every sync attempt: what was sent, when, and whether
+    it succeeded or errored. Shown in the Sync Log screen. Read-only from UI.
+    """
+
+    __tablename__ = "mobile_sync_log"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    worker_id = db.Column(db.String(36), nullable=True, index=True)
+    operation = db.Column(db.String(20), nullable=False)    # 'upsert' | 'deactivate' | 'bulk'
+    status = db.Column(db.String(20), nullable=False)       # 'success' | 'error' | 'queued'
+    message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now(), index=True)
+
+    __table_args__ = (db.Index("idx_mobile_log_status", "status"),)

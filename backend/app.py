@@ -143,6 +143,20 @@ def start_dashboard_refresher(app=None):
     reminder_thread.start()
     _log.info("Reminder micro-checker started — polling every 10 s")
 
+    # ── Mobile Sync: flush any queued items from previous offline session ─────
+    def _flush_mobile_sync_queue():
+        import time as _time
+        _time.sleep(15)  # Wait for backend to fully start before attempting network calls
+        try:
+            from services.mobile_sync_service import flush_queue
+            result = flush_queue()
+            _log.info("mobile_sync startup flush: %s", result)
+        except Exception as _e:
+            _log.debug("mobile_sync startup flush skipped: %s", _e)
+
+    _flush_thread = threading.Thread(target=_flush_mobile_sync_queue, daemon=True)
+    _flush_thread.start()
+
 
 def create_app(config_name="default"):
     """Create and configure Flask application"""
@@ -171,6 +185,7 @@ def create_app(config_name="default"):
     from routes.agents import agents_bp
     from routes.business_day import business_day_bp
     from routes.profile import profile_bp
+    from routes.mobile_sync import mobile_sync_bp
     from limiter import limiter
 
     # Load configuration
@@ -237,6 +252,7 @@ def create_app(config_name="default"):
     app.register_blueprint(agents_bp)
     app.register_blueprint(business_day_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(mobile_sync_bp)
 
     # Serve product images
     @app.route("/api/images/<path:filename>")

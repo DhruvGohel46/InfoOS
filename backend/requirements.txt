@@ -60,6 +60,9 @@ onnx>=1.15.0
 # Install on Windows POS terminals / PyInstaller builds only.
 pywin32==307
 
+# ── Mobile Sync (optional — loaded lazily when sync is enabled) ───────────────
+supabase>=2.0.0
+
 # ── Dev / testing / build ─────────────────────────────────────────────────────
 pytest>=8.0.0
 black>=24.0.0

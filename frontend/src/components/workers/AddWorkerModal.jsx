@@ -47,6 +47,8 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [workerTypes, setWorkerTypes] = useState([]);
+  const [pinInfo, setPinInfo] = useState(null);
+  const [copiedPin, setCopiedPin] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -93,6 +95,8 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
         setPhotoPreview(null);
       }
       setPhotoFile(null);
+      setPinInfo(null);
+      setCopiedPin(false);
     }
   }, [initialData, open]);
 
@@ -182,12 +186,22 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
 
         if (initialData && initialData.worker_id) {
           await workerService.updateWorker(initialData.worker_id, payload);
+          if (onSaved) onSaved();
+          onClose();
         } else {
-          await workerService.createWorker(payload);
+          const createRes = await workerService.createWorker(payload);
+          if (createRes && createRes.signup_pin) {
+            setPinInfo({
+              pin: createRes.signup_pin,
+              name: payload.name,
+              worker_id: createRes.worker_id,
+            });
+            if (onSaved) onSaved();
+            return;
+          }
+          if (onSaved) onSaved();
+          onClose();
         }
-
-        if (onSaved) onSaved();
-        onClose();
       } catch (err) {
         console.error('Failed to save worker', err);
         showError('Failed to save worker: ' + (err.message || err));
@@ -254,7 +268,7 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
               background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)'
             }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: currentTheme.colors.text.primary }}>
-                {initialData ? 'Edit Worker' : 'Add New Worker'}
+                {pinInfo ? 'Worker Created — Mobile Signup PIN' : (initialData ? 'Edit Worker' : 'Add New Worker')}
               </h3>
               <button
                 onClick={onClose}
@@ -274,6 +288,102 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
             </div>
 
             {/* Body */}
+            {pinInfo ? (
+              <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '20px' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: '28px'
+                }}>
+                  ✓
+                </div>
+
+                <div>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: currentTheme.colors.text.primary }}>
+                    {pinInfo.name} ({pinInfo.worker_id})
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: currentTheme.colors.text.secondary }}>
+                    Worker created and queued for sync to Supabase.
+                  </p>
+                </div>
+
+                <div style={{
+                  width: '100%',
+                  padding: '20px',
+                  borderRadius: '16px',
+                  background: isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#6366f1' }}>
+                    One-Time Signup PIN
+                  </span>
+                  <div style={{
+                    fontSize: '36px',
+                    fontWeight: 800,
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.25em',
+                    color: isDark ? '#a5b4fc' : '#4f46e5',
+                    padding: '4px 0 4px 10px'
+                  }}>
+                    {pinInfo.pin}
+                  </div>
+                  <span style={{ fontSize: '12px', color: currentTheme.colors.text.secondary }}>
+                    Shown once now — not stored locally in plain text
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  background: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.06)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  fontSize: '12.5px',
+                  color: currentTheme.colors.text.secondary,
+                  lineHeight: 1.5,
+                  textAlign: 'left',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  <strong>Important:</strong> Give this 6-digit PIN to the worker. When they download the future mobile app, they will enter their Worker ID (<code>{pinInfo.worker_id}</code>) and this PIN to set up their password.
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    style={{ flex: 1, height: '42px' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(pinInfo.pin);
+                      setCopiedPin(true);
+                      setTimeout(() => setCopiedPin(false), 2000);
+                    }}
+                  >
+                    {copiedPin ? 'Copied to Clipboard!' : 'Copy PIN'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    style={{ flex: 1, height: '42px' }}
+                    onClick={() => {
+                      setPinInfo(null);
+                      onClose();
+                    }}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <div style={{ padding: '24px 24px 40px 24px' }}>
               <form id="worker-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -425,35 +535,38 @@ const AddWorkerModal = ({ open, onClose, onSaved, initialData = null }) => {
 
               </form>
             </div>
+            )}
 
             {/* Footer */}
-            <div style={{
-              padding: '20px 24px',
-              borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '12px',
-              background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)'
-            }}>
-              <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                loading={saving}
-                style={{
-                  background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 14px rgba(249, 115, 22, 0.25)',
-                  borderRadius: '10px'
-                }}
-              >
-                <IoSave size={18} />
-                Save Worker
-              </Button>
-            </div>
+            {!pinInfo && (
+              <div style={{
+                padding: '20px 24px',
+                borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)'
+              }}>
+                <Button variant="ghost" onClick={onClose} type="button">Cancel</Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSave}
+                  loading={saving}
+                  style={{
+                    background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(249, 115, 22, 0.25)',
+                    borderRadius: '10px'
+                  }}
+                >
+                  <IoSave size={18} />
+                  Save Worker
+                </Button>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
