@@ -23,10 +23,12 @@ _flush_lock = threading.Lock()
 
 # ─── Settings helpers ─────────────────────────────────────────────────────────
 
+
 def _get_setting(key: str, default: str = "") -> str:
     """Read a single key from the Settings table (no caching — always fresh)."""
     try:
         from models import Settings
+
         row = Settings.query.filter_by(key=key).first()
         return row.value if row and row.value else default
     except Exception as e:
@@ -49,6 +51,7 @@ def _get_supabase_key() -> str:
 
 # ─── Supabase client ──────────────────────────────────────────────────────────
 
+
 def _get_client():
     """
     Build and return a supabase-py client using credentials from Settings.
@@ -61,6 +64,7 @@ def _get_client():
         return None
     try:
         from supabase import create_client  # lazy import — only load when needed
+
         return create_client(url, key)
     except ImportError:
         logger.warning(
@@ -74,6 +78,7 @@ def _get_client():
 
 
 # ─── Payload builder ──────────────────────────────────────────────────────────
+
 
 def _build_worker_payload(worker) -> dict:
     """
@@ -95,6 +100,7 @@ def _build_worker_payload(worker) -> dict:
 
 # ─── PIN generation ───────────────────────────────────────────────────────────
 
+
 def generate_signup_pin() -> str:
     """Generate a cryptographically random 6-digit numeric PIN."""
     return "".join(secrets.choice(string.digits) for _ in range(6))
@@ -103,15 +109,18 @@ def generate_signup_pin() -> str:
 def _hash_pin(plain_pin: str) -> str:
     """Return a bcrypt hash of the plain PIN for safe storage in Supabase."""
     import bcrypt  # already in requirements.txt
+
     return bcrypt.hashpw(plain_pin.encode(), bcrypt.gensalt()).decode()
 
 
 # ─── Logging helpers ──────────────────────────────────────────────────────────
 
+
 def _write_log(worker_id: Optional[str], operation: str, status: str, message: str = ""):
     """Append one row to MobileSyncLog. Silently swallows its own errors."""
     try:
         from models import db, MobileSyncLog
+
         entry = MobileSyncLog(
             worker_id=worker_id,
             operation=operation,
@@ -124,6 +133,7 @@ def _write_log(worker_id: Optional[str], operation: str, status: str, message: s
         logger.debug("mobile_sync: could not write log entry: %s", e)
         try:
             from models import db
+
             db.session.rollback()
         except Exception:
             pass
@@ -132,8 +142,10 @@ def _write_log(worker_id: Optional[str], operation: str, status: str, message: s
 def _enqueue(worker_id: str, operation: str, payload: dict):
     """Add a sync item to the local offline queue."""
     import json
+
     try:
         from models import db, MobileSyncQueue
+
         item = MobileSyncQueue(
             worker_id=worker_id,
             operation=operation,
@@ -146,12 +158,14 @@ def _enqueue(worker_id: str, operation: str, payload: dict):
         logger.warning("mobile_sync: failed to enqueue %s for %s: %s", operation, worker_id, e)
         try:
             from models import db
+
             db.session.rollback()
         except Exception:
             pass
 
 
 # ─── Core push logic ──────────────────────────────────────────────────────────
+
 
 def _push_to_supabase(client, worker_id: str, operation: str, payload: dict) -> bool:
     """
@@ -162,7 +176,9 @@ def _push_to_supabase(client, worker_id: str, operation: str, payload: dict) -> 
         if operation == "upsert":
             client.table("workers").upsert(payload).execute()
         elif operation == "deactivate":
-            client.table("workers").update({"status": "inactive", "synced_at": payload["synced_at"]}).eq("worker_id", worker_id).execute()
+            client.table("workers").update(
+                {"status": "inactive", "synced_at": payload["synced_at"]}
+            ).eq("worker_id", worker_id).execute()
         logger.info("mobile_sync: pushed %s for worker %s", operation, worker_id)
         return True
     except Exception as e:
@@ -171,6 +187,7 @@ def _push_to_supabase(client, worker_id: str, operation: str, payload: dict) -> 
 
 
 # ─── Main entry point (called from WorkerService hooks) ──────────────────────
+
 
 def sync_worker(worker_id: str, operation: str = "upsert", plain_pin: Optional[str] = None):
     """
@@ -188,6 +205,7 @@ def sync_worker(worker_id: str, operation: str = "upsert", plain_pin: Optional[s
 
     try:
         from models import Worker
+
         worker = Worker.query.get(worker_id)
         if not worker:
             logger.debug("mobile_sync: worker %s not found, skipping", worker_id)
@@ -206,7 +224,9 @@ def sync_worker(worker_id: str, operation: str = "upsert", plain_pin: Optional[s
         client = _get_client()
         if client is None:
             _enqueue(worker_id, operation, payload)
-            _write_log(worker_id, operation, "queued", "Supabase client unavailable — queued for retry")
+            _write_log(
+                worker_id, operation, "queued", "Supabase client unavailable — queued for retry"
+            )
             return
 
         success = _push_to_supabase(client, worker_id, operation, payload)
@@ -226,6 +246,7 @@ def sync_worker(worker_id: str, operation: str = "upsert", plain_pin: Optional[s
 
 # ─── Sync all workers (triggered by "Sync All" button) ───────────────────────
 
+
 def sync_all_workers() -> dict:
     """
     Push every worker in pos.db to Supabase.
@@ -239,6 +260,7 @@ def sync_all_workers() -> dict:
 
     try:
         from models import Worker
+
         workers = Worker.query.all()
         total = len(workers)
 
@@ -303,8 +325,7 @@ def flush_queue() -> dict:
         from models import db, MobileSyncQueue
 
         items = (
-            MobileSyncQueue.query
-            .filter(MobileSyncQueue.attempts < MAX_ATTEMPTS)
+            MobileSyncQueue.query.filter(MobileSyncQueue.attempts < MAX_ATTEMPTS)
             .order_by(MobileSyncQueue.created_at.asc())
             .all()
         )
@@ -333,6 +354,7 @@ def flush_queue() -> dict:
         logger.warning("mobile_sync: flush_queue error: %s", e)
         try:
             from models import db
+
             db.session.rollback()
         except Exception:
             pass
@@ -344,10 +366,12 @@ def flush_queue() -> dict:
 
 # ─── Queue depth / status ─────────────────────────────────────────────────────
 
+
 def get_queue_depth() -> int:
     """Return number of pending items in the offline queue."""
     try:
         from models import MobileSyncQueue
+
         return MobileSyncQueue.query.filter(MobileSyncQueue.attempts < MAX_ATTEMPTS).count()
     except Exception:
         return 0
@@ -357,9 +381,9 @@ def get_last_sync_time() -> Optional[str]:
     """Return ISO timestamp of the most recent successful sync log entry."""
     try:
         from models import MobileSyncLog
+
         row = (
-            MobileSyncLog.query
-            .filter_by(status="success")
+            MobileSyncLog.query.filter_by(status="success")
             .order_by(MobileSyncLog.created_at.desc())
             .first()
         )
@@ -369,6 +393,7 @@ def get_last_sync_time() -> Optional[str]:
 
 
 # ─── Payroll sync stubs (prepared, NOT enabled) ───────────────────────────────
+
 
 def sync_salary_payment(payment_id: str):
     """
@@ -386,4 +411,3 @@ def sync_advance(advance_id: str):
     Not called from anywhere yet — stub only.
     """
     pass  # noqa: unnecessary-pass
-

@@ -912,8 +912,8 @@ class MobileSyncQueue(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(db.String(36), nullable=False, index=True)
-    operation = db.Column(db.String(20), nullable=False)   # 'upsert' | 'deactivate'
-    payload_json = db.Column(db.Text, nullable=False)       # JSON snapshot of worker data
+    operation = db.Column(db.String(20), nullable=False)  # 'upsert' | 'deactivate'
+    payload_json = db.Column(db.Text, nullable=False)  # JSON snapshot of worker data
     attempts = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=func.now(), index=True)
     last_attempt = db.Column(db.DateTime, nullable=True)
@@ -931,8 +931,8 @@ class MobileSyncLog(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     worker_id = db.Column(db.String(36), nullable=True, index=True)
-    operation = db.Column(db.String(20), nullable=False)    # 'upsert' | 'deactivate' | 'bulk'
-    status = db.Column(db.String(20), nullable=False)       # 'success' | 'error' | 'queued'
+    operation = db.Column(db.String(20), nullable=False)  # 'upsert' | 'deactivate' | 'bulk'
+    status = db.Column(db.String(20), nullable=False)  # 'success' | 'error' | 'queued'
     message = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=func.now(), index=True)
 

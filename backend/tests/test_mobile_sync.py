@@ -12,6 +12,7 @@ from services.mobile_sync_service import (
 def test_pin_generation():
     """PIN must be 6 digits and bcrypt hash must verify."""
     import bcrypt
+
     pin = generate_signup_pin()
     assert len(pin) == 6
     assert pin.isdigit()
@@ -52,8 +53,12 @@ def test_sync_queues_when_enabled_and_no_remote(app):
     """When sync is enabled with a dummy URL/key, offline push safely falls back to local queue."""
     with app.app_context():
         db.session.merge(Settings(key="mobile_sync_enabled", value="true"))
-        db.session.merge(Settings(key="mobile_sync_supabase_url", value="https://dummyproject123.supabase.co"))
-        db.session.merge(Settings(key="mobile_sync_supabase_anon_key", value="dummy_anon_key_for_testing"))
+        db.session.merge(
+            Settings(key="mobile_sync_supabase_url", value="https://dummyproject123.supabase.co")
+        )
+        db.session.merge(
+            Settings(key="mobile_sync_supabase_anon_key", value="dummy_anon_key_for_testing")
+        )
         w = Worker(worker_id="W998", name="Test Waiter", role="Waiter", salary=12000.0)
         db.session.add(w)
         db.session.commit()

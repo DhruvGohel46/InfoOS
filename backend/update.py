@@ -13,8 +13,11 @@ def backup_database():
     """Take a timestamped backup of pos.db before any migrations run."""
     try:
         data_dir = os.environ.get("POS_DATA_DIR") or os.path.join(
-            os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
-            else os.path.dirname(os.path.abspath(__file__)),
+            (
+                os.path.dirname(sys.executable)
+                if getattr(sys, "frozen", False)
+                else os.path.dirname(os.path.abspath(__file__))
+            ),
             "data",
         )
         db_path = os.path.join(data_dir, "pos.db")
@@ -39,9 +42,13 @@ def migrate_mobile_sync_tables():
     """
     try:
         import sqlite3
+
         data_dir = os.environ.get("POS_DATA_DIR") or os.path.join(
-            os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
-            else os.path.dirname(os.path.abspath(__file__)),
+            (
+                os.path.dirname(sys.executable)
+                if getattr(sys, "frozen", False)
+                else os.path.dirname(os.path.abspath(__file__))
+            ),
             "data",
         )
         db_path = os.path.join(data_dir, "pos.db")

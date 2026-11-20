@@ -146,9 +146,11 @@ def start_dashboard_refresher(app=None):
     # ── Mobile Sync: flush any queued items from previous offline session ─────
     def _flush_mobile_sync_queue():
         import time as _time
+
         _time.sleep(15)  # Wait for backend to fully start before attempting network calls
         try:
             from services.mobile_sync_service import flush_queue
+
             result = flush_queue()
             _log.info("mobile_sync startup flush: %s", result)
         except Exception as _e:

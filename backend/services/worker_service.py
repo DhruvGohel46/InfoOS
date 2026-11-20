@@ -79,14 +79,22 @@ class WorkerService:
         # Fire-and-forget: generate a one-time signup PIN and push to Supabase.
         # Any failure here is logged but NEVER propagated to the caller.
         try:
-            from services.mobile_sync_service import sync_worker, generate_signup_pin, is_sync_enabled
+            from services.mobile_sync_service import (
+                sync_worker,
+                generate_signup_pin,
+                is_sync_enabled,
+            )
+
             if is_sync_enabled():
                 plain_pin = generate_signup_pin()
                 sync_worker(new_worker.worker_id, "upsert", plain_pin=plain_pin)
                 new_worker._signup_pin = plain_pin  # attach to object so route can show it once
         except Exception as _sync_err:
             import logging as _log
-            _log.getLogger(__name__).warning("mobile_sync hook (create) failed (non-fatal): %s", _sync_err)
+
+            _log.getLogger(__name__).warning(
+                "mobile_sync hook (create) failed (non-fatal): %s", _sync_err
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         return new_worker
@@ -147,10 +155,14 @@ class WorkerService:
         # ── Mobile Sync Hook ──────────────────────────────────────────────────
         try:
             from services.mobile_sync_service import sync_worker
+
             sync_worker(worker_id, "upsert")
         except Exception as _sync_err:
             import logging as _log
-            _log.getLogger(__name__).warning("mobile_sync hook (update) failed (non-fatal): %s", _sync_err)
+
+            _log.getLogger(__name__).warning(
+                "mobile_sync hook (update) failed (non-fatal): %s", _sync_err
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         return worker
@@ -196,11 +208,17 @@ class WorkerService:
         # ── Mobile Sync Hook ──────────────────────────────────────────────────
         try:
             from services.mobile_sync_service import sync_worker
-            op = "deactivate" if not permanent else "upsert"  # permanent delete still deactivates in Supabase
+
+            op = (
+                "deactivate" if not permanent else "upsert"
+            )  # permanent delete still deactivates in Supabase
             sync_worker(worker_id, op)
         except Exception as _sync_err:
             import logging as _log
-            _log.getLogger(__name__).warning("mobile_sync hook (delete) failed (non-fatal): %s", _sync_err)
+
+            _log.getLogger(__name__).warning(
+                "mobile_sync hook (delete) failed (non-fatal): %s", _sync_err
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         return True
