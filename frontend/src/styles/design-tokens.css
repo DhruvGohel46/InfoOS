@@ -30,7 +30,7 @@
   --radius-input: var(--radius-md);
   --radius-table: var(--radius-md);
   --radius-dropdown: var(--radius-md);
-  --radius-navbar: var(--radius-lg);
+  --radius-navbar: 0px;
   --radius-sidebar: var(--radius-lg);
   --radius-modal: var(--radius-xl);
   --radius-alert: var(--radius-md);
@@ -289,7 +289,15 @@
 .glass-header {
   background: var(--glass-header);
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: var(--radius-navbar);
+  border-radius: 0;
+}
+
+.rounded-pill {
+  border-radius: var(--radius-pill, 9999px) !important;
+}
+
+.header-date-chip {
+  border-radius: var(--radius-pill, 9999px) !important;
 }
 
 .glass-sidebar {

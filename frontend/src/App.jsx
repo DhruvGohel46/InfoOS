@@ -100,6 +100,7 @@ import { POSDataProvider, usePOSData } from './context/POSDataContext';
 
 // Import UI components
 import ShopMenuDropdown from './components/ui/ShopMenuDropdown';
+import HeaderCalendarDropdown from './components/ui/HeaderCalendarDropdown';
 
 // System components (production hardening)
 import ErrorBoundary from './components/system/ErrorBoundary';
@@ -181,6 +182,22 @@ function AppContent() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showCalculator]);
+
+  // ── Header Calendar Dropdown State ──
+  const [showCalendar, setShowCalendar] = useState(false);
+  const calendarRef = React.useRef(null);
+
+  // Close calendar on outside click
+  useEffect(() => {
+    if (!showCalendar) return;
+    const handler = (e) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target)) {
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCalendar]);
 
   // Alt key shortcut to toggle calculator
   useEffect(() => {
@@ -590,6 +607,7 @@ function AppContent() {
           minHeight: 'var(--header-height)',
           maxHeight: 'var(--header-height)',
           boxSizing: 'border-box',
+          borderRadius: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -938,36 +956,58 @@ function AppContent() {
           gap: 'var(--spacing-4)',
           flexShrink: 0
         }}>
-          {/* Date Chip */}
-          <div
-            className="rounded-pill header-date-chip"
-            style={{
-              height: 'calc(42px * var(--display-zoom))',
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 calc(16px * var(--display-zoom))',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--glass-border)',
-              fontSize: 'calc(13px * var(--display-zoom))',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              cursor: 'default',
-              transition: 'all 0.2s ease',
-              backdropFilter: 'var(--glass-blur)',
-              WebkitBackdropFilter: 'var(--glass-blur)',
-              boxShadow: 'var(--shadow-sm)',
-              whiteSpace: 'nowrap',
-              gap: 'calc(8px * var(--display-zoom))',
-              flexShrink: 0
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--glass-header)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-          >
-            <IoCalendarOutline size={16} style={{ opacity: 0.7 }} />
-            <span className="header-date-text-full">{todayLabel}</span>
-            <span className="header-date-text-short">{todayLabel.replace(/^[A-Za-z]+,\s*/, '')}</span>
+          {/* Date Chip with Popdown Calendar */}
+          <div style={{ position: 'relative' }} ref={calendarRef}>
+            <button
+              type="button"
+              id="header-date-toggle-btn"
+              onClick={() => setShowCalendar(prev => !prev)}
+              title="Click to view calendar"
+              className="rounded-pill header-date-chip"
+              style={{
+                height: 'calc(42px * var(--display-zoom))',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 calc(16px * var(--display-zoom))',
+                borderRadius: 'calc(48px * var(--display-zoom))',
+                background: showCalendar
+                  ? (isDark ? 'rgba(249, 115, 22, 0.22)' : 'rgba(249, 115, 22, 0.15)')
+                  : 'var(--bg-secondary)',
+                border: showCalendar ? '1px solid var(--primary-500)' : '1px solid var(--glass-border)',
+                fontSize: 'calc(13px * var(--display-zoom))',
+                fontWeight: 600,
+                color: showCalendar ? 'var(--primary-400)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                boxShadow: showCalendar ? '0 0 14px rgba(249,115,22,0.35)' : 'var(--shadow-sm)',
+                whiteSpace: 'nowrap',
+                gap: 'calc(8px * var(--display-zoom))',
+                flexShrink: 0,
+                outline: 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (!showCalendar) e.currentTarget.style.background = 'var(--glass-header)';
+              }}
+              onMouseLeave={(e) => {
+                if (!showCalendar) e.currentTarget.style.background = 'var(--bg-secondary)';
+              }}
+            >
+              <IoCalendarOutline size={16} style={{ opacity: showCalendar ? 1 : 0.7 }} />
+              <span className="header-date-text-full">{todayLabel}</span>
+              <span className="header-date-text-short">{todayLabel.replace(/^[A-Za-z]+,\s*/, '')}</span>
+            </button>
+
+            {/* Calendar Popdown Dropdown */}
+            {showCalendar && (
+              <HeaderCalendarDropdown
+                onClose={() => setShowCalendar(false)}
+                isDark={isDark}
+              />
+            )}
           </div>
 
           {/* Notification & Theme */}

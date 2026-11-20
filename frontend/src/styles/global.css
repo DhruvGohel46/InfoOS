@@ -78,7 +78,7 @@ body {
 .glass-header {
   background: var(--glass-header);
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: var(--radius-navbar);
+  border-radius: 0 !important;
 }
 
 /* Operational Utility Classes */
@@ -110,6 +110,7 @@ body {
 .glass-header {
   /* Override height to honour display-zoom */
   height: var(--header-height) !important;
+  border-radius: 0 !important;
 }
 
 /* Theme-aware scrollbar */
